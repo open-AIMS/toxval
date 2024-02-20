@@ -1,0 +1,35 @@
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+[![license](https://img.shields.io/badge/license-GPL--2-lightgrey.svg)](https://choosealicense.com/)
+[![Ask Us Anything
+!](https://img.shields.io/badge/Ask%20us-anything-1abc9c.svg)](https://github.com/open-AIMS/toxval/issues/new)
+![Open Source
+Love](https://badges.frapsoft.com/os/v2/open-source.svg?v=103)
+<!-- badges: end -->
+
+## Overview
+
+`toxval` package extracts NSEC or ECx estimates from supported fitted
+frequentest (drc) and Bayesian (bayesnec) model objects. For more
+details see [Fisher & Fox (2023)](https://doi.org/10.1002/etc.5610).
+
+## Installation
+
+The current development version can be downloaded from GitHub via
+
+    if (!requireNamespace("remotes")) {
+      install.packages("remotes")
+    }
+    remotes::install_github("open-aims/toxval", ref = "main")
+
+## Usage
+
+Usage and further information about `toxval` can be seen on the [project
+page](https://open-aims.github.io/toxval/) and the [reference
+page](https://open-aims.github.io/toxval/reference/).
+
+## Further Information
+
+`toxval` is provided by the [Australian Institute of Marine
+Science](https://www.aims.gov.au) under the GPL-2 License
+([GPL-2](https://opensource.org/license/gpl-2-0/)).
