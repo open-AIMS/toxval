@@ -256,13 +256,21 @@ ecx.bayesmanecfit <- function(object, ecx_val = 10, resolution = 1000,
 }
 
 #' @noRd
-ecx_x_relative <- function(y, ecx_val, x_vec) {
+ecx_x_relative <- function(y, ecx_val, x_vec, hormesis_def) {
   if (length(which(!is.na(y))) == 0) {
     outval <- max(x_vec)
   } else {
-    range_y <- range(y, na.rm = TRUE)
-    ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)
-
+    
+    if(hormesis_def=="max") {
+      range_y <- c(y[1], min(y, na.rm = TRUE))
+      ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)      
+    }
+    
+    if(hormesis_def=="control") {
+      range_y <- range(y, na.rm = TRUE)
+      ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)      
+    }
+    
     val <- min(zero_crossings(y - ecx_y))
     if(is.na(val)) {
       outval <- max(x_vec)
@@ -277,12 +285,20 @@ ecx_x_relative <- function(y, ecx_val, x_vec) {
 }
 
 #' @noRd
-ecx_x_absolute <- function(y, ecx_val, x_vec) {
+ecx_x_absolute <- function(y, ecx_val, x_vec, hormesis_def) {
   if (length(which(!is.na(y))) == 0) {
     outval <- max(x_vec)
   } else {
-    range_y <- c(0, max(y, na.rm = TRUE))
-    ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)
+    
+    if(hormesis_def=="max") {    
+      range_y <- c(0, max(y, na.rm = TRUE))
+      ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)
+    }
+    
+    if(hormesis_def=="control") {  
+      range_y <- c(0, y[1])
+      ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)
+    }
 
     val <- min(zero_crossings(y - ecx_y))
     if(is.na(val)) {
@@ -298,7 +314,7 @@ ecx_x_absolute <- function(y, ecx_val, x_vec) {
 }
 
 #' @noRd
-ecx_x_direct <- function(y, ecx_val, x_vec) {
+ecx_x_direct <- function(y, ecx_val, x_vec, hormesis_def) {
   if (length(which(!is.na(y))) == 0) {
     outval <- max(x_vec)
   } else {
@@ -424,13 +440,13 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
       stop(paste(attributes(p_samples)$condition, "Do you need to specify a group_var variable?", sep=""))
     }
     #x_vec <- newdata_list$x_vec
-    if (grepl("horme", object$model)) {
-      n <- seq_len(nrow(p_samples))
-      p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-                              p_samples, hormesis_def, fct = "rbind")
-    }
+    # if (grepl("horme", object$model)) {
+    #   n <- seq_len(nrow(p_samples))
+    #   p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
+    #                           p_samples, hormesis_def, fct = "rbind")
+    # }
     ecx_fct <- get(paste0("ecx_x_", type))
-    ecx_out <- apply(p_samples, 1, ecx_fct, ecx_val, x_vec)
+    ecx_out <- apply(p_samples, 1, ecx_fct, ecx_val, x_vec, hormesis_def)
     
     #formula <- object$bayesnecformula
     #x_str <- grep("crf(", labels(terms(formula)), fixed = TRUE, value = TRUE)
@@ -454,13 +470,13 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
       
       p_samples <- posterior_epred(object, newdata = pred_dat,
                                    re_formula = NA)
-      if (grepl("horme", object$model)) {
-        n <- seq_len(nrow(p_samples))
-        p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-                                p_samples, hormesis_def, fct = "rbind")
-      }
+      # if (grepl("horme", object$model)) {
+      #   n <- seq_len(nrow(p_samples))
+      #   p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
+      #                           p_samples, hormesis_def, fct = "rbind")
+      # }
       ecx_fct <- get(paste0("ecx_x_", type))
-      ecx_out <- apply(p_samples, 1, ecx_fct, ecx_val, x_vec)      
+      ecx_out <- apply(p_samples, 1, ecx_fct, ecx_val, x_vec, hormesis_def)      
       if (inherits(xform, "function")) {
         ecx_out <- xform(ecx_out)
       } 
