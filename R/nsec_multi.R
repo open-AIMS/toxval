@@ -92,6 +92,7 @@ nsec_multi <- function(object, sig_val = 0.01, resolution = 50,
   if(!is.na(multi_var)) {
     vars <- object$data |> dplyr::select(starts_with(multi_var)) |> colnames()
     if(length(vars)==0) stop("multi_var does not appear to be in your input data.")
+  
     all_nsec_out <- apply(p_samples, MARGIN = 3, FUN = get_nsec_multi, 
                           sig_val = sig_val, x_vec = x_vec, xform = xform)
     names(all_nsec_out) <- vars  

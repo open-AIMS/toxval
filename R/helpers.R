@@ -418,42 +418,6 @@ is_character <- function(x) {
   is.character(x)
 }
 
-#' #' #' @noRd
-#' #' expand_model_set <- function(model) {
-#' #'   msets <- names(mod_groups)
-#' #'   if (any(model %in% msets)) {
-#' #'     group_mods <- intersect(model, msets)
-#' #'     model <- union(model, unname(unlist(mod_groups[group_mods])))
-#' #'     model <- setdiff(model, msets)
-#' #'   }
-#' #'   model
-#' #' }
-#' 
-#' #' @noRd
-#' retrieve_valid_family <- function(named_list, data) {
-#'   if (!"family" %in% names(named_list)) {
-#'     y <- retrieve_var(data, "y_var", error = TRUE)
-#'     tr <- retrieve_var(data, "trials_var")
-#'     family <- set_distribution(y, support_integer = TRUE, trials = tr)
-#'   } else {
-#'     family <- named_list$family
-#'   }
-#'   validate_family(family)
-#' }
-
-#' #' @noRd
-#' define_loo_controls <- function(loo_controls, family_str) {
-#'   if (missing(loo_controls)) {
-#'     loo_controls <- list(fitting = list(), weights = list(method = "pseudobma"))
-#'   } else {
-#'     loo_controls <- validate_loo_controls(loo_controls, family_str)
-#'     if (!"method" %in% names(loo_controls$weights)) {
-#'       loo_controls$weights$method <- "pseudobma"
-#'     }
-#'   }
-#'   loo_controls
-#' }
-
 #' @noRd
 retrieve_var <- function(data, var, error = FALSE) {
   bnec_vars <- attr(data, "bnec_pop")
@@ -480,48 +444,6 @@ retrieve_var <- function(data, var, error = FALSE) {
   }
 }
 
-#' #' @noRd
-#' add_brm_defaults <- function(brm_args, model, family, predictor, response,
-#'                              skip_check, custom_name) {
-#'   if (!("chains" %in% names(brm_args))) {
-#'     brm_args$chains <- 4
-#'   }
-#'   if (!("sample_prior" %in% names(brm_args))) {
-#'     brm_args$sample_prior <- "yes"
-#'   }
-#'   if (!("iter" %in% names(brm_args))) {
-#'     brm_args$iter <- 1e4
-#'   }
-#'   if (!("warmup" %in% names(brm_args))) {
-#'     brm_args$warmup <- floor(brm_args$iter / 5) * 4
-#'   }
-#'   priors <- try(validate_priors(brm_args$prior, model), silent = TRUE)
-#'   if (inherits(priors, "try-error")) {
-#'     brm_args$prior <- define_prior(model, family, predictor, response)
-#'   } else {
-#'     brm_args$prior <- priors
-#'   }
-#'   if (!("init" %in% names(brm_args)) || skip_check) {
-#'     msg_tag <- ifelse(family$family == "custom", custom_name, family$family)
-#'     message(paste0("Finding initial values which allow the response to be",
-#'                    " fitted using a ", model, " model and a ", msg_tag,
-#'                    " distribution."))
-#'     response_link <- response_link_scale(response, family)
-#'     init_seed <- NULL
-#'     if ("seed" %in% names(brm_args)) {
-#'       init_seed <- brm_args$seed
-#'     }
-#'     inits <- make_good_inits(model, predictor, response_link,
-#'                              priors = brm_args$prior, chains = brm_args$chains,
-#'                              seed = init_seed)
-#'     if (length(inits) == 1 && "random" %in% names(inits)) {
-#'       inits <- inits$random
-#'     }
-#'     brm_args$init <- inits
-#'   }
-#'   brm_args
-#' }
-
 #' @noRd
 extract_formula <- function(x) {
   out <- try(x[["bayesnecformula"]], silent = TRUE)
@@ -531,27 +453,6 @@ extract_formula <- function(x) {
     out
   }
 }
-
-#' #' @noRd
-#' #' @importFrom stats model.frame
-#' has_family_changed <- function(x, data, ...) {
-#'   brm_args <- list(...)
-#'   for (i in seq_along(x)) {
-#'     formula <- extract_formula(x[[i]])
-#'     bdat <- model.frame(formula, data = data, run_par_checks = TRUE)
-#'     model <- get_model_from_formula(formula)
-#'     family <- retrieve_valid_family(brm_args, bdat)
-#'     model <- check_models(model, family, bdat)
-#'     checked_df <- check_data(data = bdat, family = family, model = model)
-#'   }
-#'   out <- all.equal(checked_df$family, x[[1]]$fit$family,
-#'                    check.attributes = FALSE, check.environment = FALSE)
-#'   if (is.logical(out)) {
-#'     FALSE
-#'   } else {
-#'     TRUE
-#'   }
-#' }
 
 #' @noRd
 find_transformations <- function(data) {
