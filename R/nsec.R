@@ -112,9 +112,9 @@ nsec.bayesnecfit <- function(object, sig_val = 0.01, resolution = 1000,
   })
   ecnsec <- quantile(ecnsecP, probs = prob_vals)
   if (grepl("horme", object$model)) {
-    n <- seq_len(nrow(p_samples))
-    p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-                            p_samples, hormesis_def, fct = "rbind")
+    # n <- seq_len(nrow(p_samples))
+    # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
+    #                         p_samples, hormesis_def, fct = "rbind")
     nec_posterior <- as_draws_df(object$fit)[["b_nec_Intercept"]]
     if (hormesis_def == "max") {
       reference <- quantile(apply(p_samples, 2, max), probs = sig_val)
@@ -311,9 +311,9 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
     ecnsec <- quantile(ecnsecP, probs = prob_vals)
     
     if (horme) {
-      n <- seq_len(nrow(p_samples))
-      p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-                                         p_samples, hormesis_def, fct = "rbind")
+      # n <- seq_len(nrow(p_samples))
+      # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
+      #                                    p_samples, hormesis_def, fct = "rbind")
       nec_posterior <- as_draws_df(object$fit)[["b_nec_Intercept"]]
       if (hormesis_def == "max") {
         reference <- quantile(apply(p_samples, 2, max), probs = sig_val)
@@ -337,9 +337,9 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
       })
       ecnsec <- quantile(ecnsecP, probs = prob_vals)      
       if (horme) {
-        n <- seq_len(nrow(p_samples))
-        p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-                                           p_samples, hormesis_def, fct = "rbind")
+        # n <- seq_len(nrow(p_samples))
+        # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
+        #                                    p_samples, hormesis_def, fct = "rbind")
         nec_posterior <- as_draws_df(object$fit)[["b_nec_Intercept"]]
         if (hormesis_def == "max") {
           reference <- quantile(apply(p_samples, 2, max), probs = sig_val)
