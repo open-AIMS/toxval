@@ -41,7 +41,7 @@ test_that("posterior passes correctly for brmsfit pulled from bayesnecfit", {
     skip_on_cran()
   }
   nsec3 <- nsec(fit_brms, posterior = TRUE, resolution = 10, x_var = "x")
-  expect_equal(length(nsec3), 8000)
+  expect_equal(length(nsec3), 800)
 })
 
 test_that("fails for brmsfit when by_group is true and group_var is not specified", {
