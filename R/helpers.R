@@ -561,3 +561,29 @@ extract_nsec_multi <- function(all_nsec_out, type, criterion){
 }
 
 
+#' @noRd
+#' @importFrom modelbased zero_crossings
+nsec_fct <- function(y, reference, x_vec) {
+  val <- min(zero_crossings(y - reference))
+  if(is.na(val)) {
+    return(max(x_vec))} else {
+      floor_x <-  x_vec[floor(val)] 
+      ceiling_x <- x_vec[ceiling(val)]
+      prop_x <- (val-floor(val))*(ceiling_x-floor_x)
+      return(floor_x + prop_x)
+    }
+}
+
+#' @noRd
+#' @importFrom modelbased zero_crossings
+tox_fct <- function(y, reference, x_vec) {
+  val <- min(zero_crossings(y - reference))
+  if(is.na(val)) {
+    return(max(x_vec))} else {
+      floor_x <-  x_vec[floor(val)] 
+      ceiling_x <- x_vec[ceiling(val)]
+      prop_x <- (val-floor(val))*(ceiling_x-floor_x)
+      return(floor_x + prop_x)
+    }
+}
+

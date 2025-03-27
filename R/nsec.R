@@ -94,7 +94,6 @@ nsec.bnecfit <- function(object, sig_val = 0.01, resolution = 100,
                          x_range = NA, hormesis_def = "control", 
                          xform = identity, prob_vals = c(0.5, 0.025, 0.975), 
                          posterior = FALSE, type = "absolute", ...)  {
-
   newdata_list <- newdata_eval(
     object, resolution = resolution, x_range = x_range
   )
@@ -425,19 +424,5 @@ nsec.drc <- function(object, sig_val = 0.01, resolution = 1000,
   attr(nsec_estimate, "toxicity_estimate") <- "nsec"
   nsec_estimate
   
-}
-
-
-#' @noRd
-#' @importFrom modelbased zero_crossings
-nsec_fct <- function(y, reference, x_vec) {
-  val <- min(zero_crossings(y - reference))
-  if(is.na(val)) {
-    return(max(x_vec))} else {
-      floor_x <-  x_vec[floor(val)] 
-      ceiling_x <- x_vec[ceiling(val)]
-      prop_x <- (val-floor(val))*(ceiling_x-floor_x)
-      return(floor_x + prop_x)
-    }
 }
 

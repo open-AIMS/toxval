@@ -65,32 +65,7 @@ ecx <- function(object, ecx_val = 10, resolution = 1000,
                 posterior = FALSE, type = "absolute",
                 hormesis_def = "control", x_range = NA,
                 xform = identity, prob_vals = c(0.5, 0.025, 0.975), ...) {
-  UseMethod("ecx")
-}
-
-#' @inheritParams ecx
-#'
-#' @inherit ecx details return seealso examples
-#'
-#' @param object An object of class \code{\link{bayesnecfit}} returned by
-#' \code{\link{bnec}}.
-#' 
-#' @importFrom stats quantile
-#' @importFrom brms posterior_epred
-#' @importFrom chk chk_logical chk_numeric
-#'
-#' @noRd
-#'
-#' @export
-ecx.bayesnecfit <- function(object, ecx_val = 10, resolution = 1000,
-                            posterior = FALSE, type = "absolute",
-                            hormesis_def = "control", x_range = NA,
-                            xform = identity,
-                            prob_vals = c(0.5, 0.025, 0.975)) {
-  chk_numeric(ecx_val)
-  if (length(ecx_val)>1) {
-    stop("You may only pass one ecx_val")  
-  }
+  
   chk_numeric(resolution)  
   chk_logical(posterior)
   if ((type %in% c("relative", "absolute", "direct")) == FALSE) {
@@ -109,150 +84,80 @@ ecx.bayesnecfit <- function(object, ecx_val = 10, resolution = 1000,
     stop("prob_vals must include central, lower and upper quantiles,",
          " in that order")
   }
-  if (type != "direct") {
-    if (ecx_val < 1 || ecx_val > 99) {
-      stop("Supplied ecx_val is not in the required range. ",
-           "Please supply a percentage value between 1 and 99.")
-    }
-  }
-  if (length(grep("ecx", object$model)) > 0) {
-    mod_class <- "ecx"
-  } else {
-    mod_class <- "nec"
-  }
-  if (!is.null(object$bot)) {
-    m4param <- 1
-  } else {
-    m4param <- 0
-  }
-  if (object$fit$family$family == "gaussian" && type == "absolute" &&
-      m4param == 0) {
-    stop("Absolute ECx values are not valid for a gaussian ",
-         "response variable unless a model with a bot parameter is fit")
-  }
+  
+  UseMethod("ecx")
+}
+
+#' @inheritParams ecx
+#'
+#' @inherit ecx details return seealso examples
+#'
+#' @param object An object of class \code{\link{bnecfit}} returned by
+#' \code{\link{bnec}}.
+#' 
+#' @importFrom stats quantile
+#' @importFrom brms posterior_epred
+#' @importFrom chk chk_logical chk_numeric
+#'
+#' @noRd
+#'
+#' @export
+ecx.bnecfit <- function(object, ecx_val = 10, resolution = 100,
+                         posterior = FALSE, type = "absolute",
+                         hormesis_def = "control", x_range = NA,
+                         xform = identity,
+                         prob_vals = c(0.5, 0.025, 0.975)) {
   newdata_list <- newdata_eval(
     object, resolution = resolution, x_range = x_range
   )
   p_samples <- posterior_epred(object, newdata = newdata_list$newdata,
                                re_formula = NA)
   x_vec <- newdata_list$x_vec
-  if (grepl("horme", object$model)) {
-    # n <- seq_len(nrow(p_samples))
-    # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-    #                         p_samples, hormesis_def, fct = "rbind")
-  }
-  ecx_fct <- get(paste0("ecx_x_", type))
-  ecx_out <- apply(p_samples, 1, ecx_fct, ecx_val, x_vec)
-  formula <- object$bayesnecformula
-  x_str <- grep("crf(", labels(terms(formula)), fixed = TRUE, value = TRUE)
-  x_call <- str2lang(eval(parse(text = x_str)))
-  if (inherits(x_call, "call")) {
-    x_call[[2]] <- str2lang("ecx_out")
-    ecx_out <- eval(x_call)
-  }
-  if (inherits(xform, "function")) {
-    ecx_out <- xform(ecx_out)
-  }
-
-  ecx_estimate <- quantile(unlist(ecx_out), probs = prob_vals)
-  names(ecx_estimate) <- clean_names(ecx_estimate)
-  attr(ecx_estimate, "resolution") <- resolution
-  attr(ecx_out, "resolution") <- resolution
-  attr(ecx_estimate, "ecx_val") <- ecx_val
-  attr(ecx_out, "ecx_val") <- ecx_val
-  attr(ecx_estimate, "toxicity_estimate") <- "ecx"
-  attr(ecx_out, "toxicity_estimate") <-  "ecx"
-  if (signif(ecx_estimate[1], 3) == signif(ecx_estimate[3], 3)) {
-    message("The estimated mean is identical or nearly identical to your",
-            " upper credible interval for the ", object$model, " model.",
-            " This suggests the ecx estimate lies beyond the upper bound of",
-            " your x_range and should be reported as greater than, and used",
-            " as a censored value. You could try increasing x_range, although",
-            " extrapolation beyond the data range should be done with",
-            " caution.")
-  } else if (signif(ecx_estimate[3], 3) == signif(max(x_vec), 3)) {
-    message("The estimated upper credible interval is identical or nearly",
-            " identical to the upper bound of your x_range value for the ",
-            object$model, " model. This suggests the estimated uncertainty",
-            "may be constrained. You could try increasing x_range to ensure",
-            " this is not the case.")
-  }
-  if (!posterior) {
-    ecx_estimate
+  
+  if (hormesis_def == "max") {
+    control_posterior <- quantile(apply(p_samples, 1, max), probs = 0.5)
   } else {
-    ecx_out
+    control_posterior <- p_samples[, 1]
   }
-}
-
-#' @inheritParams ecx
-#'
-#' @param object An object of class \code{\link{bayesmanecfit}} returned by
-#' \code{\link{bnec}}.
-#'
-#' @inherit ecx details return seealso examples
-#'
-#' @importFrom stats quantile
-#' @importFrom chk chk_logical chk_numeric
-#'
-#' @noRd
-#'
-#' @export
-ecx.bayesmanecfit <- function(object, ecx_val = 10, resolution = 1000,
-                              posterior = FALSE, type = "absolute",
-                              hormesis_def = "control", x_range = NA,
-                              xform = identity,
-                              prob_vals = c(0.5, 0.025, 0.975)) {
-  chk_numeric(ecx_val)
-  chk_numeric(resolution)  
-  chk_logical(posterior)
-  if (length(ecx_val)>1) {
-    stop("You may only pass one ecx_val")  
-  }
-  if ((type %in% c("relative", "absolute", "direct")) == FALSE) {
-    stop("type must be one of 'relative', 'absolute' (the default) or 'direct'. 
-         Please see ?ecx for more details.")
-  }
-  if ((hormesis_def %in% c("max", "control")) == FALSE) {
-    stop("type must be one of 'max' or 'control' (the default). 
-         Please see ?ecx for more details.")
-  }
-  if (!inherits(xform, "function")) { 
-    stop("xform must be a function.")}   
-  if (length(prob_vals) < 3 || prob_vals[1] < prob_vals[2] ||
-      prob_vals[1] > prob_vals[3] || prob_vals[2] > prob_vals[3]) {
-    stop("prob_vals must include central, lower and upper quantiles,",
-         " in that order")
-  }
-  sample_ecx <- function(x, object, ecx_val, resolution,
-                         posterior, type, hormesis_def,
-                         x_range, xform, prob_vals, sample_size) {
-    mod <- names(object$mod_fits)[x]
-    target <- suppressMessages(pull_out(object, model = mod))
-    out <- ecx(target, ecx_val = ecx_val, resolution = resolution,
-               posterior = posterior, type = type, hormesis_def = hormesis_def,
-               x_range = x_range, xform = xform, prob_vals = prob_vals)
-    n_s <- as.integer(round(sample_size * object$mod_stats[x, "wi"]))
-    sample(out, n_s)
-  }
-  sample_size <- object$sample_size
-  to_iter <- seq_len(length(object$success_models))
-  ecx_out <- sapply(to_iter, sample_ecx, object, ecx_val, resolution,
-                    posterior = TRUE, type, hormesis_def, x_range,
-                    xform, prob_vals, sample_size)
-  ecx_out <- unlist(ecx_out)
-  ecx_estimate <- quantile(ecx_out, probs = prob_vals)
-  names(ecx_estimate) <- clean_names(ecx_estimate)
-  attr(ecx_estimate, "resolution") <- resolution
-  attr(ecx_out, "resolution") <- resolution
-  attr(ecx_estimate, "ecx_val") <- ecx_val
-  attr(ecx_out, "ecx_val") <- ecx_val
-  attr(ecx_estimate, "toxicity_estimate") <- "ecx"
-  attr(ecx_out, "toxicity_estimate") <-  "ecx"
-  if (!posterior) {
-    ecx_estimate
+  
+  if(type=="relative"){  
+    min_posterior <- p_samples[, ncol(p_samples)]
   } else {
-    ecx_out
+    min_posterior <- 0   
   }
+  
+  dif_valsC <- control_posterior-min_posterior
+
+  n <- seq_len(nrow(p_samples))
+  p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
+                          p_samples, hormesis_def, fct = "rbind")
+
+  reference <- median(control_posterior) - (median(dif_valsC) * (ecx_val / 100))
+  names(reference) <- ecx_val
+
+  tox_out <- do.call("cbind", lapply(reference, FUN = function(r){
+    apply(p_samples, 1, tox_fct, r, x_vec)  
+  })) 
+
+  tox_out <- xform(tox_out)
+    
+  tox_estimate <- apply(tox_out, MARGIN = 2, FUN = quantile, probs = prob_vals)
+    #quantile(unlist(tox_out), probs = prob_vals)
+    #names(tox_estimate) <- clean_names(tox_estimate)
+  
+  attr(tox_estimate, "control_value") <- median(control_posterior)
+  attr(tox_out, "control_value") <-  median(control_posterior)
+  attr(tox_estimate, "reference") <- reference
+  attr(tox_out, "reference") <-  reference
+  attr(tox_estimate, "resolution") <- resolution
+  attr(tox_out, "resolution") <- resolution
+  
+  if (!posterior) {
+    tox_estimate
+  } else {
+    tox_out
+  }
+  
 }
 
 #' @noRd
@@ -368,25 +273,14 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
   if (length(ecx_val)>1) {
     stop("You may only pass one ecx_val")  
   }
-  chk_numeric(resolution)  
-  chk_logical(posterior)
-  if ((type %in% c("relative", "absolute", "direct")) == FALSE) {
-    stop("type must be one of 'relative', 'absolute' (the default) or 'direct'. 
-         Please see ?ecx for more details.")
-  }
-  if ((hormesis_def %in% c("max", "control")) == FALSE) {
-    stop("type must be one of 'max' or 'control' (the default). 
-         Please see ?ecx for more details.")
-  }
-  if (!inherits(xform, "function")) {
-    stop("xform must be a function.")
-  }
-  if (length(prob_vals) < 3 || prob_vals[1] < prob_vals[2] ||
-      prob_vals[1] > prob_vals[3] || prob_vals[2] > prob_vals[3]) {
-    stop("prob_vals must include central, lower and upper quantiles,",
-         " in that order")
-  }
   
+  if (type != "direct") {
+    if (ecx_val < 1 || ecx_val > 99) {
+      stop("Supplied ecx_val is not in the required range. ",
+           "Please supply a percentage value between 1 and 99.")
+    }
+  } 
+
   if (missing(x_var)) {
     stop("x_var must be supplied for a brmsfit object.")    
   }  
@@ -409,52 +303,20 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
   }
   x_vec <- seq(min(x_range), max(x_range), length=resolution)
   
-  if (type != "direct") {
-    if (ecx_val < 1 || ecx_val > 99) {
-      stop("Supplied ecx_val is not in the required range. ",
-           "Please supply a percentage value between 1 and 99.")
-    }
-  }
-  
-  if (!is.null(object$bot)) {
-    m4param <- 1
-  } else {
-    m4param <- 0
-  }
-  if (object$family$family == "gaussian" && type == "absolute" &&
-      m4param == 0) {
-    stop("Absolute ECx values are not valid for a gaussian ",
-         "response variable unless a model with a 'bot' parameter is fit. Note that 'bot' must represent a valid y intercept term.")
-  }
   
   if(is.na(group_var)){
     pred_dat <- data.frame(x_vec)
     names(pred_dat) <- x_var
-    
-    # newdata_list <- newdata_eval(
-    #   object, resolution = resolution, x_range = x_range
-    # )
+
     p_samples <- posterior_epred(object, newdata = pred_dat,
                                  re_formula = NA)
     if (class(p_samples)[1] == "try-error"){
       stop(paste(attributes(p_samples)$condition, "Do you need to specify a group_var variable?", sep=""))
     }
-    #x_vec <- newdata_list$x_vec
-    # if (grepl("horme", object$model)) {
-    #   n <- seq_len(nrow(p_samples))
-    #   p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-    #                           p_samples, hormesis_def, fct = "rbind")
-    # }
+
     ecx_fct <- get(paste0("ecx_x_", type))
     ecx_out <- apply(p_samples, 1, ecx_fct, ecx_val, x_vec, hormesis_def)
     
-    #formula <- object$bayesnecformula
-    #x_str <- grep("crf(", labels(terms(formula)), fixed = TRUE, value = TRUE)
-    #x_call <- str2lang(eval(parse(text = x_str)))
-    #if (inherits(x_call, "call")) {
-    #  x_call[[2]] <- str2lang("ecx_out")
-    #  ecx_out <- eval(x_call)
-    #}
     if (inherits(xform, "function")) {
       ecx_out <- xform(ecx_out)
     } 
@@ -520,35 +382,7 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
   attr(out_vals, "toxicity_estimate") <- "ecx"
   
   return(out_vals)
-  
-  # ecx_estimate <- quantile(unlist(ecx_out), probs = prob_vals)
-  # names(ecx_estimate) <- clean_names(ecx_estimate)
-  # attr(ecx_estimate, "resolution") <- resolution
-  # attr(ecx_out, "resolution") <- resolution
-  # attr(ecx_estimate, "ecx_val") <- ecx_val
-  # attr(ecx_out, "ecx_val") <- ecx_val
-  # attr(ecx_estimate, "toxicity_estimate") <- "ecx"
-  # attr(ecx_out, "toxicity_estimate") <-  "ecx"
-  # if (signif(ecx_estimate[1], 3) == signif(ecx_estimate[3], 3)) {
-  #   message("The estimated mean is identical or nearly identical to your",
-  #           " upper credible interval for the ", object$model, " model.",
-  #           " This suggests the ecx estimate lies beyond the upper bound of",
-  #           " your x_range and should be reported as greater than, and used",
-  #           " as a censored value. You could try increasing x_range, although",
-  #           " extrapolation beyond the data range should be done with",
-  #           " caution.")
-  # } else if (signif(ecx_estimate[3], 3) == signif(max(x_vec), 3)) {
-  #   message("The estimated upper credible interval is identical or nearly",
-  #           " identical to the upper bound of your x_range value for the ",
-  #           object$model, " model. This suggests the estimated uncertainty",
-  #           "may be constrained. You could try increasing x_range to ensure",
-  #           " this is not the case.")
-  # }
-  # if (!posterior) {
-  #   ecx_estimate
-  # } else {
-  #   ecx_out
-  # }
+
 }
 
 
