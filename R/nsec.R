@@ -49,34 +49,10 @@
 #' }
 #'
 #' @export
-nsec <- function(object, sig_val = 0.01, resolution = 1000,
+nsec <- function(object, sig_val = 0.01, resolution = 100,
                  x_range = NA, hormesis_def = "control",
-                 xform = identity, prob_vals = c(0.5, 0.025, 0.975), ...) {
-  UseMethod("nsec")
-}
-
-#' @inheritParams nsec
-#'
-#' @param object An object of class \code{\link{bayesnecfit}} returned by
-#' \code{\link{bnec}}.
-#' @param posterior A \code{\link[base]{logical}} value indicating if the full
-#' posterior sample of calculated NSEC values should be returned instead of
-#' just the median and 95 credible intervals.
-#'
-#' @inherit nsec details seealso return examples
-#' 
-#' @importFrom stats quantile
-#' @importFrom stats terms
-#' @importFrom brms as_draws_df posterior_epred
-#' @importFrom chk chk_logical chk_numeric
-#' 
-#' @noRd
-#'
-#' @export
-nsec.bayesnecfit <- function(object, sig_val = 0.01, resolution = 1000,
-                             x_range = NA, hormesis_def = "control", 
-                             xform = identity, prob_vals = c(0.5, 0.025, 0.975), ..., 
-                             posterior = FALSE) {
+                 xform = identity, prob_vals = c(0.5, 0.025, 0.975), 
+                 posterior = FALSE, ...) {
   chk_numeric(sig_val)
   chk_numeric(resolution)
   chk_logical(posterior)
@@ -94,40 +70,61 @@ nsec.bayesnecfit <- function(object, sig_val = 0.01, resolution = 1000,
     stop("prob_vals must include central, lower and upper quantiles,",
          " in that order.")
   }
-  if (length(grep("ecx", object$model)) > 0) {
-    mod_class <- "ecx"
-  } else {
-    mod_class <- "nec"
-  }
+  
+  UseMethod("nsec")
+}
+
+#' @inheritParams nsec
+#' @inheritParams ecx
+#'
+#' @param object An object of class \code{\link{bnecfit}} returned by
+#' \code{\link{bnec}}.
+#'
+#' @inherit nsec details seealso return examples
+#' 
+#' @importFrom stats quantile
+#' @importFrom stats terms
+#' @importFrom brms as_draws_df posterior_epred
+#' @importFrom chk chk_logical chk_numeric
+#' 
+#' @noRd
+#'
+#' @export
+nsec.bnecfit <- function(object, sig_val = 0.01, resolution = 100,
+                         x_range = NA, hormesis_def = "control", 
+                         xform = identity, prob_vals = c(0.5, 0.025, 0.975), 
+                         posterior = FALSE, type = "absolute", ...)  {
+
   newdata_list <- newdata_eval(
     object, resolution = resolution, x_range = x_range
   )
   p_samples <- posterior_epred(object, newdata = newdata_list$newdata,
                                re_formula = NA)
   x_vec <- newdata_list$x_vec
-  reference <- quantile(p_samples[, 1], sig_val)
-  ecnsecP <- apply(p_samples, MARGIN = 1, FUN = function(r){
-    #(max(r) - diff(range(r)))/reference * 100
-    (1-diff(c(min(r), reference))/(diff(range(r)))) * 100
-  })
-  ecnsec <- quantile(ecnsecP, probs = prob_vals)
-  if (grepl("horme", object$model)) {
-    # n <- seq_len(nrow(p_samples))
-    # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-    #                         p_samples, hormesis_def, fct = "rbind")
-    nec_posterior <- as_draws_df(object$fit)[["b_nec_Intercept"]]
-    if (hormesis_def == "max") {
-      reference <- quantile(apply(p_samples, 2, max), probs = sig_val)
+
+  control_posterior <- p_samples[, 1]
+  if(type=="relative"){  
+    min_posterior <- p_samples[, ncol(p_samples)]} else {
+    min_posterior <- 0   
     }
+  
+  if (hormesis_def == "max") {
+    reference <- quantile(apply(p_samples, 1, max), probs = sig_val)
+  } else {
+    reference <- quantile(control_posterior, sig_val)
   }
-  nsec_out <- apply(p_samples, 1, nsec_fct, reference, x_vec)
-  formula <- object$bayesnecformula
-  x_str <- grep("crf(", labels(terms(formula)), fixed = TRUE, value = TRUE)
-  x_call <- str2lang(eval(parse(text = x_str)))
-  if (inherits(x_call, "call")) {
-    x_call[[2]] <- str2lang("nsec_out")
-    nsec_out <- eval(x_call)
-  }
+  n <- seq_len(nrow(p_samples))
+  p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
+                             p_samples, hormesis_def, fct = "rbind")
+  
+  nsec_out <- apply(p_samples, 1, nsec_fct, reference, x_vec)  
+
+  dif_valsC <- control_posterior-min_posterior
+  dif_valsR <- reference-min_posterior   
+
+  ecnsecP <- (1-(dif_valsR/dif_valsC))*100  
+  ecnsec <- quantile(ecnsecP, probs = prob_vals, na.rm = TRUE)
+
   if (inherits(xform, "function")) {
     nsec_out <- xform(nsec_out)
   }
@@ -141,88 +138,13 @@ nsec.bayesnecfit <- function(object, sig_val = 0.01, resolution = 1000,
   attr(nsec_out, "toxicity_estimate") <-  "nsec"
   attr(nsec_estimate, "ecnsec_relativeP") <- ecnsec
   attr(nsec_out, "ecnsec_relativeP") <-  ecnsecP
+  attr(nsec_estimate, "reference") <- reference
+  attr(nsec_out, "reference") <-  reference
   if (!posterior) {
     nsec_estimate
   } else {
     nsec_out
   }
-}
-
-#' @inheritParams nsec
-#'
-#' @param object An object of class \code{\link{bayesmanecfit}} returned by
-#' \code{\link{bnec}}.
-#' @param posterior A \code{\link[base]{logical}} value indicating if the full
-#' posterior sample of calculated NSEC values should be returned instead of
-#' just the median and 95 credible intervals.
-#'
-#' @inherit nsec details seealso return examples
-#' 
-#' @importFrom stats quantile
-#'
-#' @noRd
-#'
-#' @export
-nsec.bayesmanecfit <- function(object, sig_val = 0.01, resolution = 1000,
-                               x_range = NA, hormesis_def = "control", 
-                               xform = identity, prob_vals = c(0.5, 0.025, 0.975), ..., 
-                               posterior = FALSE) {
-  if (length(sig_val)>1) {
-    stop("You may only pass one sig_val")  
-  }
-  sample_nsec <- function(x, object, sig_val, resolution,
-                          hormesis_def,
-                          x_range, xform, prob_vals, 
-                          posterior,
-                          sample_size) {
-    mod <- names(object$mod_fits)[x]
-    target <- suppressMessages(pull_out(object, model = mod))
-    out <- nsec(target, sig_val = sig_val, resolution = resolution,
-                hormesis_def = hormesis_def,
-                x_range = x_range, xform = xform, prob_vals = prob_vals,
-                posterior = posterior)
-    n_s <- as.integer(round(sample_size * object$mod_stats[x, "wi"]))
-    sample_out <- sample(out, n_s)
-    attr(sample_out, "ecnsec_relativeP") <- sample(attributes(out)$ecnsec_relativeP, n_s)
-    sample_out
-  }
-  sample_size <- object$sample_size
-  to_iter <- seq_len(length(object$success_models))
-  nsec_out <- sapply(to_iter, sample_nsec, object, sig_val, resolution,
-                     hormesis_def, x_range,
-                     xform, prob_vals, posterior = TRUE, sample_size)
-  ecnsecP <- unlist(lapply(nsec_out, 
-                    FUN = function(p){attributes(p)$ecnsec_relativeP}))
-  ecnsec <- quantile(ecnsecP, probs = prob_vals)
-  nsec_out <- unlist(nsec_out)
-  nsec_estimate <- quantile(nsec_out, probs = prob_vals)
-  names(nsec_estimate) <- clean_names(nsec_estimate)
-  attr(nsec_estimate, "resolution") <- resolution
-  attr(nsec_out, "resolution") <- resolution
-  attr(nsec_estimate, "sig_val") <- sig_val
-  attr(nsec_out, "sig_val") <- sig_val
-  attr(nsec_estimate, "toxicity_estimate") <- "nsec"
-  attr(nsec_out, "toxicity_estimate") <-  "nsec"
-  attr(nsec_estimate, "ecnsec_relativeP") <- ecnsec
-  attr(nsec_out, "ecnsec_relativeP") <-  ecnsecP
-  if (!posterior) {
-    nsec_estimate
-  } else {
-    nsec_out
-  }
-}
-
-#' @noRd
-#' @importFrom modelbased zero_crossings
-nsec_fct <- function(y, reference, x_vec) {
-  val <- min(zero_crossings(y - reference))
-  if(is.na(val)) {
-    return(max(x_vec))} else {
-      floor_x <-  x_vec[floor(val)] 
-      ceiling_x <- x_vec[ceiling(val)]
-      prop_x <- (val-floor(val))*(ceiling_x-floor_x)
-      return(floor_x + prop_x)
-    }
 }
 
 #' @inheritParams nsec
@@ -255,23 +177,10 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
                          group_var = NA, 
                          by_group = FALSE,
                          horme = FALSE){
-  #chk_numeric(sig_val)
-  chk_numeric(resolution)
-  chk_logical(posterior)
-  if (length(sig_val)>1) {
-    stop("You may only pass one sig_val")  
+  if(is.na(x_range)){
+    x_range = range(object$data[x_var])
   }
-  if ((hormesis_def %in% c("max", "control")) == FALSE) {
-    stop("type must be one of \"max\" or \"control\" (the default). ",
-         "Please see ?ecx for more details.")
-  }
-  if(!inherits(xform, "function")) { 
-    stop("xform must be a function.")}  
-  if (length(prob_vals) < 3 | prob_vals[1] < prob_vals[2] |
-      prob_vals[1] > prob_vals[3] | prob_vals[2] > prob_vals[3]) {
-    stop("prob_vals must include central, lower and upper quantiles,",
-         " in that order.")
-  }
+  
   if (missing(x_var)) {
     stop("x_var must be supplied for a brmsfit object.")    
   }  
@@ -288,12 +197,9 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
       stop("Your suplied group_var is not contained in the object data.frame")
     }     
   }
- 
-  if(is.na(x_range)){
-    x_range = range(object$data[x_var])
-  }
-  x_vec <- seq(min(x_range), max(x_range), length=resolution)
 
+  x_vec <- seq(min(x_range), max(x_range), length=resolution)
+  
   if(is.na(group_var)){
     pred_dat <- data.frame(x_vec)
     names(pred_dat) <- x_var
@@ -520,3 +426,18 @@ nsec.drc <- function(object, sig_val = 0.01, resolution = 1000,
   nsec_estimate
   
 }
+
+
+#' @noRd
+#' @importFrom modelbased zero_crossings
+nsec_fct <- function(y, reference, x_vec) {
+  val <- min(zero_crossings(y - reference))
+  if(is.na(val)) {
+    return(max(x_vec))} else {
+      floor_x <-  x_vec[floor(val)] 
+      ceiling_x <- x_vec[ceiling(val)]
+      prop_x <- (val-floor(val))*(ceiling_x-floor_x)
+      return(floor_x + prop_x)
+    }
+}
+

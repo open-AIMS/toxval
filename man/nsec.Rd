@@ -7,11 +7,12 @@
 nsec(
   object,
   sig_val = 0.01,
-  resolution = 1000,
+  resolution = 100,
   x_range = NA,
   hormesis_def = "control",
   xform = identity,
   prob_vals = c(0.5, 0.025, 0.975),
+  posterior = FALSE,
   ...
 )
 }

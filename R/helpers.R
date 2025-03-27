@@ -214,44 +214,27 @@ clean_names <- function(x) {
 }
 
 #' @noRd
+# modify_posterior <- function(n, object, x_vec, p_samples, hormesis_def) {
+#   posterior_sample <- p_samples[n, ]
+#   if (hormesis_def == "max") {
+#     target <- x_vec[which.max(posterior_sample)]
+#     change <- x_vec < target
+#   } else if (hormesis_def == "control") {
+#     target <- posterior_sample[1]
+#     change <- posterior_sample > target
+#   }
+#   posterior_sample[change] <- NA
+#   posterior_sample
+# }
 modify_posterior <- function(n, object, x_vec, p_samples, hormesis_def) {
   posterior_sample <- p_samples[n, ]
   if (hormesis_def == "max") {
     target <- x_vec[which.max(posterior_sample)]
     change <- x_vec < target
-  } else if (hormesis_def == "control") {
-    target <- posterior_sample[1]
-    change <- posterior_sample >= target
-  }
-  posterior_sample[change] <- NA
+  posterior_sample[change] <- NA    
+  } 
   posterior_sample
 }
-
-#' #' extract_warnings
-#' #'
-#' #' Extract warnings from a \code{\link[brms]{brmsfit}} object.
-#' #'
-#' #' @param x An object of class \code{\link[brms]{brmsfit}}.
-#' #'
-#' #' @importFrom evaluate evaluate is.warning
-#' #'
-#' #' @return A \code{\link[base]{list}} containing all warning messages.
-#' #' @noRd
-#' extract_warnings <- function(x) {
-#'   x <- evaluate("identity(x)", new_device = FALSE)
-#'   to_extract <- which(sapply(x, is.warning))
-#'   if (length(to_extract) > 0) {
-#'     x[to_extract]
-#'   } else {
-#'     NULL
-#'   }
-#' }
-
-#' #' @noRd
-#' has_r_hat_warnings <- function(...) {
-#'   x <- extract_warnings(...)
-#'   any(grepl("some Rhats are > 1.05", x, fixed = TRUE))
-#' }
 
 #' @noRd
 print_mat <- function(x, digits = 2) {
@@ -504,58 +487,6 @@ newdata_eval <- function(object, resolution, x_range) {
   newdata <- bnec_newdata(object, resolution = resolution, x_range = x_range)
   x_vec <- newdata[[bnec_pop_vars[["x_var"]]]]
   list(newdata = newdata, x_vec = x_vec)
-}
-
-#' @importFrom bayesnec bnec_newdata pull_brmsfit
-#' 
-#' @noRd
-newdata_eval_fitted <- function(object, resolution, x_range, make_newdata,
-                                fct_eval, ...) {
-  # Just need one model to extract and generate data
-  # since all models are considered to have the exact same raw data.
-  if (inherits(object, "bayesmanecfit")) {
-    model_set <- names(object$mod_fits)
-    object <- suppressMessages(pull_out(object, model = model_set[1]))
-  }
-  data <- model.frame(object$bayesnecformula, object$fit$data)
-  bnec_pop_vars <- attr(data, "bnec_pop")
-  dot_list <- list(...)
-  if ("newdata" %in% names(dot_list) && make_newdata) {
-    stop("You cannot provide a \"newdata\" argument and set",
-         " make_newdata = TRUE at the same time. Please use one or another.",
-         " See details in help file ?", fct_eval)
-  }
-  if (!("newdata" %in% names(dot_list))) {
-    if (make_newdata) {
-      newdata <- bnec_newdata(object, resolution = resolution, x_range = x_range)
-      x_vec <- newdata[[bnec_pop_vars[["x_var"]]]]
-      if ("re_formula" %in% names(dot_list)) {
-        message("Argument \"re_formula\" ignored and set to NA because",
-                " function bnec_newdata cannot guess random effect structure.")
-      }
-      re_formula <- NA
-    } else {
-      newdata <- NULL
-      x_vec <- pull_brmsfit(object)$data[[bnec_pop_vars[["x_var"]]]]
-      resolution <- "from raw data"
-      if (!("re_formula" %in% names(dot_list))) {
-        re_formula <- NULL
-      } else {
-        re_formula <- dot_list$re_formula
-      }
-    }
-  } else {
-    newdata <- dot_list$newdata
-    x_vec <- newdata[[bnec_pop_vars[["x_var"]]]]
-    resolution <- "from user-specified newdata"
-    if (!("re_formula" %in% names(dot_list))) {
-      re_formula <- NULL
-    } else {
-      re_formula <- dot_list$re_formula
-    }
-  }
-  list(newdata = newdata, x_vec = x_vec, resolution = resolution,
-       re_formula = re_formula)
 }
 
 #' @noRd

@@ -67,7 +67,6 @@ nsec_multi <- function(object, sig_val = 0.01, resolution = 50,
     stop("Your suplied x_var is not contained in the object data.frame")
   }
 
-  
   if(is.na(x_range)){
     x_range = range(object$data[x_var])
   }
