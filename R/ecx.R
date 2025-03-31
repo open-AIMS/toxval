@@ -141,7 +141,8 @@ ecx.bnecfit <- function(object, ecx_val = 10, resolution = 100,
 
   tox_out <- xform(tox_out)
     
-  tox_estimate <- apply(tox_out, MARGIN = 2, FUN = quantile, probs = prob_vals)
+  tox_estimate <- apply(tox_out, MARGIN = 2, FUN = quantile, 
+                        probs = prob_vals, na.rm = TRUE)
     #quantile(unlist(tox_out), probs = prob_vals)
     #names(tox_estimate) <- clean_names(tox_estimate)
   

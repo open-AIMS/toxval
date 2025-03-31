@@ -579,7 +579,7 @@ nsec_fct <- function(y, reference, x_vec) {
 tox_fct <- function(y, reference, x_vec) {
   val <- min(zero_crossings(y - reference))
   if(is.na(val)) {
-    return(max(x_vec))} else {
+    return(NA)} else {
       floor_x <-  x_vec[floor(val)] 
       ceiling_x <- x_vec[ceiling(val)]
       prop_x <- (val-floor(val))*(ceiling_x-floor_x)
