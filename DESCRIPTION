@@ -16,6 +16,7 @@ Imports:
     tidyr,
     modelbased
 Suggests:
+    BH,
     knitr,
     rmarkdown,
     testthat (>= 3.0.0)
@@ -25,3 +26,4 @@ URL: https://open-aims.github.io/toxval/
 BugReports: https://github.com/open-aims/toxval/issues
 Roxygen: list(markdown = TRUE)
 Config/testthat/edition: 3
+LazyData: true
