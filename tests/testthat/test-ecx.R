@@ -9,9 +9,9 @@ test_that("outputs ecx value", {
 
   expect_type(output, "double")
   expect_length(output, 3)
-  expect_equal(output[[1]], 0.256, tolerance = 0.01)
-  expect_equal(output[[2]], 0.114, tolerance = 0.01)
-  expect_equal(output[[3]], 1.1, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8320, tolerance = 0.001)
+  expect_equal(output[[2]], 0.8177, tolerance = 0.001)
+  expect_equal(output[[3]], 1.0500, tolerance = 0.001)
   expect_equal(
     attributes(output),
     list(
@@ -23,23 +23,13 @@ test_that("outputs ecx value", {
   )
 })
 
-test_that("check ecx_val changes when different value provided", {
+test_that("ecx_val changes when different value provided", {
   output <- ecx(model_1, x_var = "x", ecx_val = 50)
 
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], .757, tolerance = 0.01)
-  expect_equal(output[[2]], 0.152, tolerance = 0.01)
-  expect_equal(output[[3]], 1.1, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 50,
-      toxicity_estimate = "ecx"
-    )
-  )
+  expect_equal(output[[1]], 0.9719, tolerance = 0.01)
+  expect_equal(output[[2]], 0.890, tolerance = 0.01)
+  expect_equal(output[[3]], 1.05, tolerance = 0.01)
+  expect_equal(attributes(output)$ecx_val, 50)
 })
 
 test_that("check ecx_val must be a numeric scalar", {
@@ -59,33 +49,59 @@ test_that("check ecx_val must be a numeric scalar", {
   )
 })
 
-test_that("check resolution changes when different value is provided", {
-  output <- ecx(model_1, x_var = "x", resolution = 10)
+# TODO resolution can't be 1
 
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], .255, tolerance = 0.01)
-  expect_equal(output[[2]], 0.114, tolerance = 0.01)
-  expect_equal(output[[3]], 1.1, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 10,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
+test_that("resolution changes when different value is provided", {
+  output <- ecx(model_1, x_var = "x", resolution = 2)
+
+  expect_equal(output[[1]], 0.836, tolerance = 0.01)
+  expect_equal(output[[2]], 0.820, tolerance = 0.01)
+  expect_equal(output[[3]], 1.050, tolerance = 0.01)
+  expect_equal(attributes(output)$resolution, 2)
+})
+
+test_that("proper resolution values can be passed", {
+  expect_error(
+    ecx(model_1, x_var = "x", resolution = 1),
+    regex = "`lower` is not smaller than `upper`"
   )
+
+  expect_error(
+    ecx(model_1, x_var = "x", resolution = -2),
+    regexp = "'length\\.out' must be a non-negative number"
+  )
+
+  expect_error(
+    ecx(model_1, x_var = "x", resolution = TRUE),
+    regexp = "`resolution` must be numeric"
+  )
+
+  expect_error(
+    ecx(model_1, x_var = "x", resolution = "3"),
+    regexp = "`resolution` must be numeric"
+  )
+
+  # TODO: Code in function needs to be updated to silence try error, once that is fixed this will error and need to be udpated
+  # since try is not set to silent a message is also being output
+  # the message is a special type so expect_message doesn't pick it up
+  msg_output <- capture.output({
+    expect_error(
+      ecx(model_1, x_var = "x", resolution = 0),
+      regexp = "group_var"
+    )
+  }, type = "message")
+  # This will fail once we update the try to silent and can then be removed
+  expect_match(paste(msg_output, collapse = " "), "replacement has 1 row, data has 0")
 })
 
 test_that("posterior = true outputs the posterior", {
   output <- ecx(model_1, x_var = "x", posterior = TRUE)
 
   expect_type(output, "double")
-  expect_length(output, 250)
-  expect_equal(output[[1]], 0.343, tolerance = 0.01)
-  expect_equal(output[[100]], 0.391, tolerance = 0.01)
-  expect_equal(output[[250]], 0.246, tolerance = 0.01)
+  expect_length(output, 750)
+  expect_equal(output[[1]], 0.8285, tolerance = 0.001)
+  expect_equal(output[[100]], 0.8288, tolerance = 0.001)
+  expect_equal(output[[750]], 0.824, tolerance = 0.001)
   expect_equal(
     attributes(output),
     list(
@@ -101,9 +117,9 @@ test_that("check type = relative argument", {
 
   expect_type(output, "double")
   expect_length(output, 3)
-  expect_equal(output[[1]], 0.2, tolerance = 0.01)
-  expect_equal(output[[2]], 0.2, tolerance = 0.01)
-  expect_equal(output[[3]], 1.0, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8221, tolerance = 0.001)
+  expect_equal(output[[2]], 0.8221, tolerance = 0.001)
+  expect_equal(output[[3]], 1.021, tolerance = 0.001)
   expect_equal(
     attributes(output),
     list(
@@ -120,9 +136,9 @@ test_that("check type = direct argument", {
 
   expect_type(output, "double")
   expect_length(output, 3)
-  expect_equal(output[[1]], 1.1, tolerance = 0.01)
-  expect_equal(output[[2]], 1.1, tolerance = 0.01)
-  expect_equal(output[[3]], 1.1, tolerance = 0.01)
+  expect_equal(output[[1]], 1.05, tolerance = 0.001)
+  expect_equal(output[[2]], 1.05, tolerance = 0.001)
+  expect_equal(output[[3]], 1.05, tolerance = 0.001)
   expect_equal(
     attributes(output),
     list(
@@ -134,14 +150,13 @@ test_that("check type = direct argument", {
   )
 })
 
+# TODO: this is the default so could be removed as a test
 test_that("check type = absolute argument", {
   output <- ecx(model_1, x_var = "x", type = "absolute")
 
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], 0.255, tolerance = 0.01)
-  expect_equal(output[[2]], 0.114, tolerance = 0.01)
-  expect_equal(output[[3]], 1.1, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8320, tolerance = 0.001)
+  expect_equal(output[[2]], 0.8176, tolerance = 0.001)
+  expect_equal(output[[3]], 1.050, tolerance = 0.001)
   expect_equal(
     attributes(output),
     list(
@@ -153,28 +168,84 @@ test_that("check type = absolute argument", {
   )
 })
 
-test_that("check type errors when wrong value passed", {
+test_that("type = absolute and value passed to trigger NAN catch", {
+  expect_warning(
+    output <- ecx(model_1, x_var = "x", type = "absolute", x_range = -1),
+    regexp = "NaNs produced"
+  )
+
+  expect_equal(output[[1]], -1)
+  expect_equal(output[[2]], -1)
+  expect_equal(output[[3]], -1)
+  expect_equal(
+    attributes(output),
+    list(
+      names = c("Q50", "Q2.5", "Q97.5"),
+      resolution = 1000,
+      ecx_val = 10,
+      toxicity_estimate = "ecx"
+    )
+  )
+})
+
+test_that("type = relative and value passed to trigger NAN catch", {
+  expect_warning(
+    output <- ecx(model_1, x_var = "x", type = "relative", x_range = -1),
+    regexp = "NaNs produced"
+  )
+
+  expect_equal(output[[1]], -1)
+  expect_equal(output[[2]], -1)
+  expect_equal(output[[3]], -1)
+  expect_equal(
+    attributes(output),
+    list(
+      names = c("Q50", "Q2.5", "Q97.5"),
+      resolution = 1000,
+      ecx_val = 10,
+      toxicity_estimate = "ecx"
+    )
+  )
+})
+
+test_that("type = direct and value passed to trigger NAN catch", {
+  expect_warning(
+    output <- ecx(model_1, x_var = "x", type = "direct", x_range = -1),
+    regexp = "NaNs produced"
+  )
+
+  expect_equal(output[[1]], -1)
+  expect_equal(output[[2]], -1)
+  expect_equal(output[[3]], -1)
+  expect_equal(
+    attributes(output),
+    list(
+      names = c("Q50", "Q2.5", "Q97.5"),
+      resolution = 1000,
+      ecx_val = 10,
+      toxicity_estimate = "ecx"
+    )
+  )
+})
+
+test_that("type errors when wrong value passed", {
   expect_error(
     ecx(model_1, x_var = "x", type = "something"),
     "type must be one of 'relative', 'absolute' \\(the default\\) or 'direct'"
   )
-})
 
-test_that("check type errors when more then 1 value passed ", {
   expect_error(
     ecx(model_1, x_var = "x", type = c("direct", "absolute")),
     "the condition has length > 1"
   )
 })
 
-test_that("check hormesis_def = max argument", {
+test_that("hormesis_def = max and type = absolute changes output values", {
   output <- ecx(model_1, x_var = "x", hormesis_def = "max")
 
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], 0.387, tolerance = 0.01)
-  expect_equal(output[[2]], 0.119, tolerance = 0.01)
-  expect_equal(output[[3]], 1.1, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8319, tolerance = 0.001)
+  expect_equal(output[[2]], 0.8174, tolerance = 0.001)
+  expect_equal(output[[3]], 1.030, tolerance = 0.001)
   expect_equal(
     attributes(output),
     list(
@@ -186,14 +257,13 @@ test_that("check hormesis_def = max argument", {
   )
 })
 
-test_that("check hormesis_def = control argument", {
+# TODO: this is the default arguments so can be removed if they aren't changed
+test_that("hormesis_def = control and type = absolute argument", {
   output <- ecx(model_1, x_var = "x", hormesis_def = "control")
 
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], 0.255, tolerance = 0.01)
-  expect_equal(output[[2]], 0.114, tolerance = 0.01)
-  expect_equal(output[[3]], 1.1, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8320, tolerance = 0.001)
+  expect_equal(output[[2]], 0.8176, tolerance = 0.001)
+  expect_equal(output[[3]], 1.050, tolerance = 0.001)
   expect_equal(
     attributes(output),
     list(
@@ -205,30 +275,45 @@ test_that("check hormesis_def = control argument", {
   )
 })
 
-test_that("check hormesis_def errors when more then one value passed", {
+test_that("hormesis_def = max and type = relative changes output values", {
+  output <- ecx(model_1, x_var = "x", type = "relative", hormesis_def = "max")
+
+  expect_equal(output[[1]], 1.05, tolerance = 0.001)
+  expect_equal(output[[2]], 0.80, tolerance = 0.001)
+  expect_equal(output[[3]], 1.05, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      names = c("Q50", "Q2.5", "Q97.5"),
+      resolution = 1000,
+      ecx_val = 10,
+      toxicity_estimate = "ecx"
+    )
+  )
+})
+
+test_that("hormesis_def errors wrong values passed", {
   expect_error(
     ecx(model_1, x_var = "x", hormesis_def = c("max", "control")),
     "the condition has length > 1"
   )
-})
 
-test_that("check hormesis_def errors when bad value passed", {
   expect_error(
     ecx(model_1, x_var = "x", hormesis_def = "something"),
     "type must be one of 'max' or 'control' \\(the default\\)"
   )
 })
 
-test_that("check xform argument", {
-  output <- ecx(model_1, x_var = "x", xform = function(x) x - 1)
+test_that("xform function is applied to the values", {
+  output_1 <- ecx(model_1, x_var = "x")
+  output_2 <- ecx(model_1, x_var = "x", xform = function(x) x - 1)
 
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], -0.744, tolerance = 0.01)
-  expect_equal(output[[2]], -0.886, tolerance = 0.01)
-  expect_equal(output[[3]], 0.100, tolerance = 0.01)
+  expect_length(output_2, 3)
+  expect_equal(output_2[[1]], output_1[[1]] - 1, tolerance = 0.001)
+  expect_equal(output_2[[2]], output_1[[2]] - 1, tolerance = 0.001)
+  expect_equal(output_2[[3]], output_1[[3]] - 1, tolerance = 0.001)
   expect_equal(
-    attributes(output),
+    attributes(output_2),
     list(
       names = c("Q50", "Q2.5", "Q97.5"),
       resolution = 1000,
@@ -238,21 +323,20 @@ test_that("check xform argument", {
   )
 })
 
-test_that("check xform fails if function not passed", {
+test_that("xform fails if function not passed", {
   expect_error(
     ecx(model_1, x_var = "x", xform = 1),
     "xform must be a function."
   )
 })
 
-test_that("check prob_vals argument changes when new values provided", {
+test_that("prob_vals argument changes when new values provided", {
   output <- ecx(model_1, x_var = "x", prob_vals = c(0.45, 0.1, 0.9))
 
-  expect_type(output, "double")
   expect_length(output, 3)
-  expect_equal(output[[1]], 0.237, tolerance = 0.01)
-  expect_equal(output[[2]], 0.143, tolerance = 0.01)
-  expect_equal(output[[3]], 1.10, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8306, tolerance = 0.001)
+  expect_equal(output[[2]], 0.8234, tolerance = 0.001)
+  expect_equal(output[[3]], 0.8847, tolerance = 0.001)
   expect_equal(
     attributes(output),
     list(
@@ -297,11 +381,11 @@ test_that("check prob_vals can have more then 3 values", {
 
   expect_type(output, "double")
   expect_length(output, 5)
-  expect_equal(output[[1]], 0.221, tolerance = 0.01)
-  expect_equal(output[[2]], 0.143, tolerance = 0.01)
-  expect_equal(output[[3]], 0.345, tolerance = 0.01)
-  expect_equal(output[[4]], 0.441, tolerance = 0.01)
-  expect_equal(output[[5]], 0.133, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8299, tolerance = 0.001)
+  expect_equal(output[[2]], 0.8234, tolerance = 0.001)
+  expect_equal(output[[3]], 0.8351, tolerance = 0.001)
+  expect_equal(output[[4]], 0.8386, tolerance = 0.001)
+  expect_equal(output[[5]], 0.8202, tolerance = 0.001)
   expect_equal(
     attributes(output),
     list(
@@ -313,25 +397,6 @@ test_that("check prob_vals can have more then 3 values", {
   )
 })
 
-test_that("when type = relative and hormesis_def = max", {
-  output <- ecx(model_1, x_var = "x", type = "relative", hormesis_def = "max")
-
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], 1.1, tolerance = 0.01)
-  expect_equal(output[[2]], 0.1, tolerance = 0.01)
-  expect_equal(output[[3]], 1.1, tolerance = 0.01)
-})
-
-test_that("when type = relative and hormesis_def = max", {
-  output <- ecx(model_1, x_var = "x", type = "direct", hormesis_def = "max")
-
-
-})
-
-
-
-
 # BRMS specific tests -----------------------------------------------------
 
 test_that("can only pass a single exc_val argument", {
@@ -341,7 +406,7 @@ test_that("can only pass a single exc_val argument", {
   )
 })
 
-test_that("when type is not direc ecx_val has to between 1 and 99", {
+test_that("when type is not direct ecx_val has to between 1 and 99", {
   expect_length(ecx(model_1, x_var = "x", type = "absolute", ecx_val = 2), 3)
   expect_length(ecx(model_1, x_var = "x", type = "relative", ecx_val = 2), 3)
   expect_length(ecx(model_1, x_var = "x", type = "direct", ecx_val = 2), 3)
@@ -394,35 +459,37 @@ test_that("errors if x_var is not in a predictor variable", {
 
 test_that("if by_group is TRUE you must supply a grouping variable in group_var that is in the data", {
   expect_error(
-    ecx(model_1, x_var = "x", by_group = TRUE),
+    ecx(model_2, x_var = "x", by_group = TRUE),
     "You must specify a group_by variable if you want values returned by groups"
   )
 
   expect_error(
-    ecx(model_1, x_var = "x", by_group = TRUE, group_var = "z"),
+    ecx(model_2, x_var = "x", by_group = TRUE, group_var = "aa"),
     "Your suplied group_var is not contained in the object data.frame"
   )
 
   expect_error(
-    ecx(model_1, x_var = "x", by_group = TRUE, group_var = 1),
+    ecx(model_2, x_var = "x", by_group = TRUE, group_var = 1),
     "Your suplied group_var is not contained in the object data.frame"
   )
 
   expect_error(
-    ecx(model_1, x_var = "x", by_group = TRUE, group_var = TRUE),
+    ecx(model_2, x_var = "x", by_group = TRUE, group_var = TRUE),
     "Your suplied group_var is not contained in the object data.frame"
   )
+})
 
-  output <- ecx(model_1, x_var = "x", by_group = TRUE, group_var = "x")
+test_that("by_group = TRUE and group_var supplied it groups the data based on the group_var", {
+  output <- ecx(model_2, x_var = "x", by_group = TRUE, group_var = "z")
   expect_s3_class(output, "data.frame")
-  expect_equal(dim(output), c(3, 4))
-  expect_equal(colnames(output), c("Qx", "Q50", "Q2.5", "Q97.5"))
+  expect_equal(dim(output), c(2, 4))
+  expect_equal(colnames(output), c("Qz", "Q50", "Q2.5", "Q97.5"))
   expect_equal(
     attributes(output),
     list(
       class = c("tbl_df", "tbl", "data.frame"),
-      row.names = c(1, 2, 3),
-      names = c("Qx", "Q50", "Q2.5", "Q97.5"),
+      row.names = c(1, 2),
+      names = c("Qz", "Q50", "Q2.5", "Q97.5"),
       resolution = 1000,
       ecx_val = 10,
       toxicity_estimate = "ecx"
@@ -430,30 +497,22 @@ test_that("if by_group is TRUE you must supply a grouping variable in group_var 
   )
 })
 
-test_that("if by_group is FALSE and you supply a group_var that is in the data", {
-  output <- ecx(model_1, x_var = "x", by_group = FALSE, group_var = "x")
+test_that("by_group = FALSE, group_var is in the data, get vector with length of prob_vals", {
+  output <- ecx(model_2, x_var = "z", by_group = FALSE, group_var = "x", prob_vals = c(0.5, 0.025, 0.975))
 
   expect_type(output, "double")
   expect_length(output, 3)
 })
 
-test_that("check x_range argument", {
-  output <- ecx(model_1, x_var = "x", x_range = 5)
+# TODO think this is wrong and you should be able to pass a range
+# all that happens is it takes the value and shoves it in as the output
+test_that("x_range argument", {
+  output <- ecx(model_1, x_var = "x", x_range = 0.5)
 
-  expect_type(output, "double")
   expect_length(output, 3)
-  expect_equal(output[[1]], 5, tolerance = 0.01)
-  expect_equal(output[[2]], 5, tolerance = 0.01)
-  expect_equal(output[[3]], 5, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
+  expect_equal(output[[1]], 0.5, tolerance = 0.01)
+  expect_equal(output[[2]], 0.5, tolerance = 0.01)
+  expect_equal(output[[3]], 0.5, tolerance = 0.01)
 
   expect_error(
     ecx(model_1, x_var = "x", x_range = c(5, 10)),
@@ -461,34 +520,49 @@ test_that("check x_range argument", {
   )
 })
 
+
 test_that("when using grouping variable the xform function is applied", {
-  output <- ecx(model_1, x_var = "x", by_group = TRUE, group_var = "x", xform = function(x) x - 1)
+  output_1 <- ecx(model_2, x_var = "x", by_group = TRUE, group_var = "z")
+  output_2 <- ecx(model_2, x_var = "x", by_group = TRUE, group_var = "z", xform = function(x) x - 1)
 
-  expect_s3_class(output, "data.frame")
-  expect_equal(dim(output), c(3, 4))
-  expect_equal(output$Qx, c("1.1", "0.1", "0.4"))
-  expect_equal(output$Q50, c(-0.7444, -0.7444, -0.7444), tolerance = 0.01)
-  expect_equal(output$Q2.5, c(-0.886, -0.886, -0.886), tolerance = 0.01)
-  expect_equal(output$Q97.5, c(0.100, 0.100, 0.100), tolerance = 0.01)
-
-  output_2 <- ecx(model_1, x_var = "x", by_group = TRUE, group_var = "x")
-
-  expect_equal(output$Q50[1], output_2$Q50[1] - 1, tolerance = 0.01)
-  expect_equal(output$Q2.5[1], output_2$Q2.5[1] - 1, tolerance = 0.01)
-  expect_equal(output$Q97.5[1], output_2$Q97.5[1] - 1, tolerance = 0.01)
+  expect_s3_class(output_2, "data.frame")
+  expect_equal(dim(output_2), c(2, 4))
+  expect_equal(output_2$Qz, c("1", "2"))
+  expect_equal(output_2$Q50, output_1$Q50 - 1, tolerance = 0.001)
+  expect_equal(output_2$Q2.5, output_1$Q2.5 - 1, tolerance = 0.001)
+  expect_equal(output_2$Q97.5, output_1$Q97.5 - 1, tolerance = 0.001)
 })
 
 test_that("when by_group = TRUE, group_var is provided and posterior = TRUE, you get a long data frame", {
   output <- ecx(model_1, x_var = "x", by_group = TRUE, group_var = "x", posterior = TRUE)
 
   expect_s3_class(output, "data.frame")
-  expect_equal(dim(output), c(750, 2))
+  expect_equal(dim(output), c(3750, 2))
   expect_equal(
     attributes(output),
     list(
       class = c("tbl_df", "tbl", "data.frame"),
-      row.names = 1:750,
+      row.names = 1:3750,
       names = c("x", "ECx"),
+      resolution = 1000,
+      ecx_val = 10,
+      toxicity_estimate = "ecx"
+    )
+  )
+})
+
+test_that("when by_group = TRUE, group_var is provided and posterior = TRUE, you get a long data frame by groups", {
+  output <- ecx(model_2, x_var = "x", by_group = TRUE, group_var = "z", posterior = TRUE)
+
+  expect_s3_class(output, "data.frame")
+  expect_equal(dim(output), c(1500, 2))
+  expect_equal(output$z, rep(c("1", "2"), length.out = 1500))
+  expect_equal(
+    attributes(output),
+    list(
+      class = c("tbl_df", "tbl", "data.frame"),
+      row.names = 1:1500,
+      names = c("z", "ECx"),
       resolution = 1000,
       ecx_val = 10,
       toxicity_estimate = "ecx"
@@ -500,7 +574,7 @@ test_that("when by_group = FALSE, group_var is provided and posterior = TRUE", {
   output <- ecx(model_1, x_var = "x", by_group = FALSE, group_var = "x", posterior = TRUE)
 
   expect_type(output, "double")
-  expect_length(output, 750)
+  expect_length(output, 3750)
   expect_equal(
     attributes(output),
     list(
@@ -511,19 +585,17 @@ test_that("when by_group = FALSE, group_var is provided and posterior = TRUE", {
   )
 })
 
-object <- model_1
-x_var <- "x"
+test_that("by_group = FALSE, group_var is provided and posterior = TRUE and there is additional predictors", {
+  output <- ecx(model_2, x_var = "x", by_group = FALSE, group_var = "z", posterior = TRUE)
 
-x_range <- range(object$data[x_var])
-x_vec <- seq(min(x_range), max(x_range), length=10)
-
-pred_dat <- data.frame(x_vec)
-names(pred_dat) <- x_var
-
-p_samples <- posterior_epred(object, newdata = pred_dat, re_formula = NA)
-
-if (class(p_samples)[1] == "try-error"){
-  stop(paste(attributes(p_samples)$condition, "Do you need to specify a group_var variable?", sep=""))
-}
-
-
+  expect_type(output, "double")
+  expect_length(output, 1500)
+  expect_equal(
+    attributes(output),
+    list(
+      resolution = 1000,
+      ecx_val = 10,
+      toxicity_estimate = "ecx"
+    )
+  )
+})
