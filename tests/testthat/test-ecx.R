@@ -599,3 +599,221 @@ test_that("by_group = FALSE, group_var is provided and posterior = TRUE and ther
     )
   )
 })
+
+# bnecfit -----------------------------------------------------------------
+
+test_that("bnecfit works with default parameters", {
+  output <- ecx(bnec_model_1)
+
+  expect_type(output, "double")
+  expect_length(output, 3)
+  expect_equal(output[[1]], 0.9356, tolerance = 0.001)
+  expect_equal(output[[2]], 0.6980, tolerance = 0.001)
+  expect_equal(output[[3]], 1.0337, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      dim = c(3, 1),
+      dimnames = list(
+        c("50%", "2.5%", "97.5%"),
+        "10"
+      ),
+      control_value = 0.779768729,
+      reference = c("10" = 0.7017919),
+      resolution = 100
+    ),
+    tolerance = 0.001
+  )
+})
+
+# TODO not sure how to use the hormesis_def = max argument, causes error unsure if its an issue with the data or the model code
+test_that("bnecfit checking hormesis_def = max", {
+  output <- ecx(bnec_model_1, hormesis_def = "max")
+
+  expect_type(output, "double")
+  expect_length(output, 3)
+  expect_equal(output[[1]], 0.9356, tolerance = 0.001)
+  expect_equal(output[[2]], 0.6980, tolerance = 0.001)
+  expect_equal(output[[3]], 1.0337, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      dim = c(3, 1),
+      dimnames = list(
+        c("50%", "2.5%", "97.5%"),
+        "10"
+      ),
+      control_value = 0.779768729,
+      reference = c("10" = 0.7017919),
+      resolution = 100
+    ),
+    tolerance = 0.001
+  )
+})
+
+test_that("bnecfit checking type = relative", {
+  output <- ecx(bnec_model_1, type = "relative")
+
+  expect_equal(output[[1]], 0.9019, tolerance = 0.001)
+  expect_equal(output[[2]], 0.6934, tolerance = 0.001)
+  expect_equal(output[[3]], 1.0227, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      dim = c(3, 1),
+      dimnames = list(
+        c("50%", "2.5%", "97.5%"),
+        "10"
+      ),
+      control_value = 0.7998,
+      reference = c("10" = 0.75071),
+      resolution = 100
+    ),
+    tolerance = 0.001
+  )
+})
+
+test_that("bnecfit checking type = direct", {
+  output <- ecx(bnec_model_1, type = "direct")
+
+  expect_equal(output[[1]], 0.9112, tolerance = 0.001)
+  expect_equal(output[[2]], 0.7184, tolerance = 0.001)
+  expect_equal(output[[3]], 1.0282, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      dim = c(3, 1),
+      dimnames = list(
+        c("50%", "2.5%", "97.5%"),
+        "10"
+      ),
+      control_value = 0.7998,
+      reference = c("10" = 0.7198),
+      resolution = 100
+    ),
+    tolerance = 0.001
+  )
+})
+
+test_that("bnecfit checking posterior = TRUE", {
+  output <- ecx(bnec_model_1, posterior = TRUE)
+
+  expect_equal(output[[1]], 0.8801, tolerance = 0.001)
+  expect_equal(output[[4000]], 0.8928, tolerance = 0.001)
+  expect_equal(output[[8000]], 0.6844, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      dim = c(8000, 1),
+      dimnames = list(
+        NULL,
+        "10"
+      ),
+      control_value = 0.7998,
+      reference = c("10" = 0.7198466),
+      resolution = 100
+    ),
+    tolerance = 0.001
+  )
+})
+
+test_that("bnecfit checking ecx_val changes", {
+  output <- ecx(bnec_model_1, ecx_val = 50)
+
+  expect_equal(output[[1]], 0.9937, tolerance = 0.001)
+  expect_equal(output[[2]], 0.9208, tolerance = 0.001)
+  expect_equal(output[[3]], 1.0448, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      dim = c(3, 1),
+      dimnames = list(
+        c("50%", "2.5%", "97.5%"),
+        "50"
+      ),
+      control_value = 0.7998,
+      reference = c("50" = 0.3999),
+      resolution = 100
+    ),
+    tolerance = 0.001
+  )
+})
+
+test_that("bnecfit checking resolution changes", {
+  output <- ecx(bnec_model_1, resolution = 2)
+
+  expect_equal(output[[1]], 0.6021, tolerance = 0.001)
+  expect_equal(output[[2]], 0.5114, tolerance = 0.001)
+  expect_equal(output[[3]], 0.7405, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      dim = c(3, 1),
+      dimnames = list(
+        c("50%", "2.5%", "97.5%"),
+        "10"
+      ),
+      control_value = 0.7998,
+      reference = c("10" = 0.7198),
+      resolution = 2
+    ),
+    tolerance = 0.001
+  )
+})
+
+test_that("bnecfit checking x_range", {
+  output <- ecx(bnec_model_1, x_range = c(2, 5))
+
+  expect_equal(output[[1]], 2.5275, tolerance = 0.001)
+  expect_equal(output[[2]], 2.0251, tolerance = 0.001)
+  expect_equal(output[[3]], 4.2875, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      dim = c(3, 1),
+      dimnames = list(
+        c("50%", "2.5%", "97.5%"),
+        "10"
+      ),
+      control_value = 0.2089,
+      reference = c("10" = 0.1880),
+      resolution = 100
+    ),
+    tolerance = 0.001
+  )
+})
+
+
+### curently working here
+test_that("bnecfit checking xform is applied", {
+  output <- ecx(bnec_model_1, xform = function(x) x - 1)
+
+
+
+  expect_equal(output[[1]], 2.5275, tolerance = 0.001)
+  expect_equal(output[[2]], 2.0251, tolerance = 0.001)
+  expect_equal(output[[3]], 4.2875, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      dim = c(3, 1),
+      dimnames = list(
+        c("50%", "2.5%", "97.5%"),
+        "10"
+      ),
+      control_value = 0.2089,
+      reference = c("10" = 0.1880),
+      resolution = 100
+    ),
+    tolerance = 0.001
+  )
+})
+
+
+
+
+output_1 <- ecx(bnec_model_1, ecx_val = c(10, 50))
+output_2 <- ecx(bnec_model_1, ecx_val = c(50))
+
+
+output <- ecx(bnec_model_1, hormesis_def = "max")
