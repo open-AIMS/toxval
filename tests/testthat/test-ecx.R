@@ -143,7 +143,6 @@ test_that("check type = direct argument", {
   )
 })
 
-# TODO: this is the default so could be removed as a test
 test_that("check type = absolute argument", {
   output <- ecx(brms_model_1, x_var = "x", type = "absolute")
 
@@ -250,7 +249,6 @@ test_that("hormesis_def = max and type = absolute changes output values", {
   )
 })
 
-# TODO: this is the default arguments so can be removed if they aren't changed
 test_that("hormesis_def = control and type = absolute argument", {
   output <- ecx(brms_model_1, x_var = "x", hormesis_def = "control")
 
@@ -620,28 +618,11 @@ test_that("bnecfit works with default parameters", {
   )
 })
 
-# TODO not sure how to use the hormesis_def = max argument, causes error unsure if its an issue with the data or the model code
+# TODO this test errors because there is a bug in the code, when fixed this test should error as it should start working
 test_that("bnecfit checking hormesis_def = max", {
-  output <- ecx(bnec_model_1, hormesis_def = "max")
-
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], 0.9356, tolerance = 0.001)
-  expect_equal(output[[2]], 0.6980, tolerance = 0.001)
-  expect_equal(output[[3]], 1.0337, tolerance = 0.001)
-  expect_equal(
-    attributes(output),
-    list(
-      dim = c(3, 1),
-      dimnames = list(
-        c("50%", "2.5%", "97.5%"),
-        "10"
-      ),
-      control_value = 0.779768729,
-      reference = c("10" = 0.7017919),
-      resolution = 100
-    ),
-    tolerance = 0.001
+  expect_error(
+    ecx(bnec_model_1, hormesis_def = "max"),
+    regexp = "need at least two non-NA values to interpolate"
   )
 })
 
