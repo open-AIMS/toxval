@@ -81,4 +81,18 @@ output_1 <- ecx(bnec_model_1, hormesis_def = "max")
 output_2 <- ecx(bnec_model_2, hormesis_def = "max")
 output_3 <- ecx(bnec_model_3, hormesis_def = "max")
 
+ecx(bnec_model_3, hormesis_def = "max")
+output_3 <- ecx(bnec_model_3)
+
+
+# nsec bayesnec -------------------------------------------------------------
+
+bayesnec_nec4param <- bayesnec::pull_out(bayesnec::manec_example, model = "nec4param")
+
+usethis::use_data(bayesnec_nec4param, overwrite = TRUE)
+
+
+bayesnec_ecx4param <- bayesnec::pull_out(bayesnec::manec_example, model = "ecx4param")
+
+usethis::use_data(bayesnec_ecx4param, overwrite = TRUE)
 
