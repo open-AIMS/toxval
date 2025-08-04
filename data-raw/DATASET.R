@@ -96,3 +96,30 @@ bayesnec_ecx4param <- bayesnec::pull_out(bayesnec::manec_example, model = "ecx4p
 
 usethis::use_data(bayesnec_ecx4param, overwrite = TRUE)
 
+# nsec drc ----------------------------------------------------------------
+
+nsec_drc_1 <- drc::drm(y ~ x, data = bayesnec::nec_data, fct = drc::LL.4())
+usethis::use_data(nsec_drc_1, overwrite = TRUE)
+
+# increasing drc model
+data <- data.frame(
+  x = c(1.05, 1.0, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5),
+  y = c(1.2, 1.1, 0.8, 0.92, 0.7, 0.4, 0.3, 0.2)
+)
+
+nsec_drc_2 <- drc::drm(y ~ x, data = data, fct = drc::LL.3())
+usethis::use_data(nsec_drc_2, overwrite = TRUE)
+
+
+
+# TODO ask becky about how grouping works in drc
+
+data <- data.frame(
+  x = c(1.05, 1.0, 0.95, 0.9, 0.8, 0.7, 0.6, 0.5),
+  y = c(1.2, 1.1, 0.8, 0.92, 0.7, 0.4, 0.3, 0.2),
+  z = c(1, 1, 1, 1, 2, 2, 2, 2)
+)
+
+drc::drm(y ~ x, curveid = c(1, 1, 1, 1, 2, 2, 2, 2), data = data, fct = drc::LL.3())
+drc::drm(y ~ x, curveid = z, data = data, fct = drc::LL.3())
+
