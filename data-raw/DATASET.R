@@ -123,3 +123,74 @@ data <- data.frame(
 drc::drm(y ~ x, curveid = c(1, 1, 1, 1, 2, 2, 2, 2), data = data, fct = drc::LL.3())
 drc::drm(y ~ x, curveid = z, data = data, fct = drc::LL.3())
 
+# nsec_multi --------------------------------------------------------------
+
+data <- data.frame(
+  dose = c(0.001, 0.005, 0.01, 0.05, 0.09, 0.1, 0.5, 0.9, 1.0, 1.5),
+  survival = c(1, 1, 1, 1, 1, 1, 1, 0, 0, 0),
+  growth = c(1.23, 2.13, 1.05, 1.32, 2.4, 2.1, 0.55, 0.34, 0.56, 0.67)
+)
+
+surv_formula <- brms::bf(survival ~ dose, family = brms::bernoulli())
+growth_formula <- brms::bf(growth ~ dose)
+
+nsec_multi_model_1 <-
+  brms::brm(
+    surv_formula + growth_formula,
+    data = data,
+    chains = 4,
+    cores = 4,
+    iter = 2000,
+    seed = 123
+  )
+
+usethis::use_data(nsec_multi_model_1, overwrite = TRUE)
+
+
+
+data <- data.frame(
+  dose = c(0.001, 0.005, 0.01, 0.05, 0.09, 0.1, 0.5, 0.9, 1.0, 1.5),
+  sp_survival = c(1, 1, 1, 1, 1, 1, 1, 0, 0, 0),
+  sp_growth = c(1.23, 2.13, 1.05, 1.32, 2.4, 2.1, 0.55, 0.34, 0.56, 0.67)
+)
+
+surv_formula <- brms::bf(sp_survival ~ dose, family = brms::bernoulli())
+growth_formula <- brms::bf(sp_growth ~ dose)
+
+nsec_multi_model_2 <-
+  brms::brm(
+    surv_formula + growth_formula,
+    data = data,
+    chains = 4,
+    cores = 4,
+    iter = 2000,
+    seed = 123
+  )
+
+usethis::use_data(nsec_multi_model_2, overwrite = TRUE)
+
+
+
+
+
+data <- data.frame(
+  dose = c(0.001, 0.005, 0.01, 0.05, 0.09, 0.1, 0.5, 0.9, 1.0, 1.5),
+  trials = c(1, 1, 1, 1, 2, 2, 2, 2, 3, 3),
+  sp_survival = c(1, 1, 1, 1, 1, 1, 1, 0, 0, 0),
+  sp_growth = c(1.23, 2.13, 1.05, 1.32, 2.4, 2.1, 0.55, 0.34, 0.56, 0.67)
+)
+
+surv_formula <- brms::bf(sp_survival ~ dose, family = brms::bernoulli())
+growth_formula <- brms::bf(sp_growth ~ dose)
+
+nsec_multi_model_3 <-
+  brms::brm(
+    surv_formula + growth_formula,
+    data = data,
+    chains = 4,
+    cores = 4,
+    iter = 2000,
+    seed = 123
+  )
+
+
