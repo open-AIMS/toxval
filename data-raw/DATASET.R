@@ -16,7 +16,6 @@ brms_model_1 <-
     warmup = 250,
     seed = 101
   )
-
 usethis::use_data(brms_model_1, overwrite = TRUE)
 
 # this works for the grouping examples
@@ -35,8 +34,51 @@ brms_model_2 <-
     warmup = 250,
     seed = 101
   )
-
 usethis::use_data(brms_model_2, overwrite = TRUE)
+
+brms_model_3 <-
+  brms::brm(
+    y ~ s(x, bs = "cr", k = 5),
+    data = bayesnec::nec_data,
+    family = brms::Beta(),
+    seed = 123
+  )
+usethis::use_data(brms_model_3, overwrite = TRUE)
+
+
+data <- bayesnec::herbicide
+data$x <- log(data$concentration)
+data$y <- (data$fvfm + 0.001) * 0.999
+
+brms_fit_4 <-
+  bayesnec::bnec(
+    y ~ crf(x, model = "ecx4param"),
+    data = data,
+    family = brms::Beta(),
+    seed = 17,
+    iter = 1000
+  )
+
+brms_pull_4 <- bayesnec::pull_brmsfit(brms_fit_4)
+brms_prior_4 <- brms::prior_summary(brms_pull_4)
+
+brms_model_4 <-
+  brms::brm(
+    brms::bf(
+      y ~ top + (bot - top)/(1 + exp((ec50 - x) * exp(beta))),
+      top + bot + beta + ec50 ~ herbicide,
+      nl = TRUE
+    ),
+    data = data,
+    family = brms::Beta(),
+    prior = brms_prior_4,
+    iter = 1000,
+    save_pars = brms::save_pars(all = TRUE),
+    seed = 700,
+    init = 0
+  )
+
+usethis::use_data(brms_model_4, overwrite = TRUE)
 
 # bnecfit -----------------------------------------------------------------
 

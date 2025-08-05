@@ -141,6 +141,71 @@ test_that("works for bayesmanecfit", {
   expect_equal(names(nsec1), c("Q50", "Q2.5", "Q97.5"))
 })
 
+test_that("additional examples brms 1", {
+  output <- nsec(brms_model_3, x_var = "x")
+  expect_equal(as.numeric(output), c(0.2830449, 0.1391976, 1.3107842), tolerance = 0.000001)
+  expect_equal(
+    attributes(output),
+    list(
+      names = c("Q50", "Q2.5", "Q97.5"),
+      ecnsec_relativeP = c("50%" = 4.782721, "2.5%" = 3.066064, "97.5%" = 6.823001),
+      resolution = 1000,
+      sig_val = 0.01,
+      toxicity_estimate = "nsec"
+    ),
+    tolerance = 0.000001
+  )
+})
+
+test_that("additional examples brms 2", {
+  output <- nsec(brms_model_4, x_var = "x", by_group = TRUE, group_var = "herbicide")
+  expect_equal(names(output), c("Qherbicide", "Q50", "Q2.5", "Q97.5"))
+  expect_equal(
+    output$Q50,
+    c(-2.0726930, -1.8127665, -1.9068558, 1.2526309, -0.9203149, 1.3067134, 0.3225870),
+    tolerance = 0.0000001
+  )
+  expect_equal(
+    output$Q2.5,
+    c(-2.2466254, -2.1505210, -2.1856878, 0.1746885, -1.7169218, 0.2312798, -0.7213242),
+    tolerance = 0.0000001
+  )
+  expect_equal(
+    output$Q97.5,
+    c(-1.9186705, -1.5540898, -1.6648760, 1.7585068, -0.4966788, 1.9062046, 0.8107888),
+    tolerance = 0.0000001
+  )
+})
+
+test_that("additional examples brms 2", {
+  output <- nsec(brms_model_4, resolution = 10, x_var = "x", group_var = "herbicide")
+  expect_equal(as.numeric(output), c(-1.020142, -2.220515, 1.674024), tolerance = 0.0000001)
+  expect_equal(
+    attributes(output),
+    list(
+      names = c("Q50", "Q2.5", "Q97.5"),
+      ecnsec_relativeP = list(
+        irgarol = c("50%" = 3.3297024, "2.5%" = 0.5074581, "97.5%" = 6.0617602),
+        diuron = c("50%" = 2.9563255, "2.5%" = 0.5288021, "97.5%" = 5.3580609),
+        ametryn = c("50%" = 3.014667, "2.5%" = 0.454644, "97.5%" = 5.476075),
+        tebuthiuron = c("50%" = 1.8794826, "2.5%" = 0.3358907, "97.5%" = 3.3663824),
+        hexazinone = c("50%" = 2.7087672, "2.5%" = 0.3759961, "97.5%" = 4.8952374),
+        simazine = c("50%" = 3.1773465, "2.5%" = 0.5612286, "97.5%" = 5.7846814),
+        atrazine = c("50%" = 3.3593257, "2.5%" = 0.5548297, "97.5%" = 6.0530515)
+      ),
+      resolution = 10,
+      sig_val = 0.01,
+      toxicity_estimate = "nsec"
+    ),
+    tolerance = 0.0000001
+  )
+})
+
+
+
+
+
+
 test_that("nsec works for drc using continuous data", {
   model_LL4 <- drc::drm(y ~ x, data = bayesnec::nec_data, fct = drc::LL.4())
   nsec_val <- as.vector(round(nsec(model_LL4, x_var = "x"), 1))
@@ -162,6 +227,44 @@ test_that("nsec for drc returns an error for an nec model", {
 test_that("nsec for drc throws an error for an increasing function", {
   daphnids_m1 <- drc::drm(no / total ~ dose, weights = total, curveid = time, data = drc::daphnids, fct = drc::LL.2(), type = "binomial")
   expect_error(nsec(daphnids_m1, x_var = "dose"))
+})
+
+test_that("nsec drc additional example 1", {
+  data <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
+  data$concentration <- sqrt(data$concentration)
+  output_drc <-  drc::drm(fvfm ~ concentration, data = data, fct = drc::LL.3(names = c("Slope", "Upper Limit", "Midpoint")))
+  output <- nsec(output_drc, x_var = "concentration")
+
+  expect_equal(as.numeric(output), c(0.3851752, 0.3307462, 0.4231510), tolerance = 0.000001)
+  expect_equal(
+    attributes(output),
+    list(
+      ecnsec_relativeP = c("Prediction" = 2.0223202, "Lower" = 0.3312485, "Upper" = 3.6583762),
+      resolution = 1000,
+      sig_val = 0.01,
+      toxicity_estimate = "nsec"
+    ),
+    tolerance = 0.000001
+  )
+})
+
+test_that("nsec drc additional example 2", {
+  data <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
+  data$concentration <- sqrt(data$concentration)
+  output_drc <-  drc::drm(fvfm ~ concentration, data = data, fct = drc::LN.4(names = c("Slope", "Lower Limit", "Upper Limit", "Midpoint")))
+  output <- nsec(output_drc, x_var = "concentration")
+
+  expect_equal(as.numeric(output), c(0.4021498, 0.3389265, 0.4402086), tolerance = 0.000001)
+  expect_equal(
+    attributes(output),
+    list(
+      ecnsec_relativeP = c("Prediction" = 2.1212792, "Lower" = 0.3440486, "Upper" = 3.8753887),
+      resolution = 1000,
+      sig_val = 0.01,
+      toxicity_estimate = "nsec"
+    ),
+    tolerance = 0.000001
+  )
 })
 
 # brms --------------------------------------------------------------------

@@ -758,37 +758,20 @@ test_that("bnecfit checking x_range", {
   )
 })
 
+# more realistic examples -------------------------------------------------
 
-### curently working here
-test_that("bnecfit checking xform is applied", {
-  output <- ecx(bnec_model_1, xform = function(x) x - 1)
+test_that("brms additional example 1", {
+  output <- ecx(brms_model_3, x_var = "x", ecx_val = 50)
 
-
-
-  expect_equal(output[[1]], 2.5275, tolerance = 0.001)
-  expect_equal(output[[2]], 2.0251, tolerance = 0.001)
-  expect_equal(output[[3]], 4.2875, tolerance = 0.001)
+  expect_equal(as.numeric(output), c(2.009905, 1.966457, 2.055005), tolerance = 0.001)
   expect_equal(
     attributes(output),
     list(
-      dim = c(3, 1),
-      dimnames = list(
-        c("50%", "2.5%", "97.5%"),
-        "10"
-      ),
-      control_value = 0.2089,
-      reference = c("10" = 0.1880),
-      resolution = 100
+      names = c("Q50", "Q2.5", "Q97.5"),
+      resolution = 1000,
+      ecx_val = 50,
+      toxicity_estimate = "ecx"
     ),
     tolerance = 0.001
   )
 })
-
-
-
-
-output_1 <- ecx(bnec_model_1, ecx_val = c(10, 50))
-output_2 <- ecx(bnec_model_1, ecx_val = c(50))
-
-
-output <- ecx(bnec_model_1, hormesis_def = "max")
