@@ -16,7 +16,7 @@ brms_model_1 <-
     warmup = 250,
     seed = 101
   )
-usethis::use_data(brms_model_1, overwrite = TRUE)
+usethis::use_data(brms_model_1, overwrite = TRUE, internal = TRUE)
 
 # this works for the grouping examples
 data <- data.frame(
@@ -34,7 +34,7 @@ brms_model_2 <-
     warmup = 250,
     seed = 101
   )
-usethis::use_data(brms_model_2, overwrite = TRUE)
+usethis::use_data(brms_model_2, overwrite = TRUE, internal = TRUE)
 
 brms_model_3 <-
   brms::brm(
@@ -43,7 +43,7 @@ brms_model_3 <-
     family = brms::Beta(),
     seed = 123
   )
-usethis::use_data(brms_model_3, overwrite = TRUE)
+usethis::use_data(brms_model_3, overwrite = TRUE, internal = TRUE)
 
 
 data <- bayesnec::herbicide
@@ -78,7 +78,7 @@ brms_model_4 <-
     init = 0
   )
 
-usethis::use_data(brms_model_4, overwrite = TRUE)
+usethis::use_data(brms_model_4, overwrite = TRUE, internal = TRUE)
 
 # bnecfit -----------------------------------------------------------------
 
@@ -100,7 +100,7 @@ bnec_model_1 <-
 
 plot(bnec_model_1)
 
-usethis::use_data(bnec_model_1, overwrite = TRUE)
+usethis::use_data(bnec_model_1, overwrite = TRUE, internal = TRUE)
 
 
 bnec_model_2 <-
@@ -131,12 +131,12 @@ output_3 <- ecx(bnec_model_3)
 
 bayesnec_nec4param <- bayesnec::pull_out(bayesnec::manec_example, model = "nec4param")
 
-usethis::use_data(bayesnec_nec4param, overwrite = TRUE)
+usethis::use_data(bayesnec_nec4param, overwrite = TRUE, internal = TRUE)
 
 
 bayesnec_ecx4param <- bayesnec::pull_out(bayesnec::manec_example, model = "ecx4param")
 
-usethis::use_data(bayesnec_ecx4param, overwrite = TRUE)
+usethis::use_data(bayesnec_ecx4param, overwrite = TRUE, internal = TRUE)
 
 # nsec drc ----------------------------------------------------------------
 
@@ -150,7 +150,7 @@ data <- data.frame(
 )
 
 nsec_drc_2 <- drc::drm(y ~ x, data = data, fct = drc::LL.3())
-usethis::use_data(nsec_drc_2, overwrite = TRUE)
+usethis::use_data(nsec_drc_2, overwrite = TRUE, internal = TRUE)
 
 
 
@@ -186,7 +186,7 @@ nsec_multi_model_1 <-
     seed = 123
   )
 
-usethis::use_data(nsec_multi_model_1, overwrite = TRUE)
+usethis::use_data(nsec_multi_model_1, overwrite = TRUE, internal = TRUE)
 
 
 
@@ -209,7 +209,7 @@ nsec_multi_model_2 <-
     seed = 123
   )
 
-usethis::use_data(nsec_multi_model_2, overwrite = TRUE)
+usethis::use_data(nsec_multi_model_2, overwrite = TRUE, internal = TRUE)
 
 
 
