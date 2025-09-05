@@ -1,27 +1,39 @@
 Package: toxval
-Title: Functions for Extracting NSEC and ECx Values from fitted Frequentist and Bayesian Model Objects
+Title: Functions for Extracting NSEC and ECx Values from fitted
+    Frequentist and Bayesian Model Objects
 Version: 1.0.0
-Authors@R: c(person("Rebecca", "Fisher", email = "r.fisher@aims.gov.au", role = c("aut", "cre")), person("Diego","Barneche",role="aut"), person("Darren","Koppel",role="aut"), person("David","Fox",role="aut"))
-Description: This pacakge extracts NSEC or ECx estimates from supported fitted frequentist (drc) and Bayesian (bayesnec) model objects (see Fox (2010)<https://setac.onlinelibrary.wiley.com/doi/full/10.1002/etc.5610?af=R>). 
-Depends:
-    R (>= 4.1)
-Encoding: UTF-8
-RoxygenNote: 7.3.2
-Biarch: true
-Imports:
-    chk (>= 0.7.0),
-    dplyr,
-    brms,
-    bayesnec,
-    tidyr,
-    modelbased
-Suggests:
-    knitr,
-    rmarkdown,
-    testthat (>= 3.0.0)
-License: GPL-2
-VignetteBuilder: knitr
+Authors@R: c(
+    person("Rebecca", "Fisher", , "r.fisher@aims.gov.au", role = c("aut", "cre")),
+    person("Diego", "Barneche", role = "aut"),
+    person("Darren", "Koppel", role = "aut"),
+    person("David", "Fox", role = "aut"),
+    person("Ayla", "Pearson", , "ayla@poissonconsulting.ca", role = "aut",
+           comment = c(ORCID = "0000-0001-7388-1222"))
+  )
+Description: This pacakge extracts NSEC or ECx estimates from supported
+    fitted frequentist (drc) and Bayesian (bayesnec) model objects (see
+    Fox
+    (2010)<https://setac.onlinelibrary.wiley.com/doi/full/10.1002/etc.5610?af=R>).
+License: Apache License (== 2)
 URL: https://open-aims.github.io/toxval/
 BugReports: https://github.com/open-aims/toxval/issues
-Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 4.1)
+Imports:
+    bayesnec,
+    brms,
+    chk (>= 0.7.0),
+    dplyr,
+    modelbased,
+    tidyr
+Suggests:
+    BH,
+    drc,
+    rmarkdown,
+    testthat (>= 3.0.0)
+Biarch: true
 Config/testthat/edition: 3
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
