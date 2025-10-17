@@ -74,7 +74,8 @@ test_that("proper resolution values can be passed", {
     regexp = "`resolution` must be numeric"
   )
 
-  # TODO: Code in function needs to be updated to silence try error, once that is fixed this will error and need to be udpated
+  # TODO: Code in function needs to be updated to silence try error,
+  # once that is fixed this will error and need to be udpated
   # since try is not set to silent a message is also being output
   # the message is a special type so expect_message doesn't pick it up
   msg_output <- capture.output({
@@ -143,6 +144,30 @@ test_that("check type = direct argument", {
   )
 })
 
+# TODO: Code in function needs to be updated to provide warning if
+# upper limit is hitting upper bound (maybe) but definitely if the
+# lower bound and upper bound are identical as in the above example.
+# See below test
+# for more reasonable output for type = "direct" for brms_model_1
+test_that("check type = direct argument with in range value", {
+  output <- ecx(brms_model_1, x_var = "x", type = "direct", ecx_val = 0.5)
+
+  expect_type(output, "double")
+  expect_length(output, 3)
+  expect_equal(output[[1]], 0.960904, tolerance = 0.001)
+  expect_equal(output[[2]], 0.8500972, tolerance = 0.001)
+  expect_equal(output[[3]], 1.05, tolerance = 0.001)
+  expect_equal(
+    attributes(output),
+    list(
+      names = c("Q50", "Q2.5", "Q97.5"),
+      resolution = 1000,
+      ecx_val = 0.5,
+      toxicity_estimate = "ecx"
+    )
+  )
+})
+
 test_that("check type = absolute argument", {
   output <- ecx(brms_model_1, x_var = "x", type = "absolute")
 
@@ -158,6 +183,14 @@ test_that("check type = absolute argument", {
       toxicity_estimate = "ecx"
     )
   )
+})
+
+test_that("check type = relative and absolute arguments behave as expeceted", {
+  output1 <- ecx(brms_model_1, x_var = "x", type = "relative", ecx_val = 50)
+  output2 <- ecx(brms_model_1, x_var = "x", type = "absolute", ecx_val = 50)
+  expect_gt(output2[[1]], output1[[1]])
+  expect_equal(output1[[1]], 0.9165, tolerance = 0.001)
+  expect_equal(output2[[1]], 0.97195, tolerance = 0.001)
 })
 
 test_that("type = absolute and value passed to trigger NAN catch", {
@@ -232,6 +265,9 @@ test_that("type errors when wrong value passed", {
   )
 })
 
+# TODO error catch properly if more than one type, Perhaps use only
+# first value with a warning?
+
 test_that("hormesis_def = max and type = absolute changes output values", {
   output <- ecx(brms_model_1, x_var = "x", hormesis_def = "max")
 
@@ -283,6 +319,39 @@ test_that("hormesis_def = max and type = relative changes output values", {
   )
 })
 
+test_that("hormesis_def = max changes output values", {
+  output1 <- ecx(brms_model_5, x_var = "x", ecx_val = 50)
+  output2 <- ecx(brms_model_5, x_var = "x", hormesis_def = "max", ecx_val = 50)
+  expect_gt(output1[[1]], output2[[1]])
+  expect_equal(output1[[1]], 2.4497, tolerance = 0.001)
+  expect_equal(output2[[1]],  0.116, tolerance = 0.001)
+
+  expect_equal(
+    attributes(output1),
+    list(
+      names = c("Q50", "Q2.5", "Q97.5"),
+      resolution = 1000,
+      ecx_val = 50,
+      toxicity_estimate = "ecx"
+    )
+  )
+  expect_equal(
+    attributes(output2),
+    list(
+      names = c("Q50", "Q2.5", "Q97.5"),
+      resolution = 1000,
+      ecx_val = 50,
+      toxicity_estimate = "ecx"
+    )
+  )
+
+  # TODO the output for hormesis_def = "max" makes no sense.
+  # It should be ~2 for these data. When fixed expect this test to fail.
+  # Note it should  remain less than hormesis_def = "control" for this example
+  # so the expect_gt should still pass
+})
+
+
 test_that("hormesis_def errors wrong values passed", {
   expect_error(
     ecx(brms_model_1, x_var = "x", hormesis_def = c("max", "control")),
@@ -294,6 +363,8 @@ test_that("hormesis_def errors wrong values passed", {
     "type must be one of 'max' or 'control' \\(the default\\)"
   )
 })
+
+
 
 test_that("xform function is applied to the values", {
   output_1 <- ecx(brms_model_1, x_var = "x")
@@ -390,6 +461,8 @@ test_that("check prob_vals can have more then 3 values", {
 
 # BRMS specific tests -----------------------------------------------------
 
+# TODO I would like to make this in line with the revised
+# bayesnec methods that do allow this, so this test will fail eventually.
 test_that("can only pass a single exc_val argument", {
   expect_error(
     ecx(brms_model_1, x_var = "x", ecx_val = c(10, 50, 100)),
@@ -397,6 +470,9 @@ test_that("can only pass a single exc_val argument", {
   )
 })
 
+# TODO Not sure why this is specific to BRMS. Also - lodged issue to make
+# ecx_val a proportion not percentage. Many of these would need to be extrapolated
+# beyond the observed data and so should have a warning to pass an extended xrange.
 test_that("when type is not direct ecx_val has to between 1 and 99", {
   expect_length(ecx(brms_model_1, x_var = "x", type = "absolute", ecx_val = 2), 3)
   expect_length(ecx(brms_model_1, x_var = "x", type = "relative", ecx_val = 2), 3)
@@ -434,6 +510,7 @@ test_that("errors if x_var argument not provided", {
   )
 })
 
+# TODO Fix error message typo below "supplied"
 test_that("errors if x_var is not in the data set", {
   expect_error(
     ecx(brms_model_1, x_var = "z"),
@@ -498,6 +575,7 @@ test_that("by_group = FALSE, group_var is in the data, get vector with length of
 
 # TODO think this is wrong and you should be able to pass a range
 # all that happens is it takes the value and shoves it in as the output
+# Yes this is definitely wrong! It should take a range.
 test_that("x_range argument", {
   output <- ecx(brms_model_1, x_var = "x", x_range = 0.5)
 
@@ -525,6 +603,7 @@ test_that("when using grouping variable the xform function is applied", {
   expect_equal(output_2$Q97.5, output_1$Q97.5 - 1, tolerance = 0.001)
 })
 
+# TODO: this is interesting - we might want to add an error catch when group_var = x_var
 test_that("when by_group = TRUE, group_var is provided and posterior = TRUE, you get a long data frame", {
   output <- ecx(brms_model_1, x_var = "x", by_group = TRUE, group_var = "x", posterior = TRUE)
 
@@ -618,7 +697,8 @@ test_that("bnecfit works with default parameters", {
   )
 })
 
-# TODO this test errors because there is a bug in the code, when fixed this test should error as it should start working
+# TODO this test errors because there is a bug in the code, when fixed this test
+# should error as it should start working
 test_that("bnecfit checking hormesis_def = max", {
   expect_error(
     ecx(bnec_model_1, hormesis_def = "max"),
@@ -648,6 +728,8 @@ test_that("bnecfit checking type = relative", {
   )
 })
 
+# TODO This test is not returning what would be expected for the defaults at all.
+# I'm not even sure what it is returning, definitely broken.
 test_that("bnecfit checking type = direct", {
   output <- ecx(bnec_model_1, type = "direct")
 
@@ -668,6 +750,12 @@ test_that("bnecfit checking type = direct", {
     ),
     tolerance = 0.001
   )
+})
+
+test_that("bnecfit checking type = relative versus type = absolute behaves as expected", {
+  output1 <- ecx(bnec_model_1, type = "relative", ecx_val = 50)
+  output2 <- ecx(bnec_model_1, type = "absolute", ecx_val = 50)
+  expect_gt(output2[[1]], output1[[1]])
 })
 
 test_that("bnecfit checking posterior = TRUE", {
@@ -714,6 +802,15 @@ test_that("bnecfit checking ecx_val changes", {
   )
 })
 
+test_that("bnecfit checking ecx_val changes as expect", {
+  output1 <- ecx(bnec_model_1, ecx_val = 10)
+  output2 <- ecx(bnec_model_1, ecx_val = 40)
+  output3 <- ecx(bnec_model_1, ecx_val = 70)
+  expect_gt(output2[[1]], output1[[1]])
+  expect_gt(output3[[1]], output2[[1]])
+
+})
+
 test_that("bnecfit checking resolution changes", {
   output <- ecx(bnec_model_1, resolution = 2)
 
@@ -735,6 +832,8 @@ test_that("bnecfit checking resolution changes", {
     tolerance = 0.001
   )
 })
+
+# TODO, this output it weird, it doesn't make sense
 
 test_that("bnecfit checking x_range", {
   output <- ecx(bnec_model_1, x_range = c(2, 5))
@@ -758,6 +857,13 @@ test_that("bnecfit checking x_range", {
   )
 })
 
+test_that("bnecfit checking x_range behaves as expected for extrapolation", {
+  output1 <- ecx(bnec_model_1, ecx_val = 95)
+  output2 <- ecx(bnec_model_1, x_range = c(0.5, 5), ecx_val = 95)
+  expect_gt(output2[[3]], output1[[3]])
+})
+
+
 # more realistic examples -------------------------------------------------
 
 test_that("brms additional example 1", {
@@ -774,4 +880,29 @@ test_that("brms additional example 1", {
     ),
     tolerance = 0.001
   )
+})
+
+# TODO Again, need to align output to be consistent across all methods
+# also, type = "direct" is not returning expected.
+test_that("bayesmanecfit works", {
+  output <- ecx(bayesnec::manec_example)
+  expect_equal(as.numeric(output), c(1.491403, 1.058833, 1.562578), tolerance = 0.001)
+  output1 <- ecx(bayesnec::manec_example, type = "absolute", ecx_val = 50)
+  output2 <- ecx(bayesnec::manec_example, type = "relative", ecx_val = 50)
+  output3 <- ecx(bayesnec::manec_example, type = "direct", ecx_val = 50)
+  expect_equal(as.numeric(output1), c(1.673926, 1.609348, 1.754719), tolerance = 0.001)
+  expect_equal(as.numeric(output2), c(2.175785, 2.088265, 2.282329), tolerance = 0.001)
+  expect_equal(as.numeric(output3), c(1.4341787, 0.7174819, 1.5216707), tolerance = 0.001)
+
+})
+
+test_that("bayesnecfit works", {
+  output <- ecx(ecx4param)
+  expect_equal(as.numeric(output), c(1.0117369, 0.6848611, 1.1877574), tolerance = 0.001)
+  output1 <- ecx(ecx4param, type = "absolute", ecx_val = 50)
+  output2 <- ecx(ecx4param, type = "relative", ecx_val = 50)
+  output3 <- ecx(ecx4param, type = "direct", ecx_val = 50)
+  expect_equal(as.numeric(output1), c(1.663958, 1.593493, 1.757886), tolerance = 0.001)
+  expect_equal(as.numeric(output2), c(2.285408, 2.200791, 2.363106), tolerance = 0.001)
+  expect_equal(as.numeric(output3), c(1.663958, 1.593493, 1.757886), tolerance = 0.001)
 })
