@@ -80,6 +80,17 @@ brms_model_4 <-
 
 usethis::use_data(brms_model_4, overwrite = TRUE, internal = TRUE)
 
+set.seed(123)
+nec_dat_horme <- bayesnec::nec_data |>
+  dplyr::mutate(y=(y+exp(-((x - 1.2)^2) / 0.3) + rnorm(length(x), mean = 0, sd = 0.05)))
+brms_model_5 <-
+  brms::brm(
+    y ~ s(x, bs = "cr", k = 3),
+    data = nec_dat_horme,
+    seed = 123
+  )
+usethis::use_data(brms_model_5, overwrite = TRUE, internal = TRUE)
+
 # bnecfit -----------------------------------------------------------------
 
 data <- data.frame(
