@@ -20,7 +20,6 @@
 
 # RStudio files
 .Rproj.user/
-toxval.Rproj
 
 # produced vignettes
 vignettes/*.html

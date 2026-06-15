@@ -42,6 +42,17 @@ For the theoretical basis of the NSEC, see [Fisher & Fox
 across smooth and threshold model classes, see [Fisher et al.
 (2024)](https://academic.oup.com/ieam/article/20/1/279/7725045).
 
+## Installation
+
+The current development version can be installed from GitHub via
+
+```{r eval=FALSE}
+if (!requireNamespace("remotes")) {
+  install.packages("remotes")
+}
+remotes::install_github("open-aims/bayesnec", ref = "dev")
+```
+
 ## Motivation
 
 Contemporary ecotoxicology increasingly relies on model-based inference to
