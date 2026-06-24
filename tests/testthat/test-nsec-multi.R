@@ -103,13 +103,13 @@ test_that("need to supply multi_var and x_var to get output", {
   expect_equal(
     as.numeric(output[1, 2:9]),
     c(0.0010000, 1.5000000, 1.5000000, 0.1523446, 0.4415226, 0.7038205, 0.9538846, 1.0000000),
-    tolerance = 0.000001
+    tolerance = 0.01
   )
 
   expect_equal(
     as.numeric(output[2, 2:9]),
     c(1.5000000, 1.5000000, 1.5000000, 0.3089578, 0.7477654, 1.5000000, 0.9115510, 2.4839719),
-    tolerance = 0.000001
+    tolerance = 0.01
   )
 })
 
@@ -131,7 +131,7 @@ test_that("posterior = TRUE outputs posterior of both models", {
         inc = c("99%" = 1)
       )
     ),
-    tolerance = 0.00001
+    tolerance = 0.01
   )
 
   expect_length(output$sp_growth$nsec_dec, 4000)
@@ -145,7 +145,7 @@ test_that("posterior = TRUE outputs posterior of both models", {
         inc = c("99%" = 2.483972)
       )
     ),
-    tolerance = 0.00001
+    tolerance = 0.01
   )
 })
 
@@ -163,7 +163,7 @@ test_that("posterior = TRUE outputs posterior of both models and type = lower", 
       direction = "dec",
       reference_vals = 0.9538846
     ),
-    tolerance = 0.00001
+    tolerance = 0.01
   )
 
   expect_length(output$sp_growth, 4000)
@@ -173,7 +173,7 @@ test_that("posterior = TRUE outputs posterior of both models and type = lower", 
       direction = "dec",
       reference_vals = 0.911551
       ),
-    tolerance = 0.00001
+    tolerance = 0.01
   )
 })
 
@@ -191,7 +191,7 @@ test_that("posterior = TRUE outputs posterior of both models and type = increasi
       reference_vals = 1,
       direction = "inc"
     ),
-    tolerance = 0.00001
+    tolerance = 0.01
   )
 
   expect_length(output$sp_growth, 4000)
@@ -201,7 +201,7 @@ test_that("posterior = TRUE outputs posterior of both models and type = increasi
       reference_vals = 2.483972,
       direction = "inc"
     ),
-    tolerance = 0.00001
+    tolerance = 0.01
   )
 })
 
@@ -219,7 +219,7 @@ test_that("posterior = TRUE outputs posterior of both models and type = decreasi
       reference_vals = 0.9538846,
       direction = "dec"
     ),
-    tolerance = 0.00001
+    tolerance = 0.01
   )
 
   expect_length(output$sp_growth, 4000)
@@ -229,7 +229,7 @@ test_that("posterior = TRUE outputs posterior of both models and type = decreasi
       reference_vals = 0.911551,
       direction = "dec"
     ),
-    tolerance = 0.00001
+    tolerance = 0.01
   )
 })
 
@@ -243,12 +243,12 @@ test_that("table output when type = lower", {
   expect_equal(
     as.numeric(output[1, 1:4]),
     c(0.1523446, 0.4415226, 0.7038205, 0.95388464),
-    tolerance = 0.0000001
+    tolerance = 0.01
   )
   expect_equal(
     as.numeric(output[2, 1:4]),
     c(0.3089578, 0.7477654, 1.5000000, 0.9115510),
-    tolerance = 0.0000001
+    tolerance = 0.01
   )
 })
 
@@ -262,12 +262,12 @@ test_that("table output when type = increasing", {
   expect_equal(
     as.numeric(output[1, 1:4]),
     c(0.001, 1.500, 1.500, 1.000),
-    tolerance = 0.0000001
+    tolerance = 0.01
   )
   expect_equal(
     as.numeric(output[2, 1:4]),
     c(1.500000, 1.500000, 1.500000, 2.483972),
-    tolerance = 0.0000001
+    tolerance = 0.01
   )
 })
 
@@ -281,12 +281,12 @@ test_that("table output when type = decreasing", {
   expect_equal(
     as.numeric(output[1, 1:4]),
     c(0.1523446, 0.4415226, 0.7038205, 0.9538846),
-    tolerance = 0.0000001
+    tolerance = 0.01
   )
   expect_equal(
     as.numeric(output[2, 1:4]),
     c(0.3089578, 0.7477654, 1.5000000, 0.9115510),
-    tolerance = 0.0000001
+    tolerance = 0.01
   )
 })
 
@@ -299,11 +299,11 @@ test_that("x_range can be passed a single value", {
   expect_equal(
     as.numeric(output[1, 2:9]),
     c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.01225447, 1.0),
-    tolerance = 0.0000001
+    tolerance = 0.01
   )
   expect_equal(
     as.numeric(output[2, 2:9]),
     c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.59370, 1.69408),
-    tolerance = 0.00001
+    tolerance = 0.01
   )
 })

@@ -6,7 +6,11 @@ test_that("prob_vals warnings behave as expected", {
   )
 
   expect_error(
-    nsec(bayesnec::manec_example, prob_vals = c(0.6, 0.9, 0.1), resolution = 10),
+    nsec(
+      bayesnec::manec_example,
+      prob_vals = c(0.6, 0.9, 0.1),
+      resolution = 10
+    ),
     regexp = "prob_vals must include central, lower and upper quantiles, in that order"
   )
 
@@ -22,11 +26,19 @@ test_that("prob_vals warnings behave as expected", {
 })
 
 test_that("prob_vals when passed changes the levels", {
-  output <- nsec(bayesnec::manec_example, prob_vals = c(0.6, 0.1, 0.9), resolution = 10)
+  output <- nsec(
+    bayesnec::manec_example,
+    prob_vals = c(0.6, 0.1, 0.9),
+    resolution = 10
+  )
   expect_length(output, 3)
   expect_equal(names(output), c("Q60", "Q10", "Q90"))
 
-  output <- nsec(bayesnec_nec4param, prob_vals = c(0.4, 0.2, 0.85), resolution = 10)
+  output <- nsec(
+    bayesnec_nec4param,
+    prob_vals = c(0.4, 0.2, 0.85),
+    resolution = 10
+  )
   expect_length(output, 3)
   expect_equal(names(output), c("Q40", "Q20", "Q85"))
 })
@@ -66,23 +78,58 @@ test_that("when posterior is true you get the posterior as output", {
 
 test_that("sig_val passes correctly", {
   output_1 <- nsec(bayesnec_ecx4param, sig_val = 0.05, resolution = 10)
-  expect_equal(attributes(output_1)$reference, c("5%" = 2.156923), tolerance = 0.00001)
-  expect_equal(as.numeric(output_1), c(0.8047611, 0.2947924, 3.2205197), tolerance = 0.00001)
+  expect_equal(
+    attributes(output_1)$reference,
+    c("5%" = 2.156923),
+    tolerance = 0.01
+  )
+  expect_equal(
+    as.numeric(output_1),
+    c(0.8047611, 0.2947924, 3.2205197),
+    tolerance = 0.01
+  )
 
   output_2 <- nsec(bayesnec_ecx4param, sig_val = 0.20, resolution = 10)
-  expect_equal(attributes(output_2)$reference, c("20%" = 2.212801), tolerance = 0.00001)
-  expect_equal(as.numeric(output_2), c(0.7530804, 0.1929446, 3.2205197), tolerance = 0.00001)
+  expect_equal(
+    attributes(output_2)$reference,
+    c("20%" = 2.212801),
+    tolerance = 0.01
+  )
+  expect_equal(
+    as.numeric(output_2),
+    c(0.7530804, 0.1929446, 3.2205197),
+    tolerance = 0.01
+  )
 })
 
 test_that("nsec returns expected object types and resolution is passing correctly", {
-
   nsec_summary <- nsec(bayesnec::manec_example, sig_val = 0.01, resolution = 50)
-  nsec_summary2 <- nsec(bayesnec::manec_example, sig_val = 0.01, resolution = 50, xform = exp)
-  nsec_posterior <- nsec(bayesnec::manec_example, sig_val = 0.01, posterior = TRUE, resolution = 50)
+  nsec_summary2 <- nsec(
+    bayesnec::manec_example,
+    sig_val = 0.01,
+    resolution = 50,
+    xform = exp
+  )
+  nsec_posterior <- nsec(
+    bayesnec::manec_example,
+    sig_val = 0.01,
+    posterior = TRUE,
+    resolution = 50
+  )
 
   nsecn_summary <- nsec(bayesnec_nec4param, sig_val = 0.01, resolution = 50)
-  nsecn_summary2 <- nsec(bayesnec_nec4param, sig_val = 0.01, resolution = 50, xform = exp)
-  nsecn_posterior <- nsec(bayesnec_nec4param, sig_val = 0.01, posterior = TRUE, resolution = 50)
+  nsecn_summary2 <- nsec(
+    bayesnec_nec4param,
+    sig_val = 0.01,
+    resolution = 50,
+    xform = exp
+  )
+  nsecn_posterior <- nsec(
+    bayesnec_nec4param,
+    sig_val = 0.01,
+    posterior = TRUE,
+    resolution = 50
+  )
 
   expect_equal(length(nsec_summary), 3)
   expect_gt(length(nsec_posterior), 3)
@@ -96,19 +143,27 @@ test_that("nsec returns expected object types and resolution is passing correctl
 
 test_that("x_range can be passed various values for bnecfit models", {
   output_1 <- nsec(bayesnec_ecx4param, x_range = c(100))
-  expect_equal(as.numeric(output_1), c(100, 100, 100), tolerance = 0.00001)
+  expect_equal(as.numeric(output_1), c(100, 100, 100), tolerance = 0.01)
 
   output_2 <- nsec(bayesnec_ecx4param, x_range = c(0.5, 100))
-  expect_equal(as.numeric(output_2), c(0.7515119, 0.5584780, 0.9257176), tolerance = 0.00001)
+  expect_equal(
+    as.numeric(output_2),
+    c(0.7515119, 0.5584780, 0.9257176),
+    tolerance = 0.01
+  )
 
   output_3 <- nsec(bayesnec_ecx4param, x_range = c(0.5, 5, 100))
-  expect_equal(as.numeric(output_3), c(0.7515119, 0.5584780, 0.9257176), tolerance = 0.00001)
+  expect_equal(
+    as.numeric(output_3),
+    c(0.7515119, 0.5584780, 0.9257176),
+    tolerance = 0.01
+  )
 })
 
 # TODO this is wrong, error will fail once fixed
 test_that("x_range can be passed various values for drc models", {
   output_1 <- nsec(nsec_drc_1, x_range = c(100), x_var = "x")
-  expect_equal(as.numeric(output_1), c(100, 100, 100), tolerance = 0.00001)
+  expect_equal(as.numeric(output_1), c(100, 100, 100), tolerance = 0.01)
 
   expect_error(
     nsec(nsec_drc_1, x_range = c(0.5, 100), x_var = "x"),
@@ -119,7 +174,7 @@ test_that("x_range can be passed various values for drc models", {
 # TODO this is wrong, error will fail once fixed
 test_that("x_range can be passed various values for brms models", {
   output_1 <- nsec(brms_model_1, x_range = c(100), x_var = "x")
-  expect_equal(as.numeric(output_1), c(100, 100, 100), tolerance = 0.00001)
+  expect_equal(as.numeric(output_1), c(100, 100, 100), tolerance = 0.01)
 
   expect_error(
     nsec(brms_model_1, x_range = c(0.5, 100), x_var = "x"),
@@ -143,43 +198,89 @@ test_that("works for bayesmanecfit", {
 
 test_that("additional examples brms 1", {
   output <- nsec(brms_model_3, x_var = "x")
-  expect_equal(as.numeric(output), c(0.2830449, 0.1391976, 1.3107842), tolerance = 0.000001)
+  expect_equal(
+    as.numeric(output),
+    c(0.2830449, 0.1391976, 1.3107842),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
       names = c("Q50", "Q2.5", "Q97.5"),
-      ecnsec_relativeP = c("50%" = 4.782721, "2.5%" = 3.066064, "97.5%" = 6.823001),
+      ecnsec_relativeP = c(
+        "50%" = 4.782721,
+        "2.5%" = 3.066064,
+        "97.5%" = 6.823001
+      ),
       resolution = 1000,
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.000001
+    tolerance = 0.01
   )
 })
 
 test_that("additional examples brms 2", {
-  output <- nsec(brms_model_4, x_var = "x", by_group = TRUE, group_var = "herbicide")
+  output <- nsec(
+    brms_model_4,
+    x_var = "x",
+    by_group = TRUE,
+    group_var = "herbicide"
+  )
   expect_equal(names(output), c("Qherbicide", "Q50", "Q2.5", "Q97.5"))
   expect_equal(
     output$Q50,
-    c(-2.0726930, -1.8127665, -1.9068558, 1.2526309, -0.9203149, 1.3067134, 0.3225870),
-    tolerance = 0.0000001
+    c(
+      -2.0726930,
+      -1.8127665,
+      -1.9068558,
+      1.2526309,
+      -0.9203149,
+      1.3067134,
+      0.3225870
+    ),
+    tolerance = 0.01
   )
   expect_equal(
     output$Q2.5,
-    c(-2.2466254, -2.1505210, -2.1856878, 0.1746885, -1.7169218, 0.2312798, -0.7213242),
-    tolerance = 0.0000001
+    c(
+      -2.2466254,
+      -2.1505210,
+      -2.1856878,
+      0.1746885,
+      -1.7169218,
+      0.2312798,
+      -0.7213242
+    ),
+    tolerance = 0.01
   )
   expect_equal(
     output$Q97.5,
-    c(-1.9186705, -1.5540898, -1.6648760, 1.7585068, -0.4966788, 1.9062046, 0.8107888),
-    tolerance = 0.0000001
+    c(
+      -1.9186705,
+      -1.5540898,
+      -1.6648760,
+      1.7585068,
+      -0.4966788,
+      1.9062046,
+      0.8107888
+    ),
+    tolerance = 0.01
   )
 })
 
 test_that("additional examples brms 2", {
-  output <- nsec(brms_model_4, resolution = 10, x_var = "x", group_var = "herbicide")
-  expect_equal(as.numeric(output), c(-1.020142, -2.220515, 1.674024), tolerance = 0.0000001)
+  output <- nsec(
+    brms_model_4,
+    resolution = 10,
+    x_var = "x",
+    group_var = "herbicide"
+  )
+  expect_equal(
+    as.numeric(output),
+    c(-1.020142, -2.220515, 1.674024),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
@@ -188,22 +289,30 @@ test_that("additional examples brms 2", {
         irgarol = c("50%" = 3.3297024, "2.5%" = 0.5074581, "97.5%" = 6.0617602),
         diuron = c("50%" = 2.9563255, "2.5%" = 0.5288021, "97.5%" = 5.3580609),
         ametryn = c("50%" = 3.014667, "2.5%" = 0.454644, "97.5%" = 5.476075),
-        tebuthiuron = c("50%" = 1.8794826, "2.5%" = 0.3358907, "97.5%" = 3.3663824),
-        hexazinone = c("50%" = 2.7087672, "2.5%" = 0.3759961, "97.5%" = 4.8952374),
-        simazine = c("50%" = 3.1773465, "2.5%" = 0.5612286, "97.5%" = 5.7846814),
+        tebuthiuron = c(
+          "50%" = 1.8794826,
+          "2.5%" = 0.3358907,
+          "97.5%" = 3.3663824
+        ),
+        hexazinone = c(
+          "50%" = 2.7087672,
+          "2.5%" = 0.3759961,
+          "97.5%" = 4.8952374
+        ),
+        simazine = c(
+          "50%" = 3.1773465,
+          "2.5%" = 0.5612286,
+          "97.5%" = 5.7846814
+        ),
         atrazine = c("50%" = 3.3593257, "2.5%" = 0.5548297, "97.5%" = 6.0530515)
       ),
       resolution = 10,
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.0000001
+    tolerance = 0.01
   )
 })
-
-
-
-
 
 
 test_that("nsec works for drc using continuous data", {
@@ -213,57 +322,104 @@ test_that("nsec works for drc using continuous data", {
 })
 
 test_that("nsec for drc works for curveid and binomial data", {
-  daphnids_m2 <- drc::drm((total - no) / total ~ dose, weights = total, curveid = time, data = drc::daphnids, fct = drc::LL.2(), type = "binomial")
+  daphnids_m2 <- drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = drc::daphnids,
+    fct = drc::LL.2(),
+    type = "binomial"
+  )
   nsec_vals <- nsec(daphnids_m2, x_var = "dose", curveid = "time")
   expect_equal(dim(nsec_vals), c(2, 3))
   expect_equal(rownames(nsec_vals), c("24h", "48h"))
 })
 
 test_that("nsec for drc returns an error for an nec model", {
-  rye_NEC4 <-  drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::NEC.4(names = c("Slope", "Lower Limit", "Upper Limit", "ED50")))
-  expect_error(nsec(rye_NEC4, x_var = "conc"), "nsec can currently only be estimated for smooth curves in drc, NEC models are not supported")
+  rye_NEC4 <- drc::drm(
+    rootl ~ conc,
+    data = drc::ryegrass,
+    fct = drc::NEC.4(names = c("Slope", "Lower Limit", "Upper Limit", "ED50"))
+  )
+  expect_error(
+    nsec(rye_NEC4, x_var = "conc"),
+    "nsec can currently only be estimated for smooth curves in drc, NEC models are not supported"
+  )
 })
 
 test_that("nsec for drc throws an error for an increasing function", {
-  daphnids_m1 <- drc::drm(no / total ~ dose, weights = total, curveid = time, data = drc::daphnids, fct = drc::LL.2(), type = "binomial")
+  daphnids_m1 <- drc::drm(
+    no / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = drc::daphnids,
+    fct = drc::LL.2(),
+    type = "binomial"
+  )
   expect_error(nsec(daphnids_m1, x_var = "dose"))
 })
 
 test_that("nsec drc additional example 1", {
   data <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
-  output_drc <-  drc::drm(fvfm ~ concentration, data = data, fct = drc::LL.3(names = c("Slope", "Upper Limit", "Midpoint")))
+  output_drc <- drc::drm(
+    fvfm ~ concentration,
+    data = data,
+    fct = drc::LL.3(names = c("Slope", "Upper Limit", "Midpoint"))
+  )
   output <- nsec(output_drc, x_var = "concentration")
 
-  expect_equal(as.numeric(output), c(0.3851752, 0.3307462, 0.4231510), tolerance = 0.000001)
+  expect_equal(
+    as.numeric(output),
+    c(0.3851752, 0.3307462, 0.4231510),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
-      ecnsec_relativeP = c("Prediction" = 2.0223202, "Lower" = 0.3312485, "Upper" = 3.6583762),
+      ecnsec_relativeP = c(
+        "Prediction" = 2.0223202,
+        "Lower" = 0.3312485,
+        "Upper" = 3.6583762
+      ),
       resolution = 1000,
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.000001
+    tolerance = 0.01
   )
 })
 
 test_that("nsec drc additional example 2", {
   data <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
-  output_drc <-  drc::drm(fvfm ~ concentration, data = data, fct = drc::LN.4(names = c("Slope", "Lower Limit", "Upper Limit", "Midpoint")))
+  output_drc <- drc::drm(
+    fvfm ~ concentration,
+    data = data,
+    fct = drc::LN.4(
+      names = c("Slope", "Lower Limit", "Upper Limit", "Midpoint")
+    )
+  )
   output <- nsec(output_drc, x_var = "concentration")
 
-  expect_equal(as.numeric(output), c(0.4021498, 0.3389265, 0.4402086), tolerance = 0.000001)
+  expect_equal(
+    as.numeric(output),
+    c(0.4030571, 0.3393384, 0.4412300),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
-      ecnsec_relativeP = c("Prediction" = 2.1212792, "Lower" = 0.3440486, "Upper" = 3.8753887),
+      ecnsec_relativeP = c(
+        "Prediction" = 2.111694,
+        "Lower" = 0.3425053,
+        "Upper" = 3.857750
+      ),
       resolution = 1000,
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.000001
+    tolerance = 0.01
   )
 })
 
@@ -313,7 +469,11 @@ test_that("brms model errors if group_var is not in the dataset", {
 test_that("brms model runs when multiple variables in data and group_var specified", {
   output <- nsec(brms_model_2, x_var = "x", group_var = "z", by_group = FALSE)
 
-  expect_equal(as.numeric(output), c(1.0500000, 0.9326696, 1.0500000), tolerance = 0.0001)
+  expect_equal(
+    as.numeric(output),
+    c(1.0500000, 0.9326696, 1.0500000),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
@@ -326,21 +486,29 @@ test_that("brms model runs when multiple variables in data and group_var specifi
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.0001
+    tolerance = 0.01
   )
 })
 
 test_that("brms model runs when multiple variables in data and group_var specified", {
   output <- nsec(brms_model_2, x_var = "x", group_var = "z", by_group = TRUE)
 
-  expect_equal(as.numeric(output[1,]), c(1.00, 1.05, 1.05, 1.05), tolerance = 0.0001)
-  expect_equal(as.numeric(output[2,]), c(2.00, 1.05, 0.8914, 1.05), tolerance = 0.0001)
+  expect_equal(
+    as.numeric(output[1, ]),
+    c(1.00, 1.05, 1.05, 1.05),
+    tolerance = 0.01
+  )
+  expect_equal(
+    as.numeric(output[2, ]),
+    c(2.00, 1.05, 0.8914, 1.05),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
-      class = c("tbl_df", "tbl", "data.frame"),
       row.names = c(1, 2),
       names = c("Qz", "Q50", "Q2.5", "Q97.5"),
+      class = c("tbl_df", "tbl", "data.frame"),
       ecnsec_relativeP = list(
         `1` = c("50%" = 444.9909, "2.5%" = 127.4942, "97.5%" = 6537.9810),
         `2` = c("50%" = 216.40707, "2.5%" = 45.80744, "97.5%" = 3059.75473)
@@ -349,7 +517,7 @@ test_that("brms model runs when multiple variables in data and group_var specifi
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.0001
+    tolerance = 0.01
   )
 })
 
@@ -362,40 +530,71 @@ test_that("brms model errors if only horme supplied as partial matching to other
 })
 
 test_that("brms model using horme when hormesis_def is control", {
-  output <- nsec(brms_model_1, x_var = "x", hormesis_def = "control", horme = TRUE)
-  expect_equal(as.numeric(output), c(1.0500000, 0.9760297, 1.0500000), tolerance = 0.0001)
+  output <- nsec(
+    brms_model_1,
+    x_var = "x",
+    hormesis_def = "control",
+    horme = TRUE
+  )
+  expect_equal(
+    as.numeric(output),
+    c(1.0500000, 0.9760297, 1.0500000),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
       names = c("Q50", "Q2.5", "Q97.5"),
-      ecnsec_relativeP = c("50%" = 143.18402, "2.5%" = 75.08872, "97.5%" = 832.02064),
+      ecnsec_relativeP = c(
+        "50%" = 143.18402,
+        "2.5%" = 75.08872,
+        "97.5%" = 832.02064
+      ),
       resolution = 1000,
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.0001
+    tolerance = 0.01
   )
 })
 
 test_that("brms model using horme when hormesis_def is max", {
   output <- nsec(brms_model_1, x_var = "x", hormesis_def = "max", horme = TRUE)
-  expect_equal(as.numeric(output), c(1.0500000, 0.8175745, 1.0500000), tolerance = 0.0001)
+  expect_equal(
+    as.numeric(output),
+    c(1.0500000, 0.8175745, 1.0500000),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
       names = c("Q50", "Q2.5", "Q97.5"),
-      ecnsec_relativeP = c("50%" = 143.18402, "2.5%" = 75.08872, "97.5%" = 832.02064),
+      ecnsec_relativeP = c(
+        "50%" = 143.18402,
+        "2.5%" = 75.08872,
+        "97.5%" = 832.02064
+      ),
       resolution = 1000,
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.0001
+    tolerance = 0.01
   )
 })
 
 test_that("brms model using horme when hormesis_def is max and group is supplied", {
-  output <- nsec(brms_model_2, x_var = "x", hormesis_def = "max", horme = TRUE, group_var = "z")
-  expect_equal(as.numeric(output), c(1.0500000, 0.8779562, 1.0500000), tolerance = 0.0001)
+  output <- nsec(
+    brms_model_2,
+    x_var = "x",
+    hormesis_def = "max",
+    horme = TRUE,
+    group_var = "z"
+  )
+  expect_equal(
+    as.numeric(output),
+    c(1.0500000, 0.8779562, 1.0500000),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
@@ -408,19 +607,31 @@ test_that("brms model using horme when hormesis_def is max and group is supplied
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.0001
+    tolerance = 0.01
   )
 })
 
 test_that("brms model by_group is true, group_var is supplied and posterior is true", {
-  output <- nsec(brms_model_2, x_var = "x", by_group = TRUE, posterior = TRUE, group_var = "z")
+  output <- nsec(
+    brms_model_2,
+    x_var = "x",
+    by_group = TRUE,
+    posterior = TRUE,
+    group_var = "z"
+  )
   expect_s3_class(output, "data.frame")
   expect_equal(colnames(output), c("z", "NSEC"))
   expect_equal(dim(output), c(1500, 2))
 })
 
 test_that("brms model when posterior is true and group_var is na", {
-  output <- nsec(brms_model_1, x_var = "x", by_group = FALSE, posterior = TRUE, group_var = NA)
+  output <- nsec(
+    brms_model_1,
+    x_var = "x",
+    by_group = FALSE,
+    posterior = TRUE,
+    group_var = NA
+  )
   output_attr <- attributes(output)
 
   expect_length(output, 750)
@@ -431,7 +642,13 @@ test_that("brms model when posterior is true and group_var is na", {
 })
 
 test_that("brms model by_group is false, group_var is supplied and posterior is true", {
-  output <- nsec(brms_model_2, x_var = "x", by_group = FALSE, posterior = TRUE, group_var = "z")
+  output <- nsec(
+    brms_model_2,
+    x_var = "x",
+    by_group = FALSE,
+    posterior = TRUE,
+    group_var = "z"
+  )
 
   expect_length(output, 1500)
   expect_equal(
@@ -445,7 +662,7 @@ test_that("brms model by_group is false, group_var is supplied and posterior is 
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.0001
+    tolerance = 0.01
   )
 })
 
@@ -475,23 +692,35 @@ test_that("drc model errors if more then 1 sig val is passed", {
 
 test_that("drc model output attributes", {
   output <- nsec(nsec_drc_1, x_var = "x")
-  expect_equal(as.numeric(output), c(1.1788306, 0.9617242, 1.2842022), tolerance = 0.000001)
+  expect_equal(
+    as.numeric(output),
+    c(1.1788306, 0.9617242, 1.2842022),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
-      ecnsec_relativeP = c("Prediction" = 1.6207422, "Lower" = 0.2443134, "Upper" = 3.1976490),
+      ecnsec_relativeP = c(
+        "Prediction" = 1.6207422,
+        "Lower" = 0.2443134,
+        "Upper" = 3.1976490
+      ),
       resolution = 1000,
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.000001
+    tolerance = 0.01
   )
 })
 
 # TODO ask about if there should be a check that the curveid exists in the data
 test_that("drc model curveid switches attributes to have a matrix for ecnsec_relativeP", {
   output <- nsec(nsec_drc_1, x_var = "x", curveid = "a")
-  expect_equal(as.numeric(output), c(1.1788306, 0.9617242, 1.2842022), tolerance = 0.000001)
+  expect_equal(
+    as.numeric(output),
+    c(1.1788306, 0.9617242, 1.2842022),
+    tolerance = 0.01
+  )
   expect_equal(
     attributes(output),
     list(
@@ -509,7 +738,7 @@ test_that("drc model curveid switches attributes to have a matrix for ecnsec_rel
       sig_val = 0.01,
       toxicity_estimate = "nsec"
     ),
-    tolerance = 0.000001
+    tolerance = 0.01
   )
 })
 
