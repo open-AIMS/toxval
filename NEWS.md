@@ -2,4 +2,4 @@
 
 # toxval 1.0.0
 
-* Initial CRAN release.
+* Initial package release.
