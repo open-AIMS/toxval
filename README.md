@@ -7,6 +7,8 @@
 ![Open Source
 Love](https://badges.frapsoft.com/os/v2/open-source.svg?v=103)
 [![DOI](https://zenodo.org/badge/760193848.svg)](https://zenodo.org/doi/10.5281/zenodo.12753573)
+[![Codecov test
+coverage](https://codecov.io/gh/open-AIMS/toxval/graph/badge.svg)](https://app.codecov.io/gh/open-AIMS/toxval)
 <!-- badges: end -->
 
 ## Overview
@@ -23,6 +25,17 @@ For the theoretical basis of the NSEC, see [Fisher & Fox
 (2023)](https://doi.org/10.1002/etc.5610). For model-averaged N(S)EC
 estimation across smooth and threshold model classes, see [Fisher et al.
 (2024)](https://academic.oup.com/ieam/article/20/1/279/7725045).
+
+## Installation
+
+The current development version can be installed from GitHub via
+
+``` r
+if (!requireNamespace("remotes")) {
+  install.packages("remotes")
+}
+remotes::install_github("open-aims/bayesnec", ref = "dev")
+```
 
 ## Motivation
 

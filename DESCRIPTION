@@ -28,6 +28,7 @@ Imports:
     tidyr
 Suggests:
     BH,
+    covr,
     drc,
     rmarkdown,
     testthat (>= 3.0.0)
