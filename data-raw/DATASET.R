@@ -7,6 +7,39 @@
 ##
 ## Do NOT use internal = TRUE here — each call with internal = TRUE overwrites
 ## R/sysdata.rda, so only the last call would survive.
+##
+## All Bayesian models use chains = 2, iter = 2000, thin = 2.
+## For brms models: warmup = 1000 (brms default = iter/2), yielding
+##   (2000 - 1000) / 2 = 500 draws per chain × 2 = 1000 total draws.
+## For bayesnec::bnec models: warmup = 1600 (bayesnec default = 0.8 × iter),
+##   yielding (2000 - 1600) / 2 = 200 draws per chain × 2 = 400 total draws.
+##
+## After saving, the compiled Stan C++ DSO is stripped from each object's
+## stanmodel slot. This reduces file sizes by ~100x without affecting the
+## stored posterior draws or any post-fitting functions (posterior_epred,
+## fitted, etc.). Models cannot be re-fitted after stripping; use the source
+## data and code above to regenerate.
+
+# Helper: strip compiled Stan binary from a brmsfit to reduce file size
+strip_stanmodel <- function(file) {
+  varname <- load(file)
+  obj <- get(varname)
+  cls <- class(obj)
+
+  if ("brmsfit" %in% cls) {
+    obj$fit@stanmodel <- methods::new("stanmodel")
+  } else if ("bayesnecfit" %in% cls) {
+    obj$fit$fit@stanmodel <- methods::new("stanmodel")
+  } else if ("bayesmanecfit" %in% cls) {
+    obj$mod_fits <- lapply(obj$mod_fits, function(m) {
+      m$fit$fit@stanmodel <- methods::new("stanmodel")
+      m
+    })
+  }
+
+  assign(varname, obj)
+  save(list = varname, file = file, compress = "xz")
+}
 
 # BRMS test models ----------------------------------------------------------
 
@@ -19,12 +52,13 @@ brms_model_1 <-
   brms::brm(
     y ~ log(x),
     data = data,
-    chains = 3,
-    iter = 500,
-    warmup = 250,
+    chains = 2,
+    iter = 2000,
+    thin = 2,
     seed = 101
   )
 usethis::use_data(brms_model_1, overwrite = TRUE)
+strip_stanmodel("data/brms_model_1.rda")
 
 # this works for the grouping examples
 data <- data.frame(
@@ -37,22 +71,26 @@ brms_model_2 <-
   brms::brm(
     y ~ log(x) + z,
     data = data,
-    chains = 3,
-    iter = 500,
-    warmup = 250,
+    chains = 2,
+    iter = 2000,
+    thin = 2,
     seed = 101
   )
 usethis::use_data(brms_model_2, overwrite = TRUE)
+strip_stanmodel("data/brms_model_2.rda")
 
 brms_model_3 <-
   brms::brm(
     y ~ s(x, bs = "cr", k = 5),
     data = bayesnec::nec_data,
     family = brms::Beta(),
+    chains = 2,
+    iter = 2000,
+    thin = 2,
     seed = 123
   )
 usethis::use_data(brms_model_3, overwrite = TRUE)
-
+strip_stanmodel("data/brms_model_3.rda")
 
 data <- bayesnec::herbicide
 data$x <- log(data$concentration)
@@ -64,7 +102,9 @@ brms_fit_4 <-
     data = data,
     family = brms::Beta(),
     seed = 17,
-    iter = 1000
+    chains = 2,
+    iter = 2000,
+    thin = 2
   )
 
 brms_pull_4 <- bayesnec::pull_brmsfit(brms_fit_4)
@@ -80,12 +120,15 @@ brms_model_4 <-
     data = data,
     family = brms::Beta(),
     prior = brms_prior_4,
-    iter = 1000,
+    chains = 2,
+    iter = 2000,
+    thin = 2,
     save_pars = brms::save_pars(all = TRUE),
     seed = 700,
     init = 0
   )
 usethis::use_data(brms_model_4, overwrite = TRUE)
+strip_stanmodel("data/brms_model_4.rda")
 
 set.seed(123)
 nec_dat_horme <- bayesnec::nec_data |>
@@ -96,9 +139,13 @@ brms_model_5 <-
   brms::brm(
     y ~ s(x, bs = "cr", k = 3),
     data = nec_dat_horme,
+    chains = 2,
+    iter = 2000,
+    thin = 2,
     seed = 123
   )
 usethis::use_data(brms_model_5, overwrite = TRUE)
+strip_stanmodel("data/brms_model_5.rda")
 
 # bnecfit -----------------------------------------------------------------
 
@@ -112,10 +159,13 @@ bnec_model_1 <-
   bayesnec::bnec(
     y ~ crf(x, model = "nechorme"),
     data = data,
-    open_progress = FALSE
+    open_progress = FALSE,
+    chains = 2,
+    iter = 2000,
+    thin = 2
   )
 usethis::use_data(bnec_model_1, overwrite = TRUE)
-
+strip_stanmodel("data/bnec_model_1.rda")
 
 # nsec bayesnec -------------------------------------------------------------
 
@@ -124,12 +174,14 @@ bayesnec_nec4param <- bayesnec::pull_out(
   model = "nec4param"
 )
 usethis::use_data(bayesnec_nec4param, overwrite = TRUE)
+strip_stanmodel("data/bayesnec_nec4param.rda")
 
 bayesnec_ecx4param <- bayesnec::pull_out(
   bayesnec::manec_example,
   model = "ecx4param"
 )
 usethis::use_data(bayesnec_ecx4param, overwrite = TRUE)
+strip_stanmodel("data/bayesnec_ecx4param.rda")
 
 # nsec drc ----------------------------------------------------------------
 
@@ -160,9 +212,31 @@ nsec_multi_model_1 <-
   brms::brm(
     surv_formula + growth_formula,
     data = data,
-    chains = 4,
-    cores = 4,
+    chains = 2,
     iter = 2000,
+    thin = 2,
     seed = 123
   )
 usethis::use_data(nsec_multi_model_1, overwrite = TRUE)
+strip_stanmodel("data/nsec_multi_model_1.rda")
+
+data <- data.frame(
+  dose = c(0.001, 0.005, 0.01, 0.05, 0.09, 0.1, 0.5, 0.9, 1.0, 1.5),
+  sp_survival = c(1, 1, 1, 1, 1, 1, 1, 0, 0, 0),
+  sp_growth = c(1.23, 2.13, 1.05, 1.32, 2.4, 2.1, 0.55, 0.34, 0.56, 0.67)
+)
+
+surv_formula <- brms::bf(sp_survival ~ dose, family = brms::bernoulli())
+growth_formula <- brms::bf(sp_growth ~ dose)
+
+nsec_multi_model_2 <-
+  brms::brm(
+    surv_formula + growth_formula,
+    data = data,
+    chains = 2,
+    iter = 2000,
+    thin = 2,
+    seed = 123
+  )
+usethis::use_data(nsec_multi_model_2, overwrite = TRUE)
+strip_stanmodel("data/nsec_multi_model_2.rda")

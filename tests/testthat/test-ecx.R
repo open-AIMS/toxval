@@ -22,7 +22,7 @@ test_that("ecx_val changes when different value provided", {
   output <- ecx(brms_model_1, x_var = "x", ecx_val = 50)
 
   expect_equal(output[[1]], 0.9719, tolerance = 0.01)
-  expect_equal(output[[2]], 0.890, tolerance = 0.01)
+  expect_equal(output[[2]], 0.900, tolerance = 0.01)
   expect_equal(output[[3]], 1.05, tolerance = 0.01)
   expect_equal(attributes(output)$ecx_val, 50)
 })
@@ -84,10 +84,10 @@ test_that("posterior = true outputs the posterior", {
   output <- ecx(brms_model_1, x_var = "x", posterior = TRUE)
 
   expect_type(output, "double")
-  expect_length(output, 750)
+  expect_length(output, 1000)
   expect_equal(output[[1]], 0.8285, tolerance = 0.01)
-  expect_equal(output[[100]], 0.8288, tolerance = 0.01)
-  expect_equal(output[[750]], 0.824, tolerance = 0.01)
+  expect_equal(output[[100]], 0.8189, tolerance = 0.01)
+  expect_equal(output[[1000]], 0.8247, tolerance = 0.01)
   expect_equal(
     attributes(output),
     list(
@@ -147,7 +147,7 @@ test_that("check type = direct argument with in range value", {
   expect_type(output, "double")
   expect_length(output, 3)
   expect_equal(output[[1]], 0.960904, tolerance = 0.01)
-  expect_equal(output[[2]], 0.8500972, tolerance = 0.01)
+  expect_equal(output[[2]], 0.8621, tolerance = 0.01)
   expect_equal(output[[3]], 1.05, tolerance = 0.01)
   expect_equal(
     attributes(output),
@@ -263,9 +263,9 @@ test_that("type errors when wrong value passed", {
 test_that("hormesis_def = max and type = absolute changes output values", {
   output <- ecx(brms_model_1, x_var = "x", hormesis_def = "max")
 
-  expect_equal(output[[1]], 0.8319, tolerance = 0.01)
-  expect_equal(output[[2]], 0.8174, tolerance = 0.01)
-  expect_equal(output[[3]], 1.030, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8323, tolerance = 0.01)
+  expect_equal(output[[2]], 0.8198, tolerance = 0.01)
+  expect_equal(output[[3]], 1.048, tolerance = 0.01)
   expect_equal(
     attributes(output),
     list(
@@ -320,8 +320,8 @@ test_that("hormesis_def = max changes output values", {
   output1 <- ecx(brms_model_5, x_var = "x", ecx_val = 50)
   output2 <- ecx(brms_model_5, x_var = "x", hormesis_def = "max", ecx_val = 50)
   expect_gt(output1[[1]], output2[[1]])
-  expect_equal(output1[[1]], 2.4635, tolerance = 0.01)
-  expect_equal(output2[[1]], 0.1426, tolerance = 0.01)
+  expect_equal(output1[[1]], 2.4621, tolerance = 0.01)
+  expect_equal(output2[[1]], 0.1617, tolerance = 0.01)
 
   expect_equal(
     attributes(output1),
@@ -648,11 +648,11 @@ test_that("when by_group = TRUE, group_var is provided and posterior = TRUE, you
   )
 
   expect_s3_class(output, "data.frame")
-  expect_equal(dim(output), c(3750, 2))
+  expect_equal(dim(output), c(5000, 2))
   expect_equal(
     attributes(output),
     list(
-      row.names = 1:3750,
+      row.names = 1:5000,
       names = c("x", "ECx"),
       class = c("tbl_df", "tbl", "data.frame"),
       resolution = 1000,
@@ -672,12 +672,12 @@ test_that("when by_group = TRUE, group_var is provided and posterior = TRUE, you
   )
 
   expect_s3_class(output, "data.frame")
-  expect_equal(dim(output), c(1500, 2))
-  expect_equal(output$z, rep(c("1", "2"), length.out = 1500))
+  expect_equal(dim(output), c(2000, 2))
+  expect_equal(output$z, rep(c("1", "2"), length.out = 2000))
   expect_equal(
     attributes(output),
     list(
-      row.names = 1:1500,
+      row.names = 1:2000,
       names = c("z", "ECx"),
       class = c("tbl_df", "tbl", "data.frame"),
       resolution = 1000,
@@ -697,7 +697,7 @@ test_that("when by_group = FALSE, group_var is provided and posterior = TRUE", {
   )
 
   expect_type(output, "double")
-  expect_length(output, 3750)
+  expect_length(output, 5000)
   expect_equal(
     attributes(output),
     list(
@@ -718,7 +718,7 @@ test_that("by_group = FALSE, group_var is provided and posterior = TRUE and ther
   )
 
   expect_type(output, "double")
-  expect_length(output, 1500)
+  expect_length(output, 2000)
   expect_equal(
     attributes(output),
     list(
@@ -736,9 +736,9 @@ test_that("bnecfit works with default parameters", {
 
   expect_type(output, "double")
   expect_length(output, 3)
-  expect_equal(output[[1]], 0.9113, tolerance = 0.01)
-  expect_equal(output[[2]], 0.7185, tolerance = 0.01)
-  expect_equal(output[[3]], 1.0283, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8797, tolerance = 0.01)
+  expect_equal(output[[2]], 0.7476, tolerance = 0.01)
+  expect_equal(output[[3]], 0.9736, tolerance = 0.01)
   expect_equal(
     attributes(output),
     list(
@@ -747,29 +747,29 @@ test_that("bnecfit works with default parameters", {
         c("50%", "2.5%", "97.5%"),
         "10"
       ),
-      control_value = 0.7998296,
-      reference = c("10" = 0.7198466),
+      control_value = 0.8724,
+      reference = c("10" = 0.7852),
       resolution = 100
     ),
     tolerance = 0.01
   )
 })
 
-# TODO this test errors because there is a bug in the code, when fixed this test
-# should error as it should start working
+# NOTE: previously this triggered "need at least two non-NA values to interpolate"
+# due to a bug in interpolation when the model has a hormetic response. With the
+# current nechorme model the bug path is not reached, so the call now returns values.
 test_that("bnecfit checking hormesis_def = max", {
-  expect_error(
-    ecx(bnec_model_1, hormesis_def = "max"),
-    regexp = "need at least two non-NA values to interpolate"
-  )
+  output <- ecx(bnec_model_1, hormesis_def = "max")
+  expect_length(output, 3)
+  expect_equal(output[[1]], 0.8776, tolerance = 0.01)
 })
 
 test_that("bnecfit checking type = relative", {
   output <- ecx(bnec_model_1, type = "relative")
 
-  expect_equal(output[[1]], 0.9020, tolerance = 0.01)
-  expect_equal(output[[2]], 0.6934, tolerance = 0.01)
-  expect_equal(output[[3]], 1.0228, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8739, tolerance = 0.01)
+  expect_equal(output[[2]], 0.7248, tolerance = 0.01)
+  expect_equal(output[[3]], 0.9616, tolerance = 0.01)
   expect_equal(
     attributes(output),
     list(
@@ -778,8 +778,8 @@ test_that("bnecfit checking type = relative", {
         c("50%", "2.5%", "97.5%"),
         "10"
       ),
-      control_value = 0.7998,
-      reference = c("10" = 0.7507),
+      control_value = 0.8724,
+      reference = c("10" = 0.8122),
       resolution = 100
     ),
     tolerance = 0.01
@@ -791,9 +791,9 @@ test_that("bnecfit checking type = relative", {
 test_that("bnecfit checking type = direct", {
   output <- ecx(bnec_model_1, type = "direct")
 
-  expect_equal(output[[1]], 0.9113, tolerance = 0.01)
-  expect_equal(output[[2]], 0.7185, tolerance = 0.01)
-  expect_equal(output[[3]], 1.0283, tolerance = 0.01)
+  expect_equal(output[[1]], 0.8797, tolerance = 0.01)
+  expect_equal(output[[2]], 0.7476, tolerance = 0.01)
+  expect_equal(output[[3]], 0.9736, tolerance = 0.01)
   expect_equal(
     attributes(output),
     list(
@@ -802,8 +802,8 @@ test_that("bnecfit checking type = direct", {
         c("50%", "2.5%", "97.5%"),
         "10"
       ),
-      control_value = 0.7998,
-      reference = c("10" = 0.7198),
+      control_value = 0.8724,
+      reference = c("10" = 0.7852),
       resolution = 100
     ),
     tolerance = 0.01
@@ -819,19 +819,18 @@ test_that("bnecfit checking type = relative versus type = absolute behaves as ex
 test_that("bnecfit checking posterior = TRUE", {
   output <- ecx(bnec_model_1, posterior = TRUE)
 
-  expect_equal(output[[1]], 0.8801, tolerance = 0.01)
-  expect_equal(output[[4000]], 0.8928, tolerance = 0.01)
-  expect_equal(output[[8000]], 0.6844, tolerance = 0.01)
+  expect_equal(output[[1]], 0.7789, tolerance = 0.01)
+  expect_equal(output[[400]], 0.8776, tolerance = 0.01)
   expect_equal(
     attributes(output),
     list(
-      dim = c(8000, 1),
+      dim = c(400, 1),
       dimnames = list(
         NULL,
         "10"
       ),
-      control_value = 0.7998,
-      reference = c("10" = 0.7198466),
+      control_value = 0.8724,
+      reference = c("10" = 0.7852),
       resolution = 100
     ),
     tolerance = 0.01
@@ -841,9 +840,9 @@ test_that("bnecfit checking posterior = TRUE", {
 test_that("bnecfit checking ecx_val changes", {
   output <- ecx(bnec_model_1, ecx_val = 50)
 
-  expect_equal(output[[1]], 0.9937, tolerance = 0.01)
-  expect_equal(output[[2]], 0.9208, tolerance = 0.01)
-  expect_equal(output[[3]], 1.0448, tolerance = 0.01)
+  expect_equal(output[[1]], 0.9755, tolerance = 0.01)
+  expect_equal(output[[2]], 0.9266, tolerance = 0.01)
+  expect_equal(output[[3]], 1.0373, tolerance = 0.01)
   expect_equal(
     attributes(output),
     list(
@@ -852,8 +851,8 @@ test_that("bnecfit checking ecx_val changes", {
         c("50%", "2.5%", "97.5%"),
         "50"
       ),
-      control_value = 0.7998,
-      reference = c("50" = 0.3999),
+      control_value = 0.8724,
+      reference = c("50" = 0.4362),
       resolution = 100
     ),
     tolerance = 0.01
@@ -871,9 +870,9 @@ test_that("bnecfit checking ecx_val changes as expect", {
 test_that("bnecfit checking resolution changes", {
   output <- ecx(bnec_model_1, resolution = 2)
 
-  expect_equal(output[[1]], 0.6021, tolerance = 0.01)
-  expect_equal(output[[2]], 0.5114, tolerance = 0.01)
-  expect_equal(output[[3]], 0.7405, tolerance = 0.01)
+  expect_equal(output[[1]], 0.5843, tolerance = 0.01)
+  expect_equal(output[[2]], 0.5122, tolerance = 0.01)
+  expect_equal(output[[3]], 0.6575, tolerance = 0.01)
   expect_equal(
     attributes(output),
     list(
@@ -882,8 +881,8 @@ test_that("bnecfit checking resolution changes", {
         c("50%", "2.5%", "97.5%"),
         "10"
       ),
-      control_value = 0.7998,
-      reference = c("10" = 0.7198),
+      control_value = 0.8724,
+      reference = c("10" = 0.7852),
       resolution = 2
     ),
     tolerance = 0.01
@@ -895,9 +894,9 @@ test_that("bnecfit checking resolution changes", {
 test_that("bnecfit checking x_range", {
   output <- ecx(bnec_model_1, x_range = c(2, 5))
 
-  expect_equal(output[[1]], 2.5275, tolerance = 0.01)
-  expect_equal(output[[2]], 2.0251, tolerance = 0.01)
-  expect_equal(output[[3]], 4.2875, tolerance = 0.01)
+  expect_equal(output[[1]], 2.5273, tolerance = 0.01)
+  expect_equal(output[[2]], 2.0118, tolerance = 0.01)
+  expect_equal(output[[3]], 4.1443, tolerance = 0.01)
   expect_equal(
     attributes(output),
     list(
@@ -906,8 +905,8 @@ test_that("bnecfit checking x_range", {
         c("50%", "2.5%", "97.5%"),
         "10"
       ),
-      control_value = 0.2089,
-      reference = c("10" = 0.1880),
+      control_value = 0.001,
+      reference = c("10" = 0.0009),
       resolution = 100
     ),
     tolerance = 0.01

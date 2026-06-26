@@ -211,7 +211,7 @@ test_that("additional examples brms 1", {
   output <- nsec(brms_model_3, x_var = "x")
   expect_equal(
     as.numeric(output),
-    c(0.2830449, 0.1391976, 1.3107842),
+    c(0.2576897, 0.1164777, 1.280471),
     tolerance = 0.01
   )
   expect_equal(
@@ -219,9 +219,9 @@ test_that("additional examples brms 1", {
     list(
       names = c("Q50", "Q2.5", "Q97.5"),
       ecnsec_relativeP = c(
-        "50%" = 4.782721,
-        "2.5%" = 3.066064,
-        "97.5%" = 6.823001
+        "50%" = 4.39107,
+        "2.5%" = 2.57067,
+        "97.5%" = 6.280108
       ),
       resolution = 1000,
       sig_val = 0.01,
@@ -242,39 +242,39 @@ test_that("additional examples brms 2", {
   expect_equal(
     output$Q50,
     c(
-      -2.0726930,
-      -1.8127665,
-      -1.9068558,
-      1.2526309,
-      -0.9203149,
-      1.3067134,
-      0.3225870
+      -2.068832,
+      -1.776294,
+      -1.899442,
+      1.219105,
+      -0.9762579,
+      1.218561,
+      0.2834879
     ),
     tolerance = 0.01
   )
   expect_equal(
     output$Q2.5,
     c(
-      -2.2466254,
-      -2.1505210,
-      -2.1856878,
-      0.1746885,
-      -1.7169218,
-      0.2312798,
-      -0.7213242
+      -2.242587,
+      -2.093038,
+      -2.175464,
+      -0.0507173,
+      -1.816361,
+      0.1034953,
+      -0.8067019
     ),
     tolerance = 0.01
   )
   expect_equal(
     output$Q97.5,
     c(
-      -1.9186705,
-      -1.5540898,
-      -1.6648760,
-      1.7585068,
-      -0.4966788,
-      1.9062046,
-      0.8107888
+      -1.918876,
+      -1.523899,
+      -1.677678,
+      1.731901,
+      -0.5923018,
+      1.827742,
+      0.8223756
     ),
     tolerance = 0.01
   )
@@ -289,7 +289,7 @@ test_that("additional examples brms 2", {
   )
   expect_equal(
     as.numeric(output),
-    c(-1.020142, -2.220515, 1.674024),
+    c(-1.069832, -2.215402, 1.585778),
     tolerance = 0.01
   )
   expect_equal(
@@ -297,25 +297,25 @@ test_that("additional examples brms 2", {
     list(
       names = c("Q50", "Q2.5", "Q97.5"),
       ecnsec_relativeP = list(
-        irgarol = c("50%" = 3.3297024, "2.5%" = 0.5074581, "97.5%" = 6.0617602),
-        diuron = c("50%" = 2.9563255, "2.5%" = 0.5288021, "97.5%" = 5.3580609),
-        ametryn = c("50%" = 3.014667, "2.5%" = 0.454644, "97.5%" = 5.476075),
+        irgarol = c("50%" = 3.456955, "2.5%" = 0.5323418, "97.5%" = 6.378487),
+        diuron = c("50%" = 3.29635, "2.5%" = 0.6846643, "97.5%" = 5.994729),
+        ametryn = c("50%" = 3.036638, "2.5%" = 0.5081269, "97.5%" = 5.458449),
         tebuthiuron = c(
-          "50%" = 1.8794826,
-          "2.5%" = 0.3358907,
-          "97.5%" = 3.3663824
+          "50%" = 1.867343,
+          "2.5%" = 0.2472245,
+          "97.5%" = 3.440123
         ),
         hexazinone = c(
-          "50%" = 2.7087672,
-          "2.5%" = 0.3759961,
-          "97.5%" = 4.8952374
+          "50%" = 2.580989,
+          "2.5%" = 0.3832357,
+          "97.5%" = 4.738381
         ),
         simazine = c(
-          "50%" = 3.1773465,
-          "2.5%" = 0.5612286,
-          "97.5%" = 5.7846814
+          "50%" = 3.431859,
+          "2.5%" = 0.5125153,
+          "97.5%" = 5.830609
         ),
-        atrazine = c("50%" = 3.3593257, "2.5%" = 0.5548297, "97.5%" = 6.0530515)
+        atrazine = c("50%" = 3.353621, "2.5%" = 0.4870696, "97.5%" = 6.231332)
       ),
       resolution = 10,
       sig_val = 0.01,
@@ -493,7 +493,7 @@ test_that("brms model runs when multiple variables in data and group_var specifi
 
   expect_equal(
     as.numeric(output),
-    c(1.0500000, 0.9326696, 1.0500000),
+    c(1.05, 1.016295, 1.05),
     tolerance = 0.01
   )
   expect_equal(
@@ -501,8 +501,8 @@ test_that("brms model runs when multiple variables in data and group_var specifi
     list(
       names = c("Q50", "Q2.5", "Q97.5"),
       ecnsec_relativeP = list(
-        `1` = c("50%" = 444.9909, "2.5%" = 127.4942, "97.5%" = 6537.9810),
-        `2` = c("50%" = 216.40707, "2.5%" = 45.80744, "97.5%" = 3059.75473)
+        `1` = c("50%" = 778.5143, "2.5%" = 169.6611, "97.5%" = 9649.234),
+        `2` = c("50%" = 330.8031, "2.5%" = 81.00827, "97.5%" = 4069.751)
       ),
       resolution = 1000,
       sig_val = 0.01,
@@ -522,7 +522,7 @@ test_that("brms model runs when multiple variables in data and group_var specifi
   )
   expect_equal(
     as.numeric(output[2, ]),
-    c(2.00, 1.05, 0.8914, 1.05),
+    c(2.00, 1.05, 0.9791, 1.05),
     tolerance = 0.01
   )
   expect_equal(
@@ -532,8 +532,8 @@ test_that("brms model runs when multiple variables in data and group_var specifi
       names = c("Qz", "Q50", "Q2.5", "Q97.5"),
       class = c("tbl_df", "tbl", "data.frame"),
       ecnsec_relativeP = list(
-        `1` = c("50%" = 444.9909, "2.5%" = 127.4942, "97.5%" = 6537.9810),
-        `2` = c("50%" = 216.40707, "2.5%" = 45.80744, "97.5%" = 3059.75473)
+        `1` = c("50%" = 778.5143, "2.5%" = 169.6611, "97.5%" = 9649.234),
+        `2` = c("50%" = 330.8031, "2.5%" = 81.00827, "97.5%" = 4069.751)
       ),
       resolution = 1000,
       sig_val = 0.01,
@@ -560,7 +560,7 @@ test_that("brms model using horme when hormesis_def is control", {
   )
   expect_equal(
     as.numeric(output),
-    c(1.0500000, 0.9760297, 1.0500000),
+    c(1.05, 0.9903239, 1.05),
     tolerance = 0.01
   )
   expect_equal(
@@ -568,9 +568,9 @@ test_that("brms model using horme when hormesis_def is control", {
     list(
       names = c("Q50", "Q2.5", "Q97.5"),
       ecnsec_relativeP = c(
-        "50%" = 143.18402,
-        "2.5%" = 75.08872,
-        "97.5%" = 832.02064
+        "50%" = 130.641,
+        "2.5%" = 78.48249,
+        "97.5%" = 792.1342
       ),
       resolution = 1000,
       sig_val = 0.01,
@@ -584,7 +584,7 @@ test_that("brms model using horme when hormesis_def is max", {
   output <- nsec(brms_model_1, x_var = "x", hormesis_def = "max", horme = TRUE)
   expect_equal(
     as.numeric(output),
-    c(1.0500000, 0.8175745, 1.0500000),
+    c(1.05, 0.8213543, 1.05),
     tolerance = 0.01
   )
   expect_equal(
@@ -592,9 +592,9 @@ test_that("brms model using horme when hormesis_def is max", {
     list(
       names = c("Q50", "Q2.5", "Q97.5"),
       ecnsec_relativeP = c(
-        "50%" = 143.18402,
-        "2.5%" = 75.08872,
-        "97.5%" = 832.02064
+        "50%" = 130.641,
+        "2.5%" = 78.48249,
+        "97.5%" = 792.1342
       ),
       resolution = 1000,
       sig_val = 0.01,
@@ -614,7 +614,7 @@ test_that("brms model using horme when hormesis_def is max and group is supplied
   )
   expect_equal(
     as.numeric(output),
-    c(1.0500000, 0.8779562, 1.0500000),
+    c(1.05, 0.9612536, 1.05),
     tolerance = 0.01
   )
   expect_equal(
@@ -622,8 +622,8 @@ test_that("brms model using horme when hormesis_def is max and group is supplied
     list(
       names = c("Q50", "Q2.5", "Q97.5"),
       ecnsec_relativeP = list(
-        `1` = c("50%" = 444.9909, "2.5%" = 127.4942, "97.5%" = 6537.9810),
-        `2` = c("50%" = 216.40707, "2.5%" = 45.80744, "97.5%" = 3059.75473)
+        `1` = c("50%" = 778.5143, "2.5%" = 169.6611, "97.5%" = 9649.234),
+        `2` = c("50%" = 330.8031, "2.5%" = 81.00827, "97.5%" = 4069.751)
       ),
       resolution = 1000,
       sig_val = 0.01,
@@ -643,7 +643,7 @@ test_that("brms model by_group is true, group_var is supplied and posterior is t
   )
   expect_s3_class(output, "data.frame")
   expect_equal(colnames(output), c("z", "NSEC"))
-  expect_equal(dim(output), c(1500, 2))
+  expect_equal(dim(output), c(2000, 2))
 })
 
 test_that("brms model when posterior is true and group_var is na", {
@@ -656,8 +656,8 @@ test_that("brms model when posterior is true and group_var is na", {
   )
   output_attr <- attributes(output)
 
-  expect_length(output, 750)
-  expect_length(output_attr$ecnsec_relativeP, 750)
+  expect_length(output, 1000)
+  expect_length(output_attr$ecnsec_relativeP, 1000)
   expect_equal(output_attr$resolution, 1000)
   expect_equal(output_attr$sig_val, 0.01)
   expect_equal(output_attr$toxicity_estimate, "nsec")
@@ -672,13 +672,13 @@ test_that("brms model by_group is false, group_var is supplied and posterior is 
     group_var = "z"
   )
 
-  expect_length(output, 1500)
+  expect_length(output, 2000)
   expect_equal(
     attributes(output),
     list(
       ecnsec_relativeP = list(
-        `1` = c("50%" = 444.9909, "2.5%" = 127.4942, "97.5%" = 6537.9810),
-        `2` = c("50%" = 216.40707, "2.5%" = 45.80744, "97.5%" = 3059.75473)
+        `1` = c("50%" = 778.5143, "2.5%" = 169.6611, "97.5%" = 9649.234),
+        `2` = c("50%" = 330.8031, "2.5%" = 81.00827, "97.5%" = 4069.751)
       ),
       resolution = 1000,
       sig_val = 0.01,
@@ -881,7 +881,7 @@ test_that("brmsfit nsec by_group = TRUE posterior = TRUE returns correct structu
 
   expect_s3_class(output, "data.frame")
   expect_equal(colnames(output), c("z", "NSEC"))
-  expect_equal(dim(output), c(1500, 2))
+  expect_equal(dim(output), c(2000, 2))
   # Both groups should be represented
   expect_equal(sort(unique(output$z)), c("1", "2"))
 })
@@ -896,7 +896,7 @@ test_that("brmsfit nsec by_group = FALSE posterior = TRUE returns numeric vector
   )
 
   expect_type(output, "double")
-  expect_length(output, 1500)
+  expect_length(output, 2000)
   expect_equal(attr(output, "resolution"), 1000)
   expect_equal(attr(output, "sig_val"), 0.01)
   expect_equal(attr(output, "toxicity_estimate"), "nsec")

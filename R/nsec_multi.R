@@ -67,15 +67,15 @@ nsec_multi <- function(object, sig_val = 0.01, resolution = 50,
     stop("Your suplied x_var is not contained in the object data.frame")
   }
 
-  if(is.na(x_range)){
-    x_range = range(object$data[x_var])
+  if (length(x_range) == 1 && is.na(x_range)) {
+    x_range <- range(object$data[x_var])
   }
   x_vec <- seq(min(x_range), max(x_range), length=resolution)
 
   pred_dat <- data.frame(x_vec)
   names(pred_dat) <- x_var
 
-  if(!is.na(trials_var)) {
+  if (length(trials_var) == 1 && !is.na(trials_var)) {
     trials <- object$data |> dplyr::select(starts_with(trials_var)) |> colnames()
     if(length(trials)==0) stop("trials_var does not appear to be in your input data.")
     trials_data <- object$data |>

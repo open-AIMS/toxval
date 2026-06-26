@@ -121,14 +121,14 @@ test_that("need to supply multi_var and x_var to get output", {
   expect_equal(
     as.numeric(output[1, 2:9]),
     c(
-      0.0010000,
-      1.5000000,
-      1.5000000,
-      0.1523446,
-      0.4415226,
-      0.7038205,
-      0.9538846,
-      1.0000000
+      0.001,
+      1.5,
+      1.5,
+      0.2026466,
+      0.4624833,
+      0.6802316,
+      0.9208626,
+      1.0
     ),
     tolerance = 0.01
   )
@@ -136,14 +136,14 @@ test_that("need to supply multi_var and x_var to get output", {
   expect_equal(
     as.numeric(output[2, 2:9]),
     c(
-      1.5000000,
-      1.5000000,
-      1.5000000,
-      0.3089578,
-      0.7477654,
-      1.5000000,
-      0.9115510,
-      2.4839719
+      1.5,
+      1.5,
+      1.5,
+      0.4181719,
+      0.8688531,
+      1.5,
+      0.8209478,
+      2.350757
     ),
     tolerance = 0.01
   )
@@ -161,29 +161,29 @@ test_that("posterior = TRUE outputs posterior of both models", {
   expect_type(output, "list")
   expect_equal(names(output), c("sp_survival", "sp_growth"))
 
-  expect_length(output$sp_survival$nsec_dec, 4000)
-  expect_length(output$sp_survival$nsec_inc, 4000)
+  expect_length(output$sp_survival$nsec_dec, 1000)
+  expect_length(output$sp_survival$nsec_inc, 1000)
   expect_equal(
     attributes(output$sp_survival),
     list(
       names = c("nsec_dec", "nsec_inc"),
       reference_vals = list(
-        dec = c("1%" = 0.9538846),
+        dec = c("1%" = 0.9208626),
         inc = c("99%" = 1)
       )
     ),
     tolerance = 0.01
   )
 
-  expect_length(output$sp_growth$nsec_dec, 4000)
-  expect_length(output$sp_growth$nsec_inc, 4000)
+  expect_length(output$sp_growth$nsec_dec, 1000)
+  expect_length(output$sp_growth$nsec_inc, 1000)
   expect_equal(
     attributes(output$sp_growth),
     list(
       names = c("nsec_dec", "nsec_inc"),
       reference_vals = list(
-        dec = c("1%" = 0.911551),
-        inc = c("99%" = 2.483972)
+        dec = c("1%" = 0.8209478),
+        inc = c("99%" = 2.350757)
       )
     ),
     tolerance = 0.01
@@ -203,22 +203,22 @@ test_that("posterior = TRUE outputs posterior of both models and type = lower", 
   expect_type(output, "list")
   expect_equal(names(output), c("sp_survival", "sp_growth"))
 
-  expect_length(output$sp_survival, 4000)
+  expect_length(output$sp_survival, 1000)
   expect_equal(
     attributes(output$sp_survival),
     list(
       direction = "dec",
-      reference_vals = 0.9538846
+      reference_vals = 0.9208626
     ),
     tolerance = 0.01
   )
 
-  expect_length(output$sp_growth, 4000)
+  expect_length(output$sp_growth, 1000)
   expect_equal(
     attributes(output$sp_growth),
     list(
       direction = "dec",
-      reference_vals = 0.911551
+      reference_vals = 0.8209478
     ),
     tolerance = 0.01
   )
@@ -237,7 +237,7 @@ test_that("posterior = TRUE outputs posterior of both models and type = increasi
   expect_type(output, "list")
   expect_equal(names(output), c("sp_survival", "sp_growth"))
 
-  expect_length(output$sp_survival, 4000)
+  expect_length(output$sp_survival, 1000)
   expect_equal(
     attributes(output$sp_survival),
     list(
@@ -247,11 +247,11 @@ test_that("posterior = TRUE outputs posterior of both models and type = increasi
     tolerance = 0.01
   )
 
-  expect_length(output$sp_growth, 4000)
+  expect_length(output$sp_growth, 1000)
   expect_equal(
     attributes(output$sp_growth),
     list(
-      reference_vals = 2.483972,
+      reference_vals = 2.350757,
       direction = "inc"
     ),
     tolerance = 0.01
@@ -271,21 +271,21 @@ test_that("posterior = TRUE outputs posterior of both models and type = decreasi
   expect_type(output, "list")
   expect_equal(names(output), c("sp_survival", "sp_growth"))
 
-  expect_length(output$sp_survival, 4000)
+  expect_length(output$sp_survival, 1000)
   expect_equal(
     attributes(output$sp_survival),
     list(
-      reference_vals = 0.9538846,
+      reference_vals = 0.9208626,
       direction = "dec"
     ),
     tolerance = 0.01
   )
 
-  expect_length(output$sp_growth, 4000)
+  expect_length(output$sp_growth, 1000)
   expect_equal(
     attributes(output$sp_growth),
     list(
-      reference_vals = 0.911551,
+      reference_vals = 0.8209478,
       direction = "dec"
     ),
     tolerance = 0.01
@@ -309,12 +309,12 @@ test_that("table output when type = lower", {
   expect_equal(output$var, c("sp_survival", "sp_growth"))
   expect_equal(
     as.numeric(output[1, 1:4]),
-    c(0.1523446, 0.4415226, 0.7038205, 0.95388464),
+    c(0.2026466, 0.4624833, 0.6802316, 0.9208626),
     tolerance = 0.01
   )
   expect_equal(
     as.numeric(output[2, 1:4]),
-    c(0.3089578, 0.7477654, 1.5000000, 0.9115510),
+    c(0.4181719, 0.8688531, 1.5, 0.8209478),
     tolerance = 0.01
   )
 })
@@ -341,7 +341,7 @@ test_that("table output when type = increasing", {
   )
   expect_equal(
     as.numeric(output[2, 1:4]),
-    c(1.500000, 1.500000, 1.500000, 2.483972),
+    c(1.5, 1.5, 1.5, 2.350757),
     tolerance = 0.01
   )
 })
@@ -363,12 +363,12 @@ test_that("table output when type = decreasing", {
   expect_equal(output$var, c("sp_survival", "sp_growth"))
   expect_equal(
     as.numeric(output[1, 1:4]),
-    c(0.1523446, 0.4415226, 0.7038205, 0.9538846),
+    c(0.2026466, 0.4624833, 0.6802316, 0.9208626),
     tolerance = 0.01
   )
   expect_equal(
     as.numeric(output[2, 1:4]),
-    c(0.3089578, 0.7477654, 1.5000000, 0.9115510),
+    c(0.4181719, 0.8688531, 1.5, 0.8209478),
     tolerance = 0.01
   )
 })
@@ -399,12 +399,12 @@ test_that("x_range can be passed a single value", {
   expect_equal(output$vars, c("sp_survival", "sp_growth"))
   expect_equal(
     as.numeric(output[1, 2:9]),
-    c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.01225447, 1.0),
+    c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.030, 1.0),
     tolerance = 0.01
   )
   expect_equal(
     as.numeric(output[2, 2:9]),
-    c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.59370, 1.69408),
+    c(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.644, 1.811),
     tolerance = 0.01
   )
 })
