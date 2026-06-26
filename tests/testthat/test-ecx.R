@@ -543,6 +543,10 @@ test_that("errors if x_var is not in a predictor variable", {
   )
 })
 
+test_that("errors if additional groups are present but group_var not specified", {
+  expect_error(ecx(brms_model_2, x_var = "x"))
+})
+
 test_that("if by_group is TRUE you must supply a grouping variable in group_var that is in the data", {
   expect_error(
     ecx(brms_model_2, x_var = "x", by_group = TRUE),

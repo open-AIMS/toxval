@@ -43,6 +43,17 @@ test_that("prob_vals when passed changes the levels", {
   expect_equal(names(output), c("Q40", "Q20", "Q85"))
 })
 
+test_that("prob_vals with more than 3 values returns that many quantiles", {
+  output <- nsec(
+    brms_model_1,
+    x_var = "x",
+    prob_vals = c(0.4, 0.1, 0.6, 0.7, 0.05)
+  )
+  expect_type(output, "double")
+  expect_length(output, 5)
+  expect_equal(names(output), c("Q40", "Q10", "Q60", "Q70", "Q5"))
+})
+
 test_that("sig_val warning message triggered when more then 1 value passed", {
   expect_error(
     nsec(bayesnec::manec_example, sig_val = c(0.01, 0.05)),
@@ -462,6 +473,17 @@ test_that("brms model errors if there are additional groups but aren't specified
 test_that("brms model errors if group_var is not in the dataset", {
   expect_error(
     nsec(brms_model_2, x_var = "x", group_var = "a"),
+    regexp = "Your suplied group_var is not contained in the object data.frame"
+  )
+})
+
+test_that("brms model errors if group_var is not in the dataset when non-character types passed", {
+  expect_error(
+    nsec(brms_model_2, x_var = "x", group_var = 1),
+    regexp = "Your suplied group_var is not contained in the object data.frame"
+  )
+  expect_error(
+    nsec(brms_model_2, x_var = "x", group_var = TRUE),
     regexp = "Your suplied group_var is not contained in the object data.frame"
   )
 })
