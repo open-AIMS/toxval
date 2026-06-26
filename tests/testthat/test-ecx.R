@@ -1154,3 +1154,37 @@ test_that("brmsfit type = relative gives smaller ECx than type = absolute", {
 
   expect_lt(e_rel[[1]], e_abs[[1]])
 })
+
+# ecx.bnecfit — man page validation gaps ------------------------------------
+
+# TODO: The man page states ecx_val must be between 1 and 99 for type =
+# "relative" and "absolute". This range check is implemented in ecx.brmsfit
+# but NOT in ecx.bnecfit (or the ecx generic). When the refactor adds
+# validation to the generic, remove `if (FALSE)` and these tests should pass.
+if (FALSE) {
+  test_that("bnecfit ecx_val out-of-range errors for absolute and relative types", {
+    expect_error(
+      ecx(bnec_model_1, ecx_val = 0),
+      "Supplied ecx_val is not in the required range"
+    )
+    expect_error(
+      ecx(bnec_model_1, ecx_val = 100),
+      "Supplied ecx_val is not in the required range"
+    )
+    expect_error(
+      ecx(bnec_model_1, ecx_val = 0, type = "relative"),
+      "Supplied ecx_val is not in the required range"
+    )
+    # type = "direct" has no range restriction — should still work
+    expect_length(ecx(bnec_model_1, ecx_val = 0, type = "direct"), 3)
+  })
+
+  # TODO: length(ecx_val) > 1 check is in ecx.brmsfit only. Man page implies a
+  # single value. When added to the generic, remove `if (FALSE)`.
+  test_that("bnecfit errors if multiple ecx_val values passed", {
+    expect_error(
+      ecx(bnec_model_1, ecx_val = c(10, 50)),
+      "You may only pass one ecx_val"
+    )
+  })
+}

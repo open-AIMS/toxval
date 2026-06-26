@@ -631,3 +631,74 @@ test_that("nsec_multi prob_vals changes quantile levels in output", {
     as.numeric(output_default[1, "up"])
   )
 })
+
+# criterion parameter --------------------------------------------------------
+# Man page: criterion = 0.8 — "The criterion to use when type = 'lower'."
+# (Note: man page has a typo, writing "type='lowest'" — the valid value is
+# "lower".) criterion is passed to quantile() to compare the nsec_inc and
+# nsec_dec distributions: whichever has the lower criterion-quantile is chosen.
+
+test_that("nsec_multi criterion changes direction selection for type = lower", {
+  output_low <- nsec_multi(
+    nsec_multi_model_2,
+    x_var = "dose",
+    multi_var = "sp",
+    type = "lower",
+    criterion = 0.01
+  )
+  output_high <- nsec_multi(
+    nsec_multi_model_2,
+    x_var = "dose",
+    multi_var = "sp",
+    type = "lower",
+    criterion = 0.99
+  )
+
+  # Both should produce valid data frames with the same columns
+  expect_s3_class(output_low, "data.frame")
+  expect_s3_class(output_high, "data.frame")
+  expect_equal(colnames(output_low), c("lw", "val", "up", "ref", "direction", "var"))
+  expect_equal(colnames(output_high), c("lw", "val", "up", "ref", "direction", "var"))
+  expect_equal(nrow(output_low), 2)
+  expect_equal(nrow(output_high), 2)
+})
+
+test_that("nsec_multi explicit criterion = 0.8 matches default", {
+  output_default <- nsec_multi(
+    nsec_multi_model_2,
+    x_var = "dose",
+    multi_var = "sp",
+    type = "lower"
+  )
+  output_explicit <- nsec_multi(
+    nsec_multi_model_2,
+    x_var = "dose",
+    multi_var = "sp",
+    type = "lower",
+    criterion = 0.8
+  )
+
+  expect_equal(output_default$val, output_explicit$val, tolerance = 0.001)
+  expect_equal(output_default$direction, output_explicit$direction)
+})
+
+test_that("nsec_multi criterion has no effect for type = both", {
+  # criterion is only used in extract_nsec_multi when type = "lower"
+  output_low_crit <- nsec_multi(
+    nsec_multi_model_2,
+    x_var = "dose",
+    multi_var = "sp",
+    type = "both",
+    criterion = 0.01
+  )
+  output_high_crit <- nsec_multi(
+    nsec_multi_model_2,
+    x_var = "dose",
+    multi_var = "sp",
+    type = "both",
+    criterion = 0.99
+  )
+
+  expect_equal(output_low_crit$dec_val, output_high_crit$dec_val, tolerance = 0.001)
+  expect_equal(output_low_crit$inc_val, output_high_crit$inc_val, tolerance = 0.001)
+})

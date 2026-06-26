@@ -984,3 +984,42 @@ test_that("nsec input validation catches non-logical posterior", {
     "`posterior` must be logical"
   )
 })
+
+# nsec default resolution per method type ------------------------------------
+# Man page generic shows resolution = 100, but brmsfit and drc methods default
+# to resolution = 1000. These tests document the actual per-method defaults.
+
+test_that("bnecfit default resolution is 100", {
+  output <- nsec(bayesnec_ecx4param)
+  expect_equal(attr(output, "resolution"), 100)
+})
+
+test_that("brmsfit default resolution is 1000", {
+  output <- nsec(brms_model_1, x_var = "x")
+  expect_equal(attr(output, "resolution"), 1000)
+})
+
+# nsec.drc — man page gaps documented as known bugs -------------------------
+
+# TODO: Bug in nsec.drc (single-curve case, no curveid). The line
+# `xform(nsec_out)` does not assign its result, so xform is called but
+# discarded. out_vals is built from the unmodified nsec_out. The existing
+# test "drc nsec xform changes output values" uses >= which passes even when
+# both outputs are identical. Remove `if (FALSE)` once the assignment is fixed.
+if (FALSE) {
+  test_that("drc nsec xform multiplies all output values when curveid is NA", {
+    output_1 <- nsec(nsec_drc_1, x_var = "x")
+    output_2 <- nsec(nsec_drc_1, x_var = "x", xform = function(x) x * 2)
+    expect_equal(as.numeric(output_2), as.numeric(output_1) * 2, tolerance = 0.01)
+  })
+}
+
+# TODO: nsec.drc returns an unnamed numeric vector (via as.numeric(unlist(...))).
+# nsec.brmsfit and nsec.bnecfit both return named vectors c("Q50","Q2.5","Q97.5").
+# Remove `if (FALSE)` once nsec.drc adds clean_names() like the other methods.
+if (FALSE) {
+  test_that("drc nsec output is named Q50, Q2.5, Q97.5 consistent with other methods", {
+    output <- nsec(nsec_drc_1, x_var = "x")
+    expect_equal(names(output), c("Q50", "Q2.5", "Q97.5"))
+  })
+}
