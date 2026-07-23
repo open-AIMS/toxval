@@ -24,6 +24,17 @@ For the theoretical basis of the NSEC, see [Fisher & Fox
 estimation across smooth and threshold model classes, see [Fisher et al.
 (2024)](https://academic.oup.com/ieam/article/20/1/279/7725045).
 
+## Installation
+
+The current development version can be installed from GitHub via
+
+``` r
+if (!requireNamespace("remotes")) {
+  install.packages("remotes")
+}
+remotes::install_github("open-aims/bayesnec", ref = "dev")
+```
+
 ## Motivation
 
 Contemporary ecotoxicology increasingly relies on model-based inference
@@ -154,8 +165,13 @@ making assumptions about bounds, link functions, and ECx/NEC definitions
 explicit and consistent. Community input is welcome — see [issue
 \#22](https://github.com/open-AIMS/toxval/issues/22).
 
-## Further Information
+## Licensing
 
 `toxval` is provided by the [Australian Institute of Marine
-Science](https://www.aims.gov.au) and Poisson Consulting under the GPL-2
-License ([GPL-2](https://opensource.org/license/gpl-2-0/)).
+Science](https://www.aims.gov.au).
+
+Copyright 2024-2026 Australian Institute of Marine Science.  
+Copyright 2025-2026 Poisson Consulting Ltd.
+
+Released under the GPL-2 License
+(<https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>).
