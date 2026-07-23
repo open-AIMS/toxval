@@ -30,7 +30,7 @@ large values will make the NSEC estimate more precise.}
 
 \item{x_range}{A range of x values over which to consider extracting NSEC.}
 
-\item{hormesis_def}{A \code{\link[base]{character}} vector, taking values
+\item{hormesis_def}{A character vector, taking values
 of "max" or "control". See Details.}
 
 \item{xform}{A function to apply to the returned estimated concentration
@@ -39,6 +39,10 @@ values.}
 \item{prob_vals}{A vector indicating the probability values over which to
 return the estimated NSEC value. Defaults to 0.5 (median) and 0.025 and
 0.975 (95 percent credible intervals).}
+
+\item{posterior}{A logical value indicating if the full
+posterior sample of calculated NSEC values should be returned instead of
+just the median and 95 credible intervals.}
 
 \item{...}{Further arguments to pass to class specific methods.}
 }

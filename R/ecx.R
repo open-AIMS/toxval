@@ -19,6 +19,7 @@
 #' @param prob_vals A vector indicating the probability values over which to
 #' return the estimated ECx value. Defaults to 0.5 (median) and 0.025 and
 #' 0.975 (95 percent credible intervals).
+#' @param ... Additional arguments passed to class-specific methods.
 #'
 #' @details \code{type} "relative" is calculated as the percentage decrease
 #' from the maximum predicted value of the response (top) to the minimum

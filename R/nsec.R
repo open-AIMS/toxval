@@ -8,7 +8,7 @@
 #' estimate NEC as an interpolated NOEC value from smooth ECx curves.
 #' @param resolution The number of unique x values over which to find NSEC -
 #' large values will make the NSEC estimate more precise.
-#' @param hormesis_def A \code{\link[base]{character}} vector, taking values
+#' @param hormesis_def A character vector, taking values
 #' of "max" or "control". See Details.
 #' @param xform A function to apply to the returned estimated concentration
 #' values.
@@ -16,6 +16,9 @@
 #' @param prob_vals A vector indicating the probability values over which to
 #' return the estimated NSEC value. Defaults to 0.5 (median) and 0.025 and
 #' 0.975 (95 percent credible intervals).
+#' @param posterior A logical value indicating if the full
+#' posterior sample of calculated NSEC values should be returned instead of
+#' just the median and 95 credible intervals.
 #' @param ... Further arguments to pass to class specific methods.
 #'
 #' @details For \code{hormesis_def}, if "max", then NSEC values are calculated
