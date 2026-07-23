@@ -176,8 +176,12 @@ specification, and output objects, while making assumptions about bounds, link
 functions, and ECx/NEC definitions explicit and consistent. Community input is
 welcome — see [issue #22](https://github.com/open-AIMS/toxval/issues/22).
 
-## Further Information
+## Licensing
 
 `toxval` is provided by the [Australian Institute of Marine
-Science](https://www.aims.gov.au) and Poisson Consulting under the GPL-2
-License ([GPL-2](https://opensource.org/license/gpl-2-0/)).
+Science](https://www.aims.gov.au).
+
+Copyright 2024-2026 Australian Institute of Marine Science
+Copyright 2025-2026 Poisson Consulting Ltd.
+
+Released under the GPL-2 License (https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).

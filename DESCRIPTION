@@ -8,13 +8,15 @@ Authors@R: c(
     person("Darren", "Koppel", role = "aut"),
     person("David", "Fox", role = "aut"),
     person("Ayla", "Pearson", , "ayla@poissonconsulting.ca", role = "aut",
-           comment = c(ORCID = "0000-0001-7388-1222"))
+           comment = c(ORCID = "0000-0001-7388-1222")),
+    person("Australian Institute of Marine Science", role = c("cph", "fnd")),
+    person("Poisson Consulting Ltd.", role = "cph")
   )
 Description: This pacakge extracts NSEC or ECx estimates from supported
     fitted frequentist (drc) and Bayesian (bayesnec) model objects (see
     Fox
     (2010)<https://setac.onlinelibrary.wiley.com/doi/full/10.1002/etc.5610?af=R>).
-License: Apache License (== 2)
+License: GPL-2
 URL: https://open-aims.github.io/toxval/
 BugReports: https://github.com/open-aims/toxval/issues
 Depends:
@@ -36,4 +38,4 @@ Config/testthat/edition: 3
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
+Config/roxygen2/version: 8.0.0.9000
