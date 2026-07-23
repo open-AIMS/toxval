@@ -7,6 +7,8 @@
 ![Open Source
 Love](https://badges.frapsoft.com/os/v2/open-source.svg?v=103)
 [![DOI](https://zenodo.org/badge/760193848.svg)](https://zenodo.org/doi/10.5281/zenodo.12753573)
+[![Codecov test
+coverage](https://codecov.io/gh/open-AIMS/toxval/graph/badge.svg)](https://app.codecov.io/gh/open-AIMS/toxval)
 <!-- badges: end -->
 
 ## Overview
@@ -165,7 +167,7 @@ making assumptions about bounds, link functions, and ECx/NEC definitions
 explicit and consistent. Community input is welcome — see [issue
 \#22](https://github.com/open-AIMS/toxval/issues/22).
 
-## Licensing
+## Further Information
 
 `toxval` is provided by the [Australian Institute of Marine
 Science](https://www.aims.gov.au).
