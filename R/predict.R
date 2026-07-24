@@ -1,19 +1,19 @@
 #' Generates mean posterior predictions for objects fitted by
-#' \code{\link{bnec}}
+#' \code{\link[bayesnec]{bnec}}
 #'
 #' Generates mean posterior predictions for objects fitted by
-#' \code{\link{bnec}}. \code{object} should be of class
-#' \code{\link{bayesnecfit}} or \code{\link{bayesmanecfit}}.
+#' \code{\link[bayesnec]{bnec}}. \code{object} should be of class
+#' \code{\link[bayesnec]{bayesnecfit}} or \code{\link[bayesnec]{bayesmanecfit}}.
 #'
 #' @name predict
 #' @order 1
 #'
-#' @param object An object of class \code{\link{bayesnecfit}} or
-#' \code{\link{bayesmanecfit}}.
+#' @param object An object of class \code{\link[bayesnec]{bayesnecfit}} or
+#' \code{\link[bayesnec]{bayesmanecfit}}.
 #' @param ... Additional arguments to \code{\link[brms]{predict.brmsfit}} if
-#' object is of class \code{\link{bayesnecfit}}, or to
+#' object is of class \code{\link[bayesnec]{bayesnecfit}}, or to
 #' \code{\link[brms]{posterior_predict.brmsfit}} if object is of class
-#' \code{\link{bayesmanecfit}}.
+#' \code{\link[bayesnec]{bayesmanecfit}}.
 #'
 #' @return See \code{?brms::predict.brmsfit}.
 #'

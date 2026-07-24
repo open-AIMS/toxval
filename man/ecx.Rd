@@ -18,8 +18,8 @@ ecx(
 )
 }
 \arguments{
-\item{object}{An object of class \code{\link{bayesnecfit}} or
-\code{\link{bayesmanecfit}} returned by \code{\link{bnec}}.}
+\item{object}{An object of class \code{\link[bayesnec]{bayesnecfit}} or
+\code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.}
 
 \item{ecx_val}{The desired percentage effect value. This must be a value
 between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.}
@@ -71,7 +71,7 @@ if "control", then ECx values are calculated relative to the control, which
 is assumed to be the lowest observed concentration.
 
 Calls to functions \code{\link{ecx}} and \code{\link{nsec}} and
-\code{\link{compare_fitted}} do not require the same level of flexibility
+\code{\link[bayesnec]{compare_fitted}} do not require the same level of flexibility
 in the context of allowing argument \code{newdata}
 (from a \code{\link[brms]{posterior_predict}} perspective) to
 be supplied manually, as this is and should be handled within the function

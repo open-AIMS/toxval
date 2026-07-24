@@ -1,7 +1,7 @@
 #' Extracts the predicted NSEC values from a multivariate brmsfit.
 #'
-#' @param object An object of class \code{\link{bayesnecfit}} or
-#' \code{\link{bayesmanecfit}} returned by \code{\link{bnec}}.
+#' @param object An object of class \code{\link[bayesnec]{bayesnecfit}} or
+#' \code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.
 #' @param sig_val Probability value to use as the lower quantile to test
 #' significance of the predicted posterior values.
 #' against the lowest observed concentration (assumed to be the control), to

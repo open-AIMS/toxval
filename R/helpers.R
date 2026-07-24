@@ -282,7 +282,7 @@ rounded <- function(value, resolution = 1) {
   sprintf(paste0("%.", resolution, "f"), round(value, resolution))
 }
 
-#' Checks if argument is a \code{\link{bayesnecfit}} object
+#' Checks if argument is a \code{\link[bayesnec]{bayesnecfit}} object
 #'
 #' @param x An \R object
 #'
@@ -291,7 +291,7 @@ is_bayesnecfit <- function(x) {
   inherits(x, "bayesnecfit")
 }
 
-#' Checks if argument is a \code{\link{bayesmanecfit}} object
+#' Checks if argument is a \code{\link[bayesnec]{bayesmanecfit}} object
 #'
 #' @param x An \R object
 #'

@@ -1,7 +1,7 @@
 #' Extracts the predicted ECx value as desired from a supported class.
 #'
-#' @param object An object of class \code{\link{bayesnecfit}} or
-#' \code{\link{bayesmanecfit}} returned by \code{\link{bnec}}.
+#' @param object An object of class \code{\link[bayesnec]{bayesnecfit}} or
+#' \code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.
 #' @param ecx_val The desired percentage effect value. This must be a value
 #' between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.
 #' @param type A \code{\link[base]{character}} vector, taking values of
@@ -36,7 +36,7 @@
 #' is assumed to be the lowest observed concentration.
 #' 
 #' Calls to functions \code{\link{ecx}} and \code{\link{nsec}} and
-#' \code{\link{compare_fitted}} do not require the same level of flexibility
+#' \code{\link[bayesnec]{compare_fitted}} do not require the same level of flexibility
 #' in the context of allowing argument \code{newdata}
 #' (from a \code{\link[brms]{posterior_predict}} perspective) to
 #' be supplied manually, as this is and should be handled within the function
@@ -94,7 +94,7 @@ ecx <- function(object, ecx_val = 10, resolution = 1000,
 #' @inherit ecx details return seealso examples
 #'
 #' @param object An object of class \code{\link{bnecfit}} returned by
-#' \code{\link{bnec}}.
+#' \code{\link[bayesnec]{bnec}}.
 #' 
 #' @importFrom stats quantile
 #' @importFrom brms posterior_epred

@@ -1,7 +1,7 @@
 #' Extracts the predicted NSEC value as desired from a supported class.
 #'
-#' @param object An object of class \code{\link{bayesnecfit}} or
-#' \code{\link{bayesmanecfit}} returned by \code{\link{bnec}}.
+#' @param object An object of class \code{\link[bayesnec]{bayesnecfit}} or
+#' \code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.
 #' @param sig_val Probability value to use as the lower quantile to test
 #' significance of the predicted posterior values.
 #' against the lowest observed concentration (assumed to be the control), to
@@ -27,7 +27,7 @@
 #' is assumed to be the lowest observed concentration.
 #'
 #' Calls to functions \code{\link{ecx}} and \code{\link{nsec}} and
-#' \code{\link{compare_fitted}} do not require the same level of flexibility
+#' \code{\link[bayesnec]{compare_fitted}} do not require the same level of flexibility
 #' in the context of allowing argument \code{newdata}
 #' (from a \code{\link[brms]{posterior_predict}} perspective) to
 #' be supplied manually, as this is and should be handled within the function
@@ -82,7 +82,7 @@ nsec <- function(object, sig_val = 0.01, resolution = 100,
 #' @inheritParams ecx
 #'
 #' @param object An object of class \code{\link{bnecfit}} returned by
-#' \code{\link{bnec}}.
+#' \code{\link[bayesnec]{bnec}}.
 #'
 #' @inherit nsec details seealso return examples
 #'

@@ -17,8 +17,8 @@ nsec(
 )
 }
 \arguments{
-\item{object}{An object of class \code{\link{bayesnecfit}} or
-\code{\link{bayesmanecfit}} returned by \code{\link{bnec}}.}
+\item{object}{An object of class \code{\link[bayesnec]{bayesnecfit}} or
+\code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.}
 
 \item{sig_val}{Probability value to use as the lower quantile to test
 significance of the predicted posterior values.
@@ -60,7 +60,7 @@ if "control", then NSEC values are calculated relative to the control, which
 is assumed to be the lowest observed concentration.
 
 Calls to functions \code{\link{ecx}} and \code{\link{nsec}} and
-\code{\link{compare_fitted}} do not require the same level of flexibility
+\code{\link[bayesnec]{compare_fitted}} do not require the same level of flexibility
 in the context of allowing argument \code{newdata}
 (from a \code{\link[brms]{posterior_predict}} perspective) to
 be supplied manually, as this is and should be handled within the function
