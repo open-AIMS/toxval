@@ -28,7 +28,7 @@
 #' # Predictions for raw input data
 #' nec4param <- pull_out(manec_example, model = "nec4param")
 #' preds <- predict(nec4param, make_newdata = FALSE)
-#' x <- pull_brmsfit(nec4param)$data$x
+#' x <- bayesnec::pull_brmsfit(nec4param)$data$x
 #' plot(x, preds[, 1])
 #' }
 NULL
@@ -44,7 +44,7 @@ NULL
 #'
 #' @export
 predict.bayesnecfit <- function(object, ...) {
-  predict(pull_brmsfit(object), ...)
+  predict(bayesnec::pull_brmsfit(object), ...)
 }
 
 #' @rdname predict

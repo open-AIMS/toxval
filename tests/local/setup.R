@@ -11,7 +11,7 @@ herbicide <- herbicide |>
 fit <-  bnec(y ~ crf(x, model = "ecx4param"), data = herbicide, 
              family = Beta(), seed = 17, iter = 1000)
 
-fit_brms <- pull_brmsfit(fit)
+fit_brms <- bayesnec::pull_brmsfit(fit)
 
 priors.fit <- prior_summary(fit_brms)
 bf_fitInt <- brms::bf(y ~ top + (bot - top)/(1 + exp((ec50 - x) * exp(beta))),

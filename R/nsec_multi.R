@@ -76,10 +76,10 @@ nsec_multi <- function(object, sig_val = 0.01, resolution = 50,
   names(pred_dat) <- x_var
 
   if (length(trials_var) == 1 && !is.na(trials_var)) {
-    trials <- object$data |> dplyr::select(starts_with(trials_var)) |> colnames()
+    trials <- object$data |> dplyr::select(dplyr::starts_with(trials_var)) |> colnames()
     if(length(trials)==0) stop("trials_var does not appear to be in your input data.")
     trials_data <- object$data |>
-      dplyr::select(all_of(trials)) |>
+      dplyr::select(dplyr::all_of(trials)) |>
       unique()
 
     pred_dat <- cbind(pred_dat, trials_data, row.names = NULL)
@@ -89,7 +89,7 @@ nsec_multi <- function(object, sig_val = 0.01, resolution = 50,
                    silent = TRUE)
 
   if(!is.na(multi_var)) {
-    vars <- object$data |> dplyr::select(starts_with(multi_var)) |> colnames()
+    vars <- object$data |> dplyr::select(dplyr::starts_with(multi_var)) |> colnames()
     if(length(vars)==0) stop("multi_var does not appear to be in your input data.")
 
     all_nsec_out <- apply(p_samples, MARGIN = 3, FUN = get_nsec_multi,
