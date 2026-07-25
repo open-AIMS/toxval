@@ -24,31 +24,6 @@ check_custom_name <- function(family) {
 }
 
 #' @noRd
-w_nec_calc <- function(index, mod_fits, sample_size, mod_stats) {
-  sample(mod_fits[[index]]$nec_posterior,
-         as.integer(round(sample_size * mod_stats[index, "wi"])))
-}
-
-#' @noRd
-w_pred_calc <- function(index, mod_fits, mod_stats) {
-  mod_fits[[index]]$predicted_y * mod_stats[index, "wi"]
-}
-
-#' @noRd
-w_post_pred_calc <- function(index, mod_fits, sample_size, mod_stats) {
-  x <- seq_len(sample_size)
-  size <- round(sample_size * mod_stats[index, "wi"])
-  mod_fits[[index]]$pred_vals$posterior[sample(x, size), ]
-}
-
-#' @noRd
-w_pred_list_calc <- function(index, pred_list, sample_size, mod_stats) {
-  x <- seq_len(sample_size)
-  size <- round(sample_size * mod_stats[index, "wi"])
-  pred_list[[index]][sample(x, size), ]
-}
-
-#' @noRd
 do_wrapper <- function(..., fct = "cbind") {
   do.call(fct, lapply(...))
 }
