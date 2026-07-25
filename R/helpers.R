@@ -24,21 +24,6 @@ check_custom_name <- function(family) {
 }
 
 #' @noRd
-extract_dispersion <- function(x) {
-  x$dispersion
-}
-
-#' @noRd
-extract_loo <- function(x) {
-  x$fit$criteria$loo
-}
-
-#' @noRd
-extract_waic_estimate <- function(x) {
-  x$fit$criteria$waic$estimates["waic", "Estimate"]
-}
-
-#' @noRd
 w_nec_calc <- function(index, mod_fits, sample_size, mod_stats) {
   sample(mod_fits[[index]]$nec_posterior,
          as.integer(round(sample_size * mod_stats[index, "wi"])))
