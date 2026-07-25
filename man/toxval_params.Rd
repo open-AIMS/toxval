@@ -4,8 +4,8 @@
 \alias{toxval_params}
 \title{Parameters common to multiple toxval functions}
 \arguments{
-\item{object}{An object of class \code{\link[bayesnec]{bayesnecfit}} or
-\code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.}
+\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
+\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
 
 \item{sig_val}{Probability value to use as the lower quantile to test
 significance of the predicted posterior values.
@@ -47,7 +47,7 @@ each level in group_var, or marginalised across all groups.}
 }
 \description{
 This is a documentation-only object whose parameter definitions are shared
-across the package via \code{@inheritParams toxval_params}. It is not
+across the package via \verb{@inheritParams toxval_params}. It is not
 intended to be called directly.
 }
 \keyword{internal}

@@ -1,20 +1,20 @@
 #' Generates mean posterior predictions for objects fitted by
-#' \code{\link[bayesnec]{bnec}}
+#' [bayesnec::bnec()]
 #'
 #' Generates mean posterior predictions for objects fitted by
-#' \code{\link[bayesnec]{bnec}}. \code{object} should be of class
-#' \code{\link[bayesnec]{bayesnecfit}} or \code{\link[bayesnec]{bayesmanecfit}}.
+#' [bayesnec::bnec()]. `object` should be of class
+#' [bayesnec::bayesnecfit] or [bayesnec::bayesmanecfit].
 #'
 #' @name predict
 #' @order 1
 #'
 #' @inheritParams toxval_params
-#' @param ... Additional arguments to \code{\link[brms]{predict.brmsfit}} if
-#' object is of class \code{\link[bayesnec]{bayesnecfit}}, or to
-#' \code{\link[brms]{posterior_predict.brmsfit}} if object is of class
-#' \code{\link[bayesnec]{bayesmanecfit}}.
+#' @param ... Additional arguments to [brms::predict.brmsfit()] if
+#' object is of class [bayesnec::bayesnecfit], or to
+#' [brms::posterior_predict.brmsfit()] if object is of class
+#' [bayesnec::bayesmanecfit].
 #'
-#' @return See \code{?brms::predict.brmsfit}.
+#' @return See `?brms::predict.brmsfit`.
 #'
 #' @examples
 #' \dontrun{
@@ -48,14 +48,14 @@ predict.bayesnecfit <- function(object, ...) {
 #' @order 3
 #'
 #' @param summary Should summary statistics be returned
-#'  instead of the raw values? Default is \code{TRUE}.
-#' @param robust If \code{FALSE} (the default) the mean is used as
+#'  instead of the raw values? Default is `TRUE`.
+#' @param robust If `FALSE` (the default) the mean is used as
 #'  the measure of central tendency and the standard deviation as
-#'  the measure of variability. If \code{TRUE}, the median and the
+#'  the measure of variability. If `TRUE`, the median and the
 #'  median absolute deviation (MAD) are applied instead.
-#'  Only used if \code{summary} is \code{TRUE}.
-#' @param probs  The percentiles to be computed by the \code{quantile}
-#'  function. Only used if \code{summary} is \code{TRUE}.
+#'  Only used if `summary` is `TRUE`.
+#' @param probs  The percentiles to be computed by the `quantile`
+#'  function. Only used if `summary` is `TRUE`.
 #'
 #' @method predict bayesmanecfit
 #'

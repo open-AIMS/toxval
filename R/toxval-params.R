@@ -1,14 +1,14 @@
 #' Parameters common to multiple toxval functions
 #'
 #' This is a documentation-only object whose parameter definitions are shared
-#' across the package via \code{@inheritParams toxval_params}. It is not
+#' across the package via `@inheritParams toxval_params`. It is not
 #' intended to be called directly.
 #'
 #' @name toxval_params
 #' @keywords internal
 #'
-#' @param object An object of class \code{\link[bayesnec]{bayesnecfit}} or
-#' \code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.
+#' @param object An object of class [bayesnec::bayesnecfit] or
+#' [bayesnec::bayesmanecfit] returned by [bayesnec::bnec()].
 #' @param sig_val Probability value to use as the lower quantile to test
 #' significance of the predicted posterior values.
 #' against the lowest observed concentration (assumed to be the control), to

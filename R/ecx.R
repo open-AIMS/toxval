@@ -6,7 +6,7 @@
 #' @param type A character vector, taking values of
 #' "relative", "absolute" (the default) or "direct". See Details.
 #'
-#' @details \code{type} "relative" is calculated as the percentage decrease
+#' @details `type` "relative" is calculated as the percentage decrease
 #' from the maximum predicted value of the response (top) to the minimum
 #' predicted value of the response. Type "absolute" (the default) is
 #' calculated as the percentage decrease from the maximum value of the
@@ -15,19 +15,19 @@
 #' Note that for the current version, ECx for an "nechorme" (NEC Hormesis)
 #' model is estimated at a percent decline from the control.
 #' 
-#' For \code{hormesis_def}, if "max", then ECx values are calculated as a
+#' For `hormesis_def`, if "max", then ECx values are calculated as a
 #' decline from the maximum estimates (i.e. the peak at NEC);
 #' if "control", then ECx values are calculated relative to the control, which
 #' is assumed to be the lowest observed concentration.
 #' 
-#' Calls to functions \code{\link{ecx}} and \code{\link{nsec}} and
-#' \code{\link[bayesnec]{compare_fitted}} do not require the same level of flexibility
-#' in the context of allowing argument \code{newdata}
-#' (from a \code{\link[brms]{posterior_predict}} perspective) to
+#' Calls to functions [ecx()] and [nsec()] and
+#' [bayesnec::compare_fitted()] do not require the same level of flexibility
+#' in the context of allowing argument `newdata`
+#' (from a [brms::posterior_predict()] perspective) to
 #' be supplied manually, as this is and should be handled within the function
-#' itself. The argument \code{resolution} controls how precisely the
-#' \code{\link{ecx}} or \code{\link{nsec}} value is estimated, with 
-#' argument \code{x_range} allowing estimation beyond the existing range of
+#' itself. The argument `resolution` controls how precisely the
+#' [ecx()] or [nsec()] value is estimated, with 
+#' argument `x_range` allowing estimation beyond the existing range of
 #' the observed data (otherwise the default range) which can be useful in a
 #' small number of cases. There is also no reasonable case where estimating
 #' these from the raw data would be of value, because both functions would
@@ -78,8 +78,8 @@ ecx <- function(object, ecx_val = 10, resolution = 1000,
 #'
 #' @inherit ecx details return seealso examples
 #'
-#' @param object An object of class \code{\link{bnecfit}} returned by
-#' \code{\link[bayesnec]{bnec}}.
+#' @param object An object of class [bayesnec::bnecfit] returned by
+#' [bayesnec::bnec()].
 #'
 #' @noRd
 #'
@@ -225,8 +225,8 @@ ecx_x_direct <- function(y, ecx_val, x_vec, hormesis_def) {
 #' @inheritParams ecx
 #' @inheritParams toxval_params
 #'
-#' @param object An object of class \code{\link{brmsfit}} returned by
-#' \code{\link{brms}}.
+#' @param object An object of class [brms::brmsfit] returned by
+#' [brms::brm()].
 #'
 #' @noRd
 #'

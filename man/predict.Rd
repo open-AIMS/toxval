@@ -5,20 +5,20 @@
 \alias{predict.bayesnecfit}
 \alias{predict.bayesmanecfit}
 \title{Generates mean posterior predictions for objects fitted by
-\code{\link[bayesnec]{bnec}}}
+\code{\link[bayesnec:bnec]{bayesnec::bnec()}}}
 \usage{
 \method{predict}{bayesnecfit}(object, ...)
 
 \method{predict}{bayesmanecfit}(object, summary = TRUE, robust = FALSE, probs = c(0.025, 0.975), ...)
 }
 \arguments{
-\item{object}{An object of class \code{\link[bayesnec]{bayesnecfit}} or
-\code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.}
+\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
+\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
 
-\item{...}{Additional arguments to \code{\link[brms]{predict.brmsfit}} if
-object is of class \code{\link[bayesnec]{bayesnecfit}}, or to
-\code{\link[brms]{posterior_predict.brmsfit}} if object is of class
-\code{\link[bayesnec]{bayesmanecfit}}.}
+\item{...}{Additional arguments to \code{\link[brms:predict.brmsfit]{brms::predict.brmsfit()}} if
+object is of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit}, or to
+\code{\link[brms:posterior_predict.brmsfit]{brms::posterior_predict.brmsfit()}} if object is of class
+\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit}.}
 
 \item{summary}{Should summary statistics be returned
 instead of the raw values? Default is \code{TRUE}.}
@@ -37,8 +37,8 @@ See \code{?brms::predict.brmsfit}.
 }
 \description{
 Generates mean posterior predictions for objects fitted by
-\code{\link[bayesnec]{bnec}}. \code{object} should be of class
-\code{\link[bayesnec]{bayesnecfit}} or \code{\link[bayesnec]{bayesmanecfit}}.
+\code{\link[bayesnec:bnec]{bayesnec::bnec()}}. \code{object} should be of class
+\link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or \link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit}.
 }
 \examples{
 \dontrun{

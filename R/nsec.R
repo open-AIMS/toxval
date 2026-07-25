@@ -2,19 +2,19 @@
 #'
 #' @inheritParams toxval_params
 #'
-#' @details For \code{hormesis_def}, if "max", then NSEC values are calculated
+#' @details For `hormesis_def`, if "max", then NSEC values are calculated
 #' as a decline from the maximum estimates (i.e. the peak at NEC);
 #' if "control", then NSEC values are calculated relative to the control, which
 #' is assumed to be the lowest observed concentration.
 #'
-#' Calls to functions \code{\link{ecx}} and \code{\link{nsec}} and
-#' \code{\link[bayesnec]{compare_fitted}} do not require the same level of flexibility
-#' in the context of allowing argument \code{newdata}
-#' (from a \code{\link[brms]{posterior_predict}} perspective) to
+#' Calls to functions [ecx()] and [nsec()] and
+#' [bayesnec::compare_fitted()] do not require the same level of flexibility
+#' in the context of allowing argument `newdata`
+#' (from a [brms::posterior_predict()] perspective) to
 #' be supplied manually, as this is and should be handled within the function
-#' itself. The argument \code{resolution} controls how precisely the
-#' \code{\link{ecx}} or \code{\link{nsec}} value is estimated, with
-#' argument \code{x_range} allowing estimation beyond the existing range of
+#' itself. The argument `resolution` controls how precisely the
+#' [ecx()] or [nsec()] value is estimated, with
+#' argument `x_range` allowing estimation beyond the existing range of
 #' the observed data (otherwise the default range) which can be useful in a
 #' small number of cases. There is also no reasonable case where estimating
 #' these from the raw data would be of value, because both functions would
@@ -62,8 +62,8 @@ nsec <- function(object, sig_val = 0.01, resolution = 100,
 #' @inheritParams nsec
 #' @inheritParams ecx
 #'
-#' @param object An object of class \code{\link{bnecfit}} returned by
-#' \code{\link[bayesnec]{bnec}}.
+#' @param object An object of class [bayesnec::bnecfit] returned by
+#' [bayesnec::bnec()].
 #'
 #' @inherit nsec details seealso return examples
 #'
@@ -129,8 +129,8 @@ nsec.bnecfit <- function(object, sig_val = 0.01, resolution = 100,
 #' @inheritParams nsec
 #' @inheritParams toxval_params
 #'
-#' @param object An object of class \code{\link{brmsfit}} returned by
-#' \code{\link{brms}}.
+#' @param object An object of class [brms::brmsfit] returned by
+#' [brms::brm()].
 #'
 #' @noRd
 #'
@@ -280,8 +280,8 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
 #' @inheritParams nsec
 #' @inheritParams toxval_params
 #'
-#' @param object An object of class \code{\link{drc}} returned by
-#' \code{\link{drc}}.
+#' @param object An object of class `drc` returned by
+#' [drc::drm()].
 #' @param horme Logical indicating if hormesis is evident. Not currently implemented.
 #' @param curveid A character indicating the name of the grouping variable in object
 #'
