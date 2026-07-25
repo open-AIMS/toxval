@@ -23,22 +23,6 @@ check_custom_name <- function(family) {
   custom_name
 }
 
-#' extract_pars
-#' @param x A \code{\link[base]{character}} vector.
-#' @param model_fit An object of class \code{\link[brms]{brmsfit}}.
-#' @return A named \code{\link[base]{numeric}} vector or NA.
-#' @importFrom brms fixef
-#' @noRd
-extract_pars <- function(x, model_fit) {
-  fef <- fixef(model_fit, robust = TRUE)
-  tt <- fef[grep(x, rownames(fef)), c("Estimate", "Q2.5", "Q97.5")]
-  if (is.na(tt["Estimate"])) {
-    NA
-  } else {
-    tt
-  }
-}
-
 #' min_abs
 #' @param x A \code{\link[base]{numeric}} vector.
 #' @return A \code{\link[base]{numeric}} vector.
