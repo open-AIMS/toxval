@@ -111,36 +111,6 @@ is_bayesmanecfit <- function(x) {
 }
 
 #' @noRd
-return_x_range <- function(x) {
-  return_x <- function(object) {
-    if (is_bayesmanecfit(object)) {
-      object$w_pred_vals$data$x
-    } else if (is_bayesnecfit(object)) {
-      object$pred_vals$data$x
-    } else {
-      stop("Not all objects in x are of class bayesnecfit or bayesmanecfit.")
-    }
-  }
-  lapply(x, return_x) |>
-    unlist() |>
-    range(na.rm = TRUE)
-}
-
-#' @noRd
-return_nec_post <- function(m, xform) {
-  if (is_bayesnecfit(m)) {
-    out <- unname(m$nec_posterior)
-  }
-  if (is_bayesmanecfit(m)) {
-    out <- unname(m$w_nec_posterior)
-  }
-  if (inherits(xform, "function")) {
-    out <- xform(out)
-  }
-  out
-}
-
-#' @noRd
 gm_mean <- function(x, na_rm = TRUE, zero_propagate = FALSE) {
   if (any(x < 0, na.rm = TRUE)) {
     return(NaN)
