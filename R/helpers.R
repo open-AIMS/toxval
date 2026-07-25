@@ -111,12 +111,6 @@ is_bayesmanecfit <- function(x) {
 }
 
 #' @noRd
-is_character <- function(x) {
-  if (is.na(x)) x <- as.character(x)
-  is.character(x)
-}
-
-#' @noRd
 retrieve_var <- function(data, var, error = FALSE) {
   bnec_vars <- attr(data, "bnec_pop")
   bnec_pop <- names(bnec_vars)
