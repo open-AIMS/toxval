@@ -111,32 +111,6 @@ is_bayesmanecfit <- function(x) {
 }
 
 #' @noRd
-retrieve_var <- function(data, var, error = FALSE) {
-  bnec_vars <- attr(data, "bnec_pop")
-  bnec_pop <- names(bnec_vars)
-  v_pos <- which(bnec_pop == var)
-  out <- try(data[[v_pos]], silent = TRUE)
-  if (inherits(out, "try-error")) {
-    if (error) {
-      stop("The input variable \"", bnec_vars[[var]],
-           "\" was not properly specified in formula. See ?bayesnecformula")
-    }
-    NULL
-  } else if (is.numeric(out)) {
-    if (!is.vector(out)) {
-      message("You most likely provided a function to transform your \"",
-              bnec_vars[[var]], "\" that does not return a vector. This is",
-              " likely to cause issues with sampling in Stan. ",
-              " Forcing it to be a vector...")
-    }
-    as.vector(out)
-  } else {
-    stop("The input variable \"", bnec_vars[[var]],
-         "\" is not numeric.")
-  }
-}
-
-#' @noRd
 extract_formula <- function(x) {
   out <- try(x[["bayesnecformula"]], silent = TRUE)
   if (inherits(out, "try-error")) {
