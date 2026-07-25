@@ -150,25 +150,3 @@ test_that("newdata_eval works with bayesnecfit objects", {
   expect_type(result, "list")
   expect_length(result$x_vec, 30)
 })
-
-# estimates_summary --------------------------------------------------------
-
-test_that("estimates_summary returns median and 95% CI", {
-  set.seed(42)
-  x <- rnorm(1000, mean = 5, sd = 1)
-  result <- toxval:::estimates_summary(x)
-
-  expect_length(result, 3)
-  expect_equal(names(result), c("Estimate", "Q2.5", "Q97.5"))
-  expect_equal(unname(result["Estimate"]), median(x), tolerance = 0.001)
-  expect_equal(
-    unname(result["Q2.5"]),
-    unname(quantile(x, 0.025)),
-    tolerance = 0.001
-  )
-  expect_equal(
-    unname(result["Q97.5"]),
-    unname(quantile(x, 0.975)),
-    tolerance = 0.001
-  )
-})

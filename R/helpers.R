@@ -4,14 +4,6 @@ do_wrapper <- function(..., fct = "cbind") {
 }
 
 #' @noRd
-#' @importFrom stats median quantile
-estimates_summary <- function(x) {
-  x <- c(median(x), quantile(x, c(0.025, 0.975)))
-  names(x) <- c("Estimate", "Q2.5", "Q97.5")
-  x
-}
-
-#' @noRd
 clean_names <- function(x) {
   paste0("Q", gsub("%", "", names(x), fixed = TRUE))
 }
