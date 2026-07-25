@@ -33,13 +33,13 @@ estimation across smooth and threshold model classes, see [Fisher et al.
 
 ## Installation
 
-The current development version can be installed from GitHub via
+The current development version can be downloaded from GitHub via
 
 ``` r
 if (!requireNamespace("remotes")) {
   install.packages("remotes")
 }
-remotes::install_github("open-aims/bayesnec", ref = "dev")
+remotes::install_github("open-aims/toxval")
 ```
 
 ## Motivation
@@ -91,17 +91,6 @@ models with NEC values from threshold models — providing a more
 statistically defensible approach to no-effect estimation (see [Fisher
 et al. 2024](https://doi.org/10.1002/ieam.4809) and the `bayesnec`
 package).
-
-## Installation
-
-The current development version can be downloaded from GitHub via
-
-``` r
-if (!requireNamespace("remotes")) {
-  install.packages("remotes")
-}
-remotes::install_github("open-aims/toxval", ref = "main")
-```
 
 ## Usage
 
