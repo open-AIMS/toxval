@@ -92,11 +92,6 @@ contains_one <- function(x) {
   sum(x == 1, na.rm = TRUE) >= 1
 }
 
-#' @noRd
-rounded <- function(value, resolution = 1) {
-  sprintf(paste0("%.", resolution, "f"), round(value, resolution))
-}
-
 #' Checks if argument is a \code{\link[bayesnec]{bayesnecfit}} object
 #'
 #' @param x An \R object
