@@ -92,11 +92,6 @@ contains_one <- function(x) {
   sum(x == 1, na.rm = TRUE) >= 1
 }
 
-#' @noRd
-contains_negative <- function(x) {
-  any(x < 0, na.rm = TRUE)
-}
-
 #' @importFrom stats binomial
 #' @noRd
 response_link_scale <- function(response, family) {
