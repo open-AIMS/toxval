@@ -1,8 +1,9 @@
-library(brms)
-library(testthat)
-library(drc)
-library(toxval)
 options(mc.cores = 1)
+
+# drc is only needed so bare predict() on drc objects dispatches to
+# predict.drc inside nsec.drc(); load its namespace (no attach, no startup
+# banner). brms need not be loaded here as it is on toxval's Imports.
+requireNamespace("drc", quietly = TRUE)
 
 random_filename <- function(nchar) {
   paste0(c(round(runif(nchar) * 15), sample(letters, nchar),
