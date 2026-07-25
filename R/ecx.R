@@ -39,9 +39,8 @@
 #'
 #' @examples
 #' \donttest{
-#' library(brms)
 #' library(bayesnec)
-#' data(manec_example)
+#' 
 #' ecx(manec_example, ecx_val = 50)
 #' ecx(manec_example)
 #' }

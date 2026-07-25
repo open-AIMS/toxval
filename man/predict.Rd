@@ -51,13 +51,16 @@ Generates mean posterior predictions for objects fitted by
 
 }}
 \examples{
-\dontrun{
+\donttest{
 library(bayesnec)
+
 # Uses default `resolution` and `x_range` to generate `newdata` internally
 predict(manec_example)
+
 # Provide user-specified `newdata`
 nd_ <- data.frame(x = seq(0, 3, length.out = 200))
 predict(manec_example, ecx_val = 50, newdata = nd_, make_newdata = FALSE)
+
 # Predictions for raw input data
 nec4param <- bayesnec::pull_out(manec_example, model = "nec4param")
 preds <- predict(nec4param, make_newdata = FALSE)
