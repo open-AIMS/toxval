@@ -83,19 +83,6 @@ print_mat <- function(x, digits = 2) {
 }
 
 #' @noRd
-clean_mod_weights <- function(x) {
-  a <- x$mod_stats[, !sapply(x$mod_stats, function(z)all(is.na(z)))]
-  as.matrix(a[, -1])
-}
-
-#' @noRd
-clean_nec_vals <- function(x) {
-  mat <- t(as.matrix(x$w_nec))
-  rownames(mat) <- "NEC"
-  mat
-}
-
-#' @noRd
 nice_ecx_out <- function(ec, ecx_tag) {
   cat(ecx_tag)
   cat("\n")
