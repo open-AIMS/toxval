@@ -95,10 +95,6 @@ ecx <- function(object, ecx_val = 10, resolution = 1000,
 #'
 #' @param object An object of class \code{\link{bnecfit}} returned by
 #' \code{\link[bayesnec]{bnec}}.
-#' 
-#' @importFrom stats quantile median
-#' @importFrom brms posterior_epred
-#' @importFrom chk chk_logical chk_numeric
 #'
 #' @noRd
 #'
@@ -254,12 +250,6 @@ ecx_x_direct <- function(y, ecx_val, x_vec, hormesis_def) {
 #' each level in group_var, or marginalised across all groups.
 #' @param horme Logical indicating if hormesis is evident.
 #' 
-#' @importFrom stats quantile
-#' @importFrom chk chk_logical chk_numeric
-#' @importFrom dplyr bind_cols bind_rows
-#' @importFrom brms as_draws_df posterior_epred
-#' @importFrom tidyr pivot_longer everything
-#'
 #' @noRd
 #'
 #' @export

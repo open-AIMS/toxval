@@ -19,9 +19,6 @@ modify_posterior <- function(n, object, x_vec, p_samples, hormesis_def) {
   posterior_sample
 }
 
-#' @importFrom bayesnec pull_out bnec_newdata
-#' @importFrom stats model.frame
-#' 
 #' @noRd
 newdata_eval <- function(object, resolution, x_range) {
   # Just need one model to extract and generate data
@@ -96,7 +93,6 @@ extract_nsec_multi <- function(all_nsec_out, type, criterion){
 
 
 #' @noRd
-#' @importFrom modelbased zero_crossings
 nsec_fct <- function(y, reference, x_vec) {
   val <- min(zero_crossings(y - reference))
   if(is.na(val)) {
@@ -109,7 +105,6 @@ nsec_fct <- function(y, reference, x_vec) {
 }
 
 #' @noRd
-#' @importFrom modelbased zero_crossings
 tox_fct <- function(y, reference, x_vec) {
   val <- min(zero_crossings(y - reference))
   if(is.na(val)) {
@@ -120,4 +115,3 @@ tox_fct <- function(y, reference, x_vec) {
       return(floor_x + prop_x)
     }
 }
-

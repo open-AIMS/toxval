@@ -40,8 +40,6 @@ NULL
 #'
 #' @inherit predict description return examples
 #'
-#' @importFrom stats predict
-#'
 #' @export
 predict.bayesnecfit <- function(object, ...) {
   predict(bayesnec::pull_brmsfit(object), ...)
@@ -63,8 +61,6 @@ predict.bayesnecfit <- function(object, ...) {
 #' @method predict bayesmanecfit
 #'
 #' @inherit predict description return examples
-#'
-#' @importFrom brms posterior_summary posterior_predict
 #'
 #' @export
 predict.bayesmanecfit <- function(object, summary = TRUE,

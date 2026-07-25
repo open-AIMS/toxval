@@ -86,11 +86,6 @@ nsec <- function(object, sig_val = 0.01, resolution = 100,
 #'
 #' @inherit nsec details seealso return examples
 #'
-#' @importFrom stats quantile
-#' @importFrom stats terms
-#' @importFrom brms as_draws_df posterior_epred
-#' @importFrom chk chk_logical chk_numeric
-#'
 #' @noRd
 #'
 #' @export
@@ -162,12 +157,6 @@ nsec.bnecfit <- function(object, sig_val = 0.01, resolution = 100,
 #' @param by_group A logical indicating if nsec values should be returned for
 #' each level in group_var, or marginalised across all groups.
 #' @param horme Logical indicating if hormesis is evident.
-#'
-#' @importFrom stats quantile
-#' @importFrom dplyr bind_cols bind_rows
-#' @importFrom brms as_draws_df posterior_epred
-#' @importFrom chk chk_logical chk_numeric
-#' @importFrom tidyr pivot_longer everything
 #'
 #' @noRd
 #'
@@ -322,8 +311,6 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
 #' each level in group_var, or marginalised across all groups.
 #' @param horme Logical indicating if hormesis is evident. Not currently implemented.
 #' @param curveid A character indicating the name of the grouping variable in object
-#'
-#' @importFrom chk chk_logical chk_numeric
 #'
 #' @noRd
 #'
