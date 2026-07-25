@@ -39,17 +39,6 @@ modify_posterior <- function(n, object, x_vec, p_samples, hormesis_def) {
 }
 
 #' @noRd
-print_mat <- function(x, digits = 2) {
-  fmt <- paste0("%.", digits, "f")
-  out <- x
-  for (i in seq_len(ncol(x))) {
-    out[, i] <- sprintf(fmt, x[, i])
-  }
-  print(out, quote = FALSE, right = TRUE)
-  invisible(x)
-}
-
-#' @noRd
 contains_zero <- function(x) {
   sum(x == 0, na.rm = TRUE) >= 1
 }
