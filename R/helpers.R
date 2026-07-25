@@ -111,16 +111,6 @@ is_bayesmanecfit <- function(x) {
 }
 
 #' @noRd
-extract_formula <- function(x) {
-  out <- try(x[["bayesnecformula"]], silent = TRUE)
-  if (inherits(out, "try-error")) {
-    NA
-  } else {
-    out
-  }
-}
-
-#' @noRd
 find_transformations <- function(data) {
   bnec_pop_vars <- attr(data, "bnec_pop")
   # what bout when no variable?
