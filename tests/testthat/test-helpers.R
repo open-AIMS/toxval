@@ -129,14 +129,6 @@ test_that("modify_posterior with hormesis_def = control leaves all values", {
   expect_equal(result, p_sample)
 })
 
-# min_abs ------------------------------------------------------------------
-
-test_that("min_abs finds index of value closest to zero", {
-  expect_equal(toxval:::min_abs(c(-5, -1, 0.5, 3, 10)), 3)
-  expect_equal(toxval:::min_abs(c(-0.1, 0.2, 5)), 1)
-  expect_equal(toxval:::min_abs(c(10, -10, 0)), 3)
-})
-
 # contains_zero / contains_one / contains_negative -------------------------
 
 test_that("contains_zero detects zeros", {

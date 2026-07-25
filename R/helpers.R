@@ -23,14 +23,6 @@ check_custom_name <- function(family) {
   custom_name
 }
 
-#' min_abs
-#' @param x A \code{\link[base]{numeric}} vector.
-#' @return A \code{\link[base]{numeric}} vector.
-#' @noRd
-min_abs <- function(x) {
-  which.min(abs(x))
-}
-
 #' paste_normal_prior
 #'
 #' Creates prior string given a number
