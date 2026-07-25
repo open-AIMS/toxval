@@ -214,12 +214,14 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
     }
     reference <- quantile(p_samples[, 1], sig_val)
     ecnsecP <- apply(p_samples, MARGIN = 1, FUN = function(r){
+      # TODO confirm if commented code can be removed
       #(max(r) - diff(range(r)))/reference * 100
       (1-diff(c(min(r), reference))/(diff(range(r)))) * 100
     })
     ecnsec <- quantile(ecnsecP, probs = prob_vals)
 
     if (horme) {
+      # TODO confirm if commented code can be removed
       # n <- seq_len(nrow(p_samples))
       # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
       #                                    p_samples, hormesis_def, fct = "rbind")
@@ -241,11 +243,13 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
       p_samples <- posterior_epred(object, newdata = pred_dat, re_formula = NA)
       reference <- quantile(p_samples[, 1], sig_val)
       ecnsecP <- apply(p_samples, MARGIN = 1, FUN = function(r){
+        # TODO confirm if commented code can be removed
         #(max(r) - diff(range(r)))/reference * 100
         (1-diff(c(min(r), reference))/(diff(range(r)))) * 100
       })
       ecnsec <- quantile(ecnsecP, probs = prob_vals)
       if (horme) {
+        # TODO confirm if commented code can be removed
         # n <- seq_len(nrow(p_samples))
         # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
         #                                    p_samples, hormesis_def, fct = "rbind")

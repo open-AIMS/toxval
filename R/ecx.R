@@ -96,7 +96,7 @@ ecx <- function(object, ecx_val = 10, resolution = 1000,
 #' @param object An object of class \code{\link{bnecfit}} returned by
 #' \code{\link[bayesnec]{bnec}}.
 #' 
-#' @importFrom stats quantile
+#' @importFrom stats quantile median
 #' @importFrom brms posterior_epred
 #' @importFrom chk chk_logical chk_numeric
 #'
@@ -144,6 +144,7 @@ ecx.bnecfit <- function(object, ecx_val = 10, resolution = 100,
     
   tox_estimate <- apply(tox_out, MARGIN = 2, FUN = quantile, 
                         probs = prob_vals, na.rm = TRUE)
+    # TODO confirm if commented code can be removed
     #quantile(unlist(tox_out), probs = prob_vals)
     #names(tox_estimate) <- clean_names(tox_estimate)
   
@@ -334,6 +335,7 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
       
       p_samples <- posterior_epred(object, newdata = pred_dat,
                                    re_formula = NA)
+      # TODO confirm if commented code can be removed
       # if (grepl("horme", object$model)) {
       #   n <- seq_len(nrow(p_samples))
       #   p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
