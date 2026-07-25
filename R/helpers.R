@@ -25,11 +25,11 @@ newdata_eval <- function(object, resolution, x_range) {
   # since all models are considered to have the exact same raw data.
   if (inherits(object, "bayesmanecfit")) {
     model_set <- names(object$mod_fits)
-    object <- suppressMessages(pull_out(object, model = model_set[1]))
+    object <- suppressMessages(bayesnec::pull_out(object, model = model_set[1]))
   }
   data <- model.frame(object$bayesnecformula, object$fit$data)
   bnec_pop_vars <- attr(data, "bnec_pop")
-  newdata <- bnec_newdata(object, resolution = resolution, x_range = x_range)
+  newdata <- bayesnec::bnec_newdata(object, resolution = resolution, x_range = x_range)
   x_vec <- newdata[[bnec_pop_vars[["x_var"]]]]
   list(newdata = newdata, x_vec = x_vec)
 }
@@ -94,7 +94,7 @@ extract_nsec_multi <- function(all_nsec_out, type, criterion){
 
 #' @noRd
 nsec_fct <- function(y, reference, x_vec) {
-  val <- min(zero_crossings(y - reference))
+  val <- min(modelbased::zero_crossings(y - reference))
   if(is.na(val)) {
     return(max(x_vec))} else {
       floor_x <-  x_vec[floor(val)] 
@@ -106,7 +106,7 @@ nsec_fct <- function(y, reference, x_vec) {
 
 #' @noRd
 tox_fct <- function(y, reference, x_vec) {
-  val <- min(zero_crossings(y - reference))
+  val <- min(modelbased::zero_crossings(y - reference))
   if(is.na(val)) {
     return(NA)} else {
       floor_x <-  x_vec[floor(val)] 

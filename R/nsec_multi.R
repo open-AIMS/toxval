@@ -40,9 +40,9 @@ nsec_multi <- function(object, sig_val = 0.01, resolution = 50,
                  x_var, trials_var = NA, multi_var = NA,
                  type = "both", criterion = 0.8, ...) {
 
-  #chk_numeric(sig_val)
-  chk_numeric(resolution)
-  chk_logical(posterior)
+  #chk::chk_numeric(sig_val)
+  chk::chk_numeric(resolution)
+  chk::chk_logical(posterior)
 
   if (is.na(match(type, c('both', 'lower', 'increasing', 'decreasing')))) {
     stop("type must be one of both, lower, increasing, or decreasing")

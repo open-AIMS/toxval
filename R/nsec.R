@@ -56,9 +56,9 @@ nsec <- function(object, sig_val = 0.01, resolution = 100,
                  x_range = NA, hormesis_def = "control",
                  xform = identity, prob_vals = c(0.5, 0.025, 0.975),
                  posterior = FALSE, ...) {
-  chk_numeric(sig_val)
-  chk_numeric(resolution)
-  chk_logical(posterior)
+  chk::chk_numeric(sig_val)
+  chk::chk_numeric(resolution)
+  chk::chk_logical(posterior)
 
   if (length(sig_val)>1) {
     stop("You may only pass one sig_val")
@@ -260,15 +260,15 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
 
   if(by_group & posterior & !is.na(group_var)){
     names(out_vals) <- groups
-    out_vals <- out_vals |> bind_cols() |>
-      pivot_longer(everything(), names_to = group_var, values_to = "NSEC")
+    out_vals <- out_vals |> dplyr::bind_cols() |>
+      tidyr::pivot_longer(tidyr::everything(), names_to = group_var, values_to = "NSEC")
     attr(out_vals, "ecnsec_relativeP") <- ecnsec
   }
 
   if(by_group & !posterior & !is.na(group_var)){
     names(out_vals) <- groups
     out_vals <- lapply(out_vals, quantile, probs = prob_vals) |>
-      bind_rows(.id = group_var)
+      dplyr::bind_rows(.id = group_var)
     names(out_vals) <- clean_names(out_vals)
     attr(out_vals, "ecnsec_relativeP") <- ecnsec
   }
@@ -321,8 +321,8 @@ nsec.drc <- function(object, sig_val = 0.01, resolution = 1000,
                      x_var,
                      horme = FALSE,
                      curveid = NA) {
-  chk_numeric(sig_val)
-  chk_numeric(resolution)
+  chk::chk_numeric(sig_val)
+  chk::chk_numeric(resolution)
 
   if (length(sig_val)>1) {
     stop("You may only pass one sig_val")

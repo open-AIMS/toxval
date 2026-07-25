@@ -67,8 +67,8 @@ ecx <- function(object, ecx_val = 10, resolution = 1000,
                 hormesis_def = "control", x_range = NA,
                 xform = identity, prob_vals = c(0.5, 0.025, 0.975), ...) {
   
-  chk_numeric(resolution)  
-  chk_logical(posterior)
+  chk::chk_numeric(resolution)  
+  chk::chk_logical(posterior)
   if ((type %in% c("relative", "absolute", "direct")) == FALSE) {
     stop("type must be one of 'relative', 'absolute' (the default) or 'direct'. 
          Please see ?ecx for more details.")
@@ -175,7 +175,7 @@ ecx_x_relative <- function(y, ecx_val, x_vec, hormesis_def) {
       ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)      
     }
     
-    val <- min(zero_crossings(y - ecx_y))
+    val <- min(modelbased::zero_crossings(y - ecx_y))
     if(is.na(val)) {
       outval <- max(x_vec)
       } else {
@@ -204,7 +204,7 @@ ecx_x_absolute <- function(y, ecx_val, x_vec, hormesis_def) {
       ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)
     }
 
-    val <- min(zero_crossings(y - ecx_y))
+    val <- min(modelbased::zero_crossings(y - ecx_y))
     if(is.na(val)) {
       outval <- max(x_vec)
     } else {
@@ -224,7 +224,7 @@ ecx_x_direct <- function(y, ecx_val, x_vec, hormesis_def) {
   } else {
     ecx_y <- ecx_val
 
-    val <- min(zero_crossings(y - ecx_y))
+    val <- min(modelbased::zero_crossings(y - ecx_y))
     if(is.na(val)) {
       outval <- max(x_vec)
     } else {
@@ -262,7 +262,7 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
                             group_var = NA, 
                             by_group = FALSE,
                             horme = FALSE, ...) {
-  chk_numeric(ecx_val)
+  chk::chk_numeric(ecx_val)
   if (length(ecx_val)>1) {
     stop("You may only pass one ecx_val")
   }
@@ -342,14 +342,14 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
   
   if(by_group & posterior & !is.na(group_var)){
     names(out_vals) <- groups
-    out_vals <- out_vals |> bind_cols() |> 
-      pivot_longer(everything(), names_to = group_var, values_to = "ECx")
+    out_vals <- out_vals |> dplyr::bind_cols() |> 
+      tidyr::pivot_longer(tidyr::everything(), names_to = group_var, values_to = "ECx")
   }
   
   if(by_group & !posterior & !is.na(group_var)){   
     names(out_vals) <- groups
     out_vals <- lapply(out_vals, quantile, probs = prob_vals) |> 
-      bind_rows(.id = group_var)
+      dplyr::bind_rows(.id = group_var)
     names(out_vals) <- clean_names(out_vals)
   }
   
