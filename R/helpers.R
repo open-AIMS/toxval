@@ -110,15 +110,6 @@ is_bayesmanecfit <- function(x) {
   inherits(x, "bayesmanecfit")
 }
 
-#' @noRd
-#' @importFrom chk chk_numeric
-check_args_newdata <- function(resolution, x_range) {
-  chk_numeric(resolution)
-  if (!is.na(x_range[1])) {
-    chk_numeric(x_range)
-  }  
-}
-
 #' @importFrom bayesnec pull_out bnec_newdata
 #' @importFrom stats model.frame
 #' 
