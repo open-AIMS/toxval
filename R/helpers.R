@@ -38,20 +38,6 @@ newdata_eval <- function(object, resolution, x_range) {
 }
 
 #' @noRd
-crf <- function(x, model, arg_to_retrieve = "x") {
-  mf <- match.call(expand.dots = FALSE)
-  if (arg_to_retrieve == "x") {
-    m <- match("x", names(mf), 0L)
-    deparse(substitute(a, list(a = mf[[m]])))
-  } else if (arg_to_retrieve == "model") {
-    m <- match("model", names(mf), 0L)
-    eval(mf[[m]])
-  } else {
-    stop("arg_to_retrieve must be either \"x\" or \"model\".")
-  }
-}
-
-#' @noRd
 get_nsec_multi <- function(a, sig_val, x_vec, xform) {
   reference_dec <- quantile(a[, 1], sig_val)
   nsec_out_dec <- xform(apply(a, 1, nsec_fct, reference=reference_dec, x_vec=x_vec))         
