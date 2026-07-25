@@ -56,25 +56,6 @@ allot_class <- function(x, new_class) {
 #' }
 
 #' @noRd
-get_init_predictions <- function(y, x, fct, .args) {
-  y <- y[match(.args, names(y))]
-  y <- lapply(y, as.numeric)
-  y[["x"]] <- x
-  do.call("fct", y)
-}
-
-#' @noRd
-check_init_predictions <- function(x, limits) {
-    min(x) > min(limits) & 
-    max(x) < max(limits) &
-    !any(is.na(x)) &
-    !any(is.infinite(x)) & 
-    !any(is.nan(x)) & 
-    x[1]>x[length(x)] &
-    length(unique(x))>3 
-}
-
-#' @noRd
 clean_names <- function(x) {
   paste0("Q", gsub("%", "", names(x), fixed = TRUE))
 }
