@@ -1,33 +1,5 @@
 # Tests for helper functions in R/helpers.R
 
-# linear_rescale -----------------------------------------------------------
-
-test_that("linear_rescale maps to new range", {
-  x <- 1:10
-  result <- toxval:::linear_rescale(x, c(0, 1))
-
-  expect_equal(result[1], 0)
-  expect_equal(result[10], 1)
-  expect_length(result, 10)
-})
-
-test_that("linear_rescale preserves relative ordering", {
-  x <- c(5, 10, 15, 20)
-  result <- toxval:::linear_rescale(x, c(100, 200))
-
-  expect_true(all(diff(result) > 0))
-  expect_equal(result[1], 100)
-  expect_equal(result[4], 200)
-})
-
-test_that("linear_rescale handles negative ranges", {
-  x <- 1:5
-  result <- toxval:::linear_rescale(x, c(-10, -5))
-
-  expect_equal(result[1], -10)
-  expect_equal(result[5], -5)
-})
-
 # clean_names --------------------------------------------------------------
 
 test_that("clean_names strips % and adds Q prefix", {

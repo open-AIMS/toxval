@@ -1,14 +1,3 @@
-#' linear_rescale
-#' @param x A numeric vector.
-#' @param r_out A numeric vector of length 2 containing
-#' the new range of values in x.
-#' @return A numeric vector.
-#' @noRd
-linear_rescale <- function(x, r_out) {
-  p <- (x - min(x)) / (max(x) - min(x))
-  r_out[[1]] + p * (r_out[[2]] - r_out[[1]])
-}
-
 #' @noRd
 do_wrapper <- function(..., fct = "cbind") {
   do.call(fct, lapply(...))
