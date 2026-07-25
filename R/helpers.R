@@ -23,24 +23,6 @@ check_custom_name <- function(family) {
   custom_name
 }
 
-#' paste_normal_prior
-#'
-#' Creates prior string given a number
-#'
-#' @param mean A \code{\link[base]{numeric}} vector.
-#' @param param A \code{\link[base]{character}} vector indicating the
-#' target non-linear parameter.
-#' @param sd A \code{\link[base]{numeric}} vector indicating the
-#' standard deviation.
-#' @param ... Additional arguments of \code{\link[brms]{prior_string}}.
-#'
-#' @return A \code{\link[base]{character}} vector.
-#' @importFrom brms prior_string
-#' @noRd
-paste_normal_prior <- function(mean, param, sd = 1, ...) {
-  prior_string(paste0("normal(", mean, ", ", sd, ")"), nlpar = param, ...)
-}
-
 #' @noRd
 extract_dispersion <- function(x) {
   x$dispersion
