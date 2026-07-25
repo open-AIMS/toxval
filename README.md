@@ -1,6 +1,8 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
+<!-- badges: start -->
+
 [![license](https://img.shields.io/badge/license-GPL--2-lightgrey.svg)](https://choosealicense.com/)
 [![Ask Us Anything
 !](https://img.shields.io/badge/Ask%20us-anything-1abc9c.svg)](https://github.com/open-AIMS/toxval/issues/new)
@@ -9,6 +11,7 @@ Love](https://badges.frapsoft.com/os/v2/open-source.svg?v=103)
 [![DOI](https://zenodo.org/badge/760193848.svg)](https://zenodo.org/doi/10.5281/zenodo.12753573)
 [![Codecov test
 coverage](https://codecov.io/gh/open-AIMS/toxval/graph/badge.svg)](https://app.codecov.io/gh/open-AIMS/toxval)
+[![R-CMD-check](https://github.com/open-AIMS/toxval/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/open-AIMS/toxval/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 ## Overview
