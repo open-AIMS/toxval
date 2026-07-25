@@ -2,7 +2,7 @@
 "_PACKAGE"
 
 ## usethis namespace: start
-#' @importFrom stats quantile median predict model.frame terms
+#' @importFrom stats quantile median predict model.frame
 #' @importFrom brms as_draws_df posterior_epred posterior_summary posterior_predict
 #' @importFrom chk chk_logical chk_numeric
 #' @importFrom dplyr bind_cols bind_rows
