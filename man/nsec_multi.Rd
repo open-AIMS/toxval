@@ -41,7 +41,7 @@ values.}
 return the estimated NSEC value. Defaults to 0.5 (median) and 0.025 and
 0.975 (95 percent credible intervals).}
 
-\item{posterior}{A \code{\link[base]{logical}} value indicating if the full
+\item{posterior}{A logical value indicating if the full
 posterior sample of calculated NSEC values should be returned instead of
 just the median and credible intervals as defined by prob_vals.}
 

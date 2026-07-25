@@ -14,7 +14,7 @@
 #' @param prob_vals A vector indicating the probability values over which to
 #' return the estimated NSEC value. Defaults to 0.5 (median) and 0.025 and
 #' 0.975 (95 percent credible intervals).
-#' @param posterior A \code{\link[base]{logical}} value indicating if the full
+#' @param posterior A logical value indicating if the full
 #' posterior sample of calculated NSEC values should be returned instead of
 #' just the median and credible intervals as defined by prob_vals.
 #' @param x_var A character indicating the name of the predictor (x) data in object

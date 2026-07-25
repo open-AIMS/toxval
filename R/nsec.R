@@ -154,7 +154,7 @@ nsec.bnecfit <- function(object, sig_val = 0.01, resolution = 100,
 #'
 #' @param object An object of class \code{\link{brmsfit}} returned by
 #' \code{\link{brms}}.
-#' @param posterior A \code{\link[base]{logical}} value indicating if the full
+#' @param posterior A logical value indicating if the full
 #' posterior sample of calculated NSEC values should be returned instead of
 #' just the median and 95 credible intervals.
 #' @param x_var A character indicating the name of the predictor (x) data in object

@@ -4,14 +4,14 @@
 #' \code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.
 #' @param ecx_val The desired percentage effect value. This must be a value
 #' between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.
-#' @param type A \code{\link[base]{character}} vector, taking values of
+#' @param type A character vector, taking values of
 #' "relative", "absolute" (the default) or "direct". See Details.
 #' @param resolution The number of unique x values over which to find ECx --
 #' large values will make the ECx estimate more precise.
-#' @param posterior A \code{\link[base]{logical}} value indicating if the full
+#' @param posterior A logical value indicating if the full
 #' posterior sample of calculated ECx values should be returned instead of
 #' just the median and 95 credible intervals.
-#' @param hormesis_def A \code{\link[base]{character}} vector, taking values
+#' @param hormesis_def A character vector, taking values
 #' of "max" or "control". See Details.
 #' @param xform A function to apply to the returned estimated concentration
 #' values.
@@ -244,7 +244,7 @@ ecx_x_direct <- function(y, ecx_val, x_vec, hormesis_def) {
 #'
 #' @param object An object of class \code{\link{brmsfit}} returned by
 #' \code{\link{brms}}.
-#' @param posterior A \code{\link[base]{logical}} value indicating if the full
+#' @param posterior A logical value indicating if the full
 #' posterior sample of calculated ecx values should be returned instead of
 #' just the median and 95 credible intervals.
 #' @param x_var A character indicating the name of the predictor (x) data in object

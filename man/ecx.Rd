@@ -27,14 +27,14 @@ between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.}
 \item{resolution}{The number of unique x values over which to find ECx --
 large values will make the ECx estimate more precise.}
 
-\item{posterior}{A \code{\link[base]{logical}} value indicating if the full
+\item{posterior}{A logical value indicating if the full
 posterior sample of calculated ECx values should be returned instead of
 just the median and 95 credible intervals.}
 
-\item{type}{A \code{\link[base]{character}} vector, taking values of
+\item{type}{A character vector, taking values of
 "relative", "absolute" (the default) or "direct". See Details.}
 
-\item{hormesis_def}{A \code{\link[base]{character}} vector, taking values
+\item{hormesis_def}{A character vector, taking values
 of "max" or "control". See Details.}
 
 \item{x_range}{A range of x values over which to consider extracting ECx.}

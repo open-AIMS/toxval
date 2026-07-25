@@ -1,8 +1,8 @@
 #' linear_rescale
-#' @param x A \code{\link[base]{numeric}} vector.
-#' @param r_out A \code{\link[base]{numeric}} vector of length 2 containing
+#' @param x A numeric vector.
+#' @param r_out A numeric vector of length 2 containing
 #' the new range of values in x.
-#' @return A \code{\link[base]{numeric}} vector.
+#' @return A numeric vector.
 #' @noRd
 linear_rescale <- function(x, r_out) {
   p <- (x - min(x)) / (max(x) - min(x))
@@ -12,7 +12,7 @@ linear_rescale <- function(x, r_out) {
 #' check_custom_name
 #' @param family An object of class \code{\link[stats]{family}} or
 #' \code{\link[brms]{brmsfamily}}.
-#' @return A \code{\link[base]{character}} vector containing the brms
+#' @return A character vector containing the brms
 #' custom family or NA.
 #' @noRd
 check_custom_name <- function(family) {
