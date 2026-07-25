@@ -9,20 +9,6 @@ linear_rescale <- function(x, r_out) {
   r_out[[1]] + p * (r_out[[2]] - r_out[[1]])
 }
 
-#' check_custom_name
-#' @param family An object of class \code{\link[stats]{family}} or
-#' \code{\link[brms]{brmsfamily}}.
-#' @return A character vector containing the brms
-#' custom family or NA.
-#' @noRd
-check_custom_name <- function(family) {
-  custom_name <- "none"
-  if (inherits(family, "customfamily")) {
-    custom_name <- family$name
-  }
-  custom_name
-}
-
 #' @noRd
 do_wrapper <- function(..., fct = "cbind") {
   do.call(fct, lapply(...))
