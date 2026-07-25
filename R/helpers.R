@@ -22,25 +22,6 @@ estimates_summary <- function(x) {
   x
 }
 
-#' allot_class
-#'
-#' Assigns class to an object.
-#'
-#' @param x An object.
-#' @param new_class The new object class.
-#'
-#' @return An object of class new_class.
-#' @noRd
-allot_class <- function(x, new_class) {
-  class(x) <- new_class
-  x
-}
-
-#' #' @noRd
-#' expand_and_assign_nec <- function(x, ...) {
-#'   allot_class(expand_nec(x, ...), c("bayesnecfit", "bnecfit"))
-#' }
-
 #' @noRd
 clean_names <- function(x) {
   paste0("Q", gsub("%", "", names(x), fixed = TRUE))
