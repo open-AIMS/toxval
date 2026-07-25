@@ -16,7 +16,7 @@ Description: This package extracts NSEC or ECx estimates from supported
     fitted frequentist (drc) and Bayesian (bayesnec) model objects (see
     Fox
     (2010)<https://setac.onlinelibrary.wiley.com/doi/full/10.1002/etc.5610?af=R>).
-License: GPL-2
+License: GPL (>= 2)
 URL: https://open-aims.github.io/toxval/
 BugReports: https://github.com/open-aims/toxval/issues
 Depends:

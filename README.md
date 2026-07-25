@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-[![license](https://img.shields.io/badge/license-GPL--2-lightgrey.svg)](https://choosealicense.com/)
+[![license](https://img.shields.io/badge/license-GPL%20%28%3E=%202%29-lightgrey.svg)](https://choosealicense.com/)
 [![Ask Us Anything
 !](https://img.shields.io/badge/Ask%20us-anything-1abc9c.svg)](https://github.com/open-AIMS/toxval/issues/new)
 ![Open Source
@@ -175,5 +175,5 @@ Science](https://www.aims.gov.au).
 Copyright 2024-2026 Australian Institute of Marine Science.  
 Copyright 2025-2026 Poisson Consulting Ltd.
 
-Released under the GPL-2 License
-(<https://www.gnu.org/licenses/old-licenses/gpl-2.0.html>).
+Released under the [GPL (\>= 2)
+License](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
