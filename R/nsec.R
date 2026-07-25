@@ -179,7 +179,7 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
                          x_var,
                          group_var = NA,
                          by_group = FALSE,
-                         horme = FALSE){
+                         horme = FALSE, ...){
   if(is.na(x_range)){
     x_range = range(object$data[x_var])
   }

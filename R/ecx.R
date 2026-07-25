@@ -107,14 +107,14 @@ ecx.bnecfit <- function(object, ecx_val = 10, resolution = 100,
                          posterior = FALSE, type = "absolute",
                          hormesis_def = "control", x_range = NA,
                          xform = identity,
-                         prob_vals = c(0.5, 0.025, 0.975)) {
+                         prob_vals = c(0.5, 0.025, 0.975), ...) {
   newdata_list <- newdata_eval(
     object, resolution = resolution, x_range = x_range
   )
   p_samples <- posterior_epred(object, newdata = newdata_list$newdata,
                                re_formula = NA)
   x_vec <- newdata_list$x_vec
-  
+
   if (hormesis_def == "max") {
     control_posterior <- quantile(apply(p_samples, 1, max), probs = 0.5)
   } else {
@@ -270,10 +270,10 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
                             x_var, 
                             group_var = NA, 
                             by_group = FALSE,
-                            horme = FALSE) {
+                            horme = FALSE, ...) {
   chk_numeric(ecx_val)
   if (length(ecx_val)>1) {
-    stop("You may only pass one ecx_val")  
+    stop("You may only pass one ecx_val")
   }
   
   if (type != "direct") {
