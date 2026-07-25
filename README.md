@@ -29,7 +29,7 @@ no-effect metrics — including the No-Significant-Effect Concentration
 For the theoretical basis of the NSEC, see [Fisher & Fox
 (2023)](https://doi.org/10.1002/etc.5610). For model-averaged N(S)EC
 estimation across smooth and threshold model classes, see [Fisher et al.
-(2024)](https://academic.oup.com/ieam/article/20/1/279/7725045).
+(2024)](https://doi.org/10.1002/ieam.4809).
 
 ## Installation
 
@@ -89,8 +89,8 @@ extraction of the NEC parameter directly, and is designed to support
 model-averaged N(S)EC estimates that combine NSEC values from smooth
 models with NEC values from threshold models — providing a more
 statistically defensible approach to no-effect estimation (see [Fisher
-et al. 2024](https://academic.oup.com/ieam/article/20/1/279/7725045) and
-the `bayesnec` package).
+et al. 2024](https://doi.org/10.1002/ieam.4809) and the `bayesnec`
+package).
 
 ## Installation
 
