@@ -111,15 +111,6 @@ is_bayesmanecfit <- function(x) {
 }
 
 #' @noRd
-identical_value <- function(x, y) {
-  if (identical(x, y)) {
-    x
-  } else {
-    FALSE
-  }
-}
-
-#' @noRd
 #' @importFrom chk chk_numeric
 check_args_newdata <- function(resolution, x_range) {
   chk_numeric(resolution)
