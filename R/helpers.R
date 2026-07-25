@@ -55,25 +55,6 @@ allot_class <- function(x, new_class) {
 #'   allot_class(expand_nec(x, ...), c("bayesnecfit", "bnecfit"))
 #' }
 
-#' are_chains_correct
-#'
-#' Checks if number of chains in a \code{\link[brms]{brmsfit}} object are
-#' correct.
-#'
-#' @param brms_fit An object of class \code{\link[brms]{brmsfit}}.
-#' @param chains The expected number of correct chains.
-#'
-#' @return A \code{\link[base]{logical}} vector.
-#' @noRd
-are_chains_correct <- function(brms_fit, chains) {
-  fit_chs <- brms_fit$fit@sim$chains
-  if (is.null(fit_chs)) {
-    FALSE
-  } else {
-    fit_chs == chains
-  }
-}
-
 #' @noRd
 get_init_predictions <- function(y, x, fct, .args) {
   y <- y[match(.args, names(y))]
