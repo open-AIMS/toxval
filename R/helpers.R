@@ -48,24 +48,6 @@ contains_one <- function(x) {
   sum(x == 1, na.rm = TRUE) >= 1
 }
 
-#' Checks if argument is a \code{\link[bayesnec]{bayesnecfit}} object
-#'
-#' @param x An \R object
-#'
-#' @noRd
-is_bayesnecfit <- function(x) {
-  inherits(x, "bayesnecfit")
-}
-
-#' Checks if argument is a \code{\link[bayesnec]{bayesmanecfit}} object
-#'
-#' @param x An \R object
-#'
-#' @noRd
-is_bayesmanecfit <- function(x) {
-  inherits(x, "bayesmanecfit")
-}
-
 #' @importFrom bayesnec pull_out bnec_newdata
 #' @importFrom stats model.frame
 #' 
