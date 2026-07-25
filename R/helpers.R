@@ -19,16 +19,6 @@ modify_posterior <- function(n, object, x_vec, p_samples, hormesis_def) {
   posterior_sample
 }
 
-#' @noRd
-contains_zero <- function(x) {
-  sum(x == 0, na.rm = TRUE) >= 1
-}
-
-#' @noRd
-contains_one <- function(x) {
-  sum(x == 1, na.rm = TRUE) >= 1
-}
-
 #' @importFrom bayesnec pull_out bnec_newdata
 #' @importFrom stats model.frame
 #' 

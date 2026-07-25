@@ -101,19 +101,6 @@ test_that("modify_posterior with hormesis_def = control leaves all values", {
   expect_equal(result, p_sample)
 })
 
-# contains_zero / contains_one ---------------------------------------------
-
-test_that("contains_zero detects zeros", {
-  expect_true(toxval:::contains_zero(c(1, 0, 3)))
-  expect_false(toxval:::contains_zero(c(1, 2, 3)))
-  expect_true(toxval:::contains_zero(c(0, 0, 0)))
-})
-
-test_that("contains_one detects ones", {
-  expect_true(toxval:::contains_one(c(0, 1, 2)))
-  expect_false(toxval:::contains_one(c(0, 0.5, 2)))
-})
-
 # newdata_eval -------------------------------------------------------------
 
 test_that("newdata_eval returns list with newdata and x_vec", {
