@@ -13,7 +13,7 @@
 }
 \arguments{
 \item{object}{An object of class \code{\link[bayesnec]{bayesnecfit}} or
-\code{\link[bayesnec]{bayesmanecfit}}.}
+\code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.}
 
 \item{...}{Additional arguments to \code{\link[brms]{predict.brmsfit}} if
 object is of class \code{\link[bayesnec]{bayesnecfit}}, or to

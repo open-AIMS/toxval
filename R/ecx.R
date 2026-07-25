@@ -1,25 +1,10 @@
 #' Extracts the predicted ECx value as desired from a supported class.
 #'
-#' @param object An object of class \code{\link[bayesnec]{bayesnecfit}} or
-#' \code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.
+#' @inheritParams toxval_params
 #' @param ecx_val The desired percentage effect value. This must be a value
 #' between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.
 #' @param type A character vector, taking values of
 #' "relative", "absolute" (the default) or "direct". See Details.
-#' @param resolution The number of unique x values over which to find ECx --
-#' large values will make the ECx estimate more precise.
-#' @param posterior A logical value indicating if the full
-#' posterior sample of calculated ECx values should be returned instead of
-#' just the median and 95 credible intervals.
-#' @param hormesis_def A character vector, taking values
-#' of "max" or "control". See Details.
-#' @param xform A function to apply to the returned estimated concentration
-#' values.
-#' @param x_range A range of x values over which to consider extracting ECx.
-#' @param prob_vals A vector indicating the probability values over which to
-#' return the estimated ECx value. Defaults to 0.5 (median) and 0.025 and
-#' 0.975 (95 percent credible intervals).
-#' @param ... Additional arguments passed to class-specific methods.
 #'
 #' @details \code{type} "relative" is calculated as the percentage decrease
 #' from the maximum predicted value of the response (top) to the minimum
@@ -238,18 +223,11 @@ ecx_x_direct <- function(y, ecx_val, x_vec, hormesis_def) {
 }
 
 #' @inheritParams ecx
+#' @inheritParams toxval_params
 #'
 #' @param object An object of class \code{\link{brmsfit}} returned by
 #' \code{\link{brms}}.
-#' @param posterior A logical value indicating if the full
-#' posterior sample of calculated ecx values should be returned instead of
-#' just the median and 95 credible intervals.
-#' @param x_var A character indicating the name of the predictor (x) data in object
-#' @param group_var A character indicating the name of the grouping variable in object
-#' @param by_group A logical indicating if ecx values should be returned for 
-#' each level in group_var, or marginalised across all groups.
-#' @param horme Logical indicating if hormesis is evident.
-#' 
+#'
 #' @noRd
 #'
 #' @export

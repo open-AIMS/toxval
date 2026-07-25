@@ -24,11 +24,11 @@ ecx(
 \item{ecx_val}{The desired percentage effect value. This must be a value
 between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.}
 
-\item{resolution}{The number of unique x values over which to find ECx --
-large values will make the ECx estimate more precise.}
+\item{resolution}{The number of unique x values over which to find the
+estimate -- large values will make the estimate more precise.}
 
 \item{posterior}{A logical value indicating if the full
-posterior sample of calculated ECx values should be returned instead of
+posterior sample of calculated values should be returned instead of
 just the median and 95 credible intervals.}
 
 \item{type}{A character vector, taking values of
@@ -37,13 +37,14 @@ just the median and 95 credible intervals.}
 \item{hormesis_def}{A character vector, taking values
 of "max" or "control". See Details.}
 
-\item{x_range}{A range of x values over which to consider extracting ECx.}
+\item{x_range}{A range of x values over which to consider extracting the
+estimate.}
 
 \item{xform}{A function to apply to the returned estimated concentration
 values.}
 
 \item{prob_vals}{A vector indicating the probability values over which to
-return the estimated ECx value. Defaults to 0.5 (median) and 0.025 and
+return the estimated value. Defaults to 0.5 (median) and 0.025 and
 0.975 (95 percent credible intervals).}
 
 \item{...}{Additional arguments passed to class-specific methods.}

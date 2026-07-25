@@ -29,23 +29,25 @@ significance of the predicted posterior values.
 against the lowest observed concentration (assumed to be the control), to
 estimate NEC as an interpolated NOEC value from smooth ECx curves.}
 
-\item{resolution}{The number of unique x values over which to find NSEC -
-large values will make the NSEC estimate more precise.}
+\item{resolution}{The number of unique x values over which to find the
+estimate -- large values will make the estimate more precise.}
 
-\item{x_range}{A range of x values over which to consider extracting NSEC.}
+\item{x_range}{A range of x values over which to consider extracting the
+estimate.}
 
 \item{xform}{A function to apply to the returned estimated concentration
 values.}
 
 \item{prob_vals}{A vector indicating the probability values over which to
-return the estimated NSEC value. Defaults to 0.5 (median) and 0.025 and
+return the estimated value. Defaults to 0.5 (median) and 0.025 and
 0.975 (95 percent credible intervals).}
 
 \item{posterior}{A logical value indicating if the full
-posterior sample of calculated NSEC values should be returned instead of
-just the median and credible intervals as defined by prob_vals.}
+posterior sample of calculated values should be returned instead of
+just the median and 95 credible intervals.}
 
-\item{x_var}{A character indicating the name of the predictor (x) data in object}
+\item{x_var}{A character indicating the name of the predictor (x) data in
+object.}
 
 \item{trials_var}{NA if no trials, or a character vector indicating the name or
 prefix of any trials column(s).}
@@ -57,7 +59,7 @@ prefix of the multivariate column(s).}
 
 \item{criterion}{The criterion to use when type ='lowest'.}
 
-\item{...}{Further arguments to pass to class specific methods.}
+\item{...}{Additional arguments passed to class-specific methods.}
 }
 \value{
 A vector or list containing the estimated NSEC value(s).

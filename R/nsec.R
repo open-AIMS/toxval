@@ -1,25 +1,6 @@
 #' Extracts the predicted NSEC value as desired from a supported class.
 #'
-#' @param object An object of class \code{\link[bayesnec]{bayesnecfit}} or
-#' \code{\link[bayesnec]{bayesmanecfit}} returned by \code{\link[bayesnec]{bnec}}.
-#' @param sig_val Probability value to use as the lower quantile to test
-#' significance of the predicted posterior values.
-#' against the lowest observed concentration (assumed to be the control), to
-#' estimate NEC as an interpolated NOEC value from smooth ECx curves.
-#' @param resolution The number of unique x values over which to find NSEC -
-#' large values will make the NSEC estimate more precise.
-#' @param hormesis_def A character vector, taking values
-#' of "max" or "control". See Details.
-#' @param xform A function to apply to the returned estimated concentration
-#' values.
-#' @param x_range A range of x values over which to consider extracting NSEC.
-#' @param prob_vals A vector indicating the probability values over which to
-#' return the estimated NSEC value. Defaults to 0.5 (median) and 0.025 and
-#' 0.975 (95 percent credible intervals).
-#' @param posterior A logical value indicating if the full
-#' posterior sample of calculated NSEC values should be returned instead of
-#' just the median and 95 credible intervals.
-#' @param ... Further arguments to pass to class specific methods.
+#' @inheritParams toxval_params
 #'
 #' @details For \code{hormesis_def}, if "max", then NSEC values are calculated
 #' as a decline from the maximum estimates (i.e. the peak at NEC);
@@ -146,17 +127,10 @@ nsec.bnecfit <- function(object, sig_val = 0.01, resolution = 100,
 }
 
 #' @inheritParams nsec
+#' @inheritParams toxval_params
 #'
 #' @param object An object of class \code{\link{brmsfit}} returned by
 #' \code{\link{brms}}.
-#' @param posterior A logical value indicating if the full
-#' posterior sample of calculated NSEC values should be returned instead of
-#' just the median and 95 credible intervals.
-#' @param x_var A character indicating the name of the predictor (x) data in object
-#' @param group_var A character indicating the name of the grouping variable in object
-#' @param by_group A logical indicating if nsec values should be returned for
-#' each level in group_var, or marginalised across all groups.
-#' @param horme Logical indicating if hormesis is evident.
 #'
 #' @noRd
 #'
@@ -304,11 +278,10 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
 }
 
 #' @inheritParams nsec
+#' @inheritParams toxval_params
 #'
 #' @param object An object of class \code{\link{drc}} returned by
 #' \code{\link{drc}}.
-#' @param x_var A character indicating the name of the predictor (x) data in object
-#' each level in group_var, or marginalised across all groups.
 #' @param horme Logical indicating if hormesis is evident. Not currently implemented.
 #' @param curveid A character indicating the name of the grouping variable in object
 #'

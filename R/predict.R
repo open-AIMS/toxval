@@ -8,8 +8,7 @@
 #' @name predict
 #' @order 1
 #'
-#' @param object An object of class \code{\link[bayesnec]{bayesnecfit}} or
-#' \code{\link[bayesnec]{bayesmanecfit}}.
+#' @inheritParams toxval_params
 #' @param ... Additional arguments to \code{\link[brms]{predict.brmsfit}} if
 #' object is of class \code{\link[bayesnec]{bayesnecfit}}, or to
 #' \code{\link[brms]{posterior_predict.brmsfit}} if object is of class
