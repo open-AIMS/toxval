@@ -111,11 +111,6 @@ is_bayesmanecfit <- function(x) {
 }
 
 #' @noRd
-summarise_posterior <- function(mat, x_vec) {
-  cbind(x = x_vec, data.frame(t(apply(mat, 2, estimates_summary))))
-}
-
-#' @noRd
 is_character <- function(x) {
   if (is.na(x)) x <- as.character(x)
   is.character(x)
