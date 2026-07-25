@@ -111,13 +111,6 @@ is_bayesmanecfit <- function(x) {
 }
 
 #' @noRd
-find_transformations <- function(data) {
-  bnec_pop_vars <- attr(data, "bnec_pop")
-  # what bout when no variable?
-  unname(bnec_pop_vars[!bnec_pop_vars %in% names(data)])
-}
-
-#' @noRd
 cleaned_brms_summary <- function(brmsfit) {
   brmssummary <- summary(brmsfit, robust = TRUE)
   rownames(brmssummary$fixed) <- gsub(
