@@ -657,8 +657,14 @@ test_that("nsec_multi criterion changes direction selection for type = lower", {
   # Both should produce valid data frames with the same columns
   expect_s3_class(output_low, "data.frame")
   expect_s3_class(output_high, "data.frame")
-  expect_equal(colnames(output_low), c("lw", "val", "up", "ref", "direction", "var"))
-  expect_equal(colnames(output_high), c("lw", "val", "up", "ref", "direction", "var"))
+  expect_equal(
+    colnames(output_low),
+    c("lw", "val", "up", "ref", "direction", "var")
+  )
+  expect_equal(
+    colnames(output_high),
+    c("lw", "val", "up", "ref", "direction", "var")
+  )
   expect_equal(nrow(output_low), 2)
   expect_equal(nrow(output_high), 2)
 })
@@ -699,6 +705,14 @@ test_that("nsec_multi criterion has no effect for type = both", {
     criterion = 0.99
   )
 
-  expect_equal(output_low_crit$dec_val, output_high_crit$dec_val, tolerance = 0.001)
-  expect_equal(output_low_crit$inc_val, output_high_crit$inc_val, tolerance = 0.001)
+  expect_equal(
+    output_low_crit$dec_val,
+    output_high_crit$dec_val,
+    tolerance = 0.001
+  )
+  expect_equal(
+    output_low_crit$inc_val,
+    output_high_crit$inc_val,
+    tolerance = 0.001
+  )
 })

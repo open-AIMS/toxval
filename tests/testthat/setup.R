@@ -6,8 +6,14 @@ options(mc.cores = 1)
 requireNamespace("drc", quietly = TRUE)
 
 random_filename <- function(nchar) {
-  paste0(c(round(runif(nchar) * 15), sample(letters, nchar),
-         sample(LETTERS, nchar))[sample(1:nchar * 3, nchar)], collapse = "")
+  paste0(
+    c(
+      round(runif(nchar) * 15),
+      sample(letters, nchar),
+      sample(LETTERS, nchar)
+    )[sample(1:nchar * 3, nchar)],
+    collapse = ""
+  )
 }
 
 add_na <- function(x, n = 3) {
