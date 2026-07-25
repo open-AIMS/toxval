@@ -92,44 +92,6 @@ contains_one <- function(x) {
   sum(x == 1, na.rm = TRUE) >= 1
 }
 
-#' @importFrom stats binomial
-#' @noRd
-response_link_scale <- function(response, family) {
-  link_tag <- family$link
-  min_z_val <- min(response[which(response > 0)]) / 100
-  if (link_tag == "logit") {  
-    max_o_val <- max(response[which(response < 1)]) +
-      (1 - max(response[which(response < 1)])) * 0.99
-  }
-  lr <- linear_rescale
-  custom_name <- check_custom_name(family)
-  if (link_tag %in% c("logit", "log")) {
-    if (custom_name == "beta_binomial2") {
-      if (contains_zero(response)) {
-        response <- lr(response, r_out = c(min_z_val, max(response)))
-      }
-      if (contains_one(response)) {
-        response <- lr(response, r_out = c(min(response), max_o_val))
-      }
-      response <- binomial(link = link_tag)$linkfun(response)
-    } else if (family$family %in% c("bernoulli", "binomial")) {
-      if (contains_zero(response)) {
-        response <- lr(response, r_out = c(min_z_val, max(response)))
-      }
-      if (contains_one(response)) {
-        response <- lr(response, r_out = c(min(response), max_o_val))
-      }
-      response <- family$linkfun(response)
-    } else {
-      if (contains_zero(response)) {
-        response <- lr(response, r_out = c(min_z_val, max(response)))
-      }
-      response <- family$linkfun(response)
-    }
-  }
-  response
-}
-
 #' @noRd
 rounded <- function(value, resolution = 1) {
   sprintf(paste0("%.", resolution, "f"), round(value, resolution))
