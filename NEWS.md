@@ -1,31 +1,8 @@
 <!-- NEWS.md is maintained by https://fledge.cynkra.com, contributors should not edit this file -->
 
-# toxval 1.0.0.9000
+# toxval 1.0.0.9000 (2026-07-25)
 
-- Fixing R CMD Check warning by adding ... #32.
-
-- Cleaning up testing loading messages #31.
-
-- Becky add more nsec tests (#28).
-
-- Fix test suite: resolve stale fixtures and brittle tolerances (#27).
-
-- Merge pull request #26 from beckyfisher/dev.
-
-  Add CLAUDE.md, NEWS.md, and prompts/ directory
-
-- Merge pull request #23 from beckyfisher/update_readme.
-
-  Update readme
-
-- Merge pull request #16 from poissonconsulting/becky-edits.
-
-  adding in becky's changes
-
-- Merge pull request #2 from poissonconsulting/testing.
-
-  Adding tests
-
+- Package cleaning
 
 # toxval 1.0.0
 
