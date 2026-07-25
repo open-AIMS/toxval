@@ -6,7 +6,6 @@
 #' [bayesnec::bayesnecfit] or [bayesnec::bayesmanecfit].
 #'
 #' @name predict
-#' @order 1
 #'
 #' @inheritParams toxval_params
 #' @param ... Additional arguments to [brms::predict.brmsfit()] if
@@ -32,20 +31,17 @@
 #' }
 NULL
 
-#' @rdname predict
-#' @order 2
-#'
-#' @method predict bayesnecfit
-#'
-#' @inherit predict description return examples
+#' @describeIn predict Method for a single-model fit of class
+#'   [bayesnec::bayesnecfit].
 #'
 #' @export
 predict.bayesnecfit <- function(object, ...) {
   predict(bayesnec::pull_brmsfit(object), ...)
 }
 
-#' @rdname predict
-#' @order 3
+#' @describeIn predict Method for a model-averaged fit of class
+#'   [bayesnec::bayesmanecfit]; returns summary statistics controlled by
+#'   `summary`, `robust` and `probs`.
 #'
 #' @param summary Should summary statistics be returned
 #'  instead of the raw values? Default is `TRUE`.
@@ -56,10 +52,6 @@ predict.bayesnecfit <- function(object, ...) {
 #'  Only used if `summary` is `TRUE`.
 #' @param probs  The percentiles to be computed by the `quantile`
 #'  function. Only used if `summary` is `TRUE`.
-#'
-#' @method predict bayesmanecfit
-#'
-#' @inherit predict description return examples
 #'
 #' @export
 predict.bayesmanecfit <- function(object, summary = TRUE,

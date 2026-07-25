@@ -2,6 +2,9 @@
 % Please edit documentation in R/nsec.R
 \name{nsec}
 \alias{nsec}
+\alias{nsec.bnecfit}
+\alias{nsec.brmsfit}
+\alias{nsec.drc}
 \title{Extracts the predicted NSEC value as desired from a supported class.}
 \usage{
 nsec(
@@ -14,6 +17,49 @@ nsec(
   prob_vals = c(0.5, 0.025, 0.975),
   posterior = FALSE,
   ...
+)
+
+\method{nsec}{bnecfit}(
+  object,
+  sig_val = 0.01,
+  resolution = 100,
+  x_range = NA,
+  hormesis_def = "control",
+  xform = identity,
+  prob_vals = c(0.5, 0.025, 0.975),
+  posterior = FALSE,
+  type = "absolute",
+  ...
+)
+
+\method{nsec}{brmsfit}(
+  object,
+  sig_val = 0.01,
+  resolution = 1000,
+  x_range = NA,
+  hormesis_def = "control",
+  xform = identity,
+  prob_vals = c(0.5, 0.025, 0.975),
+  posterior = FALSE,
+  x_var,
+  group_var = NA,
+  by_group = FALSE,
+  horme = FALSE,
+  ...
+)
+
+\method{nsec}{drc}(
+  object,
+  sig_val = 0.01,
+  resolution = 1000,
+  x_range = NA,
+  hormesis_def = "control",
+  xform = identity,
+  prob_vals = c(0.5, 0.025, 0.975),
+  ...,
+  x_var,
+  horme = FALSE,
+  curveid = NA
 )
 }
 \arguments{
@@ -46,6 +92,24 @@ posterior sample of calculated values should be returned instead of
 just the median and 95 credible intervals.}
 
 \item{...}{Additional arguments passed to class-specific methods.}
+
+\item{type}{One of "relative" or "absolute" (the default). For "relative"
+the NSEC reference is taken relative to the minimum predicted response; for
+"absolute" it is taken relative to zero.}
+
+\item{x_var}{A character indicating the name of the predictor (x) data in
+\code{object}.}
+
+\item{group_var}{A character indicating the name of the grouping variable in
+\code{object}.}
+
+\item{by_group}{A logical indicating if values should be returned for each
+level in \code{group_var}, or marginalised across all groups.}
+
+\item{horme}{Logical indicating if hormesis is evident.}
+
+\item{curveid}{A character indicating the name of the grouping variable in
+\code{object}.}
 }
 \value{
 A vector containing the estimated NSEC value, including upper and
@@ -74,6 +138,20 @@ these from the raw data would be of value, because both functions would
 simply return one of the treatment concentrations, making NOEC a better
 metric in that case.
 }
+\section{Methods (by class)}{
+\itemize{
+\item \code{nsec(bnecfit)}: Method for a \code{bayesnec} fit of class \link[bayesnec:bnecfit]{bayesnec::bnecfit}
+returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.
+
+\item \code{nsec(brmsfit)}: Method for a raw \code{brms} fit of class \link[brms:brmsfit]{brms::brmsfit}
+returned by \code{\link[brms:brm]{brms::brm()}}. Requires \code{x_var}, and supports estimates per
+group via \code{group_var} and \code{by_group}.
+
+\item \code{nsec(drc)}: Method for a \code{drc} fit (class \code{drc}) returned by
+\code{\link[drc:drm]{drc::drm()}}. Supports estimates per group via \code{curveid}. Hormesis is not
+currently implemented.
+
+}}
 \examples{
 \donttest{
 library(bayesnec)

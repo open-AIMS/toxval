@@ -59,15 +59,12 @@ nsec <- function(object, sig_val = 0.01, resolution = 100,
   UseMethod("nsec")
 }
 
-#' @inheritParams nsec
-#' @inheritParams ecx
+#' @describeIn nsec Method for a `bayesnec` fit of class [bayesnec::bnecfit]
+#'   returned by [bayesnec::bnec()].
 #'
-#' @param object An object of class [bayesnec::bnecfit] returned by
-#' [bayesnec::bnec()].
-#'
-#' @inherit nsec details seealso return examples
-#'
-#' @noRd
+#' @param type One of "relative" or "absolute" (the default). For "relative"
+#'   the NSEC reference is taken relative to the minimum predicted response; for
+#'   "absolute" it is taken relative to zero.
 #'
 #' @export
 nsec.bnecfit <- function(object, sig_val = 0.01, resolution = 100,
@@ -126,13 +123,17 @@ nsec.bnecfit <- function(object, sig_val = 0.01, resolution = 100,
   }
 }
 
-#' @inheritParams nsec
-#' @inheritParams toxval_params
+#' @describeIn nsec Method for a raw `brms` fit of class [brms::brmsfit]
+#'   returned by [brms::brm()]. Requires `x_var`, and supports estimates per
+#'   group via `group_var` and `by_group`.
 #'
-#' @param object An object of class [brms::brmsfit] returned by
-#' [brms::brm()].
-#'
-#' @noRd
+#' @param x_var A character indicating the name of the predictor (x) data in
+#'   `object`.
+#' @param group_var A character indicating the name of the grouping variable in
+#'   `object`.
+#' @param by_group A logical indicating if values should be returned for each
+#'   level in `group_var`, or marginalised across all groups.
+#' @param horme Logical indicating if hormesis is evident.
 #'
 #' @export
 nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
@@ -277,15 +278,12 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
   return(out_vals)
 }
 
-#' @inheritParams nsec
-#' @inheritParams toxval_params
+#' @describeIn nsec Method for a `drc` fit (class `drc`) returned by
+#'   [drc::drm()]. Supports estimates per group via `curveid`. Hormesis is not
+#'   currently implemented.
 #'
-#' @param object An object of class `drc` returned by
-#' [drc::drm()].
-#' @param horme Logical indicating if hormesis is evident. Not currently implemented.
-#' @param curveid A character indicating the name of the grouping variable in object
-#'
-#' @noRd
+#' @param curveid A character indicating the name of the grouping variable in
+#'   `object`.
 #'
 #' @export
 nsec.drc <- function(object, sig_val = 0.01, resolution = 1000,

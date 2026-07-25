@@ -74,14 +74,8 @@ ecx <- function(object, ecx_val = 10, resolution = 1000,
   UseMethod("ecx")
 }
 
-#' @inheritParams ecx
-#'
-#' @inherit ecx details return seealso examples
-#'
-#' @param object An object of class [bayesnec::bnecfit] returned by
-#' [bayesnec::bnec()].
-#'
-#' @noRd
+#' @describeIn ecx Method for a `bayesnec` fit of class [bayesnec::bnecfit]
+#'   returned by [bayesnec::bnec()].
 #'
 #' @export
 ecx.bnecfit <- function(object, ecx_val = 10, resolution = 100,
@@ -222,13 +216,17 @@ ecx_x_direct <- function(y, ecx_val, x_vec, hormesis_def) {
   outval
 }
 
-#' @inheritParams ecx
-#' @inheritParams toxval_params
+#' @describeIn ecx Method for a raw `brms` fit of class [brms::brmsfit]
+#'   returned by [brms::brm()]. Requires `x_var`, and supports estimates per
+#'   group via `group_var` and `by_group`.
 #'
-#' @param object An object of class [brms::brmsfit] returned by
-#' [brms::brm()].
-#'
-#' @noRd
+#' @param x_var A character indicating the name of the predictor (x) data in
+#'   `object`.
+#' @param group_var A character indicating the name of the grouping variable in
+#'   `object`.
+#' @param by_group A logical indicating if values should be returned for each
+#'   level in `group_var`, or marginalised across all groups.
+#' @param horme Logical indicating if hormesis is evident.
 #'
 #' @export
 ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,

@@ -2,6 +2,8 @@
 % Please edit documentation in R/ecx.R
 \name{ecx}
 \alias{ecx}
+\alias{ecx.bnecfit}
+\alias{ecx.brmsfit}
 \title{Extracts the predicted ECx value as desired from a supported class.}
 \usage{
 ecx(
@@ -14,6 +16,36 @@ ecx(
   x_range = NA,
   xform = identity,
   prob_vals = c(0.5, 0.025, 0.975),
+  ...
+)
+
+\method{ecx}{bnecfit}(
+  object,
+  ecx_val = 10,
+  resolution = 100,
+  posterior = FALSE,
+  type = "absolute",
+  hormesis_def = "control",
+  x_range = NA,
+  xform = identity,
+  prob_vals = c(0.5, 0.025, 0.975),
+  ...
+)
+
+\method{ecx}{brmsfit}(
+  object,
+  ecx_val = 10,
+  resolution = 1000,
+  posterior = FALSE,
+  type = "absolute",
+  hormesis_def = "control",
+  x_range = NA,
+  xform = identity,
+  prob_vals = c(0.5, 0.025, 0.975),
+  x_var,
+  group_var = NA,
+  by_group = FALSE,
+  horme = FALSE,
   ...
 )
 }
@@ -48,6 +80,17 @@ return the estimated value. Defaults to 0.5 (median) and 0.025 and
 0.975 (95 percent credible intervals).}
 
 \item{...}{Additional arguments passed to class-specific methods.}
+
+\item{x_var}{A character indicating the name of the predictor (x) data in
+\code{object}.}
+
+\item{group_var}{A character indicating the name of the grouping variable in
+\code{object}.}
+
+\item{by_group}{A logical indicating if values should be returned for each
+level in \code{group_var}, or marginalised across all groups.}
+
+\item{horme}{Logical indicating if hormesis is evident.}
 }
 \value{
 A vector containing the estimated ECx value, including upper and
@@ -85,6 +128,16 @@ these from the raw data would be of value, because both functions would
 simply return one of the treatment concentrations, making NOEC a better
 metric in that case.
 }
+\section{Methods (by class)}{
+\itemize{
+\item \code{ecx(bnecfit)}: Method for a \code{bayesnec} fit of class \link[bayesnec:bnecfit]{bayesnec::bnecfit}
+returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.
+
+\item \code{ecx(brmsfit)}: Method for a raw \code{brms} fit of class \link[brms:brmsfit]{brms::brmsfit}
+returned by \code{\link[brms:brm]{brms::brm()}}. Requires \code{x_var}, and supports estimates per
+group via \code{group_var} and \code{by_group}.
+
+}}
 \examples{
 \donttest{
 library(brms)

@@ -40,6 +40,16 @@ Generates mean posterior predictions for objects fitted by
 \code{\link[bayesnec:bnec]{bayesnec::bnec()}}. \code{object} should be of class
 \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or \link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit}.
 }
+\section{Methods (by class)}{
+\itemize{
+\item \code{predict(bayesnecfit)}: Method for a single-model fit of class
+\link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit}.
+
+\item \code{predict(bayesmanecfit)}: Method for a model-averaged fit of class
+\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit}; returns summary statistics controlled by
+\code{summary}, \code{robust} and \code{probs}.
+
+}}
 \examples{
 \dontrun{
 library(bayesnec)
