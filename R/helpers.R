@@ -111,15 +111,6 @@ is_bayesmanecfit <- function(x) {
 }
 
 #' @noRd
-cleaned_brms_summary <- function(brmsfit) {
-  brmssummary <- summary(brmsfit, robust = TRUE)
-  rownames(brmssummary$fixed) <- gsub(
-    "\\_Intercept$", "", rownames(brmssummary$fixed)
-  )
-  brmssummary
-}
-
-#' @noRd
 identical_value <- function(x, y) {
   if (identical(x, y)) {
     x
