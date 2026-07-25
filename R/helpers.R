@@ -83,15 +83,6 @@ print_mat <- function(x, digits = 2) {
 }
 
 #' @noRd
-nice_ecx_out <- function(ec, ecx_tag) {
-  cat(ecx_tag)
-  cat("\n")
-  mat <- t(as.matrix(ec))
-  rownames(mat) <- "Estimate"
-  print_mat(mat)
-}
-
-#' @noRd
 contains_zero <- function(x) {
   sum(x == 0, na.rm = TRUE) >= 1
 }
