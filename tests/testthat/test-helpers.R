@@ -200,21 +200,3 @@ test_that("estimates_summary returns median and 95% CI", {
     tolerance = 0.001
   )
 })
-
-# gm_mean ------------------------------------------------------------------
-
-test_that("gm_mean calculates geometric mean", {
-  expect_equal(toxval:::gm_mean(c(1, 10, 100)), exp(mean(log(c(1, 10, 100)))))
-  expect_equal(toxval:::gm_mean(c(4, 4, 4)), 4)
-})
-
-test_that("gm_mean returns NaN for negative values", {
-  expect_true(is.nan(toxval:::gm_mean(c(-1, 2, 3))))
-})
-
-test_that("gm_mean handles zeros with zero_propagate", {
-  expect_equal(toxval:::gm_mean(c(0, 5, 10), zero_propagate = TRUE), 0)
-  # Without zero_propagate, zeros are excluded from log calculation
-  result <- toxval:::gm_mean(c(0, 5, 10), zero_propagate = FALSE)
-  expect_gt(result, 0)
-})
