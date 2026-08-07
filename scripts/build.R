@@ -1,16 +1,19 @@
+# Format/style code
+system2("air", c("format", "."))
+
+# Generate documentation
+roxygen2md::roxygen2md()
+devtools::document()
+
 # README
 devtools::build_readme()
 
-# Generate documentation
-devtools::document()
-
 # Build site
 pkgdown::build_site()
-
 browseURL("docs/index.html")
 
+# Test & Check
 devtools::test()
-
 devtools::check()
 
 rcmdcheck::rcmdcheck(
@@ -19,4 +22,8 @@ rcmdcheck::rcmdcheck(
   error_on = "warning"
 )
 
+# Code Coverage
+covr::report(covr::package_coverage())
+
+# Build Package
 devtools::build()

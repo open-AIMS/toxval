@@ -18,14 +18,14 @@
 #' @examples
 #' \donttest{
 #' library(bayesnec)
-#' 
+#'
 #' # Uses default `resolution` and `x_range` to generate `newdata` internally
 #' predict(manec_example)
-#' 
+#'
 #' # Provide user-specified `newdata`
 #' nd_ <- data.frame(x = seq(0, 3, length.out = 200))
 #' predict(manec_example, ecx_val = 50, newdata = nd_, make_newdata = FALSE)
-#' 
+#'
 #' # Predictions for raw input data
 #' nec4param <- bayesnec::pull_out(manec_example, model = "nec4param")
 #' preds <- predict(nec4param, make_newdata = FALSE)
@@ -57,18 +57,26 @@ predict.bayesnecfit <- function(object, ...) {
 #'  function. Only used if `summary` is `TRUE`.
 #'
 #' @export
-predict.bayesmanecfit <- function(object, summary = TRUE,
-                                  robust = FALSE,
-                                  probs = c(0.025, 0.975), ...) {
+predict.bayesmanecfit <- function(
+  object,
+  summary = TRUE,
+  robust = FALSE,
+  probs = c(0.025, 0.975),
+  ...
+) {
   av_post_preds <- posterior_predict(object, ...)
   if (!summary) {
     av_post_preds
   } else {
-    out <- apply(av_post_preds, 2, posterior_summary,
-                 robust = robust, probs = probs) |>
+    out <- apply(
+      av_post_preds,
+      2,
+      posterior_summary,
+      robust = robust,
+      probs = probs
+    ) |>
       t()
-    colnames(out) <- c("Estimate", "Est.Error",
-                       paste0("Q", probs * 100))
+    colnames(out) <- c("Estimate", "Est.Error", paste0("Q", probs * 100))
     out
   }
 }

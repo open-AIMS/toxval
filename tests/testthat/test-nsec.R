@@ -1010,7 +1010,11 @@ if (FALSE) {
   test_that("drc nsec xform multiplies all output values when curveid is NA", {
     output_1 <- nsec(nsec_drc_1, x_var = "x")
     output_2 <- nsec(nsec_drc_1, x_var = "x", xform = function(x) x * 2)
-    expect_equal(as.numeric(output_2), as.numeric(output_1) * 2, tolerance = 0.01)
+    expect_equal(
+      as.numeric(output_2),
+      as.numeric(output_1) * 2,
+      tolerance = 0.01
+    )
   })
 }
 

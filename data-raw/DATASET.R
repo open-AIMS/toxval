@@ -54,7 +54,11 @@ brms_model_1 <-
     thin = 2,
     seed = 101
   )
-save(brms_model_1, file = "tests/testthat/fixtures/brms_model_1.rda", compress = "xz")
+save(
+  brms_model_1,
+  file = "tests/testthat/fixtures/brms_model_1.rda",
+  compress = "xz"
+)
 strip_stanmodel("tests/testthat/fixtures/brms_model_1.rda")
 
 # this works for the grouping examples
@@ -73,7 +77,11 @@ brms_model_2 <-
     thin = 2,
     seed = 101
   )
-save(brms_model_2, file = "tests/testthat/fixtures/brms_model_2.rda", compress = "xz")
+save(
+  brms_model_2,
+  file = "tests/testthat/fixtures/brms_model_2.rda",
+  compress = "xz"
+)
 strip_stanmodel("tests/testthat/fixtures/brms_model_2.rda")
 
 brms_model_3 <-
@@ -86,7 +94,11 @@ brms_model_3 <-
     thin = 2,
     seed = 123
   )
-save(brms_model_3, file = "tests/testthat/fixtures/brms_model_3.rda", compress = "xz")
+save(
+  brms_model_3,
+  file = "tests/testthat/fixtures/brms_model_3.rda",
+  compress = "xz"
+)
 strip_stanmodel("tests/testthat/fixtures/brms_model_3.rda")
 
 data <- bayesnec::herbicide
@@ -124,7 +136,11 @@ brms_model_4 <-
     seed = 700,
     init = 0
   )
-save(brms_model_4, file = "tests/testthat/fixtures/brms_model_4.rda", compress = "xz")
+save(
+  brms_model_4,
+  file = "tests/testthat/fixtures/brms_model_4.rda",
+  compress = "xz"
+)
 strip_stanmodel("tests/testthat/fixtures/brms_model_4.rda")
 
 set.seed(123)
@@ -141,7 +157,11 @@ brms_model_5 <-
     thin = 2,
     seed = 123
   )
-save(brms_model_5, file = "tests/testthat/fixtures/brms_model_5.rda", compress = "xz")
+save(
+  brms_model_5,
+  file = "tests/testthat/fixtures/brms_model_5.rda",
+  compress = "xz"
+)
 strip_stanmodel("tests/testthat/fixtures/brms_model_5.rda")
 
 # bnecfit -----------------------------------------------------------------
@@ -161,7 +181,11 @@ bnec_model_1 <-
     iter = 2000,
     thin = 2
   )
-save(bnec_model_1, file = "tests/testthat/fixtures/bnec_model_1.rda", compress = "xz")
+save(
+  bnec_model_1,
+  file = "tests/testthat/fixtures/bnec_model_1.rda",
+  compress = "xz"
+)
 strip_stanmodel("tests/testthat/fixtures/bnec_model_1.rda")
 
 # nsec bayesnec -------------------------------------------------------------
@@ -170,20 +194,32 @@ bayesnec_nec4param <- bayesnec::pull_out(
   bayesnec::manec_example,
   model = "nec4param"
 )
-save(bayesnec_nec4param, file = "tests/testthat/fixtures/bayesnec_nec4param.rda", compress = "xz")
+save(
+  bayesnec_nec4param,
+  file = "tests/testthat/fixtures/bayesnec_nec4param.rda",
+  compress = "xz"
+)
 strip_stanmodel("tests/testthat/fixtures/bayesnec_nec4param.rda")
 
 bayesnec_ecx4param <- bayesnec::pull_out(
   bayesnec::manec_example,
   model = "ecx4param"
 )
-save(bayesnec_ecx4param, file = "tests/testthat/fixtures/bayesnec_ecx4param.rda", compress = "xz")
+save(
+  bayesnec_ecx4param,
+  file = "tests/testthat/fixtures/bayesnec_ecx4param.rda",
+  compress = "xz"
+)
 strip_stanmodel("tests/testthat/fixtures/bayesnec_ecx4param.rda")
 
 # nsec drc ----------------------------------------------------------------
 
 nsec_drc_1 <- drc::drm(y ~ x, data = bayesnec::nec_data, fct = drc::LL.4())
-save(nsec_drc_1, file = "tests/testthat/fixtures/nsec_drc_1.rda", compress = "xz")
+save(
+  nsec_drc_1,
+  file = "tests/testthat/fixtures/nsec_drc_1.rda",
+  compress = "xz"
+)
 
 # increasing drc model
 data <- data.frame(
@@ -192,7 +228,11 @@ data <- data.frame(
 )
 
 nsec_drc_2 <- drc::drm(y ~ x, data = data, fct = drc::LL.3())
-save(nsec_drc_2, file = "tests/testthat/fixtures/nsec_drc_2.rda", compress = "xz")
+save(
+  nsec_drc_2,
+  file = "tests/testthat/fixtures/nsec_drc_2.rda",
+  compress = "xz"
+)
 
 # nsec_multi --------------------------------------------------------------
 
@@ -214,7 +254,11 @@ nsec_multi_model_1 <-
     thin = 2,
     seed = 123
   )
-save(nsec_multi_model_1, file = "tests/testthat/fixtures/nsec_multi_model_1.rda", compress = "xz")
+save(
+  nsec_multi_model_1,
+  file = "tests/testthat/fixtures/nsec_multi_model_1.rda",
+  compress = "xz"
+)
 strip_stanmodel("tests/testthat/fixtures/nsec_multi_model_1.rda")
 
 data <- data.frame(
@@ -235,5 +279,9 @@ nsec_multi_model_2 <-
     thin = 2,
     seed = 123
   )
-save(nsec_multi_model_2, file = "tests/testthat/fixtures/nsec_multi_model_2.rda", compress = "xz")
+save(
+  nsec_multi_model_2,
+  file = "tests/testthat/fixtures/nsec_multi_model_2.rda",
+  compress = "xz"
+)
 strip_stanmodel("tests/testthat/fixtures/nsec_multi_model_2.rda")
