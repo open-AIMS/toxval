@@ -2,7 +2,10 @@ options(mc.cores = 1)
 
 # drc is only needed so bare predict() on drc objects dispatches to
 # predict.drc inside nsec.drc(); load its namespace (no attach, no startup
-# banner). brms need not be loaded here as it is on toxval's Imports.
+# banner). No library(brms) is needed because no test makes a bare
+# (unqualified) brms call; all brms usage is namespace-qualified or reached
+# via bayesnec. (Imports loads brms' namespace but does not attach it, so it
+# would not rescue a bare call anyway.)
 requireNamespace("drc", quietly = TRUE)
 
 random_filename <- function(nchar) {

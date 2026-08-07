@@ -2,11 +2,6 @@
 
 # predict.bayesnecfit ------------------------------------------------------
 
-# NOTE: predict.bayesnecfit has a known bug — it calls bayesnec::pull_brmsfit()
-# without namespace qualification (bayesnec::pull_brmsfit). This means
-# it only works when bayesnec is attached via library(bayesnec), not just
-# loaded. We test by calling brms::predict on the pulled brmsfit directly.
-
 test_that("predict on pulled brmsfit returns expected structure", {
   bf <- bayesnec::pull_brmsfit(ecx4param)
   preds <- predict(bf)

@@ -10,9 +10,9 @@ Authors@R: c(
     person("Ayla", "Pearson", , "ayla@poissonconsulting.ca", role = "aut",
            comment = c(ORCID = "0000-0001-7388-1222"))
   )
-Description: This pacakge extracts NSEC or ECx estimates from supported
+Description: This package extracts NSEC or ECx estimates from supported
     fitted frequentist (drc) and Bayesian (bayesnec) model objects (see
-    Fisher and Fox (2023)<https://doi.org/10.1002/etc.5610>).
+    Fisher and Fox (2023) <doi:10.1002/etc.5610>).
 License: Apache License (== 2)
 URL: https://open-aims.github.io/toxval/
 BugReports: https://github.com/open-aims/toxval/issues
