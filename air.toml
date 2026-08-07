@@ -1,0 +1,12 @@
+# Configuration for the Air R formatter (https://posit-dev.github.io/air).
+# Makes the formatting settings explicit and reproducible across contributors
+# and editors (RStudio, Positron). Values below are air's defaults, pinned here
+# so a future air version changing a default cannot silently reformat the package.
+
+# Line endings are intentionally not set here; they are handled by .gitattributes.
+[format]
+line-width = 80
+indent-width = 2
+indent-style = "space"
+persistent-line-breaks = true
+default-exclude = true
