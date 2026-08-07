@@ -1,26 +1,12 @@
 #' Extracts the predicted ECx value as desired from a supported class.
 #'
-#' @param object An object of class \code{\link{bayesnecfit}} or
-#' \code{\link{bayesmanecfit}} returned by \code{\link{bnec}}.
+#' @inheritParams toxval_params
 #' @param ecx_val The desired percentage effect value. This must be a value
 #' between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.
-#' @param type A \code{\link[base]{character}} vector, taking values of
+#' @param type A character vector, taking values of
 #' "relative", "absolute" (the default) or "direct". See Details.
-#' @param resolution The number of unique x values over which to find ECx --
-#' large values will make the ECx estimate more precise.
-#' @param posterior A \code{\link[base]{logical}} value indicating if the full
-#' posterior sample of calculated ECx values should be returned instead of
-#' just the median and 95 credible intervals.
-#' @param hormesis_def A \code{\link[base]{character}} vector, taking values
-#' of "max" or "control". See Details.
-#' @param xform A function to apply to the returned estimated concentration
-#' values.
-#' @param x_range A range of x values over which to consider extracting ECx.
-#' @param prob_vals A vector indicating the probability values over which to
-#' return the estimated ECx value. Defaults to 0.5 (median) and 0.025 and
-#' 0.975 (95 percent credible intervals).
 #'
-#' @details \code{type} "relative" is calculated as the percentage decrease
+#' @details `type` "relative" is calculated as the percentage decrease
 #' from the maximum predicted value of the response (top) to the minimum
 #' predicted value of the response. Type "absolute" (the default) is
 #' calculated as the percentage decrease from the maximum value of the
@@ -29,19 +15,19 @@
 #' Note that for the current version, ECx for an "nechorme" (NEC Hormesis)
 #' model is estimated at a percent decline from the control.
 #' 
-#' For \code{hormesis_def}, if "max", then ECx values are calculated as a
+#' For `hormesis_def`, if "max", then ECx values are calculated as a
 #' decline from the maximum estimates (i.e. the peak at NEC);
 #' if "control", then ECx values are calculated relative to the control, which
 #' is assumed to be the lowest observed concentration.
 #' 
-#' Calls to functions \code{\link{ecx}} and \code{\link{nsec}} and
-#' \code{\link{compare_fitted}} do not require the same level of flexibility
-#' in the context of allowing argument \code{newdata}
-#' (from a \code{\link[brms]{posterior_predict}} perspective) to
+#' Calls to functions [ecx()] and [nsec()] and
+#' [bayesnec::compare_fitted()] do not require the same level of flexibility
+#' in the context of allowing argument `newdata`
+#' (from a [brms::posterior_predict()] perspective) to
 #' be supplied manually, as this is and should be handled within the function
-#' itself. The argument \code{resolution} controls how precisely the
-#' \code{\link{ecx}} or \code{\link{nsec}} value is estimated, with 
-#' argument \code{x_range} allowing estimation beyond the existing range of
+#' itself. The argument `resolution` controls how precisely the
+#' [ecx()] or [nsec()] value is estimated, with 
+#' argument `x_range` allowing estimation beyond the existing range of
 #' the observed data (otherwise the default range) which can be useful in a
 #' small number of cases. There is also no reasonable case where estimating
 #' these from the raw data would be of value, because both functions would
@@ -53,9 +39,8 @@
 #'
 #' @examples
 #' \donttest{
-#' library(brms)
 #' library(bayesnec)
-#' data(manec_example)
+#' 
 #' ecx(manec_example, ecx_val = 50)
 #' ecx(manec_example)
 #' }
@@ -66,8 +51,8 @@ ecx <- function(object, ecx_val = 10, resolution = 1000,
                 hormesis_def = "control", x_range = NA,
                 xform = identity, prob_vals = c(0.5, 0.025, 0.975), ...) {
   
-  chk_numeric(resolution)  
-  chk_logical(posterior)
+  chk::chk_numeric(resolution)  
+  chk::chk_logical(posterior)
   if ((type %in% c("relative", "absolute", "direct")) == FALSE) {
     stop("type must be one of 'relative', 'absolute' (the default) or 'direct'. 
          Please see ?ecx for more details.")
@@ -88,32 +73,22 @@ ecx <- function(object, ecx_val = 10, resolution = 1000,
   UseMethod("ecx")
 }
 
-#' @inheritParams ecx
-#'
-#' @inherit ecx details return seealso examples
-#'
-#' @param object An object of class \code{\link{bnecfit}} returned by
-#' \code{\link{bnec}}.
-#' 
-#' @importFrom stats quantile
-#' @importFrom brms posterior_epred
-#' @importFrom chk chk_logical chk_numeric
-#'
-#' @noRd
+#' @describeIn ecx Method for a `bayesnec` fit of class [bayesnec::bnecfit]
+#'   returned by [bayesnec::bnec()].
 #'
 #' @export
 ecx.bnecfit <- function(object, ecx_val = 10, resolution = 100,
                          posterior = FALSE, type = "absolute",
                          hormesis_def = "control", x_range = NA,
                          xform = identity,
-                         prob_vals = c(0.5, 0.025, 0.975)) {
+                         prob_vals = c(0.5, 0.025, 0.975), ...) {
   newdata_list <- newdata_eval(
     object, resolution = resolution, x_range = x_range
   )
   p_samples <- posterior_epred(object, newdata = newdata_list$newdata,
                                re_formula = NA)
   x_vec <- newdata_list$x_vec
-  
+
   if (hormesis_def == "max") {
     control_posterior <- quantile(apply(p_samples, 1, max), probs = 0.5)
   } else {
@@ -143,6 +118,7 @@ ecx.bnecfit <- function(object, ecx_val = 10, resolution = 100,
     
   tox_estimate <- apply(tox_out, MARGIN = 2, FUN = quantile, 
                         probs = prob_vals, na.rm = TRUE)
+    # TODO confirm if commented code can be removed
     #quantile(unlist(tox_out), probs = prob_vals)
     #names(tox_estimate) <- clean_names(tox_estimate)
   
@@ -177,7 +153,7 @@ ecx_x_relative <- function(y, ecx_val, x_vec, hormesis_def) {
       ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)      
     }
     
-    val <- min(zero_crossings(y - ecx_y))
+    val <- min(modelbased::zero_crossings(y - ecx_y))
     if(is.na(val)) {
       outval <- max(x_vec)
       } else {
@@ -206,7 +182,7 @@ ecx_x_absolute <- function(y, ecx_val, x_vec, hormesis_def) {
       ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)
     }
 
-    val <- min(zero_crossings(y - ecx_y))
+    val <- min(modelbased::zero_crossings(y - ecx_y))
     if(is.na(val)) {
       outval <- max(x_vec)
     } else {
@@ -226,7 +202,7 @@ ecx_x_direct <- function(y, ecx_val, x_vec, hormesis_def) {
   } else {
     ecx_y <- ecx_val
 
-    val <- min(zero_crossings(y - ecx_y))
+    val <- min(modelbased::zero_crossings(y - ecx_y))
     if(is.na(val)) {
       outval <- max(x_vec)
     } else {
@@ -239,26 +215,17 @@ ecx_x_direct <- function(y, ecx_val, x_vec, hormesis_def) {
   outval
 }
 
-#' @inheritParams ecx
+#' @describeIn ecx Method for a raw `brms` fit of class [brms::brmsfit]
+#'   returned by [brms::brm()]. Requires `x_var`, and supports estimates per
+#'   group via `group_var` and `by_group`.
 #'
-#' @param object An object of class \code{\link{brmsfit}} returned by
-#' \code{\link{brms}}.
-#' @param posterior A \code{\link[base]{logical}} value indicating if the full
-#' posterior sample of calculated ecx values should be returned instead of
-#' just the median and 95 credible intervals.
-#' @param x_var A character indicating the name of the predictor (x) data in object
-#' @param group_var A character indicating the name of the grouping variable in object
-#' @param by_group A logical indicating if ecx values should be returned for 
-#' each level in group_var, or marginalised across all groups.
+#' @param x_var A character indicating the name of the predictor (x) data in
+#'   `object`.
+#' @param group_var A character indicating the name of the grouping variable in
+#'   `object`.
+#' @param by_group A logical indicating if values should be returned for each
+#'   level in `group_var`, or marginalised across all groups.
 #' @param horme Logical indicating if hormesis is evident.
-#' 
-#' @importFrom stats quantile
-#' @importFrom chk chk_logical chk_numeric
-#' @importFrom dplyr bind_cols bind_rows
-#' @importFrom brms as_draws_df posterior_epred
-#' @importFrom tidyr pivot_longer everything
-#'
-#' @noRd
 #'
 #' @export
 ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
@@ -269,10 +236,10 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
                             x_var, 
                             group_var = NA, 
                             by_group = FALSE,
-                            horme = FALSE) {
-  chk_numeric(ecx_val)
+                            horme = FALSE, ...) {
+  chk::chk_numeric(ecx_val)
   if (length(ecx_val)>1) {
-    stop("You may only pass one ecx_val")  
+    stop("You may only pass one ecx_val")
   }
   
   if (type != "direct") {
@@ -333,6 +300,7 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
       
       p_samples <- posterior_epred(object, newdata = pred_dat,
                                    re_formula = NA)
+      # TODO confirm if commented code can be removed
       # if (grepl("horme", object$model)) {
       #   n <- seq_len(nrow(p_samples))
       #   p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
@@ -349,14 +317,14 @@ ecx.brmsfit <- function(object, ecx_val = 10, resolution = 1000,
   
   if(by_group & posterior & !is.na(group_var)){
     names(out_vals) <- groups
-    out_vals <- out_vals |> bind_cols() |> 
-      pivot_longer(everything(), names_to = group_var, values_to = "ECx")
+    out_vals <- out_vals |> dplyr::bind_cols() |> 
+      tidyr::pivot_longer(tidyr::everything(), names_to = group_var, values_to = "ECx")
   }
   
   if(by_group & !posterior & !is.na(group_var)){   
     names(out_vals) <- groups
     out_vals <- lapply(out_vals, quantile, probs = prob_vals) |> 
-      bind_rows(.id = group_var)
+      dplyr::bind_rows(.id = group_var)
     names(out_vals) <- clean_names(out_vals)
   }
   

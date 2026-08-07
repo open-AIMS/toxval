@@ -1,6 +1,10 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
+<!-- badges: start -->
+
+[![Lifecycle:
+experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![license](https://img.shields.io/badge/license-GPL%20%28%3E=%202%29-lightgrey.svg)](https://choosealicense.com/)
 [![Ask Us Anything
 !](https://img.shields.io/badge/Ask%20us-anything-1abc9c.svg)](https://github.com/open-AIMS/toxval/issues/new)
@@ -9,6 +13,7 @@ Love](https://badges.frapsoft.com/os/v2/open-source.svg?v=103)
 [![DOI](https://zenodo.org/badge/760193848.svg)](https://zenodo.org/doi/10.5281/zenodo.12753573)
 [![Codecov test
 coverage](https://codecov.io/gh/open-AIMS/toxval/graph/badge.svg)](https://app.codecov.io/gh/open-AIMS/toxval)
+[![R-CMD-check](https://github.com/open-AIMS/toxval/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/open-AIMS/toxval/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 ## Overview
@@ -24,17 +29,17 @@ no-effect metrics — including the No-Significant-Effect Concentration
 For the theoretical basis of the NSEC, see [Fisher & Fox
 (2023)](https://doi.org/10.1002/etc.5610). For model-averaged N(S)EC
 estimation across smooth and threshold model classes, see [Fisher et al.
-(2024)](https://academic.oup.com/ieam/article/20/1/279/7725045).
+(2024)](https://doi.org/10.1002/ieam.4809).
 
 ## Installation
 
-The current development version can be installed from GitHub via
+The current development version can be downloaded from GitHub via
 
 ``` r
 if (!requireNamespace("remotes")) {
   install.packages("remotes")
 }
-remotes::install_github("open-aims/bayesnec", ref = "dev")
+remotes::install_github("open-aims/toxval")
 ```
 
 ## Motivation
@@ -84,19 +89,8 @@ extraction of the NEC parameter directly, and is designed to support
 model-averaged N(S)EC estimates that combine NSEC values from smooth
 models with NEC values from threshold models — providing a more
 statistically defensible approach to no-effect estimation (see [Fisher
-et al. 2024](https://academic.oup.com/ieam/article/20/1/279/7725045) and
-the `bayesnec` package).
-
-## Installation
-
-The current development version can be downloaded from GitHub via
-
-``` r
-if (!requireNamespace("remotes")) {
-  install.packages("remotes")
-}
-remotes::install_github("open-aims/toxval", ref = "main")
-```
+et al. 2024](https://doi.org/10.1002/ieam.4809) and the `bayesnec`
+package).
 
 ## Usage
 

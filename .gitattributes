@@ -1,0 +1,3 @@
+# Normalize line endings: store text files with LF in the repo and check them
+# out with LF, regardless of contributor platform. Prevents CRLF/LF churn.
+* text=auto eol=lf

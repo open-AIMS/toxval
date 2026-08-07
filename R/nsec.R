@@ -1,36 +1,20 @@
 #' Extracts the predicted NSEC value as desired from a supported class.
 #'
-#' @param object An object of class \code{\link{bayesnecfit}} or
-#' \code{\link{bayesmanecfit}} returned by \code{\link{bnec}}.
-#' @param sig_val Probability value to use as the lower quantile to test
-#' significance of the predicted posterior values.
-#' against the lowest observed concentration (assumed to be the control), to
-#' estimate NEC as an interpolated NOEC value from smooth ECx curves.
-#' @param resolution The number of unique x values over which to find NSEC -
-#' large values will make the NSEC estimate more precise.
-#' @param hormesis_def A \code{\link[base]{character}} vector, taking values
-#' of "max" or "control". See Details.
-#' @param xform A function to apply to the returned estimated concentration
-#' values.
-#' @param x_range A range of x values over which to consider extracting NSEC.
-#' @param prob_vals A vector indicating the probability values over which to
-#' return the estimated NSEC value. Defaults to 0.5 (median) and 0.025 and
-#' 0.975 (95 percent credible intervals).
-#' @param ... Further arguments to pass to class specific methods.
+#' @inheritParams toxval_params
 #'
-#' @details For \code{hormesis_def}, if "max", then NSEC values are calculated
+#' @details For `hormesis_def`, if "max", then NSEC values are calculated
 #' as a decline from the maximum estimates (i.e. the peak at NEC);
 #' if "control", then NSEC values are calculated relative to the control, which
 #' is assumed to be the lowest observed concentration.
 #'
-#' Calls to functions \code{\link{ecx}} and \code{\link{nsec}} and
-#' \code{\link{compare_fitted}} do not require the same level of flexibility
-#' in the context of allowing argument \code{newdata}
-#' (from a \code{\link[brms]{posterior_predict}} perspective) to
+#' Calls to functions [ecx()] and [nsec()] and
+#' [bayesnec::compare_fitted()] do not require the same level of flexibility
+#' in the context of allowing argument `newdata`
+#' (from a [brms::posterior_predict()] perspective) to
 #' be supplied manually, as this is and should be handled within the function
-#' itself. The argument \code{resolution} controls how precisely the
-#' \code{\link{ecx}} or \code{\link{nsec}} value is estimated, with
-#' argument \code{x_range} allowing estimation beyond the existing range of
+#' itself. The argument `resolution` controls how precisely the
+#' [ecx()] or [nsec()] value is estimated, with
+#' argument `x_range` allowing estimation beyond the existing range of
 #' the observed data (otherwise the default range) which can be useful in a
 #' small number of cases. There is also no reasonable case where estimating
 #' these from the raw data would be of value, because both functions would
@@ -53,9 +37,9 @@ nsec <- function(object, sig_val = 0.01, resolution = 100,
                  x_range = NA, hormesis_def = "control",
                  xform = identity, prob_vals = c(0.5, 0.025, 0.975),
                  posterior = FALSE, ...) {
-  chk_numeric(sig_val)
-  chk_numeric(resolution)
-  chk_logical(posterior)
+  chk::chk_numeric(sig_val)
+  chk::chk_numeric(resolution)
+  chk::chk_logical(posterior)
 
   if (length(sig_val)>1) {
     stop("You may only pass one sig_val")
@@ -75,20 +59,12 @@ nsec <- function(object, sig_val = 0.01, resolution = 100,
   UseMethod("nsec")
 }
 
-#' @inheritParams nsec
-#' @inheritParams ecx
+#' @describeIn nsec Method for a `bayesnec` fit of class [bayesnec::bnecfit]
+#'   returned by [bayesnec::bnec()].
 #'
-#' @param object An object of class \code{\link{bnecfit}} returned by
-#' \code{\link{bnec}}.
-#'
-#' @inherit nsec details seealso return examples
-#'
-#' @importFrom stats quantile
-#' @importFrom stats terms
-#' @importFrom brms as_draws_df posterior_epred
-#' @importFrom chk chk_logical chk_numeric
-#'
-#' @noRd
+#' @param type One of "relative" or "absolute" (the default). For "relative"
+#'   the NSEC reference is taken relative to the minimum predicted response; for
+#'   "absolute" it is taken relative to zero.
 #'
 #' @export
 nsec.bnecfit <- function(object, sig_val = 0.01, resolution = 100,
@@ -147,26 +123,17 @@ nsec.bnecfit <- function(object, sig_val = 0.01, resolution = 100,
   }
 }
 
-#' @inheritParams nsec
+#' @describeIn nsec Method for a raw `brms` fit of class [brms::brmsfit]
+#'   returned by [brms::brm()]. Requires `x_var`, and supports estimates per
+#'   group via `group_var` and `by_group`.
 #'
-#' @param object An object of class \code{\link{brmsfit}} returned by
-#' \code{\link{brms}}.
-#' @param posterior A \code{\link[base]{logical}} value indicating if the full
-#' posterior sample of calculated NSEC values should be returned instead of
-#' just the median and 95 credible intervals.
-#' @param x_var A character indicating the name of the predictor (x) data in object
-#' @param group_var A character indicating the name of the grouping variable in object
-#' @param by_group A logical indicating if nsec values should be returned for
-#' each level in group_var, or marginalised across all groups.
+#' @param x_var A character indicating the name of the predictor (x) data in
+#'   `object`.
+#' @param group_var A character indicating the name of the grouping variable in
+#'   `object`.
+#' @param by_group A logical indicating if values should be returned for each
+#'   level in `group_var`, or marginalised across all groups.
 #' @param horme Logical indicating if hormesis is evident.
-#'
-#' @importFrom stats quantile
-#' @importFrom dplyr bind_cols bind_rows
-#' @importFrom brms as_draws_df posterior_epred
-#' @importFrom chk chk_logical chk_numeric
-#' @importFrom tidyr pivot_longer everything
-#'
-#' @noRd
 #'
 #' @export
 nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
@@ -176,7 +143,7 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
                          x_var,
                          group_var = NA,
                          by_group = FALSE,
-                         horme = FALSE){
+                         horme = FALSE, ...){
   if(is.na(x_range)){
     x_range = range(object$data[x_var])
   }
@@ -211,12 +178,14 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
     }
     reference <- quantile(p_samples[, 1], sig_val)
     ecnsecP <- apply(p_samples, MARGIN = 1, FUN = function(r){
+      # TODO confirm if commented code can be removed
       #(max(r) - diff(range(r)))/reference * 100
       (1-diff(c(min(r), reference))/(diff(range(r)))) * 100
     })
     ecnsec <- quantile(ecnsecP, probs = prob_vals)
 
     if (horme) {
+      # TODO confirm if commented code can be removed
       # n <- seq_len(nrow(p_samples))
       # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
       #                                    p_samples, hormesis_def, fct = "rbind")
@@ -238,11 +207,13 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
       p_samples <- posterior_epred(object, newdata = pred_dat, re_formula = NA)
       reference <- quantile(p_samples[, 1], sig_val)
       ecnsecP <- apply(p_samples, MARGIN = 1, FUN = function(r){
+        # TODO confirm if commented code can be removed
         #(max(r) - diff(range(r)))/reference * 100
         (1-diff(c(min(r), reference))/(diff(range(r)))) * 100
       })
       ecnsec <- quantile(ecnsecP, probs = prob_vals)
       if (horme) {
+        # TODO confirm if commented code can be removed
         # n <- seq_len(nrow(p_samples))
         # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
         #                                    p_samples, hormesis_def, fct = "rbind")
@@ -264,15 +235,15 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
 
   if(by_group & posterior & !is.na(group_var)){
     names(out_vals) <- groups
-    out_vals <- out_vals |> bind_cols() |>
-      pivot_longer(everything(), names_to = group_var, values_to = "NSEC")
+    out_vals <- out_vals |> dplyr::bind_cols() |>
+      tidyr::pivot_longer(tidyr::everything(), names_to = group_var, values_to = "NSEC")
     attr(out_vals, "ecnsec_relativeP") <- ecnsec
   }
 
   if(by_group & !posterior & !is.na(group_var)){
     names(out_vals) <- groups
     out_vals <- lapply(out_vals, quantile, probs = prob_vals) |>
-      bind_rows(.id = group_var)
+      dplyr::bind_rows(.id = group_var)
     names(out_vals) <- clean_names(out_vals)
     attr(out_vals, "ecnsec_relativeP") <- ecnsec
   }
@@ -307,18 +278,12 @@ nsec.brmsfit <- function(object, sig_val = 0.01, resolution = 1000,
   return(out_vals)
 }
 
-#' @inheritParams nsec
+#' @describeIn nsec Method for a `drc` fit (class `drc`) returned by
+#'   [drc::drm()]. Supports estimates per group via `curveid`. Hormesis is not
+#'   currently implemented.
 #'
-#' @param object An object of class \code{\link{drc}} returned by
-#' \code{\link{drc}}.
-#' @param x_var A character indicating the name of the predictor (x) data in object
-#' each level in group_var, or marginalised across all groups.
-#' @param horme Logical indicating if hormesis is evident. Not currently implemented.
-#' @param curveid A character indicating the name of the grouping variable in object
-#'
-#' @importFrom chk chk_logical chk_numeric
-#'
-#' @noRd
+#' @param curveid A character indicating the name of the grouping variable in
+#'   `object`.
 #'
 #' @export
 nsec.drc <- function(object, sig_val = 0.01, resolution = 1000,
@@ -327,8 +292,8 @@ nsec.drc <- function(object, sig_val = 0.01, resolution = 1000,
                      x_var,
                      horme = FALSE,
                      curveid = NA) {
-  chk_numeric(sig_val)
-  chk_numeric(resolution)
+  chk::chk_numeric(sig_val)
+  chk::chk_numeric(resolution)
 
   if (length(sig_val)>1) {
     stop("You may only pass one sig_val")

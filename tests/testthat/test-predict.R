@@ -2,11 +2,6 @@
 
 # predict.bayesnecfit ------------------------------------------------------
 
-# NOTE: predict.bayesnecfit has a known bug — it calls pull_brmsfit()
-# without namespace qualification (bayesnec::pull_brmsfit). This means
-# it only works when bayesnec is attached via library(bayesnec), not just
-# loaded. We test by calling brms::predict on the pulled brmsfit directly.
-
 test_that("predict on pulled brmsfit returns expected structure", {
   bf <- bayesnec::pull_brmsfit(ecx4param)
   preds <- predict(bf)
@@ -73,19 +68,11 @@ test_that("predict.bayesmanecfit probs with 3 values returns 5-column matrix", {
   )
 })
 
-# predict.bayesnecfit — direct dispatch documented bug -----------------------
-# Man page documents predict.bayesnecfit(object, ...). The implementation calls
-# pull_brmsfit() without the bayesnec:: namespace prefix. Since bayesnec is in
-# Imports (not Depends) it is not attached, so pull_brmsfit is not in the
-# search path and the call fails with "could not find function 'pull_brmsfit'".
-# Remove `if (FALSE)` once the namespace prefix is added to R/predict.R.
-if (FALSE) {
-  test_that("predict.bayesnecfit dispatches correctly and returns 4-column matrix", {
-    preds <- predict(ecx4param)
+test_that("predict.bayesnecfit dispatches correctly and returns 4-column matrix", {
+  preds <- predict(ecx4param)
 
-    expect_true(is.matrix(preds) || is.array(preds))
-    expect_equal(ncol(preds), 4)
-    expect_equal(colnames(preds), c("Estimate", "Est.Error", "Q2.5", "Q97.5"))
-    expect_gt(nrow(preds), 0)
-  })
-}
+  expect_true(is.matrix(preds) || is.array(preds))
+  expect_equal(ncol(preds), 4)
+  expect_equal(colnames(preds), c("Estimate", "Est.Error", "Q2.5", "Q97.5"))
+  expect_gt(nrow(preds), 0)
+})

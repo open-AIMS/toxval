@@ -2,6 +2,8 @@
 % Please edit documentation in R/ecx.R
 \name{ecx}
 \alias{ecx}
+\alias{ecx.bnecfit}
+\alias{ecx.brmsfit}
 \title{Extracts the predicted ECx value as desired from a supported class.}
 \usage{
 ecx(
@@ -16,35 +18,79 @@ ecx(
   prob_vals = c(0.5, 0.025, 0.975),
   ...
 )
+
+\method{ecx}{bnecfit}(
+  object,
+  ecx_val = 10,
+  resolution = 100,
+  posterior = FALSE,
+  type = "absolute",
+  hormesis_def = "control",
+  x_range = NA,
+  xform = identity,
+  prob_vals = c(0.5, 0.025, 0.975),
+  ...
+)
+
+\method{ecx}{brmsfit}(
+  object,
+  ecx_val = 10,
+  resolution = 1000,
+  posterior = FALSE,
+  type = "absolute",
+  hormesis_def = "control",
+  x_range = NA,
+  xform = identity,
+  prob_vals = c(0.5, 0.025, 0.975),
+  x_var,
+  group_var = NA,
+  by_group = FALSE,
+  horme = FALSE,
+  ...
+)
 }
 \arguments{
-\item{object}{An object of class \code{\link{bayesnecfit}} or
-\code{\link{bayesmanecfit}} returned by \code{\link{bnec}}.}
+\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
+\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
 
 \item{ecx_val}{The desired percentage effect value. This must be a value
 between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.}
 
-\item{resolution}{The number of unique x values over which to find ECx --
-large values will make the ECx estimate more precise.}
+\item{resolution}{The number of unique x values over which to find the
+estimate -- large values will make the estimate more precise.}
 
-\item{posterior}{A \code{\link[base]{logical}} value indicating if the full
-posterior sample of calculated ECx values should be returned instead of
+\item{posterior}{A logical value indicating if the full
+posterior sample of calculated values should be returned instead of
 just the median and 95 credible intervals.}
 
-\item{type}{A \code{\link[base]{character}} vector, taking values of
+\item{type}{A character vector, taking values of
 "relative", "absolute" (the default) or "direct". See Details.}
 
-\item{hormesis_def}{A \code{\link[base]{character}} vector, taking values
+\item{hormesis_def}{A character vector, taking values
 of "max" or "control". See Details.}
 
-\item{x_range}{A range of x values over which to consider extracting ECx.}
+\item{x_range}{A range of x values over which to consider extracting the
+estimate.}
 
 \item{xform}{A function to apply to the returned estimated concentration
 values.}
 
 \item{prob_vals}{A vector indicating the probability values over which to
-return the estimated ECx value. Defaults to 0.5 (median) and 0.025 and
+return the estimated value. Defaults to 0.5 (median) and 0.025 and
 0.975 (95 percent credible intervals).}
+
+\item{...}{Additional arguments passed to class-specific methods.}
+
+\item{x_var}{A character indicating the name of the predictor (x) data in
+\code{object}.}
+
+\item{group_var}{A character indicating the name of the grouping variable in
+\code{object}.}
+
+\item{by_group}{A logical indicating if values should be returned for each
+level in \code{group_var}, or marginalised across all groups.}
+
+\item{horme}{Logical indicating if hormesis is evident.}
 }
 \value{
 A vector containing the estimated ECx value, including upper and
@@ -68,13 +114,13 @@ decline from the maximum estimates (i.e. the peak at NEC);
 if "control", then ECx values are calculated relative to the control, which
 is assumed to be the lowest observed concentration.
 
-Calls to functions \code{\link{ecx}} and \code{\link{nsec}} and
-\code{\link{compare_fitted}} do not require the same level of flexibility
+Calls to functions \code{\link[=ecx]{ecx()}} and \code{\link[=nsec]{nsec()}} and
+\code{\link[bayesnec:compare_fitted]{bayesnec::compare_fitted()}} do not require the same level of flexibility
 in the context of allowing argument \code{newdata}
-(from a \code{\link[brms]{posterior_predict}} perspective) to
+(from a \code{\link[brms:posterior_predict]{brms::posterior_predict()}} perspective) to
 be supplied manually, as this is and should be handled within the function
 itself. The argument \code{resolution} controls how precisely the
-\code{\link{ecx}} or \code{\link{nsec}} value is estimated, with
+\code{\link[=ecx]{ecx()}} or \code{\link[=nsec]{nsec()}} value is estimated, with
 argument \code{x_range} allowing estimation beyond the existing range of
 the observed data (otherwise the default range) which can be useful in a
 small number of cases. There is also no reasonable case where estimating
@@ -82,11 +128,20 @@ these from the raw data would be of value, because both functions would
 simply return one of the treatment concentrations, making NOEC a better
 metric in that case.
 }
+\section{Methods (by class)}{
+\itemize{
+\item \code{ecx(bnecfit)}: Method for a \code{bayesnec} fit of class \link[bayesnec:bnecfit]{bayesnec::bnecfit}
+returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.
+
+\item \code{ecx(brmsfit)}: Method for a raw \code{brms} fit of class \link[brms:brmsfit]{brms::brmsfit}
+returned by \code{\link[brms:brm]{brms::brm()}}. Requires \code{x_var}, and supports estimates per
+group via \code{group_var} and \code{by_group}.
+
+}}
 \examples{
 \donttest{
-library(brms)
 library(bayesnec)
-data(manec_example)
+
 ecx(manec_example, ecx_val = 50)
 ecx(manec_example)
 }

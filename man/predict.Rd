@@ -5,20 +5,20 @@
 \alias{predict.bayesnecfit}
 \alias{predict.bayesmanecfit}
 \title{Generates mean posterior predictions for objects fitted by
-\code{\link{bnec}}}
+\code{\link[bayesnec:bnec]{bayesnec::bnec()}}}
 \usage{
 \method{predict}{bayesnecfit}(object, ...)
 
 \method{predict}{bayesmanecfit}(object, summary = TRUE, robust = FALSE, probs = c(0.025, 0.975), ...)
 }
 \arguments{
-\item{object}{An object of class \code{\link{bayesnecfit}} or
-\code{\link{bayesmanecfit}}.}
+\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
+\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
 
-\item{...}{Additional arguments to \code{\link[brms]{predict.brmsfit}} if
-object is of class \code{\link{bayesnecfit}}, or to
-\code{\link[brms]{posterior_predict.brmsfit}} if object is of class
-\code{\link{bayesmanecfit}}.}
+\item{...}{Additional arguments to \code{\link[brms:predict.brmsfit]{brms::predict.brmsfit()}} if
+object is of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit}, or to
+\code{\link[brms:posterior_predict.brmsfit]{brms::posterior_predict.brmsfit()}} if object is of class
+\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit}.}
 
 \item{summary}{Should summary statistics be returned
 instead of the raw values? Default is \code{TRUE}.}
@@ -37,21 +37,34 @@ See \code{?brms::predict.brmsfit}.
 }
 \description{
 Generates mean posterior predictions for objects fitted by
-\code{\link{bnec}}. \code{object} should be of class
-\code{\link{bayesnecfit}} or \code{\link{bayesmanecfit}}.
+\code{\link[bayesnec:bnec]{bayesnec::bnec()}}. \code{object} should be of class
+\link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or \link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit}.
 }
+\section{Methods (by class)}{
+\itemize{
+\item \code{predict(bayesnecfit)}: Method for a single-model fit of class
+\link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit}.
+
+\item \code{predict(bayesmanecfit)}: Method for a model-averaged fit of class
+\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit}; returns summary statistics controlled by
+\code{summary}, \code{robust} and \code{probs}.
+
+}}
 \examples{
-\dontrun{
+\donttest{
 library(bayesnec)
+
 # Uses default `resolution` and `x_range` to generate `newdata` internally
 predict(manec_example)
+
 # Provide user-specified `newdata`
 nd_ <- data.frame(x = seq(0, 3, length.out = 200))
 predict(manec_example, ecx_val = 50, newdata = nd_, make_newdata = FALSE)
+
 # Predictions for raw input data
-nec4param <- pull_out(manec_example, model = "nec4param")
+nec4param <- bayesnec::pull_out(manec_example, model = "nec4param")
 preds <- predict(nec4param, make_newdata = FALSE)
-x <- pull_brmsfit(nec4param)$data$x
+x <- bayesnec::pull_brmsfit(nec4param)$data$x
 plot(x, preds[, 1])
 }
 }

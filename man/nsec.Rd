@@ -2,6 +2,9 @@
 % Please edit documentation in R/nsec.R
 \name{nsec}
 \alias{nsec}
+\alias{nsec.bnecfit}
+\alias{nsec.brmsfit}
+\alias{nsec.drc}
 \title{Extracts the predicted NSEC value as desired from a supported class.}
 \usage{
 nsec(
@@ -15,32 +18,98 @@ nsec(
   posterior = FALSE,
   ...
 )
+
+\method{nsec}{bnecfit}(
+  object,
+  sig_val = 0.01,
+  resolution = 100,
+  x_range = NA,
+  hormesis_def = "control",
+  xform = identity,
+  prob_vals = c(0.5, 0.025, 0.975),
+  posterior = FALSE,
+  type = "absolute",
+  ...
+)
+
+\method{nsec}{brmsfit}(
+  object,
+  sig_val = 0.01,
+  resolution = 1000,
+  x_range = NA,
+  hormesis_def = "control",
+  xform = identity,
+  prob_vals = c(0.5, 0.025, 0.975),
+  posterior = FALSE,
+  x_var,
+  group_var = NA,
+  by_group = FALSE,
+  horme = FALSE,
+  ...
+)
+
+\method{nsec}{drc}(
+  object,
+  sig_val = 0.01,
+  resolution = 1000,
+  x_range = NA,
+  hormesis_def = "control",
+  xform = identity,
+  prob_vals = c(0.5, 0.025, 0.975),
+  ...,
+  x_var,
+  horme = FALSE,
+  curveid = NA
+)
 }
 \arguments{
-\item{object}{An object of class \code{\link{bayesnecfit}} or
-\code{\link{bayesmanecfit}} returned by \code{\link{bnec}}.}
+\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
+\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
 
 \item{sig_val}{Probability value to use as the lower quantile to test
 significance of the predicted posterior values.
 against the lowest observed concentration (assumed to be the control), to
 estimate NEC as an interpolated NOEC value from smooth ECx curves.}
 
-\item{resolution}{The number of unique x values over which to find NSEC -
-large values will make the NSEC estimate more precise.}
+\item{resolution}{The number of unique x values over which to find the
+estimate -- large values will make the estimate more precise.}
 
-\item{x_range}{A range of x values over which to consider extracting NSEC.}
+\item{x_range}{A range of x values over which to consider extracting the
+estimate.}
 
-\item{hormesis_def}{A \code{\link[base]{character}} vector, taking values
+\item{hormesis_def}{A character vector, taking values
 of "max" or "control". See Details.}
 
 \item{xform}{A function to apply to the returned estimated concentration
 values.}
 
 \item{prob_vals}{A vector indicating the probability values over which to
-return the estimated NSEC value. Defaults to 0.5 (median) and 0.025 and
+return the estimated value. Defaults to 0.5 (median) and 0.025 and
 0.975 (95 percent credible intervals).}
 
-\item{...}{Further arguments to pass to class specific methods.}
+\item{posterior}{A logical value indicating if the full
+posterior sample of calculated values should be returned instead of
+just the median and 95 credible intervals.}
+
+\item{...}{Additional arguments passed to class-specific methods.}
+
+\item{type}{One of "relative" or "absolute" (the default). For "relative"
+the NSEC reference is taken relative to the minimum predicted response; for
+"absolute" it is taken relative to zero.}
+
+\item{x_var}{A character indicating the name of the predictor (x) data in
+\code{object}.}
+
+\item{group_var}{A character indicating the name of the grouping variable in
+\code{object}.}
+
+\item{by_group}{A logical indicating if values should be returned for each
+level in \code{group_var}, or marginalised across all groups.}
+
+\item{horme}{Logical indicating if hormesis is evident.}
+
+\item{curveid}{A character indicating the name of the grouping variable in
+\code{object}.}
 }
 \value{
 A vector containing the estimated NSEC value, including upper and
@@ -55,13 +124,13 @@ as a decline from the maximum estimates (i.e. the peak at NEC);
 if "control", then NSEC values are calculated relative to the control, which
 is assumed to be the lowest observed concentration.
 
-Calls to functions \code{\link{ecx}} and \code{\link{nsec}} and
-\code{\link{compare_fitted}} do not require the same level of flexibility
+Calls to functions \code{\link[=ecx]{ecx()}} and \code{\link[=nsec]{nsec()}} and
+\code{\link[bayesnec:compare_fitted]{bayesnec::compare_fitted()}} do not require the same level of flexibility
 in the context of allowing argument \code{newdata}
-(from a \code{\link[brms]{posterior_predict}} perspective) to
+(from a \code{\link[brms:posterior_predict]{brms::posterior_predict()}} perspective) to
 be supplied manually, as this is and should be handled within the function
 itself. The argument \code{resolution} controls how precisely the
-\code{\link{ecx}} or \code{\link{nsec}} value is estimated, with
+\code{\link[=ecx]{ecx()}} or \code{\link[=nsec]{nsec()}} value is estimated, with
 argument \code{x_range} allowing estimation beyond the existing range of
 the observed data (otherwise the default range) which can be useful in a
 small number of cases. There is also no reasonable case where estimating
@@ -69,6 +138,20 @@ these from the raw data would be of value, because both functions would
 simply return one of the treatment concentrations, making NOEC a better
 metric in that case.
 }
+\section{Methods (by class)}{
+\itemize{
+\item \code{nsec(bnecfit)}: Method for a \code{bayesnec} fit of class \link[bayesnec:bnecfit]{bayesnec::bnecfit}
+returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.
+
+\item \code{nsec(brmsfit)}: Method for a raw \code{brms} fit of class \link[brms:brmsfit]{brms::brmsfit}
+returned by \code{\link[brms:brm]{brms::brm()}}. Requires \code{x_var}, and supports estimates per
+group via \code{group_var} and \code{by_group}.
+
+\item \code{nsec(drc)}: Method for a \code{drc} fit (class \code{drc}) returned by
+\code{\link[drc:drm]{drc::drm()}}. Supports estimates per group via \code{curveid}. Hormesis is not
+currently implemented.
+
+}}
 \examples{
 \donttest{
 library(bayesnec)

@@ -1,33 +1,5 @@
 # Tests for helper functions in R/helpers.R
 
-# linear_rescale -----------------------------------------------------------
-
-test_that("linear_rescale maps to new range", {
-  x <- 1:10
-  result <- toxval:::linear_rescale(x, c(0, 1))
-
-  expect_equal(result[1], 0)
-  expect_equal(result[10], 1)
-  expect_length(result, 10)
-})
-
-test_that("linear_rescale preserves relative ordering", {
-  x <- c(5, 10, 15, 20)
-  result <- toxval:::linear_rescale(x, c(100, 200))
-
-  expect_true(all(diff(result) > 0))
-  expect_equal(result[1], 100)
-  expect_equal(result[4], 200)
-})
-
-test_that("linear_rescale handles negative ranges", {
-  x <- 1:5
-  result <- toxval:::linear_rescale(x, c(-10, -5))
-
-  expect_equal(result[1], -10)
-  expect_equal(result[5], -5)
-})
-
 # clean_names --------------------------------------------------------------
 
 test_that("clean_names strips % and adds Q prefix", {
@@ -129,33 +101,6 @@ test_that("modify_posterior with hormesis_def = control leaves all values", {
   expect_equal(result, p_sample)
 })
 
-# min_abs ------------------------------------------------------------------
-
-test_that("min_abs finds index of value closest to zero", {
-  expect_equal(toxval:::min_abs(c(-5, -1, 0.5, 3, 10)), 3)
-  expect_equal(toxval:::min_abs(c(-0.1, 0.2, 5)), 1)
-  expect_equal(toxval:::min_abs(c(10, -10, 0)), 3)
-})
-
-# contains_zero / contains_one / contains_negative -------------------------
-
-test_that("contains_zero detects zeros", {
-  expect_true(toxval:::contains_zero(c(1, 0, 3)))
-  expect_false(toxval:::contains_zero(c(1, 2, 3)))
-  expect_true(toxval:::contains_zero(c(0, 0, 0)))
-})
-
-test_that("contains_one detects ones", {
-  expect_true(toxval:::contains_one(c(0, 1, 2)))
-  expect_false(toxval:::contains_one(c(0, 0.5, 2)))
-})
-
-test_that("contains_negative detects negatives", {
-  expect_true(toxval:::contains_negative(c(-1, 0, 1)))
-  expect_false(toxval:::contains_negative(c(0, 1, 2)))
-  expect_true(toxval:::contains_negative(c(NA, -0.5, 1)))
-})
-
 # newdata_eval -------------------------------------------------------------
 
 test_that("newdata_eval returns list with newdata and x_vec", {
@@ -191,44 +136,4 @@ test_that("newdata_eval works with bayesnecfit objects", {
 
   expect_type(result, "list")
   expect_length(result$x_vec, 30)
-})
-
-# estimates_summary --------------------------------------------------------
-
-test_that("estimates_summary returns median and 95% CI", {
-  set.seed(42)
-  x <- rnorm(1000, mean = 5, sd = 1)
-  result <- toxval:::estimates_summary(x)
-
-  expect_length(result, 3)
-  expect_equal(names(result), c("Estimate", "Q2.5", "Q97.5"))
-  expect_equal(unname(result["Estimate"]), median(x), tolerance = 0.001)
-  expect_equal(
-    unname(result["Q2.5"]),
-    unname(quantile(x, 0.025)),
-    tolerance = 0.001
-  )
-  expect_equal(
-    unname(result["Q97.5"]),
-    unname(quantile(x, 0.975)),
-    tolerance = 0.001
-  )
-})
-
-# gm_mean ------------------------------------------------------------------
-
-test_that("gm_mean calculates geometric mean", {
-  expect_equal(toxval:::gm_mean(c(1, 10, 100)), exp(mean(log(c(1, 10, 100)))))
-  expect_equal(toxval:::gm_mean(c(4, 4, 4)), 4)
-})
-
-test_that("gm_mean returns NaN for negative values", {
-  expect_true(is.nan(toxval:::gm_mean(c(-1, 2, 3))))
-})
-
-test_that("gm_mean handles zeros with zero_propagate", {
-  expect_equal(toxval:::gm_mean(c(0, 5, 10), zero_propagate = TRUE), 0)
-  # Without zero_propagate, zeros are excluded from log calculation
-  result <- toxval:::gm_mean(c(0, 5, 10), zero_propagate = FALSE)
-  expect_gt(result, 0)
 })

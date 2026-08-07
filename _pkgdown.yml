@@ -1,4 +1,6 @@
-url: ~
+url: https://open-aims.github.io/toxval/
 template:
   bootstrap: 5
 
+development:
+  mode: auto

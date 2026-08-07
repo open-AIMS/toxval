@@ -1,7 +1,7 @@
 Package: toxval
 Title: Functions for Extracting NSEC and ECx Values from fitted
     Frequentist and Bayesian Model Objects
-Version: 1.0.0
+Version: 1.0.0.9000
 Authors@R: c(
     person("Rebecca", "Fisher", , "r.fisher@aims.gov.au", role = c("aut", "cre")),
     person("Diego", "Barneche", role = "aut"),
@@ -14,8 +14,7 @@ Authors@R: c(
   )
 Description: This package extracts NSEC or ECx estimates from supported
     fitted frequentist (drc) and Bayesian (bayesnec) model objects (see
-    Fox
-    (2010)<https://setac.onlinelibrary.wiley.com/doi/full/10.1002/etc.5610?af=R>).
+    Fisher and Fox (2023) <doi:10.1002/etc.5610>).
 License: GPL (>= 2)
 URL: https://open-aims.github.io/toxval/
 BugReports: https://github.com/open-aims/toxval/issues
@@ -35,8 +34,7 @@ Suggests:
     rmarkdown,
     testthat (>= 3.0.0)
 Biarch: true
+Config/roxygen2/version: 8.0.0.9000
 Config/testthat/edition: 3
 Encoding: UTF-8
-LazyData: true
 Roxygen: list(markdown = TRUE)
-Config/roxygen2/version: 8.0.0.9000

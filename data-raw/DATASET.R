@@ -1,12 +1,9 @@
-## code to prepare `DATASET` dataset goes here
+## code to prepare the example fitted-model fixtures used by the test suite
 ##
-## NOTE: Each model is saved individually to data/ using
-## usethis::use_data(..., overwrite = TRUE). This creates one .rda file per
-## object in data/. These are loaded as exported package datasets via
-## devtools::load_all() or library(toxval).
-##
-## Do NOT use internal = TRUE here — each call with internal = TRUE overwrites
-## R/sysdata.rda, so only the last call would survive.
+## NOTE: Each model is saved individually to tests/testthat/fixtures/ using
+## save(..., compress = "xz"). This creates one .rda file per object. These are
+## test scaffolding, not user-facing package data, and are loaded by name in
+## tests via tests/testthat/helper-fixtures.R.
 ##
 ## All Bayesian models use chains = 2, iter = 2000, thin = 2.
 ## For brms models: warmup = 1000 (brms default = iter/2), yielding
@@ -57,8 +54,8 @@ brms_model_1 <-
     thin = 2,
     seed = 101
   )
-usethis::use_data(brms_model_1, overwrite = TRUE)
-strip_stanmodel("data/brms_model_1.rda")
+save(brms_model_1, file = "tests/testthat/fixtures/brms_model_1.rda", compress = "xz")
+strip_stanmodel("tests/testthat/fixtures/brms_model_1.rda")
 
 # this works for the grouping examples
 data <- data.frame(
@@ -76,8 +73,8 @@ brms_model_2 <-
     thin = 2,
     seed = 101
   )
-usethis::use_data(brms_model_2, overwrite = TRUE)
-strip_stanmodel("data/brms_model_2.rda")
+save(brms_model_2, file = "tests/testthat/fixtures/brms_model_2.rda", compress = "xz")
+strip_stanmodel("tests/testthat/fixtures/brms_model_2.rda")
 
 brms_model_3 <-
   brms::brm(
@@ -89,8 +86,8 @@ brms_model_3 <-
     thin = 2,
     seed = 123
   )
-usethis::use_data(brms_model_3, overwrite = TRUE)
-strip_stanmodel("data/brms_model_3.rda")
+save(brms_model_3, file = "tests/testthat/fixtures/brms_model_3.rda", compress = "xz")
+strip_stanmodel("tests/testthat/fixtures/brms_model_3.rda")
 
 data <- bayesnec::herbicide
 data$x <- log(data$concentration)
@@ -127,8 +124,8 @@ brms_model_4 <-
     seed = 700,
     init = 0
   )
-usethis::use_data(brms_model_4, overwrite = TRUE)
-strip_stanmodel("data/brms_model_4.rda")
+save(brms_model_4, file = "tests/testthat/fixtures/brms_model_4.rda", compress = "xz")
+strip_stanmodel("tests/testthat/fixtures/brms_model_4.rda")
 
 set.seed(123)
 nec_dat_horme <- bayesnec::nec_data |>
@@ -144,8 +141,8 @@ brms_model_5 <-
     thin = 2,
     seed = 123
   )
-usethis::use_data(brms_model_5, overwrite = TRUE)
-strip_stanmodel("data/brms_model_5.rda")
+save(brms_model_5, file = "tests/testthat/fixtures/brms_model_5.rda", compress = "xz")
+strip_stanmodel("tests/testthat/fixtures/brms_model_5.rda")
 
 # bnecfit -----------------------------------------------------------------
 
@@ -164,8 +161,8 @@ bnec_model_1 <-
     iter = 2000,
     thin = 2
   )
-usethis::use_data(bnec_model_1, overwrite = TRUE)
-strip_stanmodel("data/bnec_model_1.rda")
+save(bnec_model_1, file = "tests/testthat/fixtures/bnec_model_1.rda", compress = "xz")
+strip_stanmodel("tests/testthat/fixtures/bnec_model_1.rda")
 
 # nsec bayesnec -------------------------------------------------------------
 
@@ -173,20 +170,20 @@ bayesnec_nec4param <- bayesnec::pull_out(
   bayesnec::manec_example,
   model = "nec4param"
 )
-usethis::use_data(bayesnec_nec4param, overwrite = TRUE)
-strip_stanmodel("data/bayesnec_nec4param.rda")
+save(bayesnec_nec4param, file = "tests/testthat/fixtures/bayesnec_nec4param.rda", compress = "xz")
+strip_stanmodel("tests/testthat/fixtures/bayesnec_nec4param.rda")
 
 bayesnec_ecx4param <- bayesnec::pull_out(
   bayesnec::manec_example,
   model = "ecx4param"
 )
-usethis::use_data(bayesnec_ecx4param, overwrite = TRUE)
-strip_stanmodel("data/bayesnec_ecx4param.rda")
+save(bayesnec_ecx4param, file = "tests/testthat/fixtures/bayesnec_ecx4param.rda", compress = "xz")
+strip_stanmodel("tests/testthat/fixtures/bayesnec_ecx4param.rda")
 
 # nsec drc ----------------------------------------------------------------
 
 nsec_drc_1 <- drc::drm(y ~ x, data = bayesnec::nec_data, fct = drc::LL.4())
-usethis::use_data(nsec_drc_1, overwrite = TRUE)
+save(nsec_drc_1, file = "tests/testthat/fixtures/nsec_drc_1.rda", compress = "xz")
 
 # increasing drc model
 data <- data.frame(
@@ -195,7 +192,7 @@ data <- data.frame(
 )
 
 nsec_drc_2 <- drc::drm(y ~ x, data = data, fct = drc::LL.3())
-usethis::use_data(nsec_drc_2, overwrite = TRUE)
+save(nsec_drc_2, file = "tests/testthat/fixtures/nsec_drc_2.rda", compress = "xz")
 
 # nsec_multi --------------------------------------------------------------
 
@@ -217,8 +214,8 @@ nsec_multi_model_1 <-
     thin = 2,
     seed = 123
   )
-usethis::use_data(nsec_multi_model_1, overwrite = TRUE)
-strip_stanmodel("data/nsec_multi_model_1.rda")
+save(nsec_multi_model_1, file = "tests/testthat/fixtures/nsec_multi_model_1.rda", compress = "xz")
+strip_stanmodel("tests/testthat/fixtures/nsec_multi_model_1.rda")
 
 data <- data.frame(
   dose = c(0.001, 0.005, 0.01, 0.05, 0.09, 0.1, 0.5, 0.9, 1.0, 1.5),
@@ -238,5 +235,5 @@ nsec_multi_model_2 <-
     thin = 2,
     seed = 123
   )
-usethis::use_data(nsec_multi_model_2, overwrite = TRUE)
-strip_stanmodel("data/nsec_multi_model_2.rda")
+save(nsec_multi_model_2, file = "tests/testthat/fixtures/nsec_multi_model_2.rda", compress = "xz")
+strip_stanmodel("tests/testthat/fixtures/nsec_multi_model_2.rda")

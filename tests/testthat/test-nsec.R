@@ -528,8 +528,8 @@ test_that("brms model runs when multiple variables in data and group_var specifi
   expect_equal(
     attributes(output),
     list(
-      row.names = c(1, 2),
       names = c("Qz", "Q50", "Q2.5", "Q97.5"),
+      row.names = c(1, 2),
       class = c("tbl_df", "tbl", "data.frame"),
       ecnsec_relativeP = list(
         `1` = c("50%" = 778.5143, "2.5%" = 169.6611, "97.5%" = 9649.234),

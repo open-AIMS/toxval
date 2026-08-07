@@ -575,11 +575,11 @@ test_that("by_group = TRUE and group_var supplied it groups the data based on th
   expect_equal(dim(output), c(2, 4))
   expect_equal(colnames(output), c("Qz", "Q50", "Q2.5", "Q97.5"))
   expect_equal(output$Q50, c(0.831, 0.830), tolerance = 0.01)
-  expect_equal(
+  expect_mapequal(
     attributes(output),
     list(
-      row.names = c(1, 2),
       names = c("Qz", "Q50", "Q2.5", "Q97.5"),
+      row.names = c(1, 2),
       class = c("tbl_df", "tbl", "data.frame"),
       resolution = 1000,
       ecx_val = 10,
@@ -649,11 +649,11 @@ test_that("when by_group = TRUE, group_var is provided and posterior = TRUE, you
 
   expect_s3_class(output, "data.frame")
   expect_equal(dim(output), c(5000, 2))
-  expect_equal(
+  expect_mapequal(
     attributes(output),
     list(
-      row.names = 1:5000,
       names = c("x", "ECx"),
+      row.names = 1:5000,
       class = c("tbl_df", "tbl", "data.frame"),
       resolution = 1000,
       ecx_val = 10,
@@ -674,11 +674,11 @@ test_that("when by_group = TRUE, group_var is provided and posterior = TRUE, you
   expect_s3_class(output, "data.frame")
   expect_equal(dim(output), c(2000, 2))
   expect_equal(output$z, rep(c("1", "2"), length.out = 2000))
-  expect_equal(
+  expect_mapequal(
     attributes(output),
     list(
-      row.names = 1:2000,
       names = c("z", "ECx"),
+      row.names = 1:2000,
       class = c("tbl_df", "tbl", "data.frame"),
       resolution = 1000,
       ecx_val = 10,
