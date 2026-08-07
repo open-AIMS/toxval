@@ -6,7 +6,7 @@
 \alias{toxval-package}
 \title{toxval: Functions for Extracting NSEC and ECx Values from fitted Frequentist and Bayesian Model Objects}
 \description{
-This pacakge extracts NSEC or ECx estimates from supported fitted frequentist (drc) and Bayesian (bayesnec) model objects (see Fisher and Fox (2023)\url{https://doi.org/10.1002/etc.5610}).
+This package extracts NSEC or ECx estimates from supported fitted frequentist (drc) and Bayesian (bayesnec) model objects (see Fisher and Fox (2023) \doi{10.1002/etc.5610}).
 }
 \seealso{
 Useful links:

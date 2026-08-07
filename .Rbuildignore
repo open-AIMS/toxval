@@ -10,3 +10,4 @@
 ^prompts$
 ^CLAUDE\.md$
 ^scripts$
+^.editorconfig$
