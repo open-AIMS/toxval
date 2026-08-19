@@ -162,9 +162,6 @@ ecx.bnecfit <- function(
     probs = prob_vals,
     na.rm = TRUE
   )
-  # TODO confirm if commented code can be removed
-  #quantile(unlist(tox_out), probs = prob_vals)
-  #names(tox_estimate) <- clean_names(tox_estimate)
 
   attr(tox_estimate, "control_value") <- median(control_posterior)
   attr(tox_out, "control_value") <- median(control_posterior)
@@ -350,7 +347,16 @@ ecx.brmsfit <- function(
       pred_dat <- expand.grid(dat_list)
 
       p_samples <- posterior_epred(object, newdata = pred_dat, re_formula = NA)
-      # TODO confirm if commented code can be removed
+      # Kept deliberately (toxval #33). This is not dead code, it is an
+      # unimplemented feature: ecx.bnecfit truncates the posterior below the
+      # hormetic peak via modify_posterior() unconditionally, ecx.brmsfit
+      # never does. The block cannot simply be uncommented: the guard is a
+      # bayesnec-ism, `object$model` on a bayesnecfit is the model name, on a
+      # brmsfit it is the Stan code, so grepl("horme", .) is meaningless here.
+      # The `horme` argument this method already documents and accepts is the
+      # intended guard, and is currently unused. Left for the refactor to
+      # settle alongside the direction/hormesis decision, not resolved here,
+      # because switching it on would move ECx values.
       # if (grepl("horme", object$model)) {
       #   n <- seq_len(nrow(p_samples))
       #   p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
