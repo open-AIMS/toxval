@@ -627,25 +627,39 @@ The `nsec` half does **not** block, because
 than resolving it by fiat. Only the default has to be agreed, and a default can
 be revisited without invalidating anything.
 
-**The tibble and the #39 untangle must not land together.** `bayesnec` calls
-`ecx()` internally in `plot.R`, `autoplot.R`, `summary.R` and the hurdle methods,
-and consumes the result positionally as a length-3 vector
+**`toxval` must reach CRAN before #39 can ship.** `bayesnec` is on CRAN;
+`toxval` is not. A CRAN package's `Imports` must resolve from CRAN, and
+`Remotes:` is ignored by CRAN, so `bayesnec` cannot release
+`Imports: toxval` until `toxval` is published there. CRAN-readiness is therefore
+a prerequisite of the untangle, not a follow-up to it.
+
+That in turn means **the tibble change belongs before the CRAN submission**,
+because publishing an API that is about to be broken would force two breaking
+releases in succession. `bayesnec` then relocates and adapts to the new shape in
+a single step.
+
+This is safer than it sounds. `bayesnec` consumes `ecx()` positionally as a
+length-3 vector in `plot.R`, `autoplot.R`, `summary.R` and the hurdle methods
 (`bind_ecx()` uses `ecx_vals[[1]]`, `[[2]]`, `[[3]]` and
-`attr(ecx_vals, "ecx_val")`). Changing the return type in the same step that
-reverses the dependency breaks a CRAN package's plots and summaries.
+`attr(ecx_vals, "ecx_val")`), so a shape change **breaks loudly** rather than
+silently. The dangerous axis is the numbers, and those move at import time under
+any ordering — so they are verified in isolation inside `toxval`, before the
+`bayesnec` PR.
 
 | # | phase | numbers |
 |---|---|---|
 | 0 | Decide the `ecx` reference (#19) and direction (#20); agree the `anchor` default. No code. | — |
 | 1 | **Lock a regression net.** Capture current estimates as golden values, split into "must not move" and "expected to move, because #19/#20/#34/xform". The existing `if (FALSE)` tests and `TODO` markers are the starting ledger for the second list. | — |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
-| 3 | **#39 untangle.** toxval drops the `bnecfit` and `predict` methods; `bayesnec` imports toxval, adds `toxval_predict` methods, deletes its `R/ecx.R` and `R/nsec.R`. | unchanged in `bayesnec`; `ecx` on `bnecfit` adopts the #19 answer in toxval |
+| 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`; move `bayesnec` to `Suggests`, or out entirely if the tests no longer need it. | `ecx` on `bnecfit` adopts the #19 answer |
 | 4 | **Move metrics onto the spine** (`ecx`, then `nsec`, then `nsec_multi`), each gaining `draws`, with `posterior` deprecated but working. | per #19/#20 |
 | 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
-| 6 | **`bayesnec` follow-up.** Update `bind_ecx()`, `plot`, `summary` to the tibble. | — |
+| 6 | **`toxval` to CRAN**, carrying the final API. | — |
+| 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
 
-Phases 2–3 change *who owns the code*. Phases 5–6 change *what the code
-returns*. Keeping them apart means each step has one reason to fail.
+Phases 2–4 change *who owns the code* and what it computes; phase 5 changes
+*what it returns*. They stay separate inside `toxval`, where each can be checked
+against the regression net, and reach `bayesnec` as one finished API at phase 7.
 
 ## 5. Notes
 
