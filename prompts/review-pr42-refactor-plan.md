@@ -761,3 +761,37 @@ All left untracked, consistent with the earlier decision to keep `00_protocol.md
 these are session operating material, not reviewer context.
 
 ---
+**User:** did we open an issue for the cran readiness?
+
+**Claude:** No — checked and none existed. The brief had it as the session's deliverable,
+which left it invisible on the tracker: exactly the failure mode the audit found in
+`02_decisions`' "issues to file" list. Item 5 of the agreed list was "file the CRAN-readiness
+issue and scope it", so filed **toxval #45** — "Scope CRAN readiness — prerequisite for the
+bayesnec dependency reversal (#39)". Written as an explicit placeholder (not assessed),
+carrying the rationale, the areas to check, and the decisions it surfaces. Pointed
+`notes/tasks/cran-readiness-scoping.md` at filling in #45 rather than opening a new issue,
+and linked it from #39.
+
+**User (mid-turn):** if it is relevant I already launched to 2 tasks that were not blocked on
+both repos
+
+**Claude:** Highly relevant — it explained a mystery. Two concurrent sessions were sharing
+`/mnt/c/Rworking/toxval` as one working tree. The toxval session checked out `dev` (per my
+brief), which switched the tree out from under this session, and a subsequent commit intended
+for `refactor-plan-review` landed on `dev` instead, carrying a 20-line truncated copy of this
+log.
+
+Diagnosed and fixed:
+
+- **bayesnec is fine.** Its #216 session is in its own worktree
+  (`scratchpad/wt-216`, branch `issue-216-deterministic-model-averaging`), following the
+  worktree pattern in bayesnec's `00_protocol.md`. The main checkout is untouched on `dev`.
+- **toxval had only one worktree**, shared. Dropped the stray commit with
+  `git reset --mixed origin/dev` (local only, never pushed) and deleted the stray file, so a
+  session branching off `dev` no longer inherits it.
+- Moved this session's work into its own worktree so it stops competing for the main tree.
+- **Root cause was a gap in my own brief:** `notes/tasks/tier1-mechanical.md` told the session
+  to branch off `dev` but, unlike bayesnec's protocol, did not tell it to use a worktree.
+  Fixed.
+
+---

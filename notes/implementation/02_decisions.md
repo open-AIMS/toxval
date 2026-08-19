@@ -120,5 +120,6 @@ Listed so they are not mistaken for oversights.
   (root-finding) and **#41** (hypothesis method).
 - When #29 is fixed, close **bayesnec #166** as a duplicate of it. *(still to
   do)*
-- Filed since: **#43** — `nsec.drc` intervals invert a pointwise confidence band
-  — and **bayesnec #216** — model-averaged output is not reproducible.
+- Filed since: **#43** — `nsec.drc` intervals invert a pointwise confidence band;
+  **#45** — scope CRAN readiness, which blocks #39; and **bayesnec #216** —
+  model-averaged output is not reproducible.
