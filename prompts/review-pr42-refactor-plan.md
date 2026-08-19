@@ -409,3 +409,117 @@ Plus the two new issues posted earlier: toxval #43, bayesnec #216.
 `REFACTOR-human.md` and `notes/` are still uncommitted working-tree changes.
 
 ---
+**User:** I ran the terminal and authorised. Yes add the scripts required to reproduce the
+claims
+
+**Claude:** Rewrote the three measurement scripts for the repo before committing — they had
+hardcoded WSL absolute paths (`/mnt/c/Rworking/toxval/tests/testthat/fixtures`) and would not
+have reproduced for anyone else. Now repo-relative with a guard, plus a header naming which
+claim each backs and where it is cited. Added `notes/pr42/README.md` as an index.
+
+Smoke-tested all three from the repo root; `compare_impls.R` reproduces the posted table
+exactly (6 `ecx` DIFFERENT, 9 `nsec` IDENTICAL).
+
+`git add notes/pr42/` swept in `draft-github-posts.md`; removed it from the commit and
+amended, since its content is now live on GitHub at stable permalinks and committing it
+would duplicate text that will drift. Left untracked locally.
+
+Two commits on `refactor-plan-review`, branched off `refactor` (`84cfeda`):
+
+- `160696d` revise refactor plan from review — `REFACTOR-human.md` (+634/-149),
+  `.Rbuildignore`, `prompts/review-pr42-refactor-plan.md`
+- `8ff34d7` add scripts reproducing the review measurements — `notes/pr42/` (4 files)
+
+Pushed to `origin` (the fork) and opened **PR #44** against `open-AIMS/toxval:refactor`, so
+the rewrite lands inside #42 as a reviewable diff rather than being pushed onto a
+collaborator's branch: https://github.com/open-AIMS/toxval/pull/44
+
+PR body tabulates every section changed against its reason, restates the two phasing
+constraints, and flags that `air` is not installed here so the `.R` files were hand-formatted
+to `air.toml`'s settings but not run through the formatter.
+
+---
+**User:** can we install air so we can remove the "Not done"?
+
+**Claude:** Installed `air` 0.11.0 from the official GitHub release rather than piping the
+installer script to a shell: downloaded `air-x86_64-unknown-linux-gnu.tar.gz`, verified it
+against the published `.sha256` (`b6dd1446...846593`, matched), extracted, and installed to
+`~/.local/bin/air` (user-local, no sudo). Already on PATH.
+
+Formatted `notes/pr42/*.R`. Changes were cosmetic only — a brace around a bare `next`, and
+one-argument-per-line in two `sprintf()` calls. Verified:
+
+- all three parse
+- `attach_order.R` reproduces the masking result unchanged
+- `compare_impls.R` output is bit-identical to the pre-format run on every deterministic row;
+  the only two rows that moved are the `manec_example` (bayesmanecfit) ones, which is the
+  non-determinism documented in bayesnec #216 — an incidental second demonstration of it
+
+Committed as `0d5aa15` and pushed. Removed the "Not done" section from PR #44's body.
+PR now 7 files, +1186/-149, 3 commits. `air format --check` is clean on the branch.
+
+Incidental finding, not acted on: `air format --check .` reports `scripts/build.R` would be
+reformatted. Pre-existing, unrelated to this branch, and left alone.
+
+---
+**User:** I think we are done here finalise the session log to the branch
+
+**Claude:** Session closed. Summary of what the session produced.
+
+### Posted to GitHub
+
+| | |
+|---|---|
+| toxval #19 | [comment](https://github.com/open-AIMS/toxval/issues/19#issuecomment-5337296192) — reference semantics; the `ecx` scalar-vs-per-draw divergence, plus the NSEC-reference question under model averaging |
+| toxval #20 | [comment](https://github.com/open-AIMS/toxval/issues/20#issuecomment-5337296332) — `direction` as a property of the result |
+| toxval #25 | [comment](https://github.com/open-AIMS/toxval/issues/25#issuecomment-5337296701) — `n(s)ec` vocabulary, `threshold` slot, shared component index |
+| toxval #39 | [comment](https://github.com/open-AIMS/toxval/issues/39#issuecomment-5337296496) — the split, the ordering constraint, the CRAN hazard, per-metric mixing deletable |
+| toxval PR #42 | [review comment](https://github.com/open-AIMS/toxval/pull/42#issuecomment-5337296919) |
+| toxval #43 | [new issue](https://github.com/open-AIMS/toxval/issues/43) — `nsec.drc` intervals invert a pointwise confidence band |
+| bayesnec #216 | [new issue](https://github.com/open-AIMS/bayesnec/issues/216) — model-averaged output is not reproducible |
+| toxval PR #44 | [new PR](https://github.com/open-AIMS/toxval/pull/44) — revised plan, into `refactor` |
+
+### Findings that came from measurement rather than reading
+
+1. `ecx` differs between `toxval` and `bayesnec` on **all six** `bnecfit` fixtures. Medians
+   agree to 0.3-2%; lower bounds differ by 23% (`ecx4param`) and 50% (`bnec_model_1`).
+2. Attach order decides whether `ecx()` works at all. `bayesnec` has no `ecx.brmsfit`, so
+   `library(toxval); library(bayesnec)` masks the generic and `ecx()` on a `brmsfit` errors.
+3. `nsec` is bit-for-bit identical across the two packages everywhere it can be tested.
+4. Model-averaged output is not reproducible in either package — `predict()` on a
+   `bayesmanecfit` differs between consecutive calls; lower bounds swing 10%/26%.
+5. `nsec` does not commute with model averaging (its reference is an across-draw quantile),
+   so the two packages implement different definitions. `ecx` does commute.
+
+### Decisions recorded in the plan
+
+- per-draw reference for `ecx` (#19)
+- `direction` as a result property, no argument (#20)
+- one realisation mode; frequentist fits get a parametric bootstrap (#43)
+- `draws` list column, no `*_draws()` functions
+- closed `metric` vocabulary with the value in its own column
+- `toxval_pred` alignment invariant; shared index only for threshold-derived quantities
+- NSEC reference under model averaging: **A**, the model-averaged control (§3.8)
+
+### Corrections made during the session
+
+- The collision mechanism is **generic masking**, not child-class method shadowing.
+- The `nsec` disagreement on `manec_example` is **noise**, not a real difference — caught by
+  replicating before posting.
+- `*_draws()` was kept as sugar over the list column, then dropped entirely once it was clear
+  every argument for the split supported the list column instead.
+- The bayesnec issue was refocused from pairing to reproducibility after checking that the
+  toxval plan self-resolves the pairing half.
+
+### Environment
+
+Installed `air` 0.11.0 to `~/.local/bin` (release tarball, checksum verified).
+`scripts/build.R` is not air-clean — pre-existing, left alone.
+
+### Left untracked by choice
+
+`PHASE1_DEPENDENCY_UNTANGLE.md`, `notes/implementation/`,
+`notes/pr42/draft-github-posts.md` (content now live on GitHub),
+`prompts/review-pr35-package-cleanup.md`.
+
+---
