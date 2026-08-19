@@ -795,3 +795,48 @@ Diagnosed and fixed:
   Fixed.
 
 ---
+**User:** [shared the output of the two launched sessions — bayesnec #216 and toxval Tier 1 —
+asking for advice] / **User:** Do 2 and 3, I shared 1 with the other claude code session in
+bayesnec already.
+
+**Claude:** Reviewed both outputs and verified the checkable claims.
+
+**bayesnec #216.** Inspected the branch: all `helpers.R` sites now take a shared index
+(`w_post_pred_calc` folded into `w_grid_pred_calc`), the `.Random.seed` save/restore handles
+the no-prior-seed case, and the only unseeded `sample()` calls left are `ecx.R:294` and
+`nsec.R:233-234` — exactly the out-of-scope ones.
+
+Its finding #1 is correct and **#216's reproduction was my error**: verified that `predict()`
+on a *single* `bayesnecfit` also varies (2.1175 / 2.1900 / 2.1804) while `posterior_epred()`
+is bit-stable, so my example conflated likelihood simulation with model averaging. User
+relayed this to the bayesnec session directly.
+
+Advice given: (a) `set.seed(seed)` is unpinned, so a stored seed rebuilds a different index
+if R's `sample.kind` default ever changes again as it did in 3.6.0 — recommend
+`set.seed(seed, sample.kind = "Rejection")` or storing the index; (b) **override my own scope
+note** and extend the index into `sample_ecx()`/`sample_nsec()`, because the migration is now
+gated on #45 (CRAN) and until then the reported toxicity numbers stay irreproducible — using
+one index for both the NSEC and `ecnsec` draws fixes the pairing bug for free and does not
+pre-empt the `anchor` decision.
+
+**toxval Tier 1.** PRs #46, #47, #48 open; #32 closed with evidence instead of an empty PR.
+
+Actioned:
+
+1. *(declined — user handled it)* correct #216.
+2. **Posted the #37 hormesis finding to #20**
+   (issues/20#issuecomment-5340024254). Verified the code first, and it is worse than the
+   session reported: `nsec.bnecfit` uses `apply(p_samples, 1, max)` — per-draw peak, coherent
+   — while `nsec.brmsfit` uses `apply(p_samples, 2, max)`, the per-x maximum across draws,
+   i.e. the upper envelope of the posterior band. A `sig_val` quantile of that is not a
+   posterior quantity at all, which is a concrete diagnosis for #1/#8. Plus: uncommenting the
+   truncation would *error* (NAs reach an `na.rm`-less `max()`, so the reference becomes NA),
+   and `nec_posterior` is assigned and never used in both branches. Argued this supports
+   retiring `hormesis_def` via #20 rather than reconciling the two.
+3. **Fixed the NEWS instruction.** toxval's `NEWS.md` carries a `fledge` banner, so manual
+   entries are overwritten; `00_protocol.md` item 5 and the tier1 brief both mandated one.
+   Corrected in both, with an explicit warning that **bayesnec's `NEWS.md` is hand-maintained
+   and does want an entry** — checked, no fledge banner there — so nobody "fixes" one repo to
+   match the other. The CRAN brief now notes fledge owns the file.
+
+---
