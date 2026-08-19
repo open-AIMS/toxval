@@ -676,3 +676,50 @@ Plan updated to match: §4 preamble now leads with the CRAN prerequisite; the ph
 bayesnec".
 
 ---
+**User:** [inventory the notes across bayesnec and toxval and the comments, make sure
+everything aligns] / **User:** For the record, Tier 1 landed already. / **User:** yes, sorry
+only bayesnec's Tier 1. Can you update the docs based on your audit, clarifying the cross
+referencing. Let's commit the ones essential for Ayla to see for context.
+
+**Claude:** Audited both repos' notes plus the nine GitHub comments; wrote
+`notes/implementation/04_alignment_audit.md` (13 conflicts, kept local as a working doc).
+
+On the Tier 1 point I checked rather than accepted: **bayesnec Tier 1 landed** (PRs
+#197-#208 merged 14-17 Aug; issues #176/#180/#188/#191/#211/#213/#214 closed), **toxval Tier
+1 had not** (zero closed issues; last merged PR #38 on 07 Aug, a week before the notes were
+written). User confirmed they meant bayesnec's. Both repos having a
+`notes/implementation/01_work_queue.md` with a "Tier 1" is now recorded as a finding in its
+own right, and every reference is qualified by repo.
+
+Committed to PR #44, after updating: `PHASE1_DEPENDENCY_UNTANGLE.md`,
+`notes/implementation/01_work_queue.md`, `02_decisions.md`. Left local:
+`00_protocol.md` (session operating instructions, not reviewer context) and the audit itself.
+
+Substantive doc changes:
+
+- **PHASE1** — superseded-in-part banner pointing at `REFACTOR-human.md` §4; new Step 2b for
+  the CRAN prerequisite; Step 1 identified as `toxval_pred`; Step 2 no longer "the breaking
+  release"; Step 3 drops the `Remotes:` framing and gains the tibble adaptation; loose-ends
+  entry on tracking resolved.
+- **02_decisions T4** — softened. It said "do not consult bayesnec's copies as a reference";
+  following that literally would have given the wrong answer on #19, since `ecx.bnecfit` is
+  the outlier of the three implementations. The narrow T6 claim (do not adopt the `crf()`
+  back-transformation) is untouched.
+- **02_decisions T7** — split: the `ecx` half of #19 still blocks, the `nsec` half is now the
+  `anchor` argument and only its default needs agreeing; #1/#8 absorbed by #20.
+- **02_decisions** — #4 marked decided; issues-to-file list updated (#39/#40/#41 filed, #43
+  and bayesnec #216 added); dangling `03_uniroot_spike.md` pointed at #40 with the note that
+  the code is `bayesnec/ignore/uniroot.R`.
+- **01_work_queue** — repo banner; a "sequencing against the refactor" table splitting Tier 1
+  into safe-either-way (#33/#31/#32), do-before-the-net (#37) and fold-into-the-refactor (the
+  eight behavioural ones); Tier 0 marked as #39 with the CRAN and `toxval_pred` findings.
+
+**bayesnec notes edited but NOT committed** (tracked, on a clean `dev`): `00_protocol.md`
+gains #216 as an explicit in-scope exception with the note that the `helpers.R` half stays
+and only the call sites migrate; `01_work_queue.md` gains the repo banner and a note that
+Tier 2 #120 now overlaps the migration's final step; `03_decisions.md` D8 corrected for the
+CRAN/`Remotes:` finding.
+
+PR #44 now 10 files, +2184/-149, 11 commits; body updated to explain the newly tracked notes.
+
+---
