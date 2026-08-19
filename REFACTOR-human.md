@@ -217,10 +217,11 @@ toxval_pred:
               per-realisation threshold parameter where the model has a
               genuine one (a NEC); NULL otherwise. Needed for `nec` and
               `n(s)ec`, which are not recoverable from `curves`.
-  control   : observed response values at the lowest x (or their mean, sd
-              and n), or NULL. Raw data, not model output. Needed by
-              `anchor = "control"` (3.8) and by the mismatch warning that
-              guards it.
+  control   : numeric [n_realisation] from a control-only fit, or NULL.
+              Realisations of the control response estimated *independently
+              of the dose-response shape*. Subject to the same alignment
+              invariant as `curves`. Needed by `anchor = "control"` (3.8)
+              and by the mismatch warning that guards it.
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
               dimension ("none" | "group" | "response"), family, realisation
               source ("draws" | "bootstrap"), n_realisation, ...
@@ -497,7 +498,7 @@ nsec(fit, anchor = c("model", "component", "control"))
 |---|---|---|
 | `"model"` *(default)* | the `sig_val` quantile of the **model-averaged** control posterior | where the averaged curve departs from the averaged control |
 | `"component"` | the same quantile of **each component model's** control, applied to that model's own realisations | pick a model, compute its NSEC, repeat — the strict BMA mixture |
-| `"control"` | the **observed control replicates**, `mean - t * sd / sqrt(n)` | where the curve departs from measured control variability |
+| `"control"` | a **control-only fit**, in the same family and framework | where the curve departs from the control estimated on its own |
 
 `anchor` is a descriptor column on the result, so the choice travels with the
 estimate rather than being invisible in the number.
@@ -547,21 +548,47 @@ default and should be documented, not glossed.
 Not implemented by this refactor; the argument is specified now so that adding
 it later is a new branch rather than a change to the compute path.
 
-Its threshold comes from the **observed** control replicates, so it is identical
-across component models by construction — the `"model"` / `"component"` question
-cannot arise for it.
+The threshold comes from a model fitted to the **control observations alone** —
+an intercept-only fit — rather than from the dose-response model's estimate of
+the response at the lowest x. It is still an *estimate* with its own
+uncertainty; what makes it different is that it does not depend on the shape of
+the dose-response curve. That is what dissolves the `"model"` / `"component"`
+question for this anchor: one control fit, one threshold, however many curves
+are being averaged.
 
-**It carries an assumption about the fit.** The quantity is defined for a curve
-constrained to pass through the observed control mean (fix `b0`, fit only the
-shape parameters). On an unconstrained fit it measures the curve against a
-threshold derived from data the curve does not pass through, which is an
-approximation — and one that degrades *worst* when `b0` is poorly constrained,
-which is the case the anchor exists to improve.
+**It must use the same family and framework as the dose-response fit.** A closed
+form such as `mean - t * sd / sqrt(n)` assumes a Gaussian response and
+frequentist inference. `bnec()` fits Beta, binomial, beta-binomial, Gamma,
+poisson and negbinomial, and a Bayesian curve compared against a frequentist
+t-interval is incoherent. So the control model carries the same family, the same
+inference machinery, and any random-effect or dispersion structure the main
+model has.
 
-So `anchor = "control"` must **warn** when the model's control estimate and the
-observed control mean differ by more than about one control standard error. That
-check needs `toxval_pred$control`
-([3.4](#34-the-toxval_pred-intermediate-object)), which is why that slot exists.
+**The fit is supplied, not derived.** A control-only fit cannot be recovered
+from an already-fitted dose-response object, so `anchor = "control"` takes it as
+an argument:
+
+```r
+nsec(fit, anchor = "control", control_fit = ctrl)
+```
+
+Absent `control_fit`, `anchor = "control"` errors. The fit is the caller's
+because it costs a full MCMC run for a Bayesian model, and hiding that inside
+`nsec()` would make an expensive, seed-dependent step invisible. A thin helper
+over `brms::brm(y ~ 1, ...)` can be provided for convenience; it needs `brms`
+only, which `toxval` already imports, so it introduces no dependency on
+`bayesnec` and does not disturb #39.
+
+**It carries an assumption about the dose-response fit.** The quantity is
+defined for a curve constrained to pass through the control estimate (fix `b0`,
+fit only the shape parameters). On an unconstrained fit it measures the curve
+against a threshold the curve does not pass through, which is an approximation —
+and one that degrades *worst* when `b0` is poorly constrained, which is the case
+the anchor exists to improve. So `anchor = "control"` must **warn** when the
+dose-response model's control estimate and the control-only estimate differ by
+more than about one standard error of the latter. That check needs
+`toxval_pred$control` ([3.4](#34-the-toxval_pred-intermediate-object)), which is
+why that slot exists.
 
 #### Scope note
 
@@ -641,12 +668,18 @@ returns*. Keeping them apart means each step has one reason to fail.
   `bayesnec`'s averaging is still unseeded and `toxval` never touches it. It has
   to be fixed before model-averaged output can be regression-tested by equality,
   which the #39 relocation depends on.
-- **`anchor = "control"` touches #22.** The quantity is defined for a fit
-  constrained through the observed control mean, and `toxval` extracts from
-  fitted objects rather than fitting them. It can compute the anchor exactly for
-  a constrained fit supplied by the user and approximately otherwise, warning
-  which one was produced — so this is an argument for fitting wrappers (#22),
-  but not a blocker on them.
+- **`anchor = "control"` cannot be computed from a fitted object alone.** It
+  needs a control-only fit, which is why it takes `control_fit` rather than
+  deriving one ([3.8](#38-the-nsec-reference-the-anchor-argument)). That is a
+  genuine argument for fitting wrappers (#22) as a convenience layer — an
+  earlier draft of this plan understated it.
+
+  It does **not** threaten #39. An intercept-only fit needs `brms`, which
+  `toxval` imports directly and keeps after the untangle; `bayesnec`'s
+  contribution is NEC formulas, priors, model sets and averaging, none of which
+  exist for `y ~ 1`. Where the control data live inside a `bayesnec` object,
+  `toxval_predict.bayesnecfit()` — which lives in `bayesnec` — populates
+  `toxval_pred$control`, so the dependency arrow is unchanged.
 - **Do not adopt `bayesnec`'s automatic back-transformation.** `toxval` takes
   `xform` as a user-supplied function; `bayesnec` derives it from the parsed
   `crf()` call and drops offsets (`bayesnec` #196). Keep `xform` user-supplied.
