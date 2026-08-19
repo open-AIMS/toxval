@@ -628,3 +628,51 @@ blocker" to "cannot be computed from a fitted object alone", with the reasoning 
 does not threaten the untangle.
 
 ---
+**User:** [Should we file a bayesnec issue for this? And given the two packages import
+different things from each other, is that OK with CRAN?]
+**User:** post a #39 comment covering the CRAN prerequisite, the resulting reordering, and
+the "component" anchor correction.
+
+**Claude:** Checked CRAN status before answering, which turned up a blocker missing from
+PHASE1 and from #39:
+
+```
+bayesnec   on CRAN, 2.1.3.1
+toxval     not on CRAN (crandb: document not found)
+```
+
+A CRAN package's `Imports` must resolve from CRAN; `Remotes:` is ignored by CRAN. So
+PHASE1's `Remotes: open-AIMS/toxval` interim works for GitHub installs but **cannot be
+released** — `bayesnec` cannot ship the untangle until `toxval` is itself on CRAN. That is a
+prerequisite, and CRAN-readiness for toxval is its own body of work.
+
+The mutual dependency itself is fine: circular via Imports/Depends is forbidden, but Imports
+one way and Suggests the other is legal and common, provided checks pass without the
+suggested package (which the plan already requires).
+
+Also noted the cycle may be avoidable entirely — after the untangle toxval's use of bayesnec
+is 4 code references in `R/` (all in the moving code) and 41 test references (almost all
+`manec_example` and bnecfit methods, which move too), so `Suggests: bayesnec` could go as
+well.
+
+**This reversed earlier advice.** I had said the tibble change and the untangle must not land
+together. Right about the risk, wrong about the sequencing: if toxval must reach CRAN first,
+it should not be published with an API about to be broken. Revised so the tibble change comes
+before CRAN submission and bayesnec relocates + adapts in one PR. Defensible because a shape
+change breaks *loudly* (plots error rather than differing), while the dangerous axis — the
+numbers — moves at import time under any ordering and is verified in isolation inside toxval
+first, using `notes/pr42/compare_impls.R`.
+
+Declined to file a bayesnec issue for the control-fit wrapper: speculative and downstream of
+an unimplemented anchor.
+
+Posted https://github.com/open-AIMS/toxval/issues/39#issuecomment-5338476575 covering the
+CRAN prerequisite, the possibility of dropping the cycle, the reordering, and the correction
+that `nsec.bayesmanecfit()`'s resampling machinery still goes but the per-component reference
+survives as `anchor = "component"`.
+
+Plan updated to match: §4 preamble now leads with the CRAN prerequisite; the phase table gains
+"toxval to CRAN" as phase 6 and a combined bayesnec phase 7; phase 3 reworded to "toxval sheds
+bayesnec".
+
+---
