@@ -523,3 +523,67 @@ Installed `air` 0.11.0 to `~/.local/bin` (release tarball, checksum verified).
 `prompts/review-pr35-package-cleanup.md`.
 
 ---
+## Addendum: the `anchor` argument
+
+**User:** [comparing_tox_ests is public. eNSEC is a good name. But given the change is
+purely to the reference, can we keep `nsec` and add an argument instead, like `type` for
+`ecx`? ... Also, if we go down the anchor road, there is no reason to choose A or B — they
+can be different anchors, and the decision is only which to use as the default.]
+
+**Claude:** Agreed on both, and the second point is the better framing.
+
+Read `comparing_tox_ests/compare_nsec_lecx.qmd`. The "NSEC-cv" reformulation anchors the
+threshold on the observed control replicates rather than on `SE(b0)`, which makes the A/B
+model-averaging question moot for that variant — a data-derived threshold is identical
+across component models by construction. The document already names the failure mode
+measured here: "a poorly constrained b0 ... pushes the NSEC to artificially low
+concentrations". The 17%-weight component dominating the lower tail is an instance of it.
+
+Advised against `NSEC-cv` as a published name ("cv" collides with coefficient of variation)
+and against a NOEC root (invites reflexive rejection). User chose **eNSEC**.
+
+Then argued for keeping it as an argument rather than a metric, and the user extended that
+to A/B as well. Final design:
+
+```r
+nsec(fit, anchor = c("model", "component", "control"))
+```
+
+| anchor | threshold from |
+|---|---|
+| `"model"` (default) | model-averaged control posterior — was "decision A" |
+| `"component"` | each component model's own control — was "decision B" |
+| `"control"` | observed control replicates — eNSEC; reserved, not implemented |
+
+Key realisations during the discussion:
+
+- Keeping `"component"` is nearly free. It looked expensive when I told #39 that
+  `nsec.bayesmanecfit()`'s machinery could be deleted — but once realisations carry
+  `meta$draw_model` (needed for `n(s)ec` regardless), a per-component threshold is a grouped
+  operation on the aligned set, not a separate sampling path. The resampling machinery still
+  goes; the *option* survives cheaply.
+- `anchor = "control"` is **not** purely a reference change: eNSEC is defined for a fit
+  constrained through the observed control mean. On an unconstrained fit it approximates,
+  and degrades worst exactly when `b0` is poorly constrained. Requires a warning comparing
+  the model control to the observed control mean — which needs `toxval_pred$control`.
+- This softens rather than strengthens the #22 (fitting wrappers) argument: toxval can
+  compute it exactly for a constrained fit and approximately otherwise, saying which.
+- Only the **default** now needs agreeing, so the `nsec` half of #19 stops blocking the
+  refactor. The `ecx` half still blocks — that one is an inconsistency to remove, not a
+  choice to expose.
+- The code token and the published name need not match: paper says eNSEC, software says
+  `nsec(anchor = "control")`, exactly as "absolute EC10" maps to `ecx(type = "absolute")`.
+
+Plan edits (commit `82111f7`): `anchor` added to the descriptor columns; `toxval_pred$control`
+slot added; §3.8 rewritten from "Decision: A" to the anchor argument with the measurement as
+justification for the default; phasing split so only the `ecx` half of #19 blocks; §5 note on
+the softened #22 connection.
+
+Also updated the #19 mechanism comment in place
+(issues/19#issuecomment-5337899712) — the mechanism section was still correct, only the
+conclusion changed.
+
+Deliberately did **not** mention the unpublished eNSEC work in the public comment; user
+subsequently confirmed the repo is public anyway, so that constraint has lapsed.
+
+---
