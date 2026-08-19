@@ -2,8 +2,6 @@
 
 # toxval 1.0.0.9000 (2026-07-25)
 
-- Removed a superseded commented-out `tox_estimate` calculation from
-  `ecx.bnecfit()` (#33).
 - Package cleaning
 
 # toxval 1.0.0
