@@ -587,3 +587,44 @@ Deliberately did **not** mention the unpublished eNSEC work in the public commen
 subsequently confirmed the repo is public anyway, so that constraint has lapsed.
 
 ---
+**User:** [Is "supplied" another anchor? Would requiring a `control_fit` argument work, or is
+#22 straightforward? This decision is critical — unless we rewrite bayesnec into toxval,
+doesn't implementing #22 mean importing bayesnec's fitting methods, re-creating the
+dependency problem?]
+
+**Claude:** Corrected an earlier mistake first: I had read the eNSEC threshold as the
+closed-form `mean - t * sd / sqrt(n)` on raw replicates, and suggested renaming the anchor to
+`"observed"`. Wrong. It is a control-only *fit*, which must share the family and inference
+framework of the main model — `bnec()` fits Beta, binomial, Gamma, poisson and negbinomial,
+so a Gaussian t-interval would be wrong, and a Bayesian curve compared against a frequentist
+threshold is incoherent. `"control"` was the right name after all: the axis is *which model
+estimates the control* (the CR model / each component / a control-only fit).
+
+On "supplied" as an anchor: no. That is provenance, not definition — the quantity is the same
+whether toxval fits the control model or the user supplies it, so it should not change the
+`anchor` label. `anchor = "control"` plus a required `control_fit` argument.
+
+On the circularity, which was the real question: **it does not bite.** toxval Imports `brms`
+directly and keeps it after #39 (it owns `toxval_predict.brmsfit`); bayesnec *Depends* on
+brms. So brms is the shared substrate, not bayesnec. An intercept-only fit is
+`brms::brm(y ~ 1, family = f, data = d)` — no NEC formulas, no priors to choose, no model set,
+no averaging, hence no bayesnec. And where the control data live inside a bayesnec object,
+`toxval_predict.bayesnecfit()` lives *in bayesnec* and populates `toxval_pred$control`, so the
+arrow is unchanged.
+
+Distinguished #22-proper (toxval fits CR models — big scope change, real circularity risk)
+from what the anchor needs (a ~10-line helper over `brm(y ~ 1, ...)`). The anchor does not
+require resolving #22.
+
+Also proposed, but user declined to pursue: scoping #22 to what bayesnec does not do
+(frequentist wrappers — drc, glm, gam), on the grounds that toxval reimplementing Bayesian CR
+fitting would rebuild bayesnec inside toxval and make #39 pointless. Not filed.
+
+Edits 1-3 applied (commit pending push): `toxval_pred$control` is now realisations from a
+control-only fit subject to the alignment invariant, not raw replicates; §3.8's
+`anchor = "control"` subsection rewritten with the family/framework requirement, the
+`control_fit` argument, and the no-#39-impact note; §5's #22 note corrected from "not a
+blocker" to "cannot be computed from a fitted object alone", with the reasoning that it still
+does not threaten the untangle.
+
+---
