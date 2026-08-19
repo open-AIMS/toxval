@@ -230,14 +230,32 @@ nsec.brmsfit <- function(
     }
     reference <- quantile(p_samples[, 1], sig_val)
     ecnsecP <- apply(p_samples, MARGIN = 1, FUN = function(r) {
-      # TODO confirm if commented code can be removed
-      #(max(r) - diff(range(r)))/reference * 100
       (1 - diff(c(min(r), reference)) / (diff(range(r)))) * 100
     })
     ecnsec <- quantile(ecnsecP, probs = prob_vals)
 
     if (horme) {
-      # TODO confirm if commented code can be removed
+      # Kept deliberately (toxval #37). This is an unfinished feature, not dead
+      # code, and it cannot be uncommented as it stands.
+      #
+      # It was commented out on purpose in ddda382 ("remove modify_posterior
+      # calls"). nsec.bnecfit still runs the equivalent truncation live, so the
+      # bnecfit and brmsfit methods disagree on hormesis handling.
+      #
+      # Two things have to be decided before it can come back, and both are
+      # behavioural:
+      #
+      #   1. Order. nsec.bnecfit computes `reference` BEFORE truncating. Here the
+      #      truncation would run first, so the `hormesis_def == "max"` branch
+      #      below would take its max over a posterior that modify_posterior has
+      #      already set to NA ahead of the peak. Uncommenting as-is errors with
+      #      "missing values and NaN's not allowed if 'na.rm' is FALSE" on both
+      #      of the horme + hormesis_def = "max" tests.
+      #   2. Margin. nsec.bnecfit maxes over MARGIN = 1 (per draw); the line
+      #      below uses MARGIN = 2 (per x value). Different references.
+      #
+      # Left for the refactor to settle with the rest of the hormesis/direction
+      # question rather than guessed at here.
       # n <- seq_len(nrow(p_samples))
       # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
       #                                    p_samples, hormesis_def, fct = "rbind")
@@ -258,13 +276,13 @@ nsec.brmsfit <- function(
       p_samples <- posterior_epred(object, newdata = pred_dat, re_formula = NA)
       reference <- quantile(p_samples[, 1], sig_val)
       ecnsecP <- apply(p_samples, MARGIN = 1, FUN = function(r) {
-        # TODO confirm if commented code can be removed
-        #(max(r) - diff(range(r)))/reference * 100
         (1 - diff(c(min(r), reference)) / (diff(range(r)))) * 100
       })
       ecnsec <- quantile(ecnsecP, probs = prob_vals)
       if (horme) {
-        # TODO confirm if commented code can be removed
+        # Kept deliberately (toxval #37). Same unfinished hormesis feature as in
+        # the ungrouped branch above; see the comment there for why it cannot be
+        # uncommented as it stands.
         # n <- seq_len(nrow(p_samples))
         # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
         #                                    p_samples, hormesis_def, fct = "rbind")
