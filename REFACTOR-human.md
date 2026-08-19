@@ -58,7 +58,7 @@ Descriptor columns, present when meaningful:
 - `group` — one row per level, when grouped
 - `response` — one row per response, for multivariate fits
 - `ecx_val`, `type` — `ecx` only
-- `sig_val` — `nsec` / `n(s)ec` only
+- `sig_val`, `anchor` — `nsec` / `n(s)ec` only
 - `control`, `reference` — `ecx`
 - `reference`, `ecnsec`, `ecnsec.low`, `ecnsec.high` — `nsec`
 
@@ -217,6 +217,10 @@ toxval_pred:
               per-realisation threshold parameter where the model has a
               genuine one (a NEC); NULL otherwise. Needed for `nec` and
               `n(s)ec`, which are not recoverable from `curves`.
+  control   : observed response values at the lowest x (or their mean, sd
+              and n), or NULL. Raw data, not model output. Needed by
+              `anchor = "control"` (3.8) and by the mismatch warning that
+              guards it.
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
               dimension ("none" | "group" | "response"), family, realisation
               source ("draws" | "bootstrap"), n_realisation, ...
@@ -293,8 +297,8 @@ constructed, and the amount of work depends on the quantity:
   measured on `manec_example`, computing on the averaged curve and computing
   per model then mixing agree to within Monte Carlo error. `nsec` is not
   row-wise (its reference is an across-draw quantile), which is a definitional
-  question settled in [3.8](#38-references-under-model-averaging), not an
-  alignment one.
+  question exposed as the `anchor` argument in
+  [3.8](#38-the-nsec-reference-the-anchor-argument), not an alignment one.
 
 - **Threshold-derived metrics (`nec`, `n(s)ec`) need a shared index.** A NEC is
   a model *parameter*, not a functional of the curve, so it cannot be read off
@@ -476,61 +480,125 @@ need one:
   if `toxval_pred$meta` carries `family` — which is why `family` is in the meta
   list in [3.4](#34-the-toxval_pred-intermediate-object).
 
-### 3.8 References under model averaging
+### 3.8 The `nsec` reference: the `anchor` argument
 
-`ecx` computes its reference **per draw**, from that draw's own control (#19),
-so it is a row-wise function of the curve. `nsec` does not: its reference is
-`quantile(p_samples[, 1], sig_val)`, a quantile taken *across* draws. That
-distinction only matters for a model-averaged fit, where it becomes a real
-choice about what the estimate means:
+`ecx` computes its reference **per draw**, from that draw's own control, so it
+is a row-wise function of the curve. `nsec` does not — its reference is
+`quantile(p_samples[, 1], sig_val)`, a quantile taken *across* draws. Where that
+quantile comes from is a genuine methodological choice, so it becomes an
+argument rather than a hard-coded rule, in the same way `type` parameterises the
+`ecx` reference:
 
-| | reference | reading |
+```r
+nsec(fit, anchor = c("model", "component", "control"))
+```
+
+| `anchor` | threshold from | reading |
 |---|---|---|
-| **A** | the `sig_val` quantile of the **model-averaged** control | where the averaged curve departs from the averaged control |
-| **B** | the `sig_val` quantile of **each model's** control, then mix | pick a model, compute its NSEC, repeat |
+| `"model"` *(default)* | the `sig_val` quantile of the **model-averaged** control posterior | where the averaged curve departs from the averaged control |
+| `"component"` | the same quantile of **each component model's** control, applied to that model's own realisations | pick a model, compute its NSEC, repeat — the strict BMA mixture |
+| `"control"` | the **observed control replicates**, `mean - t * sd / sqrt(n)` | where the curve departs from measured control variability |
 
-Measured on `manec_example` (`resolution = 50`, `sig_val = 0.01`), isolating the
-reference by holding the curves and the sampled draws fixed:
+`anchor` is a descriptor column on the result, so the choice travels with the
+estimate rather than being invisible in the number.
+
+For a single (non-averaged) fit `"model"` and `"component"` coincide — there is
+only one model — so the distinction is a model-averaging one.
+
+#### Why `"model"` is the default
+
+Measured on `manec_example` (`resolution = 50`, `sig_val = 0.01`), holding the
+curves and sampled draws fixed so only the reference varies:
 
 ```
-A  averaged curve, mixture reference   : 1.47273, 0.995858, 1.53957
-B  per-model, per-model reference      : 1.47372, 0.717214, 1.55436
-C  per-model, shared mixture reference : 1.47372, 0.905960, 1.55436
+"model"      averaged curve, pooled reference    : 1.47273, 0.995858, 1.53957
+"component"  per-model, per-model reference      : 1.47372, 0.717214, 1.55436
+             per-model, pooled reference (control): 1.47372, 0.905960, 1.55436
 ```
 
-B against C changes only the reference definition and moves the lower bound by
-0.19; A against C is sampling noise (0.09). So the definitional effect is about
-twice the Monte Carlo noise, and it lands almost entirely on the lower bound —
-the end used to set a protective concentration.
+The definitional effect is about twice the Monte Carlo noise and lands almost
+entirely on the lower bound. The mechanism: the two components disagree about
+the control (`nec4param` 2.035 at the 1st percentile, `ecx4param` 2.098), and
+**100% of the draws below the reported 2.5% bound come from `ecx4param`, which
+carries only 17% of the weight**. Under `"component"` that minority model uses
+its own higher threshold, crosses it sooner, and single-handedly sets the
+reported lower bound.
 
-**Decision: A.** The model-averaged NSEC is a property of the model-averaged
-curve, so its control should be the model-averaged control. This is the same
-fork as "average the CDFs, or average the hazard concentrations" in the
-`ssdtools` inversion work, resolved the same way: average the distributions
-first, then derive the endpoint.
+`"model"` is the default because the values it pools are all measured against
+the *same* y-threshold, so the estimate has a single interpretable reference
+that can be drawn on the plot. Under `"component"` some draws are "distance to
+2.035" and others "distance to 2.098", and the question "what response level
+does this NSEC correspond to?" has no single answer. It is the same fork as
+"average the CDFs, or average the hazard concentrations" in the `ssdtools`
+inversion work, resolved the same way: average the distributions, then derive
+the endpoint.
 
-Consequences:
+`"component"` is kept rather than removed because it is the strict Bayesian
+model average — the weighted mixture of per-model posteriors — and because it
+reproduces what `bayesnec` returns today, which matters for anyone checking
+previously published values.
 
-- `nsec` is computed from the single averaged curve matrix, exactly like `ecx`.
-  `bayesnec`'s `nsec.bayesmanecfit()` per-model sampling is not just redundant
-  but implements B, and should be deleted rather than ported (#39).
-- `ecnsec` follows the same reference, so it stays paired with `nsec`.
-- `nec` and `n(s)ec` are unaffected — a NEC is a parameter, so it is inherently
-  a B-style mixture over models. `n(s)ec` therefore combines an A-style and a
-  B-style quantity by construction, which is a property of the definition rather
-  than an inconsistency, but should be stated wherever `n(s)ec` is documented
-  (#25).
+Note `"model"` understates uncertainty about the control relative to
+`"component"`, by collapsing it to one pooled number. That is the cost of the
+default and should be documented, not glossed.
+
+#### `anchor = "control"`
+
+Not implemented by this refactor; the argument is specified now so that adding
+it later is a new branch rather than a change to the compute path.
+
+Its threshold comes from the **observed** control replicates, so it is identical
+across component models by construction — the `"model"` / `"component"` question
+cannot arise for it.
+
+**It carries an assumption about the fit.** The quantity is defined for a curve
+constrained to pass through the observed control mean (fix `b0`, fit only the
+shape parameters). On an unconstrained fit it measures the curve against a
+threshold derived from data the curve does not pass through, which is an
+approximation — and one that degrades *worst* when `b0` is poorly constrained,
+which is the case the anchor exists to improve.
+
+So `anchor = "control"` must **warn** when the model's control estimate and the
+observed control mean differ by more than about one control standard error. That
+check needs `toxval_pred$control`
+([3.4](#34-the-toxval_pred-intermediate-object)), which is why that slot exists.
+
+#### Scope note
+
+This settles the `nsec` half of #19 by exposing the choice. The `ecx` half is
+**not** a choice: `ecx.bnecfit`'s single scalar reference disagrees with both
+`ecx.brmsfit` and `bayesnec::ecx.bayesnecfit`, which both compute it per draw.
+That is an inconsistency to remove, not an option to offer.
+
+Consequences elsewhere:
+
+- `bayesnec`'s `nsec.bayesmanecfit()` resampling machinery still goes (#39). The
+  `"component"` anchor does not need it: once realisations carry
+  `meta$draw_model` for `n(s)ec`, computing a per-component threshold is a
+  grouped operation on the aligned realisation set, not a separate sampling
+  path.
+- `ecnsec` follows whichever anchor `nsec` used, so it stays paired.
+- `nec` and `n(s)ec` are unaffected. A NEC is a parameter, so it is inherently a
+  `"component"`-style mixture; `n(s)ec` therefore combines a `"model"`-style and
+  a `"component"`-style quantity by construction. That follows from the
+  definition rather than being an inconsistency, but should be stated wherever
+  `n(s)ec` is documented (#25).
 
 ## 4. Phased implementation
 
 Two constraints drive the order.
 
-**#19 first, on paper.** `ecx.bnecfit` and `ecx.brmsfit` implement *different
-estimators* — a single scalar reference versus a per-realisation one. Phase 1
-promises that the numbers do not move; #19 determines which ones do. Answering
-it afterwards means being unable to distinguish a refactor bug from a definition
-change. It does not need code, only a decision, and #20 (direction) should be
-decided with it.
+**The `ecx` half of #19 first, on paper.** `ecx.bnecfit` and `ecx.brmsfit`
+implement *different estimators* — a single scalar reference versus a
+per-realisation one. Phase 1 promises that the numbers do not move; this
+determines which ones do. Answering it afterwards means being unable to
+distinguish a refactor bug from a definition change. It does not need code, only
+a decision, and #20 (direction) should be decided with it.
+
+The `nsec` half does **not** block, because
+[3.8](#38-the-nsec-reference-the-anchor-argument) exposes it as `anchor` rather
+than resolving it by fiat. Only the default has to be agreed, and a default can
+be revisited without invalidating anything.
 
 **The tibble and the #39 untangle must not land together.** `bayesnec` calls
 `ecx()` internally in `plot.R`, `autoplot.R`, `summary.R` and the hurdle methods,
@@ -541,7 +609,7 @@ reverses the dependency breaks a CRAN package's plots and summaries.
 
 | # | phase | numbers |
 |---|---|---|
-| 0 | Decide #19 and #20. No code. | — |
+| 0 | Decide the `ecx` reference (#19) and direction (#20); agree the `anchor` default. No code. | — |
 | 1 | **Lock a regression net.** Capture current estimates as golden values, split into "must not move" and "expected to move, because #19/#20/#34/xform". The existing `if (FALSE)` tests and `TODO` markers are the starting ledger for the second list. | — |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **#39 untangle.** toxval drops the `bnecfit` and `predict` methods; `bayesnec` imports toxval, adds `toxval_predict` methods, deletes its `R/ecx.R` and `R/nsec.R`. | unchanged in `bayesnec`; `ecx` on `bnecfit` adopts the #19 answer in toxval |
@@ -573,6 +641,12 @@ returns*. Keeping them apart means each step has one reason to fail.
   `bayesnec`'s averaging is still unseeded and `toxval` never touches it. It has
   to be fixed before model-averaged output can be regression-tested by equality,
   which the #39 relocation depends on.
+- **`anchor = "control"` touches #22.** The quantity is defined for a fit
+  constrained through the observed control mean, and `toxval` extracts from
+  fitted objects rather than fitting them. It can compute the anchor exactly for
+  a constrained fit supplied by the user and approximately otherwise, warning
+  which one was produced — so this is an argument for fitting wrappers (#22),
+  but not a blocker on them.
 - **Do not adopt `bayesnec`'s automatic back-transformation.** `toxval` takes
   `xform` as a user-supplied function; `bayesnec` derives it from the parsed
   `crf()` call and drops offsets (`bayesnec` #196). Keep `xform` user-supplied.
