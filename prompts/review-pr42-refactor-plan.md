@@ -723,3 +723,41 @@ CRAN/`Remotes:` finding.
 PR #44 now 10 files, +2184/-149, 11 commits; body updated to explain the newly tracked notes.
 
 ---
+**User:** [Don't commit the notes to bayesnec dev — need somewhere else. Where would you
+normally put them? Agreed the list; Ayla on leave so parking the refactor, but do 3, 4, 5.
+Set up a way to point Claude Code at those from each repo root. bayesnec is working example7
+already.]
+
+**Claude:** Parked the bayesnec note edits on a local branch `notes-post-toxval-review` off
+`dev` (commit `43580931`), restoring `dev` to clean. Not pushed — bayesnec pushes branches
+directly to `open-AIMS`, so that is the user's call.
+
+On where notes belong: for tracked in-repo notes, a branch and PR is the normal route, same
+as any other change. The structural point is that the *cross-repo* material is what keeps
+drifting, so the shared part should live in one place — toxval now tracks
+`PHASE1_DEPENDENCY_UNTANGLE.md` and `notes/implementation/`, and bayesnec's copies should
+shrink to pointers rather than being kept in sync.
+
+Wrote three self-contained task briefs, following the existing `00_protocol.md` house style,
+each invokable as "Read `notes/tasks/<file>.md` and work it":
+
+- `bayesnec/notes/tasks/216-model-averaging-reproducibility.md` — the bug with its
+  reproduction, all five `sample()` sites, the in-scope/out-of-scope split (`helpers.R` stays,
+  `ecx.R`/`nsec.R` are migrating and must not be edited), the shared-index fix, and the
+  hazard that numbers will change with no reproducible "before" to match. Guardrails: no
+  `air`, don't touch `vignettes/example7*` (#193 in another session), branch off `dev` and
+  PR `--base dev`.
+- `toxval/notes/tasks/tier1-mechanical.md` — #33, #31, #32, #37 only, with an explicit
+  explanation of why the other eight Tier 1 items are excluded (they move the golden values
+  the refactor's phase 1 locks). Guardrails: fork workflow, never push upstream, `air`
+  required, don't delete the `if (FALSE)` tests, don't restructure dispatch in #32.
+- `toxval/notes/tasks/cran-readiness-scoping.md` — assessment not fix; the deliverable is an
+  issue with `R CMD check` output and a sized checklist. Covers check time, package size,
+  `_R_CHECK_DEPENDS_ONLY_`, `\value` completeness, the `1.0.0.9000` version question, and
+  sequencing against `REFACTOR-human.md` §4.
+- `toxval/notes/tasks/README.md` — index, plus what is parked pending Ayla.
+
+All left untracked, consistent with the earlier decision to keep `00_protocol.md` local:
+these are session operating material, not reviewer context.
+
+---
