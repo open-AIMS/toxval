@@ -60,10 +60,15 @@ for (nm in names(fns)) {
   res[[nm]] <- m
   cat(sprintf(
     "%-15s ok=%d/%d  Q50 %.4f-%.4f  Q2.5 %.4f-%.4f  Q97.5 %.4f-%.4f\n",
-    nm, n_rep - errs, n_rep,
-    min(m[, 1], na.rm = TRUE), max(m[, 1], na.rm = TRUE),
-    min(m[, 2], na.rm = TRUE), max(m[, 2], na.rm = TRUE),
-    min(m[, 3], na.rm = TRUE), max(m[, 3], na.rm = TRUE)
+    nm,
+    n_rep - errs,
+    n_rep,
+    min(m[, 1], na.rm = TRUE),
+    max(m[, 1], na.rm = TRUE),
+    min(m[, 2], na.rm = TRUE),
+    max(m[, 2], na.rm = TRUE),
+    min(m[, 3], na.rm = TRUE),
+    max(m[, 3], na.rm = TRUE)
   ))
 }
 
@@ -79,7 +84,10 @@ for (g in c("nsec", "ecx ")) {
     )
     cat(sprintf(
       "  %s %-5s gap=%.4f  max within-pkg range=%.4f  -> %s\n",
-      trimws(g), c("Q50", "Q2.5", "Q97.5")[j], gap, noise,
+      trimws(g),
+      c("Q50", "Q2.5", "Q97.5")[j],
+      gap,
+      noise,
       if (gap > noise) "GAP EXCEEDS NOISE" else "within noise"
     ))
   }

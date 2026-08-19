@@ -83,7 +83,9 @@ for (generic in c("ecx", "nsec")) {
     a <- c(s$args, extra)
     mt <- pick(tv, generic, obj)
     mb <- pick(bn, generic, obj)
-    if (is.null(mt) && is.null(mb)) next
+    if (is.null(mt) && is.null(mb)) {
+      next
+    }
     rt <- if (is.null(mt)) "no method" else run(mt$fun, obj, a)
     rb <- if (is.null(mb)) "no method" else run(mb$fun, obj, a)
     verdict <- if (is.null(mt) || is.null(mb)) {
