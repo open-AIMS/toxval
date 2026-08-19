@@ -251,8 +251,12 @@ nsec.brmsfit <- function(
       #      already set to NA ahead of the peak. Uncommenting as-is errors with
       #      "missing values and NaN's not allowed if 'na.rm' is FALSE" on both
       #      of the horme + hormesis_def = "max" tests.
-      #   2. Margin. nsec.bnecfit maxes over MARGIN = 1 (per draw); the line
-      #      below uses MARGIN = 2 (per x value). Different references.
+      #   2. Margin. nsec.bnecfit maxes over MARGIN = 1, one peak per draw, so
+      #      its sig_val quantile is a genuine posterior quantile of the
+      #      hormetic peak. The line below uses MARGIN = 2, one value per x:
+      #      the pointwise upper envelope of the posterior band across draws.
+      #      Its quantile is then taken over x values rather than over draws,
+      #      so it is not a posterior quantity at all. See #20.
       #
       # Left for the refactor to settle with the rest of the hormesis/direction
       # question rather than guessed at here.
