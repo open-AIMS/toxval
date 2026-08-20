@@ -235,38 +235,29 @@ nsec.brmsfit <- function(
     ecnsec <- quantile(ecnsecP, probs = prob_vals)
 
     if (horme) {
-      # Kept deliberately (toxval #37). This is an unfinished feature, not dead
-      # code, and it cannot be uncommented as it stands.
-      #
-      # It was commented out on purpose in ddda382 ("remove modify_posterior
-      # calls"). nsec.bnecfit still runs the equivalent truncation live, so the
-      # bnecfit and brmsfit methods disagree on hormesis handling.
-      #
-      # Two things have to be decided before it can come back, and both are
-      # behavioural:
-      #
-      #   1. Order. nsec.bnecfit computes `reference` BEFORE truncating. Here the
-      #      truncation would run first, so the `hormesis_def == "max"` branch
-      #      below would take its max over a posterior that modify_posterior has
-      #      already set to NA ahead of the peak. Uncommenting as-is errors with
-      #      "missing values and NaN's not allowed if 'na.rm' is FALSE" on both
-      #      of the horme + hormesis_def = "max" tests.
-      #   2. Margin. nsec.bnecfit maxes over MARGIN = 1, one peak per draw, so
-      #      its sig_val quantile is a genuine posterior quantile of the
-      #      hormetic peak. The line below uses MARGIN = 2, one value per x:
-      #      the pointwise upper envelope of the posterior band across draws.
-      #      Its quantile is then taken over x values rather than over draws,
-      #      so it is not a posterior quantity at all. See #20.
-      #
-      # Left for the refactor to settle with the rest of the hormesis/direction
-      # question rather than guessed at here.
+      # MARGIN = 1, not 2. p_samples is draws x x-values, so MARGIN = 1 is the
+      # maximum of each draw -- one hormetic peak per draw -- and its sig_val
+      # quantile is a genuine posterior quantile of that peak. This matches
+      # nsec.bnecfit(), which is the reference implementation. MARGIN = 2 took
+      # the pointwise upper envelope of the posterior band across draws and then
+      # quantiled that over x values, which is not a posterior quantity: it put
+      # `reference` above the entire response surface, so nsec_fct() found no
+      # zero crossing and fell through to its max(x_vec) fallback, returning the
+      # top of the x range as the NSEC.
+      if (hormesis_def == "max") {
+        reference <- quantile(apply(p_samples, 1, max), probs = sig_val)
+      }
+      # The modify_posterior truncation that nsec.bnecfit() runs live stays
+      # commented out here (toxval #37). It cannot be restored as a follow-on to
+      # the margin fix: even with the margin and the bnecfit ordering (reference
+      # first, then truncate), draws whose peak falls at the last x value are
+      # left with a single non-NA point and nsec_fct() errors in approxfun()
+      # with "need at least two non-NA values to interpolate". Left for the
+      # refactor to settle with the rest of the hormesis/direction question
+      # (#20).
       # n <- seq_len(nrow(p_samples))
       # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
       #                                    p_samples, hormesis_def, fct = "rbind")
-      nec_posterior <- as_draws_df(object$fit)[["b_nec_Intercept"]]
-      if (hormesis_def == "max") {
-        reference <- quantile(apply(p_samples, 2, max), probs = sig_val)
-      }
     }
 
     nsec_out <- apply(p_samples, 1, nsec_fct, reference, x_vec)
@@ -284,16 +275,15 @@ nsec.brmsfit <- function(
       })
       ecnsec <- quantile(ecnsecP, probs = prob_vals)
       if (horme) {
-        # Kept deliberately (toxval #37). Same unfinished hormesis feature as in
-        # the ungrouped branch above; see the comment there for why it cannot be
-        # uncommented as it stands.
+        # MARGIN = 1 for the same reason as in the ungrouped branch above; the
+        # commented modify_posterior truncation stays commented for the same
+        # reason too (toxval #37).
+        if (hormesis_def == "max") {
+          reference <- quantile(apply(p_samples, 1, max), probs = sig_val)
+        }
         # n <- seq_len(nrow(p_samples))
         # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
         #                                    p_samples, hormesis_def, fct = "rbind")
-        nec_posterior <- as_draws_df(object$fit)[["b_nec_Intercept"]]
-        if (hormesis_def == "max") {
-          reference <- quantile(apply(p_samples, 2, max), probs = sig_val)
-        }
       }
 
       nsec_out <- apply(p_samples, 1, nsec_fct, reference, x_vec)

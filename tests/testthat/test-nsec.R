@@ -580,11 +580,14 @@ test_that("brms model using horme when hormesis_def is control", {
   )
 })
 
+# Golden values updated when the hormetic reference was fixed to max over
+# draws (MARGIN = 1) rather than over x values (MARGIN = 2). The old
+# expectations were nsec_fct()'s max(x_vec) fallback, not estimates.
 test_that("brms model using horme when hormesis_def is max", {
   output <- nsec(brms_model_1, x_var = "x", hormesis_def = "max", horme = TRUE)
   expect_equal(
     as.numeric(output),
-    c(1.05, 0.8213543, 1.05),
+    c(0.997366, 0.8938963, 1.05),
     tolerance = 0.01
   )
   expect_equal(
@@ -614,7 +617,7 @@ test_that("brms model using horme when hormesis_def is max and group is supplied
   )
   expect_equal(
     as.numeric(output),
-    c(1.05, 0.9612536, 1.05),
+    c(1.05, 0.8596995, 1.05),
     tolerance = 0.01
   )
   expect_equal(
