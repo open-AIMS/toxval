@@ -417,6 +417,26 @@ hormetic curve simply has both an increasing and a decreasing crossing, and both
 are reported; there is no separate argument and no `modify_posterior()` blanking
 out part of the grid.
 
+**`hormesis_def` cannot be repaired in place** (#20, and see #37 / PR #48). The
+two `nsec` methods do not compute the same quantity. `nsec.bnecfit` takes
+`apply(p_samples, 1, max)` — `MARGIN = 1`, one value per draw, so the reference
+is the `sig_val` quantile of the posterior of the peak. `nsec.brmsfit` takes
+`apply(p_samples, 2, max)` — `MARGIN = 2`, the maximum *across draws* at each x,
+which is the upper envelope of the posterior band; a quantile of that is not a
+posterior quantity and has no reading in terms of the fit. That is the concrete
+diagnosis for #1 and #8.
+
+Nor can the dormant half simply be switched on: uncommenting the truncation in
+`nsec.brmsfit` would let `NA`s reach an `na.rm`-less `max()`, so the reference
+becomes `NA` and the crossing fails. The two methods compute the reference and
+the truncation in the opposite order, so the disabled code is incompatible with
+the live code around it.
+
+So the choice is not "enable `hormesis_def` consistently" — there is no
+consistent version to enable. Making `direction` a property of the result
+removes the argument instead, and #1 and #8 close as a consequence rather than
+needing separate fixes.
+
 It also:
 
 - answers #20 directly — `%inhibition` and other increasing responses come in

@@ -840,3 +840,41 @@ Actioned:
    match the other. The CRAN brief now notes fledge owns the file.
 
 ---
+**User:** Given what has now been addressed, do we need to update any of our planning notes?
+/ **User:** why isn't #20 on the plan? I thought it would be / **User:** ok, yes add that to
+the PR
+
+**Claude:** Audited what had drifted since the previous day's reconciliation.
+
+Found and fixed a live hazard first: toxval's `00_protocol.md` still told sessions to
+`git checkout dev` **in the shared clone** (lines 21, 29, 39) — the exact instruction that
+caused yesterday's collision. I had fixed the task briefs but not the protocol they tell
+sessions to read first. Now mandates a worktree, matching bayesnec, and the stale "the local
+clone is currently on the `license` branch" line is corrected. Untracked, like the rest of
+that file.
+
+Corrected my own ambiguous phrasing: I wrote "it's on #20 but the plan doesn't cite it",
+which the user reasonably read as "#20 isn't in the plan". #20 is in the plan in six places,
+including the whole of §3.6. What was missing was the *evidence*.
+
+Two amendments made on PR #44:
+
+1. **§3.6** now carries the defect argument, not just the design preference. `nsec.bnecfit`
+   uses `apply(p_samples, 1, max)` — per-draw peak, a coherent posterior quantity — while
+   `nsec.brmsfit` uses `apply(p_samples, 2, max)`, the per-x maximum across draws, i.e. the
+   upper envelope of the band, whose quantile has no reading in terms of the fit. Plus: the
+   dormant truncation cannot be enabled because `NA`s would reach an `na.rm`-less `max()`.
+   So there is no consistent `hormesis_def` to enable, which is a stronger argument for #20
+   than "direction is nicer" and matters while #20 is still awaiting ratification.
+2. **PHASE1 gains Step 0b** — ship bayesnec's current dev backlog to CRAN *before* the
+   untangle lands on `dev`, and keep the untangle on a branch so `dev` stays submittable.
+   CRAN is at 2.1.3.1 and dev at 2.1.3.7 with the brms bump, `disp()`, variance functions and
+   all of bayesnec Tier 1 unreleased; landing `Imports: toxval` first would block all of it
+   behind toxval's CRAN journey. Also clarified that the constraint binds only at
+   *submission* — `dev` can carry `Remotes:` indefinitely for GitHub installs.
+
+Deferred as premature: Tier 1 status in `01_work_queue.md` (PRs #46/#47/#48 still open, will
+shift again on merge), the `04_alignment_audit.md` status pass (waiting on the bayesnec half),
+and bayesnec's own notes (still on the unpushed `notes-post-toxval-review` branch).
+
+---

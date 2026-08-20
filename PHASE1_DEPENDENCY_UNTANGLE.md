@@ -154,6 +154,22 @@ see the note at the top of this file. Bump the version, write the NEWS entry
 naming `bayesnec` as the new home of the `bnecfit` methods, and tag it, but do
 not treat this as the API `bayesnec` will consume.
 
+### Step 0b — release `bayesnec`'s current backlog first  *(added 2026-08-20)*
+
+**Ship what is already on `bayesnec` `dev` to CRAN before the untangle lands
+there.** CRAN has 2.1.3.1; `dev` is at 2.1.3.7 and carries the `brms >= 2.23.0`
+requirement, the `disp()` dispersion sub-model and variance functions, and the
+whole of bayesnec Tier 1 — zero-inflated families, the `cens()` aterm, hurdle
+models, `get_priors()`, failed-model reporting. If `Imports: toxval` lands on
+`dev` first, none of that can be released until `toxval` is published on CRAN,
+which is a long way off (Step 2b, toxval #45).
+
+**And keep the untangle on a branch until `toxval` is on CRAN**, so `dev` stays
+submittable. CRAN can require a submission at short notice — a new R version, a
+dependency change, a policy tightening, typically with a two-week deadline. A
+`dev` that imports a package CRAN cannot see is not submittable, and reverting
+the untangle under a deadline is the worst time to do it.
+
 ### Step 2b — `toxval` to CRAN  *(added 2026-08-19)*
 
 **`bayesnec` cannot release `Imports: toxval` until `toxval` is on CRAN.** A CRAN
@@ -163,7 +179,11 @@ works for GitHub installs only.
 
 `bayesnec` is on CRAN (2.1.3.1). `toxval` is not on CRAN at all. So CRAN
 readiness for `toxval` is a prerequisite of this whole exercise, and it is not
-small. It also means the API `toxval` publishes should be the *final* one — see
+small. **toxval #45** tracks scoping it.
+
+Note the constraint binds only at *submission*: `dev` can carry
+`Imports: toxval` plus `Remotes:` indefinitely for GitHub installs. What it
+cannot do is go to CRAN in that state — see Step 0b. It also means the API `toxval` publishes should be the *final* one — see
 the note at the top of this file.
 
 ### Step 3 — `bayesnec`: consume toxval
