@@ -227,12 +227,12 @@ toxval_pred:
               source ("draws" | "bootstrap"), n_realisation, ...
 ```
 
-#### One mode, not two  (#43)
+#### One realisation mechanism for every fit  (#43)
 
-An earlier version of this plan carried two modes — `draws` for Bayesian fits
-and `interval` for frequentist ones, where the three columns of
-`predict(drc_fit, interval = "confidence")` were treated as three curves. **That
-is dropped.**
+Realisations are generated the same way for every model class: posterior draws
+for a Bayesian fit, a parametric bootstrap for a frequentist one. There is no
+second mode in which the three columns of
+`predict(drc_fit, interval = "confidence")` are treated as three curves.
 
 Inverting a pointwise confidence band on `y` does not give a valid confidence
 interval on `x`. This is the inverse-regression / calibration problem: coverage
@@ -242,7 +242,7 @@ an LD50 confidence interval cannot be read off a fitted-line confidence band.
 Two quantities computed that differently should not share the column names
 `conf.low` / `conf.high`.
 
-Instead, frequentist fits generate realisations by **parametric bootstrap**:
+Frequentist fits therefore generate realisations by **parametric bootstrap**:
 draw `n_boot` parameter vectors from `MVN(coef(fit), vcov(fit))`, evaluate the
 mean function at each, and treat the result as realisations exactly as posterior
 draws are treated. For `drc` this is available directly — `fit$fct$fct(x, parm)`
@@ -359,9 +359,9 @@ ecx(fit, draws = TRUE) |> tidyr::unnest(draws)
 
 #### Why a list column rather than `*_draws()` functions
 
-An earlier draft of this plan split each metric into `ecx()` / `ecx_draws()`.
-That is dropped. Every argument for the split turns out to be an argument for
-the list column instead:
+The alternative is a second function per metric — `ecx()` alongside
+`ecx_draws()`. Every argument for that split is in fact an argument for the list
+column:
 
 - **Type stability.** `draws = TRUE` does not change the return type — it is a
   `toxval` tibble either way, with one more column. That is the same
@@ -705,8 +705,7 @@ against the regression net, and reach `bayesnec` as one finished API at phase 7.
 - **`anchor = "control"` cannot be computed from a fitted object alone.** It
   needs a control-only fit, which is why it takes `control_fit` rather than
   deriving one ([3.8](#38-the-nsec-reference-the-anchor-argument)). That is a
-  genuine argument for fitting wrappers (#22) as a convenience layer — an
-  earlier draft of this plan understated it.
+  genuine argument for fitting wrappers (#22) as a convenience layer.
 
   It does **not** threaten #39. An intercept-only fit needs `brms`, which
   `toxval` imports directly and keeps after the untangle; `bayesnec`'s
