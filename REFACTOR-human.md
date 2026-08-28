@@ -53,14 +53,20 @@ Core columns:
 - `conf.low`
 - `conf.high`
 
-Descriptor columns, present when meaningful:
+Descriptor columns, present when meaningful. Each column is listed once,
+against every metric it appears for:
 
-- `group` — one row per level, when grouped
-- `response` — one row per response, for multivariate fits
-- `ecx_val`, `type` — `ecx` only
-- `sig_val`, `anchor` — `nsec` / `n(s)ec` only
-- `control`, `reference` — `ecx`
-- `reference`, `ecnsec`, `ecnsec.low`, `ecnsec.high` — `nsec`
+- `group` — `ecx`, `nsec`, `n(s)ec`; one row per level, when grouped
+- `response` — `ecx`, `nsec`, `n(s)ec`; one row per response, for multivariate fits
+- `ecx_val`, `type` — `ecx`
+- `sig_val`, `anchor` — `nsec`, `n(s)ec`
+- `control` — `ecx`, `nsec`
+- `reference` — `ecx`, `nsec`
+- `ecnsec`, `ecnsec.low`, `ecnsec.high` — `nsec`
+
+`control` is reported for `nsec` even though the NSEC itself does not use it.
+`ecnsec` is expressed as a percentage change from the control, so without the
+control value the reported percentage cannot be interpreted.
 
 Optional column:
 
@@ -155,12 +161,12 @@ ecx(drc_fit, x_var = "x", ecx_val = 10)
 
 ```r
 nsec(brms_model_1, x_var = "x")
-#> # A tibble: 1 x 10
+#> # A tibble: 1 x 12
 #> # Model:    brmsfit
 #> # Settings: resolution 1000 | 4000 posterior draws
-#>   metric direction  estimate conf.low conf.high sig_val reference ecnsec ecnsec.low ecnsec.high
-#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-#> 1 nsec   decreasing     2.31     1.88      2.79    0.01     0.918   11.4       8.91        14.2
+#>   metric direction  estimate conf.low conf.high sig_val anchor control reference ecnsec ecnsec.low ecnsec.high
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
+#> 1 nsec   decreasing     2.31     1.88      2.79    0.01 model     1.02     0.918   11.4       8.91        14.2
 ```
 
 ### 3.2 Type stability
