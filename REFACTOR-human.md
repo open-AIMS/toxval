@@ -72,7 +72,10 @@ Descriptor columns, each listed once against every metric it appears for:
 "ecx"` with `ecx_val = 10`, never `metric = "ec10"`. Run settings are displayed
 as tibble header lines via `tbl_sum()`, as `# Groups:` is on a grouped tibble.
 
+Some examples of `ecx()`:
+
 ```r
+# basic output, all columns have values
 ecx(manec_example, ecx_val = 10)
 #> # A tibble: 1 x 9
 #> # Model:    bayesmanecfit
@@ -80,11 +83,52 @@ ecx(manec_example, ecx_val = 10)
 #>   metric direction  estimate conf.low conf.high ecx_val type     control reference
 #>   <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
 #> 1 ecx    decreasing    0.832    0.818      1.05      10 absolute    1.02     0.918
+
+# control is NA but still present
+ecx(manec_example, type = "direct", ecx_val = 0.5)
+#> # A tibble: 1 x 9
+#> # Model:    bayesmanecfit
+#> # Settings: resolution 100 | 4000 posterior draws
+#>   metric direction  estimate conf.low conf.high ecx_val type   control reference
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <dbl>     <dbl>
+#> 1 ecx    decreasing     1.13     0.98      1.31     0.5 direct      NA       0.5
+
+# grouped output -- more rows, plus a `group` column
+ecx(brms_grouped, x_var = "x", group_var = "site", by_group = TRUE, ecx_val = 10)
+#> # A tibble: 3 x 10
+#> # Model:    brmsfit
+#> # Settings: resolution 1000 | 4000 posterior draws
+#> # Groups:   site [3]
+#>   metric direction  group estimate conf.low conf.high ecx_val type     control reference
+#>   <chr>  <chr>      <chr>    <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
+#> 1 ecx    decreasing A         0.71     0.55      0.88      10 absolute    0.98      0.88
+#> 2 ecx    decreasing B         1.02     0.83      1.24      10 absolute    1.10      0.99
+#> 3 ecx    decreasing C         0.44     0.31      0.58      10 absolute    0.87      0.78
+
+# frequentist fit -- same shape, realisations from a parametric bootstrap
+ecx(drc_fit, x_var = "x", ecx_val = 10)
+#> # A tibble: 1 x 9
+#> # Model:    drc
+#> # Settings: resolution 1000 | 1000 bootstrap realisations
+#>   metric direction  estimate conf.low conf.high ecx_val type     control reference
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
+#> 1 ecx    decreasing     1.88     1.62      2.19      10 absolute    9.91      8.92
 ```
 
-A grouped fit returns more rows and a `group` column; a `drc` fit returns the
-same shape as a `brms` fit. The full set of worked examples is in
-`REFACTOR-claude.md` §3.1.
+And for `nsec()`:
+
+```r
+nsec(brms_model_1, x_var = "x")
+#> # A tibble: 1 x 12
+#> # Model:    brmsfit
+#> # Settings: resolution 1000 | 4000 posterior draws
+#>   metric direction  estimate conf.low conf.high sig_val anchor control reference ecnsec ecnsec.low ecnsec.high
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
+#> 1 nsec   decreasing     2.31     1.88      2.79    0.01 model     1.02     0.918   11.4       8.91        14.2
+```
+
+A grouped `nsec()` gains a `group` column and one row per level, exactly as the
+grouped `ecx()` above.
 
 ### 3.2 Type stability
 
@@ -155,8 +199,11 @@ One representation covers every case:
 `predict(drc_fit, interval = "confidence")` as three curves, which inverts a
 pointwise confidence band on the response to get an interval on concentration.
 That is not a valid interval, and it is worst where the curve is flat, which is
-exactly where NSEC sits (#43). So the compute functions never branch: they
-iterate `curves` and interpolate.
+exactly where NSEC sits (#43).
+
+The compute functions therefore never inspect the model class, and never branch.
+They iterate the `curves` list and interpolate every realisation, then take
+quantiles across realisations for the summary.
 
 This changes `drc` numbers, needs a seed, and needs a vignette explaining how it
 differs from `drc`'s own `ED()` intervals. `REFACTOR-claude.md` §3.4 has the
@@ -168,8 +215,22 @@ There is **one function per metric**, and it always returns a `toxval` tibble.
 The realisations are an optional list column, not a second function:
 
 ```r
+pred <- toxval_predict(fit)
 ecx(pred)                  # summary
 ecx(pred, draws = TRUE)    # summary + a `draws` list column, one cell per row
+```
+
+Long form is one pipe stage rather than a separate API:
+
+```r
+ecx(fit, draws = TRUE) |> tidyr::unnest(draws)
+#> # A tibble: 4,000 x 6
+#>   metric direction  ecx_val estimate .draw  value
+#>   <chr>  <chr>        <dbl>    <dbl> <int>  <dbl>
+#> 1 ecx    decreasing      10    0.832     1  0.841
+#> 2 ecx    decreasing      10    0.832     2  0.795
+#> 3 ecx    decreasing      10    0.832     3  0.826
+#> # i 3,997 more rows
 ```
 
 The list column keeps one row per estimate, so unnesting is the caller's explicit
