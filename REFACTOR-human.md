@@ -1,55 +1,76 @@
 # toxval Refactor Plan
 
-This is the plan we are agreeing to. It covers what we are doing, why, what
-changes for someone using the package, and in what order the work happens.
+What we are doing, why, what changes for someone using the package, and in what
+order the work happens.
 
-The detail lives in a companion document, `REFACTOR-claude.md`: data structures,
-function signatures, edge cases, the measurements behind each decision, and the
-alternatives that were rejected. Section numbers in brackets below point into
-it. Each decision is written out in full there and once only, so the two
-documents cannot drift apart.
+The detail lives in `REFACTOR-claude.md`: structures, signatures, edge cases, the
+measurements behind each decision, and the rejected alternatives. It uses **the
+same section numbers as this document**, so §3.4 here and §3.4 there are the same
+subject at two depths. Each decision is written out in full there and once only;
+here it is the decision, a short reason, and a pointer.
 
-## 1. What we are doing
+## 1. Motivation
 
-Rebuilding the path `toxval` takes from a fitted model to a toxicity estimate,
-so that every metric and every model class travels the same path.
+The refactor has three goals:
 
-The science does not change here. Some estimates will move, but only because of
-decisions listed in section 6, each of which is being made separately.
+1. Make adding a **new model class** easy.
+2. Fix the current duplication, inconsistencies, and bugs.
+3. Standardise all return structures.
 
-## 2. Why
+## 2. Scope
 
-**Adding support for a new model class is expensive.** Handling `glm` or `gam`
-today means writing a new method for every metric. It should mean writing one
-method, once.
+**In scope.** Restructure current functionality onto the new architecture:
 
-**The same metric is computed differently in different places.** `ecx.bnecfit`
-and `ecx.brmsfit` are different estimators, not two implementations of one
-estimator. So are the three versions of `ecnsec` (#49). A user cannot currently
-assume that fitting the same curve two ways gives the same answer.
+- standardise outputs to a `toxval` tibble
+- replace the `posterior` argument with an optional `draws` list column
+- consolidate argument validation on `chk`
+- remove duplication, dead code, and fix the known inconsistencies
 
-**The return values differ by function and by model class.** Some are named
-vectors, some are vectors carrying attributes. None of them compose with
-anything else.
+**Out of scope, and decided first.** Three questions determine what the numbers
+are, not what shape they come in. None is settled by this plan, each has its own
+issue, and section 4 cannot start until they are answered.
 
-## 3. Three terms
+| decision | what it decides | issue |
+|---|---|---|
+| The `ecx` reference | how the reference response is computed | #19 |
+| Direction | increasing versus decreasing responses, and how hormesis relates | #20 |
+| The `ecnsec` denominator | whether `ecnsec` is a percentage of the control or of the fitted range | #49 |
 
-**Realisation.** One plausible version of the fitted curve. A Bayesian fit
-supplies thousands of these as posterior draws. A frequentist fit gets the same
-thing from a parametric bootstrap: repeatedly draw a parameter set from the
-fitted model's own uncertainty, and evaluate the curve at each. Every estimate
-is computed once per realisation, and the spread across realisations gives the
-confidence interval.
+The `nsec` reference does **not** block, because §3.8 exposes it as an argument
+rather than settling it. Only the default has to be agreed, and a default can be
+revisited later.
 
-**`toxval` tibble.** The single table shape that every metric function returns.
+## 3. Design decisions
 
-**`toxval_pred`.** The object holding the realisations and the concentrations
-they were evaluated at. One function builds it from a fitted model; every metric
-is then computed from it.
+### 3.1 Output contract: everything is a `toxval` tibble
 
-## 4. What changes for someone using the package
+Every metric function (`ecx()`, `nsec()`, etc) returns the same tidy container,
+a `tbl_df` subclass named `toxval`. Model class never changes the return type.
 
-Every metric function returns the same kind of table, whatever the model class:
+**The column rule.** Core columns are always present. A descriptor column appears
+when it is *meaningful* for that metric, and takes `NA` when it is meaningful but
+unavailable. So `group` is absent for an ungrouped fit, while `control` is
+present but `NA` for `type = "direct"`.
+
+Core columns: `metric`, `direction`, `estimate`, `conf.low`, `conf.high`.
+
+Descriptor columns, each listed once against every metric it appears for:
+
+- `group` — one row per level, when grouped
+- `response` — one row per response, for multivariate fits
+- `ecx_val`, `type` — `ecx`
+- `sig_val`, `anchor` — `nsec`, `n(s)ec`
+- `control` — `ecx`, `nsec`
+- `reference` — `ecx`, `nsec`
+- `ecnsec`, `ecnsec.low`, `ecnsec.high` — `nsec`
+
+`control` is reported for `nsec` even though the NSEC does not use it, because
+`ecnsec` is a percentage change from the control and cannot be read without it.
+
+`metric` is a closed vocabulary — `"ecx"`, `"nsec"`, `"nec"`, `"n(s)ec"`,
+`"noec"` — with the value that parameterises it in its own column: `metric =
+"ecx"` with `ecx_val = 10`, never `metric = "ec10"`. Run settings are displayed
+as tibble header lines via `tbl_sum()`, as `# Groups:` is on a grouped tibble.
 
 ```r
 ecx(manec_example, ecx_val = 10)
@@ -61,119 +82,209 @@ ecx(manec_example, ecx_val = 10)
 #> 1 ecx    decreasing    0.832    0.818      1.05      10 absolute    1.02     0.918
 ```
 
-Four practical differences.
+A grouped fit returns more rows and a `group` column; a `drc` fit returns the
+same shape as a `brms` fit. The full set of worked examples is in
+`REFACTOR-claude.md` §3.1.
 
-The result is a tibble, so it filters, joins and plots like any other data. A
-grouped fit returns more rows rather than a different object.
+### 3.2 Type stability
 
-The settings that produced the estimate travel with it. `ecx_val`, `type` and
-the reference value are columns, so a saved result is self-describing.
+A function must not change its return **type** based on an argument value. This
+means the `posterior` argument is removed (§3.5).
 
-Realisations are available on request, as a list column, by passing
-`draws = TRUE`. The return type does not change — it is the same tibble with one
-more column.
+Arguments that change only values or row counts (`ecx_val`, `type`, `sig_val`,
+`by_group`) stay as arguments. A descriptor column appearing or not is governed
+by the column rule in §3.1, not by an argument flipping the return type.
 
-A `drc` fit returns the same shape as a `brms` fit, including a confidence
-interval built the same way.
+### 3.3 Single-generic architecture
 
-## 5. The decisions
+`toxval_predict()` is the only S3 generic. It dispatches on model class and
+returns a `toxval_pred`. The metric functions (`ecx`, `nsec`, `nsec_multi`, ...)
+are plain, non-generic functions that compute on a `toxval_pred`.
 
-Each of these is settled. The reasoning is in `REFACTOR-claude.md`.
+Metric functions accept **either a fitted model or a pre-built `toxval_pred`**
+(one `inherits()` check at the top), which enables predict-once / compute-many
+and makes the compute functions testable in isolation.
 
-**Every metric function returns a `toxval` tibble, and model class never changes
-the return type.** Core columns are always present; a descriptor column appears
-when it is meaningful for that metric, and is `NA` when it is meaningful but
-unavailable. [3.1]
+Adding a new model class is then one method and nothing else:
 
-**One function, `toxval_predict()`, is the only place that knows about model
-classes.** It returns a `toxval_pred`. Every metric is a plain function
-computing on that object, so adding a model class means writing one method and
-nothing else. [3.3]
+```r
+toxval_predict.gam <- function(object, x_var, resolution, x_range, ...) {
+  # 1. build the x grid
+  # 2. generate realisations of the curve (see 3.4)
+  # 3. return a toxval_pred
+}
+```
 
-**A function must not change its return type based on an argument value.** This
-is why the `posterior` argument is retired. [3.2]
+`toxval_pred` is **public API**, not an internal convenience: under #39 the
+`bayesnec` classes are served by methods living in `bayesnec`, which constructs
+a `toxval_pred` from outside this package.
 
-**Uncertainty comes from realisations, generated the same way for every fit
-type** — posterior draws for a Bayesian fit, a parametric bootstrap for a
-frequentist one. The current `drc` intervals invert a confidence band on the
-response to get an interval on concentration, which is not a valid interval and
-is worst exactly where NSEC sits (#43). [3.4]
+### 3.4 The `toxval_pred` intermediate object
 
-**Realisations are an optional list column rather than a second function.**
-`ecx(fit, draws = TRUE)` returns the same tibble with a `draws` column, instead
-of a separate `ecx_draws()`. This keeps one row per estimate, and keeps paired
-quantities such as NSEC and `ecnsec` aligned by construction. [3.5]
+`toxval_pred` holds **realisations** of the fitted curve as a list, one element
+per group or response, plus metadata.
 
-**Direction is a property of the result, not an argument.** The estimator looks
-for both an increasing and a decreasing crossing and reports what it finds. A
-hormetic curve simply has both. This removes `hormesis_def`, which cannot be
-repaired in place because the two `nsec` methods compute different quantities
-under it, and closes #1 and #8 as a consequence. [3.6]
+A *realisation* is one plausible version of the fitted curve. A Bayesian fit
+supplies thousands of them as posterior draws. A frequentist fit gets the same
+thing from a parametric bootstrap: repeatedly draw a parameter set from the
+model's own uncertainty and evaluate the curve at each. Every estimate is
+computed once per realisation, and the spread across realisations gives the
+confidence interval.
 
-**Where the `nsec` reference comes from becomes a visible choice**, the `anchor`
-argument, rather than a hard-coded rule. The choice is recorded as a column on
-the result, so it travels with the estimate. [3.8]
+```
+toxval_pred:
+  curves    : named list of matrices, each [n_realisation x n_x]
+  x_vec     : numeric [n_x]
+  threshold : per-realisation threshold parameter (a NEC), or NULL
+  control   : realisations of a control-only fit, or NULL
+  meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
+              dimension, family, realisation source, n_realisation, ...
+```
 
-**Argument checking happens once, in one place, using `chk`.** Predict-level
-arguments are checked in `toxval_predict()`; metric arguments are checked in the
-metric entry point, so every model class gets identical checks. [3.7]
+One representation covers every case:
 
-## 6. Decisions that must be made before the work starts
+| Case | `curves` list | realisation source | `n_realisation` |
+|---|---|---|---|
+| Ungrouped Bayesian | 1 element | draws | n_draws |
+| `by_group` / `group_var` | one per factor level | draws | n_draws |
+| Multivariate (`nsec_multi`) | one per response | draws | n_draws |
+| `drc` | one per curve (or 1) | bootstrap | n_boot |
+| `glm` / `gam` (future, #21) | one per group | bootstrap | n_boot |
 
-These determine what the numbers are, not what shape they come in. None is
-settled by this plan, and each has its own issue.
+**There is no second mode.** An earlier design treated the three columns of
+`predict(drc_fit, interval = "confidence")` as three curves, which inverts a
+pointwise confidence band on the response to get an interval on concentration.
+That is not a valid interval, and it is worst where the curve is flat, which is
+exactly where NSEC sits (#43). So the compute functions never branch: they
+iterate `curves` and interpolate.
 
-| decision | what it decides | issue |
-|---|---|---|
-| The `ecx` reference | how the reference response is computed | #19 |
-| Direction | increasing versus decreasing responses, and how hormesis relates | #20 |
-| The `ecnsec` denominator | whether `ecnsec` is a percentage of the control or of the fitted range | #49 |
+This changes `drc` numbers, needs a seed, and needs a vignette explaining how it
+differs from `drc`'s own `ED()` intervals. `REFACTOR-claude.md` §3.4 has the
+reasoning, the alignment invariant, and what model averaging requires.
 
-The `nsec` reference does **not** block, because section 3.8 exposes it as an
-argument rather than settling it. Only the default has to be agreed, and a
-default can be revisited later without invalidating anything.
+### 3.5 Draws
 
-## 7. The order of work
+There is **one function per metric**, and it always returns a `toxval` tibble.
+The realisations are an optional list column, not a second function:
+
+```r
+ecx(pred)                  # summary
+ecx(pred, draws = TRUE)    # summary + a `draws` list column, one cell per row
+```
+
+The list column keeps one row per estimate, so unnesting is the caller's explicit
+choice; it satisfies §3.2 without a second function; and it keeps paired
+quantities such as NSEC and `ecnsec` aligned. `posterior` stays accepted for one
+release behind a deprecation warning, since 1.0.0 is released.
+
+### 3.6 Direction
+
+`direction` is a **property of the result, not an argument.** For each curve the
+estimator looks for the first decreasing crossing and the first increasing
+crossing of the reference, and returns what it finds. If there is no crossing of
+a given direction, that estimate is `NA`.
+
+This replaces `hormesis_def`: a hormetic curve simply has both crossings, and
+both are reported. `hormesis_def` cannot be repaired in place, because the two
+`nsec` methods compute different quantities under it (`REFACTOR-claude.md` §3.6).
+#1 and #8 close as a consequence, and #20 is answered directly.
+
+**To pin down:** whether a curve with no crossing in one direction emits a row
+with `NA` or omits the row.
+
+### 3.7 Validation
+
+`chk` is the default for all argument checks.
+
+- Predict-level arguments (`x_var`, `group_var`, `x_range`, `resolution`, and
+  that the model has a `toxval_predict` method) are validated in
+  `toxval_predict()`.
+- Metric arguments (`ecx_val`, `type`, `sig_val`, `prob_vals`, `xform`) are
+  validated in the metric entry point, so every class gets identical checks.
+  - This fixes the current bug where `ecx.bnecfit` never validates the `ecx_val`
+    range while `ecx.brmsfit` does.
+- Shared checks (`prob_vals` ordering, `xform` is a function, `resolution`) live
+  in one internal `chk` helper, replacing the four hand-rolled copies.
+- `stop()` calls are replaced.
+
+`REFACTOR-claude.md` §3.7 lists the specific unguarded defects to fold in,
+including `nsec.drc`'s positional `curveid` (#34) and the six differing
+`resolution` defaults.
+
+### 3.8 The `nsec` reference: the `anchor` argument
+
+Where the `nsec` reference comes from becomes a visible choice rather than a
+hard-coded rule:
+
+```r
+nsec(fit, anchor = c("model", "component", "control"))
+```
+
+`"model"` is the default: the threshold comes from the model-averaged control
+posterior, so every pooled value is measured against the same response level.
+`"component"` uses each component model's own control, which is the strict
+Bayesian model average and reproduces what `bayesnec` returns today. `"control"`
+uses a separate control-only fit, specified here but not implemented.
+
+`anchor` is a column on the result, so the choice travels with the estimate. The
+measurements behind the default, and the cost of choosing it, are in
+`REFACTOR-claude.md` §3.8.
+
+## 4. Phased implementation
 
 Two constraints set the order.
 
-**The `ecx` reference has to be decided first, on paper.** Phase 1 locks the
-current numbers as a regression net. If #19 is answered afterwards, a genuine
-refactor bug cannot be told apart from an intended change of definition.
+**#19 before the spine.** `ecx.bnecfit` and `ecx.brmsfit` implement different
+estimators. Phase 1 locks the current numbers; #19 decides which should move.
+Answered afterwards, a refactor bug cannot be told apart from an intended change
+of definition.
 
-**`toxval` must reach CRAN before `bayesnec` can depend on it.** `bayesnec` is
-on CRAN and `toxval` is not. A CRAN package's dependencies must resolve from
-CRAN, so the dependency reversal (#39) cannot ship until `toxval` is published.
-That in turn puts the change of output shape *before* the CRAN submission, since
-publishing an API that is about to break would force two breaking releases in a
-row.
+**`toxval` must reach CRAN before `bayesnec` can depend on it.** A CRAN package's
+dependencies must resolve from CRAN, and `toxval` is not published. That puts the
+change of output shape *before* the submission, since publishing an API about to
+break would force two breaking releases in a row.
 
-| # | phase | purpose | done when |
-|---|---|---|---|
-| 0 | Decide #19, #20 and #49; agree the `anchor` default. No code. | Fixes what the numbers should be before anything locks them | The answers are recorded on the issues |
-| 1 | Lock a regression net | Makes every later phase checkable | Current estimates are captured as golden values, split into "must not move" and "expected to move, because X" |
-| 2 | Build the spine: `toxval_pred`, `toxval_predict()`, the shared validator, the class-agnostic compute functions, the bootstrap | Puts the new machinery in place without disturbing anything | It exists and is tested, and `ecx()` / `nsec()` still return today's values unchanged |
-| 3 | `toxval` sheds `bayesnec` | Reverses the dependency, which currently points the wrong way | `bayesnec` is no longer imported, and `ecx` on a `bnecfit` follows the #19 answer |
-| 4 | Move the metrics onto the spine, one at a time, each gaining `draws` | Makes every metric class-agnostic | `ecx`, `nsec` and `nsec_multi` all compute from a `toxval_pred`, with `posterior` deprecated but working |
-| 5 | Swap the outputs to the `toxval` tibble and remove the old code | Delivers the user-visible change in one step | Every metric returns a tibble, and the tests assert the new shapes |
-| 6 | `toxval` to CRAN | Unblocks #39 | Published, carrying the final API |
-| 7 | `bayesnec`: import `toxval`, delete its copies, adapt to the tibble | Completes the untangle | One PR, then CRAN |
+0. **Decide #19, #20 and #49, and agree the `anchor` default.** No code. Fixes
+   what the numbers should be before anything locks them. Done when the answers
+   are on the issues.
+1. **Lock a regression net.** Capture current estimates as golden values, split
+   into "must not move" and "expected to move, because X", so every later phase
+   is checkable. Done when both lists exist and pass.
+2. **Build the new spine alongside the old code.** `toxval_pred`,
+   `toxval_predict()` and its methods, the shared `chk` validator, the
+   class-agnostic compute functions, the parametric bootstrap. Purely additive.
+   Done when it is tested and `ecx()` / `nsec()` still return today's values.
+3. **`toxval` sheds `bayesnec`.** Reverses a dependency pointing the wrong way.
+   Done when `bayesnec` is no longer imported and `ecx` on a `bnecfit` follows
+   the #19 answer.
+4. **Move metrics onto the spine one at a time** (`ecx`, then `nsec`, then
+   `nsec_multi`), each gaining `draws`. Done when all three compute from a
+   `toxval_pred`, with `posterior` deprecated but working.
+5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
+   update the tests; remove `posterior` and the dead blocks last. Done when every
+   metric returns a tibble and the tests assert the new shapes.
+6. **`toxval` to CRAN**, carrying the final API. Unblocks #39. Done when
+   published.
+7. **`bayesnec`.** One PR: `Imports: toxval`, delete its copies of `ecx` and
+   `nsec`, add the `toxval_predict` methods, adapt to the tibble. Then CRAN.
 
-Phases 2 to 4 change who owns the code and what it computes. Phase 5 changes
-what it returns. Keeping those separate means each can be checked against the
-regression net inside `toxval`, and `bayesnec` sees one finished API at phase 7.
+Phases 2 to 4 change who owns the code and what it computes; phase 5 changes what
+it returns. Separating them keeps each checkable against the regression net, and
+`bayesnec` sees one finished API at phase 7.
 
-## 8. What this plan does not do
+## 5. Notes
 
-- **It does not implement `n(s)ec` or `nec`.** The vocabulary reserves them so
-  it does not have to be reopened, but the work is #25 and #18.
-- **It does not implement `anchor = "control"`.** The argument is specified now
-  so that adding it later is a new branch rather than a change to the compute
-  path. It needs a separate control-only fit, which is an argument for fitting
-  wrappers (#22).
-- **It does not fix model-averaged reproducibility.** Repeated calls on an
-  averaged fit disagree because the component resampling is unseeded. That is
-  `bayesnec` #216 and has to be fixed there.
-- **It does not settle `ecx` for `drc`**, which has no method today and becomes
-  nearly free under the new architecture. Whether it is in scope needs a
-  decision.
+- **Method gaps to keep in mind:** `ecx` has no `drc` method, which becomes
+  nearly free under §3.4 — whether it is in scope needs a decision. `nsec_multi`
+  is brms-multivariate only.
+- **`n(s)ec` and `nec` are reserved in the vocabulary but not implemented here**
+  (#25, #18), so the vocabulary does not have to be reopened later.
+- **`anchor = "control"` is specified but not implemented.** It needs a
+  control-only fit, which cannot be recovered from a fitted model, so it is
+  supplied as an argument — an argument for fitting wrappers (#22).
+- **Model-averaged results are not reproducible today** (`bayesnec` #216): the
+  component resampling is unseeded. Not fixed by this plan, and it blocks
+  regression-testing model-averaged output by equality.
+- **`xform` stays user-supplied, and applies to realisations before
+  summarising.** Both are current behaviour; the second changes answers for any
+  non-linear `xform`, so it belongs in the written contract.
