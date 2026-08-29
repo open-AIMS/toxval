@@ -6,7 +6,7 @@ shape of the fix but not the steps. Read that file and
 `notes/implementation/02_decisions.md` first for the reasoning; this file is the
 plan.
 
-> **Superseded in part, 2026-08-19.** `REFACTOR-human.md` §4 is now the
+> **Superseded in part, 2026-08-19.** `REFACTOR-claude.md` §4 is now the
 > authoritative phase order, and it differs from [§4 below](#4-execution-plan):
 > `toxval` must reach **CRAN** before `bayesnec` can import it, so the tibble
 > change comes *before* submission and `bayesnec` relocates and adapts in a
@@ -128,7 +128,7 @@ return the estimate. Change no existing behaviour and remove nothing. Existing
 methods become thin callers of the new entry points, so the suite proves the
 refactor is behaviour-preserving before anything is deleted.
 
-**This is `toxval_pred`.** `REFACTOR-human.md` §3.3/§3.4 specifies exactly this
+**This is `toxval_pred`.** `REFACTOR-claude.md` §3.3/§3.4 specifies exactly this
 object — realisations, an x grid and metadata — as the seam the metric functions
 compute on. Build it once, there, rather than prototyping a separate plain-input
 API here and replacing it later. It also makes `toxval_pred` **public API**,

@@ -82,13 +82,13 @@ differently:
   and **still blocks** the refactor, because the regression net cannot be locked
   until it is answered.
 - The **`nsec`** half — which control the reference comes from under model
-  averaging — is **no longer a blocking decision**. `REFACTOR-human.md` §3.8
+  averaging — is **no longer a blocking decision**. `REFACTOR-claude.md` §3.8
   exposes it as `anchor = c("model", "component", "control")`, so only the
   *default* has to be agreed, and a default can be revisited.
 
 **#1 and #8** (`hormesis_def = "max"`) are largely absorbed by the direction
 decision (#20): `direction` becomes a property of the result and replaces
-`hormesis_def` rather than fixing it. See `REFACTOR-human.md` §3.6.
+`hormesis_def` rather than fixing it. See `REFACTOR-claude.md` §3.6.
 
 ---
 
@@ -98,12 +98,12 @@ Listed so they are not mistaken for oversights.
 
 - **#3** — `ecx_val` as a proportion rather than a percentage. Breaking; needs a
   deprecation path. Interacts with #9, and now with the closed `metric`
-  vocabulary and its separate `ecx_val` column (`REFACTOR-human.md` §3.1).
+  vocabulary and its separate `ecx_val` column (`REFACTOR-claude.md` §3.1).
 - ~~**#4** — always return a tibble.~~ **Decided 2026-08-19**: yes, a `toxval`
-  tibble subclass. See `REFACTOR-human.md` §3.1 and PR #42 / #44.
+  tibble subclass. See `REFACTOR-claude.md` §3.1 and PR #42 / #44.
 - **#22** — whether `toxval` takes on model-fitting wrappers at all. Scope
   question for the author; it changes what the package *is*. **Now has a forcing
-  case**: `anchor = "control"` (`REFACTOR-human.md` §3.8) needs a control-only
+  case**: `anchor = "control"` (`REFACTOR-claude.md` §3.8) needs a control-only
   fit, which cannot be recovered from an already-fitted object. It needs only
   `brms`, so it does not threaten the untangle.
 - **#17, #18, #25** — NOEC, model-averaged N(S)EC, N(S)EC. Each needs its

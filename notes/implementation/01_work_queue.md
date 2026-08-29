@@ -19,7 +19,7 @@ Read `00_protocol.md` first, then `02_decisions.md`.
 > |---|---|
 > | #33, #31, #32 | **safe either way** — mechanical, no behaviour change |
 > | #37 | safe, but flagged below as behaviour-changing; do it *before* the net is locked |
-> | #5, #7, #15, #6/#24, #11, #13/#10, #34, #29 | **fold into the refactor.** All behavioural, and #34, #13/#10 and the `xform` defect are already listed in `REFACTOR-human.md` §3.7 |
+> | #5, #7, #15, #6/#24, #11, #13/#10, #34, #29 | **fold into the refactor.** All behavioural, and #34, #13/#10 and the `xform` defect are already listed in `REFACTOR-claude.md` §3.7 |
 >
 > Nothing here is wrong; it just cannot all run before the refactor without
 > wasted work.
@@ -66,10 +66,10 @@ wants a person.
   CRAN; `toxval` is not. A CRAN package's `Imports` must resolve from CRAN, and
   `Remotes:` is ignored by CRAN — so the `Remotes:` interim works for GitHub
   installs only. CRAN readiness is a prerequisite, not a follow-up.
-- **The "plain-input API" is `toxval_pred`** (`REFACTOR-human.md` §3.3/§3.4).
+- **The "plain-input API" is `toxval_pred`** (`REFACTOR-claude.md` §3.3/§3.4).
   Build it once, there.
 
-`PHASE1_DEPENDENCY_UNTANGLE.md` carries the detail; `REFACTOR-human.md` §4 is
+`PHASE1_DEPENDENCY_UNTANGLE.md` carries the detail; `REFACTOR-claude.md` §4 is
 the authoritative phase order.
 
 ---
@@ -218,11 +218,11 @@ Not autonomous. Each is a legitimate issue whose *answer* is undetermined.
 
 | | the undetermined part |
 |---|---|
-| **#19** | ambiguity in what "effect" means across models and implementations. Still the **keystone**, but it has split: the **`ecx`** half (per-draw vs scalar reference) is one decision and still blocks the refactor; the **`nsec`** half is now exposed as `anchor` rather than resolved, so only its default needs agreeing. See `02_decisions.md` T7 and `REFACTOR-human.md` §3.8. |
-| #1, #8 | `hormesis_def = "max"` errors, and where it does not error the output is wrong. Largely absorbed by #20: `direction` becomes a property of the result and replaces `hormesis_def`. `REFACTOR-human.md` §3.6. |
+| **#19** | ambiguity in what "effect" means across models and implementations. Still the **keystone**, but it has split: the **`ecx`** half (per-draw vs scalar reference) is one decision and still blocks the refactor; the **`nsec`** half is now exposed as `anchor` rather than resolved, so only its default needs agreeing. See `02_decisions.md` T7 and `REFACTOR-claude.md` §3.8. |
+| #1, #8 | `hormesis_def = "max"` errors, and where it does not error the output is wrong. Largely absorbed by #20: `direction` becomes a property of the result and replaces `hormesis_def`. `REFACTOR-claude.md` §3.6. |
 | #12, #14 | `type = "direct"` returns something unexpected; output shape differs across methods. Needs #19 and #4. |
 | #3 | `ecx_val` as a proportion rather than a percentage — **breaking**, and needs a deprecation decision. |
-| ~~#4~~ | ~~always return a tibble~~ — **decided 2026-08-19**: yes, a `toxval` tibble subclass. `REFACTOR-human.md` §3.1. #14 follows from it. |
+| ~~#4~~ | ~~always return a tibble~~ — **decided 2026-08-19**: yes, a `toxval` tibble subclass. `REFACTOR-claude.md` §3.1. #14 follows from it. |
 | #9 | multiple `ecx_val` values, to match revised `bayesnec` methods. Shape follows #4. |
 | #20 | increasing versus decreasing responses; only `nsec_multi` supports both today. |
 | #17, #18, #25 | NOEC, model-averaged N(S)EC, N(S)EC. New estimators, each needing a definition agreed before code. |
