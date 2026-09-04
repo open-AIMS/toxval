@@ -1,6 +1,9 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://open-aims.github.io/toxval/dev/CLAUDE.html</loc></url>
 <url><loc>https://open-aims.github.io/toxval/dev/LICENSE.html</loc></url>
+<url><loc>https://open-aims.github.io/toxval/dev/PHASE1_DEPENDENCY_UNTANGLE.html</loc></url>
+<url><loc>https://open-aims.github.io/toxval/dev/REFACTOR-claude.html</loc></url>
+<url><loc>https://open-aims.github.io/toxval/dev/REFACTOR-human.html</loc></url>
 <url><loc>https://open-aims.github.io/toxval/dev/authors.html</loc></url>
 <url><loc>https://open-aims.github.io/toxval/dev/index.html</loc></url>
 <url><loc>https://open-aims.github.io/toxval/dev/news/index.html</loc></url>
