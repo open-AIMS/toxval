@@ -68,15 +68,21 @@ against every metric it appears for:
 
 - `group` — `ecx`, `nsec`, `n(s)ec`; one row per level, when grouped
 - `response` — `ecx`, `nsec`, `n(s)ec`; one row per response, for multivariate fits
-- `ecx_val`, `type` — `ecx`
+- `ecx_val` — `ecx`
+- `type` — `ecx`, `nsec`
 - `sig_val`, `anchor` — `nsec`, `n(s)ec`
 - `control` — `ecx`, `nsec`
 - `reference` — `ecx`, `nsec`
 - `ecnsec`, `ecnsec.low`, `ecnsec.high` — `nsec`
 
-`control` is reported for `nsec` even though the NSEC itself does not use it.
-`ecnsec` is expressed as a percentage change from the control, so without the
-control value the reported percentage cannot be interpreted.
+`control` is reported for `nsec` even though the NSEC itself does not use it,
+because under `type = "absolute"` the control is the denominator of `ecnsec`
+and the percentage cannot be interpreted without it.
+
+`type` appears for `nsec` as well as `ecx` because it selects the `ecnsec`
+definition (#49, decision T8), and with it the units of the `ecnsec` columns:
+a percentage under `absolute` and `relative`, a response value under `direct`.
+Without the column those units are invisible in the result.
 
 Optional column:
 
@@ -646,6 +652,95 @@ Consequences elsewhere:
   a `"component"`-style quantity by construction. That follows from the
   definition rather than being an inconsistency, but should be stated wherever
   `n(s)ec` is documented (#25).
+
+### 3.9 The `ecnsec` definition (#49)
+
+**`ecnsec` is the inverse of the `ecx` reference construction under the same
+`type`, and `nsec()` accepts the arguments `ecx()` accepts.** Settled 2026-09-04
+(RF); see #49 and decision T8.
+
+`ecnsec` reports the effect at the NSEC. It is currently computed by three
+different formulas, one per `nsec` method, which agree only for a monotonic
+decreasing curve with `type = "relative"` passed explicitly — not the default.
+
+`ecx` maps a percentage to a response value; `ecnsec` maps the NSEC reference
+back to an effect. One definition serves both directions:
+
+| `type` | `ecx` reference | `ecnsec` |
+|---|---|---|
+| `absolute` | `y[1] - y[1] * (p/100)` | `(1 - R / y[1]) * 100` |
+| `relative` | `max(y) - (max(y) - min(y)) * (p/100)` | `(1 - (R - min(y)) / (max(y) - min(y))) * 100` |
+| `direct` | `p`, a response value | `R`, the reference on the response scale |
+
+`R` is the NSEC reference, `y` one realisation's fitted curve, `p` the
+percentage. The `ecx` column reproduces `ecx_x_relative()`, `ecx_x_absolute()`
+and `ecx_x_direct()` at `R/ecx.R:181-254`.
+
+#### What each method does today
+
+- **`nsec.bnecfit`, `type = "absolute"`** (`R/nsec.R:138`) already implements
+  this. Unchanged.
+- **`nsec.bnecfit`, `type = "relative"`** (`R/nsec.R:110-115`) takes the top and
+  bottom of the range from `p_samples[, 1]` and `p_samples[, ncol]` — the curve
+  endpoints — where `ecx_x_relative()` uses `range(y)`. The two agree only for a
+  monotonic curve. It changes to `range(y)`, which also removes a monotonicity
+  assumption that `hormesis_def` already contradicts.
+- **`nsec.brmsfit`** (`R/nsec.R:232-234`, `:273-275`) and **`nsec.drc`**
+  (`R/nsec.R:434-436`) apply the relative formula unconditionally and have no
+  `type` argument — it is absorbed by `...` and ignored, the same defect §3.5
+  records for `posterior` on `nsec.drc`. They gain `type`, defaulting to
+  `"absolute"` to match `ecx`; their present formula becomes the `relative`
+  branch.
+
+The three `apply()` blocks are replaced by one helper taking the realisation
+matrix, the reference and `type`.
+
+#### `type = "direct"` has no interval
+
+The `nsec` reference is a scalar across realisations —
+`quantile(control_posterior, sig_val)`, `R/nsec.R:117-121`. `ecnsec` varies
+between realisations only through its denominator, which is per-realisation.
+Under `direct` there is no denominator, so `ecnsec` equals the `reference`
+column and `ecnsec.low` and `ecnsec.high` are `NA`.
+
+`NA` rather than bounds equal to the estimate: equal bounds assert an interval
+of zero width, where the intent is that no interval is defined. This is the
+§3.1 column rule — present because meaningful for the metric, `NA` because
+unavailable for this `type` — and matches `control` under `type = "direct"`.
+
+#### Change at default settings
+
+For a decreasing curve with a non-negative minimum,
+`(R - min) / (max - min) <= R / y[1]`, so the relative percentage is always the
+larger of the two. `nsec.brmsfit` and `nsec.drc` will therefore report a
+**smaller** `ecnsec` than they do now at defaults. This is algebra; no fixture
+was run to size it. The NSEC estimate itself does not change, only the
+percentage reported beside it.
+
+Phase 1 golden values must be captured for `ecnsec` under each `type` on each
+method, so this change is separable from a relocation bug.
+
+#### Consequences elsewhere
+
+- **`type` becomes a descriptor column for `nsec`** (§3.1). Without it the units
+  of `ecnsec` are invisible — a percentage under `absolute` and `relative`, a
+  response value under `direct`.
+- **#32.** Adding `type` to the `nsec` generic is an S3 signature change, so the
+  two are done together.
+- **Not settled here.** Whether `ecx` builds its reference per realisation or
+  once from the medians is the `ecx` half of #19 and is unchanged by this
+  decision; `ecnsec` inverts whatever construction that settles on. The
+  `hormesis_def == "max"` branches of `ecx_x_relative()` and `ecx_x_absolute()`
+  use `y[1]` and `max(y)` as the top of the range and are retired by §3.6
+  rather than realigned here.
+
+#### Tests
+
+`tests/testthat/test-nsec.R`, using the fixtures in `tests/testthat/setup.R`
+rather than fitting anything new. Assert that `bnecfit`, `brmsfit` and `drc`
+fits of the same monotonic curve return equal `ecnsec` at default settings, and
+add a hormetic curve as the edge case, where the endpoint and `range(y)` forms
+diverge. Requested on #49.
 
 ## 4. Phased implementation
 

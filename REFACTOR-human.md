@@ -28,13 +28,21 @@ The refactor has three goals:
 
 **Out of scope, and decided first.** Three questions determine what the numbers
 are, not what shape they come in. None is settled by this plan, each has its own
-issue, and section 4 cannot start until they are answered.
+issue, and section 4 cannot start until all three are answered. One is now
+answered.
 
-| decision | what it decides | issue |
-|---|---|---|
-| The `ecx` reference | how the reference response is computed | #19 |
-| Direction | increasing versus decreasing responses, and how hormesis relates | #20 |
-| The `ecnsec` denominator | whether `ecnsec` is a percentage of the control or of the fitted range | #49 |
+| decision | what it decides | issue | status |
+|---|---|---|---|
+| The `ecx` reference | how the reference response is computed | #19 | open |
+| Direction | increasing versus decreasing responses, and how hormesis relates | #20 | open |
+| The `ecnsec` definition | what the effect reported beside the NSEC is measured against | #49 | settled |
+
+`ecnsec` is the inverse of the `ecx` reference under the same `type`, and
+`nsec()` accepts the arguments `ecx()` accepts, so `type` selects both. Under
+`absolute` the denominator is the control, under `relative` the fitted range,
+and under `direct` `ecnsec` is the reference on the response scale rather than a
+percentage. Decision T8 in `notes/implementation/02_decisions.md` states it in
+full.
 
 The `nsec` reference does **not** block, because §3.8 exposes it as an argument
 rather than settling it. Only the default has to be agreed, and a default can be
@@ -58,14 +66,18 @@ Descriptor columns, each listed once against every metric it appears for:
 
 - `group` — one row per level, when grouped
 - `response` — one row per response, for multivariate fits
-- `ecx_val`, `type` — `ecx`
+- `ecx_val` — `ecx`
+- `type` — `ecx`, `nsec`
 - `sig_val`, `anchor` — `nsec`, `n(s)ec`
 - `control` — `ecx`, `nsec`
 - `reference` — `ecx`, `nsec`
 - `ecnsec`, `ecnsec.low`, `ecnsec.high` — `nsec`
 
 `control` is reported for `nsec` even though the NSEC does not use it, because
-`ecnsec` is a percentage change from the control and cannot be read without it.
+under `type = "absolute"` the control is the denominator of `ecnsec` and the
+percentage cannot be read without it. `type` appears for `nsec` because it
+selects the `ecnsec` definition, and with it whether `ecnsec` is a percentage
+or a response value (#49, decision T8).
 
 `metric` is a closed vocabulary — `"ecx"`, `"nsec"`, `"nec"`, `"n(s)ec"`,
 `"noec"` — with the value that parameterises it in its own column: `metric =

@@ -12,9 +12,11 @@ below mean *toxval* tiers unless stated.
 
 ## T1 — Branching and review
 
-Branch per issue off `dev` (fork-only integration branch), push to `origin`
-(`beckyfisher/toxval`), PR into `open-AIMS/toxval` **`main`**. Never push to
-`upstream`. Sessions do not merge.
+Branch per issue off `main`, push to `origin` (`beckyfisher/toxval`), PR into
+`open-AIMS/toxval` **`main`**. Never push to `upstream`. Sessions do not merge.
+
+**Amended 2026-09-04.** This said "off `dev` (fork-only integration branch)".
+`dev` was dropped in #50; `main` is the integration branch in both repos.
 
 ## T2 — Formatting
 
@@ -90,6 +92,30 @@ differently:
 decision (#20): `direction` becomes a property of the result and replaces
 `hormesis_def` rather than fixing it. See `REFACTOR-claude.md` §3.6.
 
+## T8 — `ecnsec` is defined consistently with `ecx` (#49)
+
+Settled 2026-09-04 (RF). `ecnsec` is computed by three different formulas, one
+per `nsec` method, which agree only for a monotonic decreasing curve with
+`type = "relative"` passed explicitly — not the default.
+
+**The decision.** `ecnsec` is the inverse of the `ecx` reference construction
+under the same `type`, and `nsec()` accepts the arguments `ecx()` accepts, so
+`type` reaches all three methods rather than being absorbed by `...` in two of
+them. Under `absolute` the denominator is the control, under `relative` the
+fitted range, and under `direct` `ecnsec` is the reference on the response scale
+rather than a percentage.
+
+Stated in full, with the formulas and the per-method changes, in
+`REFACTOR-claude.md` §3.9. Two points from there that affect other work:
+`nsec.brmsfit` and `nsec.drc` report a smaller `ecnsec` than they do now at
+default settings, so phase 1 golden values must be captured for `ecnsec` under
+each `type`; and adding `type` to the `nsec` generic is an S3 signature change,
+so it is done with #32.
+
+**Not settled by this.** The `ecx` half of #19 — per-realisation versus scalar
+reference — is unchanged; `ecnsec` inverts whatever it settles on. The
+`hormesis_def == "max"` branches are retired by #20 rather than realigned here.
+
 ---
 
 ## Still to decide
@@ -120,6 +146,8 @@ Listed so they are not mistaken for oversights.
   (root-finding) and **#41** (hypothesis method).
 - When #29 is fixed, close **bayesnec #166** as a duplicate of it. *(still to
   do)*
+- **#49** — `ecnsec` computed from three different definitions across the
+  `nsec` methods. **Decided 2026-09-04**: see T8.
 - Filed since: **#43** — `nsec.drc` intervals invert a pointwise confidence band;
   **#45** — scope CRAN readiness, which blocks #39; and **bayesnec #216** —
   model-averaged output is not reproducible.
