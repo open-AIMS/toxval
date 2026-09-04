@@ -218,9 +218,9 @@ Not autonomous. Each is a legitimate issue whose *answer* is undetermined.
 
 | | the undetermined part |
 |---|---|
-| **#19** | ambiguity in what "effect" means across models and implementations. Still the **keystone**, but it has split: the **`ecx`** half (per-draw vs scalar reference) is one decision and still blocks the refactor; the **`nsec`** half is now exposed as `anchor` rather than resolved, so only its default needs agreeing. See `02_decisions.md` T7 and `REFACTOR-claude.md` §3.8. |
+| ~~#19~~ | ambiguity in what "effect" means across models and implementations. **Decided 2026-09-04**: the reference is per realisation and `type` is a four-value vocabulary (`absolute`, `relative`, `range`, `direct`). See `02_decisions.md` T9 and `REFACTOR-claude.md` §3.10. The `nsec` half is exposed as `anchor` (§3.8), so only its default is still to agree. Implementation is gated on #20. |
 | #1, #8 | `hormesis_def = "max"` errors, and where it does not error the output is wrong. Largely absorbed by #20: `direction` becomes a property of the result and replaces `hormesis_def`. `REFACTOR-claude.md` §3.6. |
-| #12, #14 | `type = "direct"` returns something unexpected; output shape differs across methods. Needs #19 and #4. |
+| #12, #14 | `type = "direct"` returns something unexpected; output shape differs across methods. Governed by `REFACTOR-claude.md` §3.10 and §3.1; follows #19 and #4. |
 | #3 | `ecx_val` as a proportion rather than a percentage — **breaking**, and needs a deprecation decision. |
 | ~~#4~~ | ~~always return a tibble~~ — **decided 2026-08-19**: yes, a `toxval` tibble subclass. `REFACTOR-claude.md` §3.1. #14 follows from it. |
 | #9 | multiple `ecx_val` values, to match revised `bayesnec` methods. Shape follows #4. |

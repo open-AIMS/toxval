@@ -33,16 +33,29 @@ answered.
 
 | decision | what it decides | issue | status |
 |---|---|---|---|
-| The `ecx` reference | how the reference response is computed | #19 | open |
+| The `ecx` reference | how the reference response is computed | #19 | settled |
 | Direction | increasing versus decreasing responses, and how hormesis relates | #20 | open |
 | The `ecnsec` definition | what the effect reported beside the NSEC is measured against | #49 | settled |
 
-`ecnsec` is the inverse of the `ecx` reference under the same `type`, and
-`nsec()` accepts the arguments `ecx()` accepts, so `type` selects both. Under
-`absolute` the denominator is the control, under `relative` the fitted range,
-and under `direct` `ecnsec` is the reference on the response scale rather than a
-percentage. Decision T8 in `notes/implementation/02_decisions.md` states it in
+**The `ecx` reference (#19).** The reference is computed for each realisation
+from that realisation's own control, and the single reference built from
+posterior medians in `ecx.bnecfit` is deleted. `type` becomes a four-value
+vocabulary naming what the percentage is measured against: `absolute`, the
+control down to zero; `relative`, the control down to the equation's own
+theoretical asymptote; `range`, the control down to the lowest response the curve
+predicts; and `direct`, a response value supplied by the user. `range` is new,
+and it is what `relative` means in the current code, so `relative` changes
+meaning and is deprecated into `range`. Decision T9 and `REFACTOR-claude.md`
+§3.10 state it in full.
+
+**The `ecnsec` definition (#49).** `ecnsec` is the inverse of the `ecx`
+reference under the same `type`, and `nsec()` accepts the arguments `ecx()`
+accepts, so one `type` selects both. Under `direct`, `ecnsec` is the reference
+on the response scale rather than a percentage. Decision T8 and §3.9 state it in
 full.
+
+#19 is settled but presumes #20: the definitions have a decreasing and an
+increasing form, so the direction decision has to land first.
 
 The `nsec` reference does **not** block, because §3.8 exposes it as an argument
 rather than settling it. Only the default has to be agreed, and a default can be

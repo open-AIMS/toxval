@@ -118,3 +118,127 @@ branches were left for #20 rather than realigned here, since #20 retires the
 argument entirely and realigning it first would be work done twice.
 
 ---
+## Session: the ecx reference and the type vocabulary (#19)
+Date: 2026-09-04
+Model: Claude Opus 5 (1M context), claude-opus-5[1m]
+
+### Prompts and Responses
+
+**User:** I posted a comment on 19, resolving the open questions. Can you examine
+them and comment here on any gaps in the logic?
+
+**Claude:** Reviewed the proposed ECx definitions and reported eight gaps, with
+the factual claims checked against `bayesnec` 2.1.3.7 under R 4.6.1 by reading
+the model definitions rather than fitting anything. The measurements that
+mattered: 9 of the 23 equations have a `bot` parameter and 14 do not, and every
+model group mixes the two (`decline` 6 and 8, `all` 9 and 14); `bnec()` fits one
+family across a set, so `manec_example` is gaussian throughout; of the ten
+accepted families, five have no upper bound.
+
+The gaps were: `relative` undefined for a model-averaged fit; the drop-with-a-
+warning branch unreachable under a family-based criterion; `absolute` needing the
+same identifiability guard in the increasing direction; `absolute` using 0 on a
+gaussian fit; `relative` changing meaning without a deprecation path; hormesis
+not being identified by a non-`NA` increasing ECx; the #49 formula table needing
+revision; and asymptote discovery being unspecified for `drc` and `brmsfit`.
+
+**User:** [answered each in turn — amended `relative` to be refused for a
+model-averaged fit unless all models have `bot`; confirmed boundedness is judged
+by family and per equation and accepted that `absolute` and `relative` may use
+different model sets; asked for clarification on the increasing bound; recorded
+that `absolute` on gaussian is intended and follows OECD, citing bayesnec draft
+vignette 7; accepted the deprecation; amended the hormesis wording; queried the
+#49 point; proposed a user-supplied asymptote argument for custom formulae]
+
+**Claude:** Checked the OECD claim and withdrew that gap. `bayesnec`
+`vignette("example7")` and `notes/oecd_flooring_scoping.md` record TG 201's
+`%I_r = (µ_C − µ_T)/µ_C × 100`, which rearranges to `µ_T = µ_C(1 − p/100)` — the
+`absolute` reference — and exceeds 100% for a negative response rather than
+truncating. Two consequences followed rather than objections: the rationale
+belongs in toxval's own documentation, and `ecx_val` must not be capped at 100
+(it is uncapped at `R/ecx.R:285-287`, and that should be deliberate).
+
+Confirmed `drc` resolvability concretely: `fct$names` gives the parameter letters
+and `fct$fixed` which are fixed and to what, with `LL.4()` leaving the lower
+limit `c` free and `LL.3()` fixing it at 0 — which collapses `relative` onto
+`absolute` for the same reason a `bot`-free equation does.
+
+Reported that three points remained. The amendment to `relative` contradicts the
+answer on partial drops for a bounded family, and more substantially does not
+achieve what it was meant to: requiring every component to have `bot` does not
+make the `bot` values agree. The increasing `absolute` bound of 1 breaks for a
+response above 1. The hormesis signature is conditional on `ecx_val` and the
+control.
+
+**User:** [still confused on the model-averaging point]
+
+**Claude:** Restated it with measured numbers from `manec_example`. Both
+components have `bot`, so the amended rule permits the call, yet
+`nec4param` (`bot` −8.42, control 2.17) puts the EC10 reference at 1.11 and
+`ecx4param` (`bot` −5.69, control 2.31) puts it at 1.51 — 36% apart, both
+labelled EC10 relative. Set out three resolutions: accept and document, refuse
+for all model-averaged fits, or define a pooled asymptote. Recommended the first.
+
+Also noted that on this fit `bot` is estimated at −8.42 with a 95% interval of
+−13.58 to −5.68 against an observed response range of roughly 0 to 2.2, so it is
+an extrapolated asymptote and `relative` inherits that uncertainty.
+
+For the increasing bound, showed the failure concretely: control 20 with an
+assumed bound of 1 gives a reference of 18.1, below the control, so an increasing
+ECx would be measured against a decreased reference. Proposed erroring when the
+control is at or above the assumed bound.
+
+**User:** for 3, Accept it and say so. Can you write a follow up comment on 19
+that is human readable that captures these decisions more clearly (leave my
+comment as the human version). Update any of the claude facing things to ensure
+these decisions are recorded.
+
+**Claude:** Read "Accept it and say so" as the first of the three resolutions
+offered for the model-averaging point, since the request for a consolidated
+summary presumes every question answered, and flagged that reading for
+correction. Recorded the decisions.
+
+### Changes made
+
+Branch `issue-19-ecx-reference`, stacked on `issue-49-ecnsec-definition` because
+it rewrites §3.9, which is not yet merged.
+
+- `REFACTOR-claude.md` — new §3.10 stating the decision in full: the per-draw
+  reference, the four-value `type` vocabulary in both directions, `relative` as a
+  component-level quantity with the `manec_example` measurement, the refusal
+  rules, the OECD basis for `absolute` on an unbounded family, the increasing
+  bound and its guard, asymptote discovery for `drc` and `brms`, and the
+  deprecation of `relative` into `range`. §3.1 gains an `asymptote` descriptor
+  column and records that `type` takes four values; §3.9's formula table
+  rewritten to the new vocabulary with `range` added; §2 scope table given a
+  status column.
+- `REFACTOR-human.md` — §2 decision table updated, with a paragraph each for #19
+  and #49 and the statement that #19 is gated on #20.
+- `notes/implementation/02_decisions.md` — decision T9; T7's "`ecx` half still
+  blocks" superseded.
+- `notes/implementation/01_work_queue.md` — Tier 2 rows for #19 and #12/#14.
+- `notes/drafts/issue-19-summary-comment.md` — draft follow-up comment, not
+  posted.
+
+### Reasoning not visible in the diff
+
+**Why `relative` is accepted as a component-level quantity rather than refused.**
+The alternative rules all fail on the same fact: the asymptote is a parameter of
+the equation, so under model averaging the components cannot share one. Refusing
+mixed sets removes some cases without removing the property, and defining a
+pooled asymptote would require deciding what the 14 `bot`-free equations
+contribute to it. §3.8 already accepts exactly this for the NEC, so accepting it
+for `relative` keeps one rule rather than two.
+
+**Why the `ecx` commuting result had to be qualified.** It justified `ecx` taking
+no `anchor` argument, but it was measured under `absolute`, where the reference
+depends only on the draw's own control. Under `relative` the reference also
+depends on which component produced the draw, so the result does not carry over
+and the justification is now type-specific.
+
+**Why `ecx_val` is recorded as deliberately uncapped.** Nothing in the code
+enforces a cap, so the decision is invisible in the diff. TG 201 producing more
+than complete inhibition is the case that requires it, and without the note a
+later reader would add the guard as an obvious omission.
+
+---

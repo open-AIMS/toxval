@@ -80,9 +80,9 @@ that is a useful finding, not a failure.
 **Amended 2026-08-19.** #19 has since split into two halves that behave
 differently:
 
-- The **`ecx`** half — per-draw versus scalar reference — is a single decision
-  and **still blocks** the refactor, because the regression net cannot be locked
-  until it is answered.
+- The **`ecx`** half — per-draw versus scalar reference — was a single decision
+  and blocked the refactor. **Settled 2026-09-04: see T9**, which also settles
+  the `type` vocabulary and supersedes this half of T7.
 - The **`nsec`** half — which control the reference comes from under model
   averaging — is **no longer a blocking decision**. `REFACTOR-claude.md` §3.8
   exposes it as `anchor = c("model", "component", "control")`, so only the
@@ -116,6 +116,48 @@ so it is done with #32.
 reference — is unchanged; `ecnsec` inverts whatever it settles on. The
 `hormesis_def == "max"` branches are retired by #20 rather than realigned here.
 
+## T9 — the `ecx` reference and the `type` vocabulary (#19)
+
+Settled 2026-09-04 (RF), superseding the "still blocks" half of T7. Stated in
+full in `REFACTOR-claude.md` §3.10.
+
+**The reference is computed per realisation**, from that realisation's own
+control. The single reference built from posterior medians in `ecx.bnecfit`
+(`R/ecx.R:146`) is deleted; `ecx.brmsfit` and `bayesnec::ecx.bayesnecfit` already
+compute it per realisation.
+
+**`type` is a four-value vocabulary** naming what the percentage is measured
+against — for a decreasing curve: `absolute`, control → 0; `relative`, control →
+the equation's theoretical asymptote; `range`, control → the minimum predicted
+response over the predictor range; `direct`, a supplied response value. Each has
+an increasing form (§3.10), reached through `drc` and `brms`; `bnec()` continues
+to fit decreasing curves only.
+
+Four points that decide other work:
+
+- **`relative` is a component-level quantity under model averaging.** Components
+  have different asymptotes, so a model-averaged `relative` ECx does not
+  correspond to a single response level. This is accepted and documented, not
+  refused, on the same basis §3.8 records for the NEC. It follows that `ecx`
+  does not commute under `relative`, so the reason `ecx` takes no `anchor`
+  argument covers `absolute`, `range` and `direct` only.
+- **`relative` is refused where the bound is infinite** — an equation with no
+  asymptote parameter fitted with a family that has no natural bound. Error for
+  a single fit; drop with a warning and renormalise for a model-averaged one.
+  The retained equations and weights must be recoverable from the result.
+- **`absolute` uses 0 on an unbounded family deliberately**, following OECD TG
+  201, which lets percent inhibition exceed 100% for a negative response rather
+  than truncating. `ecx_val` is therefore not capped at 100.
+- **`relative` changes meaning**, so it is deprecated into `range` via
+  `lifecycle::deprecate_warn()`, with a NEWS item. 1.0.0 is released.
+
+**Sequencing.** §3.10 presumes the direction framing (#20), so #19 cannot be
+implemented before #20 is settled. T8 (#49) is unaffected — `ecnsec` inverts
+whatever `ecx` does — but §3.9's formula table is rewritten to match the new
+vocabulary.
+
+---
+
 ---
 
 ## Still to decide
@@ -148,6 +190,8 @@ Listed so they are not mistaken for oversights.
   do)*
 - **#49** — `ecnsec` computed from three different definitions across the
   `nsec` methods. **Decided 2026-09-04**: see T8.
+- **#19** — the `ecx` reference and the `type` vocabulary. **Decided
+  2026-09-04**: see T9. #20 remains open and gates its implementation.
 - Filed since: **#43** — `nsec.drc` intervals invert a pointwise confidence band;
   **#45** — scope CRAN readiness, which blocks #39; and **bayesnec #216** —
   model-averaged output is not reproducible.
