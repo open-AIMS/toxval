@@ -72,14 +72,16 @@ prompts/        # session prompt logs (see Section 5)</code></pre>
 <li>
 <strong><code>origin</code></strong> (<code>beckyfisher/toxval</code>) — the personal fork on GitHub. Positron’s Source Control sync (↑↓) pushes/pulls against this remote.</li>
 <li>
-<strong><code>dev</code></strong> is the integration branch. New work branches off <code>dev</code>; PRs go from <code>beckyfisher/toxval</code> into <code>open-AIMS/toxval</code>.</li>
+<strong><code>main</code></strong> is the integration branch in both repos. New work branches off <code>main</code>; PRs go from <code>beckyfisher/toxval</code> into <code>open-AIMS/toxval</code>.</li>
 </ul><div class="section level3">
-<h3 id="keeping-dev-up-to-date-with-upstream">Keeping <code>dev</code> up to date with upstream<a class="anchor" aria-label="anchor" href="#keeping-dev-up-to-date-with-upstream"></a></h3>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">git</span> fetch upstream</span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">git</span> checkout dev</span>
-<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">git</span> merge upstream/main</span>
-<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="fu">git</span> push origin dev</span></code></pre></div>
-<p>Do this before starting any new feature branch.</p>
+<h3 id="keeping-main-up-to-date-with-upstream">Keeping <code>main</code> up to date with upstream<a class="anchor" aria-label="anchor" href="#keeping-main-up-to-date-with-upstream"></a></h3>
+<p>Set the local <code>main</code> to track <code>upstream/main</code>, so a pull follows the authoritative repo rather than the fork:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">git</span> branch <span class="at">-u</span> upstream/main main</span></code></pre></div>
+<p>Then, before starting any new feature branch:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">git</span> fetch upstream</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="fu">git</span> checkout main</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="fu">git</span> merge <span class="at">--ff-only</span> upstream/main</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="fu">git</span> push origin main</span></code></pre></div>
 <hr></div>
 </div>
 <div class="section level2">

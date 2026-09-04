@@ -65,19 +65,26 @@ This repo uses a standard open-source fork workflow:
   Never push directly; contribute only via pull requests from the fork.
 - **`origin`** (`beckyfisher/toxval`) — the personal fork on GitHub.
   Positron’s Source Control sync (↑↓) pushes/pulls against this remote.
-- **`dev`** is the integration branch. New work branches off `dev`; PRs
-  go from `beckyfisher/toxval` into `open-AIMS/toxval`.
+- **`main`** is the integration branch in both repos. New work branches
+  off `main`; PRs go from `beckyfisher/toxval` into `open-AIMS/toxval`.
 
-### Keeping `dev` up to date with upstream
+### Keeping `main` up to date with upstream
+
+Set the local `main` to track `upstream/main`, so a pull follows the
+authoritative repo rather than the fork:
+
+``` bash
+git branch -u upstream/main main
+```
+
+Then, before starting any new feature branch:
 
 ``` bash
 git fetch upstream
-git checkout dev
-git merge upstream/main
-git push origin dev
+git checkout main
+git merge --ff-only upstream/main
+git push origin main
 ```
-
-Do this before starting any new feature branch.
 
 ------------------------------------------------------------------------
 
