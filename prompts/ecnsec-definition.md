@@ -242,3 +242,56 @@ than complete inhibition is the case that requires it, and without the note a
 later reader would add the guard as an obvious omission.
 
 ---
+## Session: direction as a property of the result (#20)
+Date: 2026-09-04
+Model: Claude Opus 5 (1M context), claude-opus-5[1m]
+
+### Prompts and Responses
+
+**User:** yes post the comment and push both branches. I also made a final
+comment on 20 "A curve with no crossing in one direction emits a row with NA. The
+direction was looked for and not found, which is information." I think that has
+no other blocking decisions.
+
+**Claude:** Posted the #19 summary and pushed both branches. Checked #20 against
+`REFACTOR-claude.md` §3.6 rather than agreeing that nothing else was open, and
+found one under-specification that the new §3.10 depends on.
+
+§3.6 stated that the estimator looks for both crossings "of the reference" —
+singular. That does not work for the case #20 exists to support: a monotonic
+increasing response never crosses a reference set below its control, so both
+directions would return `NA`. Each direction needs its own reference.
+
+This is not a new decision. `nsec_multi` already builds two — `reference_dec` at
+`sig_val` and `reference_inc` at `1 - sig_val` (`R/helpers.R:44-59`) — and
+records both under `reference_vals`. Since #20 asks for `nsec_multi`'s behaviour
+to be generalised, the existing implementation settles it. Recorded rather than
+raised as a question. `type = "direct"` is the exception, taking one supplied
+value for both directions.
+
+### Changes made
+
+Same branch, `issue-19-ecx-reference`.
+
+- `REFACTOR-claude.md` §3.6 — the `NA`-row decision recorded in place of the "To
+  pin down" block, and the per-direction reference stated with the `helpers.R`
+  precedent. §2 scope table updated.
+- `REFACTOR-human.md` — §2 table and a paragraph for #20.
+- `notes/implementation/02_decisions.md` — decision T10.
+- `notes/implementation/01_work_queue.md` — Tier 2 rows for #20 and #1/#8.
+- `notes/drafts/issue-20-summary-comment.md` — draft comment, not posted.
+
+### Reasoning not visible in the diff
+
+**Why the per-direction reference was recorded rather than asked about.** There
+is no coherent alternative — a single reference makes the increasing case
+unreachable — and the existing `nsec_multi` code already implements the answer.
+Raising it as an open question would have implied a choice that does not exist.
+
+**Why the hormesis signature is recorded as indicative rather than diagnostic.**
+Whether the increasing crossing exists depends on `ecx_val` and the control
+level, so the same curve is classified differently at different `ecx_val`.
+Hormesis is a shape property of the curve and does not depend on any `ecx_val`,
+so the signature is useful to a reader but must not be implemented as a test.
+
+---

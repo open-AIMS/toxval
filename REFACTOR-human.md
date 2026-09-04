@@ -34,7 +34,7 @@ answered.
 | decision | what it decides | issue | status |
 |---|---|---|---|
 | The `ecx` reference | how the reference response is computed | #19 | settled |
-| Direction | increasing versus decreasing responses, and how hormesis relates | #20 | open |
+| Direction | increasing versus decreasing responses, and how hormesis relates | #20 | settled |
 | The `ecnsec` definition | what the effect reported beside the NSEC is measured against | #49 | settled |
 
 **The `ecx` reference (#19).** The reference is computed for each realisation
@@ -54,8 +54,14 @@ accepts, so one `type` selects both. Under `direct`, `ecnsec` is the reference
 on the response scale rather than a percentage. Decision T8 and §3.9 state it in
 full.
 
-#19 is settled but presumes #20: the definitions have a decreasing and an
-increasing form, so the direction decision has to land first.
+**Direction (#20).** An estimate is sought in both directions every time and
+`direction` is a column of the result, so `hormesis_def` is removed rather than
+repaired. Each direction has its own reference, as `nsec_multi` already does.
+Where a direction has no crossing the row is still returned, with `NA` — the
+direction was looked for and not found, which is information. Decision T10 and
+`REFACTOR-claude.md` §3.6 state it in full.
+
+All three are now settled, so section 4 can start.
 
 The `nsec` reference does **not** block, because §3.8 exposes it as an argument
 rather than settling it. Only the default has to be agreed, and a default can be

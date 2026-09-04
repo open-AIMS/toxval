@@ -34,10 +34,11 @@ shape they come in. Each has its own issue:
 | | what it decides | issue | status |
 |---|---|---|---|
 | Reference semantics | how the reference y-value is computed | #19 | settled — §3.10 |
-| Direction | increasing vs decreasing responses, and how hormesis relates | #20 | open |
+| Direction | increasing vs decreasing responses, and how hormesis relates | #20 | settled — §3.6 |
 | Frequentist intervals | how uncertainty is generated for a non-Bayesian fit | #43 | open |
 
-§3.10 presumes §3.6, so #19 cannot be implemented before #20 is settled.
+§3.10 presumes §3.6. Both are now settled, so §4 is no longer gated on a
+definition; #43 governs frequentist intervals only.
 
 **Sequencing constraint.** The `bayesnec` dependency untangle (#39) shares its
 central abstraction with this plan — see [3.3](#33-single-generic-architecture)
@@ -435,8 +436,19 @@ shape has changed. Two current defects make the retirement easy to justify:
 
 `direction` is a **property of the result, not an argument.** For each curve the
 estimator looks for the first *decreasing* crossing and the first *increasing*
-crossing of the reference over the fitted range, and returns what it finds. If
-there is no crossing of a given direction within range, that estimate is `NA`.
+crossing over the fitted range, and returns what it finds.
+
+**Each direction has its own reference.** A single reference does not work: a
+monotonic increasing response never crosses a reference set below its control,
+so both directions would return `NA` and #20's primary case would fail. For
+`nsec` the references are the `sig_val` and `1 - sig_val` quantiles of the
+control; for `ecx` they are the decreasing and increasing forms in §3.10. The
+exception is `type = "direct"`, where the user supplies one response value and
+both directions are sought against it.
+
+`nsec_multi` already implements this — `R/helpers.R:44-59` builds
+`reference_dec` and `reference_inc` and records both under `reference_vals`.
+Generalising it is what #20 asks for.
 
 This replaces `hormesis_def` as the mechanism for non-monotone curves. A
 hormetic curve simply has both an increasing and a decreasing crossing, and both
@@ -475,9 +487,10 @@ It also:
   filter. Only `type = "lower"` survives as an argument, because it is a
   *selection rule* using `criterion` rather than a filter.
 
-**To pin down:** whether a curve with no crossing in one direction emits a row
-with `NA` or omits the row. Under the column rule the direction was looked for
-and not found, which argues for a row with `NA`.
+**A direction with no crossing emits a row with `NA`**, rather than omitting the
+row. Settled 2026-09-04 (RF) on #20: the direction was looked for and not found,
+which is information. This is the §3.1 column rule — present because meaningful,
+`NA` because unavailable.
 
 ### 3.7 Validation
 

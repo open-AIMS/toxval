@@ -158,6 +158,31 @@ vocabulary.
 
 ---
 
+## T10 — direction is a property of the result (#20)
+
+Settled 2026-09-04 (RF). Stated in full in `REFACTOR-claude.md` §3.6.
+
+An estimate is sought in both directions on every curve and `direction` is a
+column of the result, so there is no `direction` argument and no `auto`
+override. `hormesis_def` is removed rather than repaired: a hormetic curve has
+both an increasing and a decreasing crossing and both are reported. #1 and #8
+close as a consequence.
+
+Two points settled in the discussion:
+
+- **A direction with no crossing emits a row with `NA`**, rather than omitting
+  the row. The direction was looked for and not found, which is information.
+- **Each direction has its own reference.** A single reference would return
+  `NA` in both directions for a monotonic increasing response, which is the
+  case #20 exists to support. `nsec_multi` already builds `reference_dec` and
+  `reference_inc` (`R/helpers.R:44-59`); generalising that is what #20 asks
+  for. `type = "direct"` is the exception, taking one supplied value for both
+  directions.
+
+With T9 and T10 settled, the three decisions gating the refactor are answered.
+#43 (frequentist intervals) remains open but governs uncertainty generation
+rather than any definition.
+
 ---
 
 ## Still to decide
@@ -191,7 +216,9 @@ Listed so they are not mistaken for oversights.
 - **#49** — `ecnsec` computed from three different definitions across the
   `nsec` methods. **Decided 2026-09-04**: see T8.
 - **#19** — the `ecx` reference and the `type` vocabulary. **Decided
-  2026-09-04**: see T9. #20 remains open and gates its implementation.
+  2026-09-04**: see T9.
+- **#20** — direction as a property of the result. **Decided 2026-09-04**: see
+  T10. #1 and #8 close with it.
 - Filed since: **#43** — `nsec.drc` intervals invert a pointwise confidence band;
   **#45** — scope CRAN readiness, which blocks #39; and **bayesnec #216** —
   model-averaged output is not reproducible.
