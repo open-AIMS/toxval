@@ -11,3 +11,5 @@
 ^CLAUDE\.md$
 ^scripts$
 ^.editorconfig$
+^PHASE1_DEPENDENCY_UNTANGLE\.md$
+^notes$
