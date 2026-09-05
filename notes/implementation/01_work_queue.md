@@ -59,6 +59,11 @@ otherwise `bayesnec`'s R CMD check fails on a function that does not exist yet.
 The interim needs a `Remotes:` entry and the two PRs have to land in order. That
 wants a person.
 
+**Constraint for every other session: do not modify `DESCRIPTION` dependencies.**
+The untangle is the only work that changes them, and it changes them in a
+sequence that has to be coordinated across both repositories. A dependency edit
+made anywhere else either pre-empts that sequence or is undone by it.
+
 ~~**No issue exists for this yet. One should be filed.**~~ **Filed: #39.**
 
 **Two things learned since this was written (2026-08-19):**

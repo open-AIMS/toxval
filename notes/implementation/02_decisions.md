@@ -11,9 +11,9 @@ Duplicating either here is what let the branching entry go stale when the
 workflow changed in #50.
 
 **Numbering is stable.** T-numbers are cited from issues, pull requests and the
-plan documents, so they are never reused or renumbered. The list begins at T2
-because T1 recorded the branching workflow and was removed under the scope rule
-above.
+plan documents, so they are never reused or renumbered. T1 (branching), T2
+(formatting) and T5 (Tier 0 is attended) have been removed under the scope rule
+above, so the list begins at T3 and skips T5.
 
 **"Tier" is repo-specific.** `bayesnec` has its own
 `notes/implementation/01_work_queue.md` with its own Tier 1 and Tier 2.
@@ -21,12 +21,6 @@ above.
 (PR #46) and #37 (PR #48). References below mean *toxval* tiers unless stated.
 
 ---
-
-## T2 — Formatting
-
-`air.toml` is present: format every R file touched with `air` before committing.
-This differs from `bayesnec`, which has no `air.toml` and where formatting is
-forbidden.
 
 ## T3 — Guards error, they do not coerce
 
@@ -57,12 +51,6 @@ The narrow claim still holds exactly: `bayesnec` is worse in one specific
 respect, the automatic `crf()` back-transformation, and that must not be adopted
 (T6). Everywhere else, treat its implementation as a comparison point — the
 scripts in `notes/pr42/` exist to make that comparison cheap.
-
-## T5 — Tier 0 is attended
-
-The dependency untangle is not autonomous work. It spans two repositories, the
-PRs must land in order, and `bayesnec` needs a `Remotes:` entry in the interim.
-Do not attempt it, and do not modify `DESCRIPTION` dependencies.
 
 ## T6 — `xform` stays user-supplied
 
