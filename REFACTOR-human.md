@@ -61,7 +61,10 @@ Where a direction has no crossing the row is still returned, with `NA` — the
 direction was looked for and not found, which is information. Decision T10 and
 `REFACTOR-claude.md` §3.6 state it in full.
 
-All three are now settled, so section 4 can start.
+All three are settled. Section 4's phase 0 also required agreeing the default for
+the `nsec` reference, which is exposed as the `anchor` argument rather than fixed
+by the plan (section 3.8). That default was ratified as `"model"` on 5 September,
+so phase 0 is complete and phase 1 can begin.
 
 The `nsec` reference does **not** block, because §3.8 exposes it as an argument
 rather than settling it. Only the default has to be agreed, and a default can be

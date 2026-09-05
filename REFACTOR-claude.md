@@ -37,8 +37,8 @@ shape they come in. Each has its own issue:
 | Direction | increasing vs decreasing responses, and how hormesis relates | #20 | settled — §3.6 |
 | Frequentist intervals | how uncertainty is generated for a non-Bayesian fit | #43 | settled — §3.4 |
 
-§3.10 presumes §3.6. All three are settled, so §4 is no longer gated on a
-definition. The one phase 0 item still open is the `anchor` default (§3.8).
+§3.10 presumes §3.6. All are settled, and the `anchor` default was ratified on
+2026-09-05 (§3.8), so phase 0 is complete.
 
 **Sequencing constraint.** The `bayesnec` dependency untangle (#39) shares its
 central abstraction with this plan — see [3.3](#33-single-generic-architecture)
@@ -566,6 +566,14 @@ For a single (non-averaged) fit `"model"` and `"component"` coincide — there i
 only one model — so the distinction is a model-averaging one.
 
 #### Why `"model"` is the default
+
+**Ratified 2026-09-05 (RF)**; see decision T12. The default was agreed on the
+measurement below, which was taken while `bayesnec` #216 left the
+model-averaged resampling unseeded, so its magnitude varied by about ±0.2
+between runs. #216 closed on 2026-08-21 and the comparison was not re-run
+before ratification. The direction and the mechanism do not depend on it; a
+precise size for the change does, and should be measured before it is quoted
+in NEWS or the documentation.
 
 Measured on `manec_example` (`resolution = 50`, `sig_val = 0.01`), holding the
 curves and sampled draws fixed so only the reference varies:

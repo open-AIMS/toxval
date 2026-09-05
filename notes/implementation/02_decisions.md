@@ -204,6 +204,33 @@ reasoning in the documentation, not a silent substitution. Built in phase 2.
 
 This is an approach rather than a definition, so it did not gate phase 0.
 
+## T12 — `anchor` defaults to `"model"` (#19, `nsec` half)
+
+Ratified 2026-09-05 (RF). Stated in full in `REFACTOR-claude.md` §3.8.
+
+For a model-averaged fit the NSEC threshold is the `sig_val` quantile of the
+**model-averaged** control posterior, so every draw is measured against one
+common response level. `"component"` — each component's own control, the
+strict BMA mixture and what `bayesnec` returns today — remains available, as
+does the reserved `"control"`. Only the default was in question.
+
+**Two consequences to document rather than gloss.** `"model"` gives a higher
+NSEC, which is less protective, and that is the direction needing the most
+justification in a guideline context. It also pools control uncertainty across
+components into one number, so it understates that uncertainty relative to
+`"component"`.
+
+**Attribution.** Agreed on the measurement in §3.8, which was taken while
+`bayesnec` #216 left the model-averaged resampling unseeded; the magnitude
+varied by about ±0.2 between runs. #216 closed on 2026-08-21 and the
+comparison was not re-run before ratification, which was a deliberate call
+(RF). The mechanism and the direction do not depend on it. **A precise size
+for the change must be measured before it is quoted** in NEWS or the
+documentation.
+
+**This completes phase 0.** #19, #20, #49 and the `anchor` default are all
+settled, so `REFACTOR-claude.md` §4 phase 1 can begin.
+
 ---
 
 ## Still to decide
@@ -245,4 +272,5 @@ Listed so they are not mistaken for oversights.
 - Filed since: **#45** — scope CRAN readiness, which blocks #39.
 - **bayesnec #216** — model-averaged output is not reproducible. **Closed
   2026-08-21**, so the `anchor` measurement in `REFACTOR-claude.md` §3.8 can now
-  be reproduced. Agreeing that default is the one phase 0 item still open.
+  be reproduced. The default was ratified without re-running it (T12); the
+  measurement is still owed before any figure is quoted.

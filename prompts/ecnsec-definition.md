@@ -338,3 +338,58 @@ substituting them silently would misrepresent what happened to anyone comparing
 published values.
 
 ---
+## Session: the anchor default (#19, nsec half)
+Date: 2026-09-05
+Model: Claude Opus 5 (1M context), claude-opus-5[1m]
+
+### Prompts and Responses
+
+**User:** [asked where in the issues to look to understand the anchor decision]
+
+**Claude:** Reported that it is hard to find, which is part of the problem: the
+question is posed in the last section of the 19 August comment on #19 and the
+argument for the default is in the follow-up the same day, both inside comments
+about the ECx reference, on an issue now marked settled. Set out the three
+`anchor` values, noted that only the default was in question, and recorded the
+two consequences — `"model"` gives a higher and therefore less protective NSEC,
+and it pools control uncertainty across components. Offered to re-run the
+`manec_example` comparison against the current `bayesnec`, since the original
+measurement predates the fix to #216.
+
+**User:** No, I am happy with the current assessment. And yes model should be the
+default.
+
+**Claude:** Ratified `"model"`. Recorded the decision, and recorded explicitly
+that it rests on the pre-#216 measurement and that a precise size for the change
+is still owed before any figure is quoted.
+
+### Changes made
+
+Same branch, `decisions-19-20-49`.
+
+- `notes/implementation/02_decisions.md` — decision T12, including the
+  attribution of the measurement it rests on; the #216 status line updated to
+  record the measurement still owed.
+- `REFACTOR-claude.md` §3.8 — ratification and the attribution recorded above
+  the existing argument; §2 note updated to state phase 0 is complete.
+- `REFACTOR-human.md` — the sentence about section 4 starting now names the
+  `anchor` default as the fourth phase 0 item and records it as settled.
+- `notes/implementation/01_work_queue.md` — Tier 2 row for #19.
+- `notes/drafts/issue-19-anchor-comment.md` — the comment as posted, filed as its
+  own comment so the decision is findable rather than buried in the ECx thread.
+
+### Reasoning not visible in the diff
+
+**Why the attribution is recorded rather than left implicit.** The measurement
+supporting the default was taken while the model-averaged resampling was
+unseeded, and the author who took it stated at the time that the decision should
+not be ratified on it. Ratifying anyway is a legitimate call, but the record has
+to say which measurement it rests on, or a later reader will treat the ±0.2
+figure as a stable one. What follows from that is narrow and is stated with it:
+the direction and the mechanism stand, a quoted magnitude does not.
+
+**Why it was posted as a separate comment rather than appended.** A decision
+buried inside a comment about a different question is not findable, which is why
+this one took a round trip to locate. Its own comment gives it a home.
+
+---

@@ -218,7 +218,7 @@ Not autonomous. Each is a legitimate issue whose *answer* is undetermined.
 
 | | the undetermined part |
 |---|---|
-| ~~#19~~ | ambiguity in what "effect" means across models and implementations. **Decided 2026-09-04**: the reference is per realisation and `type` is a four-value vocabulary (`absolute`, `relative`, `range`, `direct`). See `02_decisions.md` T9 and `REFACTOR-claude.md` §3.10. The `nsec` half is exposed as `anchor` (§3.8), so only its default is still to agree. Implementation is gated on #20. |
+| ~~#19~~ | ambiguity in what "effect" means across models and implementations. **Decided 2026-09-04**: the reference is per realisation and `type` is a four-value vocabulary (`absolute`, `relative`, `range`, `direct`). See `02_decisions.md` T9 and `REFACTOR-claude.md` §3.10. The `nsec` half is exposed as `anchor` (§3.8), whose default was ratified as `"model"` on 2026-09-05 (T12). |
 | ~~#1, #8~~ | `hormesis_def = "max"` errors, and where it does not error the output is wrong. **Absorbed by #20**, decided 2026-09-04: `direction` is a property of the result and `hormesis_def` is removed. Close both when #20 is implemented. `REFACTOR-claude.md` §3.6. |
 | #12, #14 | `type = "direct"` returns something unexpected; output shape differs across methods. Governed by `REFACTOR-claude.md` §3.10 and §3.1; follows #19 and #4. |
 | #3 | `ecx_val` as a proportion rather than a percentage — **breaking**, and needs a deprecation decision. |
