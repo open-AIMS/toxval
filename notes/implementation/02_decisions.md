@@ -95,15 +95,15 @@ decision (#20): `direction` becomes a property of the result and replaces
 ## T8 — `ecnsec` is defined consistently with `ecx` (#49)
 
 Settled 2026-09-04 (RF). `ecnsec` is computed by three different formulas, one
-per `nsec` method, which agree only for a monotonic decreasing curve with
-`type = "relative"` passed explicitly — not the default.
+per `nsec` method, which agree only for a monotonic decreasing curve with the
+fitted-range denominator selected explicitly — not the default.
 
-**The decision.** `ecnsec` is the inverse of the `ecx` reference construction
-under the same `type`, and `nsec()` accepts the arguments `ecx()` accepts, so
-`type` reaches all three methods rather than being absorbed by `...` in two of
-them. Under `absolute` the denominator is the control, under `relative` the
-fitted range, and under `direct` `ecnsec` is the reference on the response scale
-rather than a percentage.
+**The decision.** `ecnsec` matches `ecx` exactly: it is the inverse of the
+`ecx` reference construction under the same `type`, whatever that construction
+is, and `nsec()` accepts the arguments `ecx()` accepts, so `type` reaches all
+three methods rather than being absorbed by `...` in two of them. There is no
+separate `ecnsec` vocabulary to maintain: the per-`type` definitions are §3.10's
+and are stated once, in §3.9's table.
 
 Stated in full, with the formulas and the per-method changes, in
 `REFACTOR-claude.md` §3.9. Two points from there that affect other work:
@@ -112,9 +112,11 @@ default settings, so phase 1 golden values must be captured for `ecnsec` under
 each `type`; and adding `type` to the `nsec` generic is an S3 signature change,
 so it is done with #32.
 
-**Not settled by this.** The `ecx` half of #19 — per-realisation versus scalar
-reference — is unchanged; `ecnsec` inverts whatever it settles on. The
-`hormesis_def == "max"` branches are retired by #20 rather than realigned here.
+**Independent of #19.** This decision fixes the *relation* between `ecnsec` and
+`ecx`, not the reference construction itself. #19 has since settled that
+construction (T9), redefining `relative` and adding `range`; `ecnsec` follows
+it without this decision changing. The `hormesis_def == "max"` branches are
+retired by #20 rather than realigned here.
 
 ## T9 — the `ecx` reference and the `type` vocabulary (#19)
 

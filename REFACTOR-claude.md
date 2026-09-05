@@ -686,7 +686,8 @@ Consequences elsewhere:
 
 `ecnsec` reports the effect at the NSEC. It is currently computed by three
 different formulas, one per `nsec` method, which agree only for a monotonic
-decreasing curve with `type = "relative"` passed explicitly — not the default.
+decreasing curve with the fitted-range denominator selected explicitly — the
+quantity §3.10 names `range`, and not the default.
 
 `ecx` maps a percentage to a response value; `ecnsec` maps the NSEC reference
 back to an effect. One definition serves both directions:
@@ -702,9 +703,11 @@ back to an effect. One definition serves both directions:
 control, `a` the equation's theoretical asymptote and `p` the percentage. The
 rows are the decreasing forms; the increasing forms follow §3.10.
 
-**These formulas depend on #19.** The `type` vocabulary they use is settled in
-§3.10, which redefines `relative` and adds `range`. Decision T8 — that `ecnsec`
-inverts the `ecx` reference under the same `type` — is independent of it.
+**The `type` vocabulary is §3.10's, not this section's.** T8 fixes only the
+relation — `ecnsec` matches `ecx` exactly, inverting whatever reference `ecx`
+constructs under the same `type`. The rows above are therefore derived from
+§3.10 and change with it; they are restated here only because the inverse form
+is what the `nsec` methods implement.
 
 #### What each method does today
 
