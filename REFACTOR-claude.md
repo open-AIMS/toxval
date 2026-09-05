@@ -35,10 +35,10 @@ shape they come in. Each has its own issue:
 |---|---|---|---|
 | Reference semantics | how the reference y-value is computed | #19 | settled — §3.10 |
 | Direction | increasing vs decreasing responses, and how hormesis relates | #20 | settled — §3.6 |
-| Frequentist intervals | how uncertainty is generated for a non-Bayesian fit | #43 | open |
+| Frequentist intervals | how uncertainty is generated for a non-Bayesian fit | #43 | settled — §3.4 |
 
-§3.10 presumes §3.6. Both are now settled, so §4 is no longer gated on a
-definition; #43 governs frequentist intervals only.
+§3.10 presumes §3.6. All three are settled, so §4 is no longer gated on a
+definition. The one phase 0 item still open is the `anchor` default (§3.8).
 
 **Sequencing constraint.** The `bayesnec` dependency untangle (#39) shares its
 central abstraction with this plan — see [3.3](#33-single-generic-architecture)

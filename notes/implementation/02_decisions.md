@@ -180,8 +180,29 @@ Two points settled in the discussion:
   directions.
 
 With T9 and T10 settled, the three decisions gating the refactor are answered.
-#43 (frequentist intervals) remains open but governs uncertainty generation
-rather than any definition.
+See T11 for #43.
+
+## T11 — frequentist realisations come from a parametric bootstrap (#43)
+
+Settled 2026-09-05 (RF). Stated in full in `REFACTOR-claude.md` §3.4.
+
+Realisations are generated the same way for every model class: posterior draws
+for a Bayesian fit, a parametric bootstrap for a frequentist one — draw
+`n_boot` parameter vectors from `MVN(coef(fit), vcov(fit))` and evaluate the
+mean function at each. There is no second mode in which the three columns of
+`predict(drc_fit, interval = "confidence")` are treated as three curves.
+
+**Why.** Inverting a pointwise confidence band on `y` does not give a valid
+confidence interval on `x`. Coverage is wrong and degrades worst where the
+curve is flat, which for a concentration-response curve is where NSEC sits.
+Two quantities computed that differently should not share the column names
+`conf.low` and `conf.high`.
+
+**Consequence.** `drc` intervals change. They are not a correction of the
+current ones but a different quantity, so this needs a NEWS entry and the
+reasoning in the documentation, not a silent substitution. Built in phase 2.
+
+This is an approach rather than a definition, so it did not gate phase 0.
 
 ---
 
@@ -219,6 +240,9 @@ Listed so they are not mistaken for oversights.
   2026-09-04**: see T9.
 - **#20** — direction as a property of the result. **Decided 2026-09-04**: see
   T10. #1 and #8 close with it.
-- Filed since: **#43** — `nsec.drc` intervals invert a pointwise confidence band;
-  **#45** — scope CRAN readiness, which blocks #39; and **bayesnec #216** —
-  model-averaged output is not reproducible.
+- **#43** — `nsec.drc` intervals invert a pointwise confidence band. **Decided
+  2026-09-05**: see T11.
+- Filed since: **#45** — scope CRAN readiness, which blocks #39.
+- **bayesnec #216** — model-averaged output is not reproducible. **Closed
+  2026-08-21**, so the `anchor` measurement in `REFACTOR-claude.md` §3.8 can now
+  be reproduced. Agreeing that default is the one phase 0 item still open.

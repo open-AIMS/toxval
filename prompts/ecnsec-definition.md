@@ -295,3 +295,46 @@ Hormesis is a shape property of the curve and does not depend on any `ecx_val`,
 so the signature is useful to a reader but must not be implemented as a test.
 
 ---
+## Session: frequentist realisations (#43)
+Date: 2026-09-05
+Model: Claude Opus 5 (1M context), claude-opus-5[1m]
+
+### Prompts and Responses
+
+**User:** for 3, I agree with the approach can you add a short succinct summary on
+the issue that this is decided and update whatever you need to for ayla/the
+plan/claude to know that. For 1, I'm not sure what you need, where do I look in
+the issues to understand what I need to decide?
+
+**Claude:** Recorded #43 as decided. The approach was already specified in
+`REFACTOR-claude.md` §3.4 and needed ratifying rather than deciding, so the
+comment states the decision and the reasoning without restating the section.
+
+Also recorded that `bayesnec` #216 was closed on 2026-08-21, which removes the
+reason the `anchor` default was left unratified — the magnitude of the change
+could not be sized while the model-averaged resampling was unseeded.
+
+### Changes made
+
+Same branch, `decisions-19-20-49`, so PR #51 updates with it.
+
+- `notes/implementation/02_decisions.md` — decision T11; the closing note of T10
+  now points to it; the issue-status list updated for #43 and #216.
+- `REFACTOR-claude.md` — §2 scope table marks #43 settled against §3.4, and the
+  note below it now names the `anchor` default as the one phase 0 item still
+  open.
+- `notes/drafts/issue-43-comment.md` — the comment as posted.
+
+### Reasoning not visible in the diff
+
+**Why #43 did not gate phase 0.** It determines how uncertainty is generated for
+a `drc` fit, not what any estimate means, so the regression net can be captured
+before it lands. The three decisions that did gate phase 0 (#19, #20, #49) all
+change which number an estimator returns.
+
+**Why the consequence is recorded as a change rather than a fix.** The current
+`drc` intervals are a different quantity, not a wrong version of the new one, so
+substituting them silently would misrepresent what happened to anyone comparing
+published values.
+
+---
