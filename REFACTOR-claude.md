@@ -567,13 +567,12 @@ only one model — so the distinction is a model-averaging one.
 
 #### Why `"model"` is the default
 
-**Ratified 2026-09-05 (RF)**; see decision T12. The default was agreed on the
-measurement below, which was taken while `bayesnec` #216 left the
-model-averaged resampling unseeded, so its magnitude varied by about ±0.2
-between runs. #216 closed on 2026-08-21 and the comparison was not re-run
-before ratification. The direction and the mechanism do not depend on it; a
-precise size for the change does, and should be measured before it is quoted
-in NEWS or the documentation.
+**Ratified 2026-09-05 (RF)**; see decision T12.
+
+The figures below were measured while `bayesnec` #216 left the model-averaged
+resampling unseeded, so they varied by about ±0.2 between runs and will not
+reproduce exactly against a current `bayesnec` (#216 closed 2026-08-21). The
+mechanism they illustrate does not depend on the exact values.
 
 Measured on `manec_example` (`resolution = 50`, `sig_val = 0.01`), holding the
 curves and sampled draws fixed so only the reference varies:

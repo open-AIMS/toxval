@@ -216,14 +216,6 @@ common response level. `"component"` — each component's own control, the
 strict BMA mixture and what `bayesnec` returns today — remains available, as
 does the reserved `"control"`. Only the default was in question.
 
-**Attribution.** Agreed on the measurement in §3.8, which was taken while
-`bayesnec` #216 left the model-averaged resampling unseeded; the magnitude
-varied by about ±0.2 between runs. #216 closed on 2026-08-21 and the
-comparison was not re-run before ratification, which was a deliberate call
-(RF). The mechanism does not depend on it. **A precise size
-for the change must be measured before it is quoted** in NEWS or the
-documentation.
-
 **This completes phase 0.** #19, #20, #49 and the `anchor` default are all
 settled, so `REFACTOR-claude.md` §4 phase 1 can begin.
 
