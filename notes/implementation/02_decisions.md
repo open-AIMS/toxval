@@ -90,16 +90,20 @@ differently:
 
 ## T8 — `ecnsec` is defined consistently with `ecx` (#49)
 
-Settled 2026-09-04 (RF). `ecnsec` is computed by three different formulas, one
-per `nsec` method, which agree only for a monotonic decreasing curve with the
-fitted-range denominator selected explicitly — not the default.
+Settled 2026-09-04 (RF).
 
-**The decision.** `ecnsec` matches `ecx` exactly: it is the inverse of the
-`ecx` reference construction under the same `type`, whatever that construction
-is, and `nsec()` accepts the arguments `ecx()` accepts, so `type` reaches all
-three methods rather than being absorbed by `...` in two of them. There is no
-separate `ecnsec` vocabulary to maintain: the per-`type` definitions are §3.10's
-and are stated once, in §3.9's table.
+**The problem this fixes.** `ecnsec` is currently computed by three different
+formulas, one per `nsec` method. They agree only for a monotonic decreasing
+curve, and only when the fitted-range denominator is requested explicitly — the
+default in none of them. That is the defect #49 reports; it describes the code
+as it stands, not the ruling below.
+
+**The decision.** `ecnsec` matches `ecx` exactly. It is the inverse of the `ecx`
+reference construction under the same `type`, whatever that construction is, and
+**it takes `ecx`'s default, `type = "absolute"`**. `nsec()` accepts the arguments
+`ecx()` accepts, so `type` reaches all three methods rather than being absorbed
+by `...` in two of them. There is no separate `ecnsec` vocabulary to maintain:
+the per-`type` definitions are §3.10's and are stated once, in §3.9's table.
 
 Stated in full, with the formulas and the per-method changes, in
 `REFACTOR-claude.md` §3.9. Two points from there that affect other work:

@@ -681,13 +681,15 @@ Consequences elsewhere:
 ### 3.9 The `ecnsec` definition (#49)
 
 **`ecnsec` is the inverse of the `ecx` reference construction under the same
-`type`, and `nsec()` accepts the arguments `ecx()` accepts.** Settled 2026-09-04
-(RF); see #49 and decision T8.
+`type`, it takes `ecx`'s default of `type = "absolute"`, and `nsec()` accepts
+the arguments `ecx()` accepts.** Settled 2026-09-04 (RF); see #49 and decision
+T8.
 
-`ecnsec` reports the effect at the NSEC. It is currently computed by three
-different formulas, one per `nsec` method, which agree only for a monotonic
-decreasing curve with the fitted-range denominator selected explicitly — the
-quantity §3.10 names `range`, and not the default.
+`ecnsec` reports the effect at the NSEC. **The defect being fixed:** it is
+currently computed by three different formulas, one per `nsec` method, which
+agree only for a monotonic decreasing curve and only when the fitted-range
+denominator is requested explicitly — the quantity §3.10 names `range`, and the
+default in none of the three.
 
 `ecx` maps a percentage to a response value; `ecnsec` maps the NSEC reference
 back to an effect. One definition serves both directions:
