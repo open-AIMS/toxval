@@ -64,3 +64,9 @@ docs
 *.DS_Store
 *.Rproj.user
 
+
+# Local working notes on the unattended-session workflow. Not part of the
+# project record and not relevant to collaborators, but they sit in a directory
+# that also holds tracked files, so a directory-level `git add` picks them up.
+notes/implementation/00_protocol.md
+notes/implementation/04_alignment_audit.md
