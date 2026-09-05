@@ -1,12 +1,13 @@
 # Decisions — toxval
 
-Settled 2026-08-14; amended 2026-08-19 after the review of PR #42. A session
-implements these rather than re-opening them.
+Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
+2026-09-04/05 with T8-T12, which settle the definitions gating the refactor. A
+session implements these rather than re-opening them.
 
 **"Tier" is repo-specific.** `bayesnec` has its own
 `notes/implementation/01_work_queue.md` with its own Tier 1 and Tier 2.
-**bayesnec Tier 1 is complete**; **toxval Tier 1 has not started.** References
-below mean *toxval* tiers unless stated.
+**bayesnec Tier 1 is complete**; **toxval Tier 1 is two of twelve done** — #33
+(PR #46) and #37 (PR #48). References below mean *toxval* tiers unless stated.
 
 ---
 
@@ -46,6 +47,9 @@ have produced the wrong answer on #19. Measured across the full fixture suite,
 medians, while `toxval::ecx.brmsfit` and `bayesnec::ecx.bayesnecfit` both compute
 the reference per draw. Two of the three agree and the odd one out is ours.
 
+**Settled 2026-09-04 (T9): adopt the per-draw reference and delete the scalar
+one.**
+
 The narrow claim still holds exactly: `bayesnec` is worse in one specific
 respect, the automatic `crf()` back-transformation, and that must not be adopted
 (T6). Everywhere else, treat its implementation as a comparison point — the
@@ -67,15 +71,16 @@ error). `toxval` avoids this by taking `xform` as a function from the user.
 **Keep it that way.** During Tier 0 there will be a temptation to adopt
 `bayesnec`'s automatic back-transformation for convenience. Do not.
 
-## T7 — #19 is the keystone
+## T7 — #19 was the keystone
 
-Several issues filed as bugs are really about the *definition* of "effect":
-#1, #8, #12 and #14. Resolving #19 resolves the ambiguity behind them, and doing
-them piecemeal first would mean fixing the same thing four times, differently.
+**Superseded 2026-09-04/05 by T9 and T12, which settle both halves of #19.**
+Kept because it records why #1, #8, #12 and #14 were held rather than fixed
+individually: each is really about the *definition* of "effect", and doing them
+piecemeal would have meant fixing the same thing four times, differently.
 
-**#19 is not in the unattended queue** and neither are its dependants. If a
-toxval Tier 1 issue turns out to depend on the definition, stop and say so —
-that is a useful finding, not a failure.
+The definition now exists, so the standing instruction this decision carried —
+stop if a Tier 1 issue turns out to depend on it — no longer applies. Read T9
+for the `ecx` reference and the `type` vocabulary, T12 for the `anchor` default.
 
 **Amended 2026-08-19.** #19 has since split into two halves that behave
 differently:
@@ -84,13 +89,13 @@ differently:
   and blocked the refactor. **Settled 2026-09-04: see T9**, which also settles
   the `type` vocabulary and supersedes this half of T7.
 - The **`nsec`** half — which control the reference comes from under model
-  averaging — is **no longer a blocking decision**. `REFACTOR-claude.md` §3.8
-  exposes it as `anchor = c("model", "component", "control")`, so only the
-  *default* has to be agreed, and a default can be revisited.
+  averaging — was exposed as `anchor = c("model", "component", "control")`
+  (`REFACTOR-claude.md` §3.8) rather than resolved, so only the *default*
+  needed agreeing. **Ratified 2026-09-05 as `"model"`: see T12.**
 
-**#1 and #8** (`hormesis_def = "max"`) are largely absorbed by the direction
-decision (#20): `direction` becomes a property of the result and replaces
-`hormesis_def` rather than fixing it. See `REFACTOR-claude.md` §3.6.
+**#1 and #8** (`hormesis_def = "max"`) are absorbed by the direction decision
+(#20), settled as T10: `direction` becomes a property of the result and
+`hormesis_def` is removed rather than fixed. Close both when #20 is implemented.
 
 ## T8 — `ecnsec` is defined consistently with `ecx` (#49)
 
@@ -153,10 +158,10 @@ Four points that decide other work:
 - **`relative` changes meaning**, so it is deprecated into `range` via
   `lifecycle::deprecate_warn()`, with a NEWS item. 1.0.0 is released.
 
-**Sequencing.** §3.10 presumes the direction framing (#20), so #19 cannot be
-implemented before #20 is settled. T8 (#49) is unaffected — `ecnsec` inverts
-whatever `ecx` does — but §3.9's formula table is rewritten to match the new
-vocabulary.
+**Sequencing.** §3.10 presumes the direction framing (#20), settled the same day
+as T10, so the two are implemented together. T8 (#49) is unaffected — `ecnsec`
+inverts whatever `ecx` does — but §3.9's formula table is rewritten to match the
+new vocabulary.
 
 ---
 
@@ -181,8 +186,8 @@ Two points settled in the discussion:
   for. `type = "direct"` is the exception, taking one supplied value for both
   directions.
 
-With T9 and T10 settled, the three decisions gating the refactor are answered.
-See T11 for #43.
+T9 and T10 answer the two definitions that gated the refactor alongside T8. The
+fourth phase 0 item, the `anchor` default, is T12; #43 is T11.
 
 ## T11 — frequentist realisations come from a parametric bootstrap (#43)
 
@@ -253,10 +258,11 @@ Listed so they are not mistaken for oversights.
   definition agreed before any code.
 - **bayesnec #39** — root-finding in place of the grid, now **toxval #40**. The
   spike referenced elsewhere as `03_uniroot_spike.md` was never written; the
-  code is `bayesnec/ignore/uniroot.R`. The numerical part is tractable, but it
-  forces the `type` reference semantics to be made explicit, which is #19 again.
+  code is `bayesnec/ignore/uniroot.R`. The numerical part is tractable, and the
+  `type` reference semantics it depends on are now explicit (T9,
+  `REFACTOR-claude.md` §3.10), so that blocker is removed.
 
-## Issues — status 2026-08-19
+## Issues — status 2026-09-05
 
 - ~~The **Tier 0 untangle** has no issue.~~ Filed: **#39**.
 - ~~**bayesnec #39** and **#44** have no counterpart here.~~ Filed: **#40**

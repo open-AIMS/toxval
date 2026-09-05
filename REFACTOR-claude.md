@@ -760,12 +760,11 @@ method, so this change is separable from a relocation bug.
   response value under `direct`.
 - **#32.** Adding `type` to the `nsec` generic is an S3 signature change, so the
   two are done together.
-- **Not settled here.** Whether `ecx` builds its reference per realisation or
-  once from the medians is the `ecx` half of #19 and is unchanged by this
-  decision; `ecnsec` inverts whatever construction that settles on. The
-  `hormesis_def == "max"` branches of `ecx_x_relative()` and `ecx_x_absolute()`
-  use `y[1]` and `max(y)` as the top of the range and are retired by §3.6
-  rather than realigned here.
+- **Not decided here.** How `ecx` builds its reference is §3.10's, settled as T9
+  — per realisation, from that realisation's own control. `ecnsec` inverts it
+  without this section restating it. The `hormesis_def == "max"` branches of
+  `ecx_x_relative()` and `ecx_x_absolute()` are retired by §3.6 rather than
+  realigned here.
 
 #### Tests
 
@@ -967,16 +966,16 @@ equations and their renormalised weights must be recoverable from the result.
 
 Two constraints drive the order.
 
-**The `ecx` half of #19 first, on paper.** `ecx.bnecfit` and `ecx.brmsfit`
-implement *different estimators* — a single scalar reference versus a
-per-realisation one. Phase 1 promises that the numbers do not move; this
-determines which ones do. Answering it afterwards means being unable to
-distinguish a refactor bug from a definition change. It does not need code, only
-a decision, and #20 (direction) should be decided with it.
+**The definitions first, on paper.** `ecx.bnecfit` and `ecx.brmsfit` implement
+*different estimators* — a single scalar reference versus a per-realisation one.
+Phase 1 promises that the numbers do not move; the definitions determine which
+ones do. Settling them afterwards would mean being unable to distinguish a
+refactor bug from a definition change. **All of phase 0 is now settled**: T8
+(#49), T9 (#19, `ecx`), T10 (#20), T11 (#43) and T12 (the `anchor` default).
 
 The `nsec` half does **not** block, because
 [3.8](#38-the-nsec-reference-the-anchor-argument) exposes it as `anchor` rather
-than resolving it by fiat. Only the default has to be agreed, and a default can
+than resolving it by fiat. Only the default had to be agreed, and a default can
 be revisited without invalidating anything.
 
 **`toxval` must reach CRAN before #39 can ship.** `bayesnec` is on CRAN;
@@ -1000,7 +999,7 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 
 | # | phase | numbers |
 |---|---|---|
-| 0 | Decide the `ecx` reference (#19) and direction (#20); agree the `anchor` default. No code. | — |
+| 0 | **Done.** The `ecx` reference and `type` vocabulary (#19, T9), direction (#20, T10), `ecnsec` (#49, T8), frequentist realisations (#43, T11) and the `anchor` default (T12). No code. | — |
 | 1 | **Lock a regression net.** Capture current estimates as golden values, split into "must not move" and "expected to move, because #19/#20/#34/xform". The existing `if (FALSE)` tests and `TODO` markers are the starting ledger for the second list. | — |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`; move `bayesnec` to `Suggests`, or out entirely if the tests no longer need it. | `ecx` on `bnecfit` adopts the #19 answer |

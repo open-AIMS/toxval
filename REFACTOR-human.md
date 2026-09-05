@@ -67,8 +67,8 @@ by the plan (section 3.8). That default was ratified as `"model"` on 5 September
 so phase 0 is complete and phase 1 can begin.
 
 The `nsec` reference does **not** block, because §3.8 exposes it as an argument
-rather than settling it. Only the default has to be agreed, and a default can be
-revisited later.
+rather than settling it, so only the default had to be agreed. It was ratified as
+`"model"` on 5 September, and a default can be revisited later.
 
 ## 3. Design decisions
 

@@ -5,8 +5,9 @@ Read `00_protocol.md` first, then `02_decisions.md`.
 > **These are *toxval* tiers.** `bayesnec` has its own
 > `notes/implementation/01_work_queue.md` with its own Tier 1 and Tier 2, and
 > the two cross-reference each other. **bayesnec Tier 1 is complete** (PRs
-> #197–#208, merged 14–17 Aug 2026). **toxval Tier 1 has not started** — as of
-> 2026-08-19 no toxval issue is closed.
+> #197–#208, merged 14–17 Aug 2026). **toxval Tier 1 is two of twelve done** —
+> #33 (PR #46) and #37 (PR #48), both merged; as of 2026-09-05 no other toxval
+> issue is closed.
 
 > **Sequencing against the refactor — read before starting Tier 1.**
 > `REFACTOR-human.md` (PR #42, revised in PR #44) rebuilds the estimator spine,
@@ -76,7 +77,7 @@ the authoritative phase order.
 
 # Tier 1 — the unattended run
 
-## 1. #33 — remove commented-out code in `ecx.R`
+## 1. #33 — remove commented-out code in `ecx.R`  *(done, PR #46)*
 
 Mechanical. Delete the commented blocks. If any block looks like it encodes an
 intention rather than dead code, leave it and say which in the PR.
@@ -85,7 +86,7 @@ intention rather than dead code, leave it and say which in the PR.
 
 ---
 
-## 2. #37 — resolve the TODO markers in `nsec`
+## 2. #37 — resolve the TODO markers in `nsec`  *(done, PR #48)*
 
 The markers were left because it was unclear whether the commented code should
 go. **Decide per block on evidence:** if the behaviour is covered by a test or
