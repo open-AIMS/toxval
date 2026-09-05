@@ -5,8 +5,9 @@ Read `00_protocol.md` first, then `02_decisions.md`.
 > **These are *toxval* tiers.** `bayesnec` has its own
 > `notes/implementation/01_work_queue.md` with its own Tier 1 and Tier 2, and
 > the two cross-reference each other. **bayesnec Tier 1 is complete** (PRs
-> #197–#208, merged 14–17 Aug 2026). **toxval Tier 1 has not started** — as of
-> 2026-08-19 no toxval issue is closed.
+> #197–#208, merged 14–17 Aug 2026). **toxval Tier 1 is two of twelve done** —
+> #33 (PR #46) and #37 (PR #48), both merged; as of 2026-09-05 no other toxval
+> issue is closed.
 
 > **Sequencing against the refactor — read before starting Tier 1.**
 > `REFACTOR-human.md` (PR #42, revised in PR #44) rebuilds the estimator spine,
@@ -58,6 +59,11 @@ otherwise `bayesnec`'s R CMD check fails on a function that does not exist yet.
 The interim needs a `Remotes:` entry and the two PRs have to land in order. That
 wants a person.
 
+**Constraint for every other session: do not modify `DESCRIPTION` dependencies.**
+The untangle is the only work that changes them, and it changes them in a
+sequence that has to be coordinated across both repositories. A dependency edit
+made anywhere else either pre-empts that sequence or is undone by it.
+
 ~~**No issue exists for this yet. One should be filed.**~~ **Filed: #39.**
 
 **Two things learned since this was written (2026-08-19):**
@@ -76,7 +82,7 @@ the authoritative phase order.
 
 # Tier 1 — the unattended run
 
-## 1. #33 — remove commented-out code in `ecx.R`
+## 1. #33 — remove commented-out code in `ecx.R`  *(done, PR #46)*
 
 Mechanical. Delete the commented blocks. If any block looks like it encodes an
 intention rather than dead code, leave it and say which in the PR.
@@ -85,7 +91,7 @@ intention rather than dead code, leave it and say which in the PR.
 
 ---
 
-## 2. #37 — resolve the TODO markers in `nsec`
+## 2. #37 — resolve the TODO markers in `nsec`  *(done, PR #48)*
 
 The markers were left because it was unclear whether the commented code should
 go. **Decide per block on evidence:** if the behaviour is covered by a test or
@@ -218,13 +224,13 @@ Not autonomous. Each is a legitimate issue whose *answer* is undetermined.
 
 | | the undetermined part |
 |---|---|
-| **#19** | ambiguity in what "effect" means across models and implementations. Still the **keystone**, but it has split: the **`ecx`** half (per-draw vs scalar reference) is one decision and still blocks the refactor; the **`nsec`** half is now exposed as `anchor` rather than resolved, so only its default needs agreeing. See `02_decisions.md` T7 and `REFACTOR-claude.md` §3.8. |
-| #1, #8 | `hormesis_def = "max"` errors, and where it does not error the output is wrong. Largely absorbed by #20: `direction` becomes a property of the result and replaces `hormesis_def`. `REFACTOR-claude.md` §3.6. |
-| #12, #14 | `type = "direct"` returns something unexpected; output shape differs across methods. Needs #19 and #4. |
+| ~~#19~~ | ambiguity in what "effect" means across models and implementations. **Decided 2026-09-04**: the reference is per realisation and `type` is a four-value vocabulary (`absolute`, `relative`, `range`, `direct`). See `02_decisions.md` T9 and `REFACTOR-claude.md` §3.10. The `nsec` half is exposed as `anchor` (§3.8), whose default was ratified as `"model"` on 2026-09-05 (T12). |
+| ~~#1, #8~~ | `hormesis_def = "max"` errors, and where it does not error the output is wrong. **Absorbed by #20**, decided 2026-09-04: `direction` is a property of the result and `hormesis_def` is removed. Close both when #20 is implemented. `REFACTOR-claude.md` §3.6. |
+| #12, #14 | `type = "direct"` returns something unexpected; output shape differs across methods. Governed by `REFACTOR-claude.md` §3.10 and §3.1; follows #19 and #4. |
 | #3 | `ecx_val` as a proportion rather than a percentage — **breaking**, and needs a deprecation decision. |
 | ~~#4~~ | ~~always return a tibble~~ — **decided 2026-08-19**: yes, a `toxval` tibble subclass. `REFACTOR-claude.md` §3.1. #14 follows from it. |
 | #9 | multiple `ecx_val` values, to match revised `bayesnec` methods. Shape follows #4. |
-| #20 | increasing versus decreasing responses; only `nsec_multi` supports both today. |
+| ~~#20~~ | increasing versus decreasing responses. **Decided 2026-09-04**: `direction` is a column of the result, each direction has its own reference, and a direction with no crossing returns `NA`. See `02_decisions.md` T10 and `REFACTOR-claude.md` §3.6. |
 | #17, #18, #25 | NOEC, model-averaged N(S)EC, N(S)EC. New estimators, each needing a definition agreed before code. |
 | #21 | `glm` and other model classes. Naturally follows Tier 0, since that is what makes the estimator class-agnostic. |
 | #22 | whether `toxval` should include model-fitting wrappers at all. A scope question for the author. |

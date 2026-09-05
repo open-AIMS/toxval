@@ -29,13 +29,16 @@ The refactor has three goals:
 
 **Out of scope but adjacent.** Three decisions have to be made *before* or
 *alongside* this work because they determine what the numbers are, not just what
-shape they come in. Each has its own issue; none is settled here:
+shape they come in. Each has its own issue:
 
-| | what it decides | issue |
-|---|---|---|
-| Reference semantics | how the reference y-value is computed | #19 |
-| Direction | increasing vs decreasing responses, and how hormesis relates | #20 |
-| Frequentist intervals | how uncertainty is generated for a non-Bayesian fit | #43 |
+| | what it decides | issue | status |
+|---|---|---|---|
+| Reference semantics | how the reference y-value is computed | #19 | settled — §3.10 |
+| Direction | increasing vs decreasing responses, and how hormesis relates | #20 | settled — §3.6 |
+| Frequentist intervals | how uncertainty is generated for a non-Bayesian fit | #43 | settled — §3.4 |
+
+§3.10 presumes §3.6. All are settled, and the `anchor` default was ratified on
+2026-09-05 (§3.8), so phase 0 is complete.
 
 **Sequencing constraint.** The `bayesnec` dependency untangle (#39) shares its
 central abstraction with this plan — see [3.3](#33-single-generic-architecture)
@@ -68,15 +71,23 @@ against every metric it appears for:
 
 - `group` — `ecx`, `nsec`, `n(s)ec`; one row per level, when grouped
 - `response` — `ecx`, `nsec`, `n(s)ec`; one row per response, for multivariate fits
-- `ecx_val`, `type` — `ecx`
+- `ecx_val` — `ecx`
+- `type` — `ecx`, `nsec`
 - `sig_val`, `anchor` — `nsec`, `n(s)ec`
 - `control` — `ecx`, `nsec`
 - `reference` — `ecx`, `nsec`
+- `asymptote` — `ecx`, `nsec`; `NA` where `type` does not use one (§3.10)
 - `ecnsec`, `ecnsec.low`, `ecnsec.high` — `nsec`
 
-`control` is reported for `nsec` even though the NSEC itself does not use it.
-`ecnsec` is expressed as a percentage change from the control, so without the
-control value the reported percentage cannot be interpreted.
+`control` is reported for `nsec` even though the NSEC itself does not use it,
+because under `type = "absolute"` the control is the denominator of `ecnsec`
+and the percentage cannot be interpreted without it.
+
+`type` appears for `nsec` as well as `ecx` because it selects the `ecnsec`
+definition (#49, decision T8), and with it the units of the `ecnsec` columns:
+a percentage under `absolute`, `relative` and `range`, a response value under
+`direct`. Without the column those units are invisible in the result. `type`
+takes four values; see §3.10 for the vocabulary.
 
 Optional column:
 
@@ -425,8 +436,19 @@ shape has changed. Two current defects make the retirement easy to justify:
 
 `direction` is a **property of the result, not an argument.** For each curve the
 estimator looks for the first *decreasing* crossing and the first *increasing*
-crossing of the reference over the fitted range, and returns what it finds. If
-there is no crossing of a given direction within range, that estimate is `NA`.
+crossing over the fitted range, and returns what it finds.
+
+**Each direction has its own reference.** A single reference does not work: a
+monotonic increasing response never crosses a reference set below its control,
+so both directions would return `NA` and #20's primary case would fail. For
+`nsec` the references are the `sig_val` and `1 - sig_val` quantiles of the
+control; for `ecx` they are the decreasing and increasing forms in §3.10. The
+exception is `type = "direct"`, where the user supplies one response value and
+both directions are sought against it.
+
+`nsec_multi` already implements this — `R/helpers.R:44-59` builds
+`reference_dec` and `reference_inc` and records both under `reference_vals`.
+Generalising it is what #20 asks for.
 
 This replaces `hormesis_def` as the mechanism for non-monotone curves. A
 hormetic curve simply has both an increasing and a decreasing crossing, and both
@@ -465,9 +487,10 @@ It also:
   filter. Only `type = "lower"` survives as an argument, because it is a
   *selection rule* using `criterion` rather than a filter.
 
-**To pin down:** whether a curve with no crossing in one direction emits a row
-with `NA` or omits the row. Under the column rule the direction was looked for
-and not found, which argues for a row with `NA`.
+**A direction with no crossing emits a row with `NA`**, rather than omitting the
+row. Settled 2026-09-04 (RF) on #20: the direction was looked for and not found,
+which is information. This is the §3.1 column rule — present because meaningful,
+`NA` because unavailable.
 
 ### 3.7 Validation
 
@@ -543,6 +566,13 @@ For a single (non-averaged) fit `"model"` and `"component"` coincide — there i
 only one model — so the distinction is a model-averaging one.
 
 #### Why `"model"` is the default
+
+**Ratified 2026-09-05 (RF)**; see decision T12.
+
+The figures below were measured while `bayesnec` #216 left the model-averaged
+resampling unseeded, so they varied by about ±0.2 between runs and will not
+reproduce exactly against a current `bayesnec` (#216 closed 2026-08-21). The
+mechanism they illustrate does not depend on the exact values.
 
 Measured on `manec_example` (`resolution = 50`, `sig_val = 0.01`), holding the
 curves and sampled draws fixed so only the reference varies:
@@ -647,20 +677,306 @@ Consequences elsewhere:
   definition rather than being an inconsistency, but should be stated wherever
   `n(s)ec` is documented (#25).
 
+### 3.9 The `ecnsec` definition (#49)
+
+**`ecnsec` is the inverse of the `ecx` reference construction under the same
+`type`, it takes `ecx`'s default of `type = "absolute"`, and `nsec()` accepts
+the arguments `ecx()` accepts.** Settled 2026-09-04 (RF); see #49 and decision
+T8.
+
+`ecnsec` reports the effect at the NSEC. **The defect being fixed:** it is
+currently computed by three different formulas, one per `nsec` method, which
+agree only for a monotonic decreasing curve and only when the fitted-range
+denominator is requested explicitly — the quantity §3.10 names `range`, and the
+default in none of the three.
+
+`ecx` maps a percentage to a response value; `ecnsec` maps the NSEC reference
+back to an effect. One definition serves both directions:
+
+| `type` | `ecx` reference | `ecnsec` |
+|---|---|---|
+| `absolute` | `y[1] - y[1] * (p/100)` | `(1 - R / y[1]) * 100` |
+| `relative` | `y[1] - (y[1] - a) * (p/100)` | `(1 - (R - a) / (y[1] - a)) * 100` |
+| `range` | `y[1] - (y[1] - min(y)) * (p/100)` | `(1 - (R - min(y)) / (y[1] - min(y))) * 100` |
+| `direct` | `p`, a response value | `R`, the reference on the response scale |
+
+`R` is the NSEC reference, `y` one realisation's fitted curve, `y[1]` the
+control, `a` the equation's theoretical asymptote and `p` the percentage. The
+rows are the decreasing forms; the increasing forms follow §3.10.
+
+**The `type` vocabulary is §3.10's, not this section's.** T8 fixes only the
+relation — `ecnsec` matches `ecx` exactly, inverting whatever reference `ecx`
+constructs under the same `type`. The rows above are therefore derived from
+§3.10 and change with it; they are restated here only because the inverse form
+is what the `nsec` methods implement.
+
+#### What each method does today
+
+- **`nsec.bnecfit`, `type = "absolute"`** (`R/nsec.R:138`) already implements
+  this. Unchanged.
+- **`nsec.bnecfit`, `type = "relative"`** (`R/nsec.R:110-115`) takes the top and
+  bottom of the range from `p_samples[, 1]` and `p_samples[, ncol]` — the curve
+  endpoints — where `ecx_x_relative()` uses `range(y)`. The two agree only for a
+  monotonic curve. It changes to `range(y)`, which also removes a monotonicity
+  assumption that `hormesis_def` already contradicts.
+- **`nsec.brmsfit`** (`R/nsec.R:232-234`, `:273-275`) and **`nsec.drc`**
+  (`R/nsec.R:434-436`) apply the relative formula unconditionally and have no
+  `type` argument — it is absorbed by `...` and ignored, the same defect §3.5
+  records for `posterior` on `nsec.drc`. They gain `type`, defaulting to
+  `"absolute"` to match `ecx`; their present formula becomes the `relative`
+  branch.
+
+The three `apply()` blocks are replaced by one helper taking the realisation
+matrix, the reference and `type`.
+
+#### `type = "direct"` has no interval
+
+The `nsec` reference is a scalar across realisations —
+`quantile(control_posterior, sig_val)`, `R/nsec.R:117-121`. `ecnsec` varies
+between realisations only through its denominator, which is per-realisation.
+Under `direct` there is no denominator, so `ecnsec` equals the `reference`
+column and `ecnsec.low` and `ecnsec.high` are `NA`.
+
+`NA` rather than bounds equal to the estimate: equal bounds assert an interval
+of zero width, where the intent is that no interval is defined. This is the
+§3.1 column rule — present because meaningful for the metric, `NA` because
+unavailable for this `type` — and matches `control` under `type = "direct"`.
+
+#### Change at default settings
+
+For a decreasing curve with a non-negative minimum,
+`(R - min) / (max - min) <= R / y[1]`, so the relative percentage is always the
+larger of the two. `nsec.brmsfit` and `nsec.drc` will therefore report a
+**smaller** `ecnsec` than they do now at defaults. This is algebra; no fixture
+was run to size it. The NSEC estimate itself does not change, only the
+percentage reported beside it.
+
+Phase 1 golden values must be captured for `ecnsec` under each `type` on each
+method, so this change is separable from a relocation bug.
+
+#### Consequences elsewhere
+
+- **`type` becomes a descriptor column for `nsec`** (§3.1). Without it the units
+  of `ecnsec` are invisible — a percentage under `absolute` and `relative`, a
+  response value under `direct`.
+- **#32.** Adding `type` to the `nsec` generic is an S3 signature change, so the
+  two are done together.
+- **Not decided here.** How `ecx` builds its reference is §3.10's, settled as T9
+  — per realisation, from that realisation's own control. `ecnsec` inverts it
+  without this section restating it. The `hormesis_def == "max"` branches of
+  `ecx_x_relative()` and `ecx_x_absolute()` are retired by §3.6 rather than
+  realigned here.
+
+#### Tests
+
+`tests/testthat/test-nsec.R`, using the fixtures in `tests/testthat/setup.R`
+rather than fitting anything new. Assert that `bnecfit`, `brmsfit` and `drc`
+fits of the same monotonic curve return equal `ecnsec` at default settings, and
+add a hormetic curve as the edge case, where the endpoint and `range(y)` forms
+diverge. Requested on #49.
+
+### 3.10 The `ecx` reference and the `type` vocabulary (#19)
+
+**The reference is computed per realisation, and `type` is a four-value
+vocabulary naming what the percentage is measured against.** Settled 2026-09-04
+(RF) on #19. This section states the decision; the discussion is on the issue.
+
+These definitions presume §3.6 — an estimate is sought in both directions every
+time and `direction` is a property of the result. `type` therefore has a
+decreasing and an increasing form, and the increasing form is reached through
+`drc` and `brms` fits. `bnec()` fits decreasing curves only and that does not
+change.
+
+#### The reference is per realisation
+
+`ecx.bnecfit` (`R/ecx.R:146`) builds one scalar reference from medians:
+
+```r
+reference <- median(control_posterior) - (median(dif_valsC) * (ecx_val / 100))
+```
+
+`ecx.brmsfit` (`R/ecx.R:339`) and `bayesnec::ecx.bayesnecfit` build it from each
+realisation's own control. These are different estimators: control uncertainty
+propagates into the interval in the second and not the first. Two of the three
+implementations already compute it per realisation, including the one on CRAN.
+
+**Adopt the per-realisation reference and delete the scalar one.** Measured
+across the six fixtures on #19, the point estimates differ by 0.3% to 2% and the
+interval bounds by up to 50% — the lower bound, which is the end used for a
+protective concentration.
+
+#### The `type` vocabulary
+
+The control is the predicted response at the lowest concentration in the series.
+`p` is `ecx_val`; `y` is one realisation's fitted curve over the predictor range.
+
+| `type` | decreasing | increasing |
+|---|---|---|
+| `absolute` *(default)* | control → 0 | control → the upper bound (1, or the family's) |
+| `relative` | control → the equation's theoretical lower asymptote | control → the equation's theoretical upper asymptote |
+| `range` | control → the minimum predicted response over the predictor range | control → the maximum predicted response over the predictor range |
+| `direct` | the supplied response value, no proportional change | as decreasing |
+
+`range` is new. `direct` is unchanged. `absolute` is unchanged for decreasing
+responses.
+
+#### `relative` and identifiability
+
+The asymptote is the equation's own theoretical limit:
+
+- the fitted asymptote parameter where the equation has one — `bot` decreasing,
+  `top` increasing;
+- otherwise the family's bound, which for the 14 `bot`-free `bayesnec`
+  equations is 0, since those curves tend to zero: `nec3param`, `nechorme`,
+  `necsigm`, `neclin`, `neclinhorme`, `nechormepwr`, `nechormepwr01`, `ecxlin`,
+  `ecxexp`, `ecxsigm`, `ecxwb1p3`, `ecxwb2p3`, `ecxll3`, `ecxhormebc4`. The
+  nine with `bot` are `nec4param`, `nechorme4`, `nechorme4pwr`, `ecx4param`,
+  `ecxwb1`, `ecxwb2`, `ecxll5`, `ecxll4`, `ecxhormebc5`.
+
+Where neither exists the bound is infinite and `relative` is undefined.
+**Boundedness is judged by family and per equation**, so an equation without an
+asymptote parameter fitted with a family that has no natural bound is the case
+that fails. Of the ten families `bnec()` accepts, `gaussian`, `Gamma`,
+`poisson`, `negbinomial` and `hurdle_gamma` have no upper bound and only
+`gaussian` has no lower bound.
+
+- **Single fit:** error, naming the reason — the bound is infinite, so the
+  percentage has no denominator.
+- **Model-averaged fit:** drop the affected equations with a warning naming
+  them, renormalise the weights, and proceed on the rest.
+
+A dropped set is a different model set, so `ecx(fit, type = "absolute")` and
+`ecx(fit, type = "relative")` on one object may be computed from different
+components. That is intended. It is only interpretable if the output records
+which equations contributed and at what weight — the same rule the `drc`
+Buckland case established, that the candidate set is fixed once for the whole
+estimate and stated.
+
+#### `relative` is a component-level quantity
+
+Under model averaging the components have different asymptotes, so a requested
+percentage lands at a different response level in each. Measured on
+`manec_example` (`bayesnec` 2.1.3.7, R 4.6.1; posterior medians):
+
+| | weight | `bot` | control | EC10 reference |
+|---|---|---|---|---|
+| `nec4param` | 0.827 | −8.42 | 2.17 | **1.11** |
+| `ecx4param` | 0.173 | −5.69 | 2.31 | **1.51** |
+
+Both components have `bot`, so no drop occurs, and the two EC10 references are
+36% apart. **This is accepted rather than refused.** `relative` is defined
+against a parameter of the equation, so it is inherently a component-level
+quantity in the way §3.8 already records for the NEC: "a NEC is a parameter, so
+it is inherently a `component`-style mixture". Requiring every component to have
+an asymptote parameter would not change this, because the values still differ.
+
+Nothing extra is implemented — the per-realisation computation already uses each
+realisation's own asymptote. Two things follow:
+
+- **Document it** where `relative` is defined. A model-averaged `relative` ECx
+  does not correspond to a single response level.
+- **`ecx` does not commute under `relative`.** The measurement on #19 showing
+  that computing on the averaged curve and computing per component then mixing
+  agree was made under `absolute`, where the reference is a function of the
+  realisation's own control. Under `relative` the reference also depends on
+  which component produced the realisation. So the reason `ecx` takes no
+  `anchor` argument (§3.8) covers `absolute`, `range` and `direct` only.
+
+**Caution to document.** On `manec_example` the `nec4param` `bot` is −8.42 with
+a 95% interval of −13.58 to −5.68, against an observed response range of roughly
+0 to 2.2. It is an extrapolated asymptote rather than an estimated feature of
+the data, and `relative` inherits that uncertainty in full. `absolute` does not,
+because 0 is fixed.
+
+#### `absolute` uses 0 on an unbounded family, deliberately
+
+`gaussian` has no lower bound, but `absolute` still sets the reference at
+control → 0. This follows OECD TG 201, which defines percent inhibition as
+`%I_r = (µ_C − µ_T)/µ_C × 100` — algebraically `µ_T = µ_C(1 − p/100)`, the
+`absolute` reference — and lets it exceed 100% when `µ_T < 0` rather than
+truncating. See `bayesnec` `vignette("example7")` for the context.
+
+**Consequence: `ecx_val` is not capped at 100.** More than complete inhibition
+is the defined behaviour for a response that goes negative. It is uncapped today
+(`R/ecx.R:285-287` checks only that it is numeric and single-valued); that must
+stay, and be documented, so it is not later read as a missing guard.
+
+#### The increasing upper bound
+
+Where the family has no upper bound, `absolute` assumes 1, on the basis that an
+increasing response reached through `drc` or `brms` is usually percent
+inhibition or another proportion.
+
+**Guard: error when the control is at or above the assumed upper bound.** With a
+control of 20 and an assumed bound of 1 the reference is
+`20 + (1 − 20) × 0.10 = 18.1`, below the control — an increasing ECx measured
+against a decreased reference, returned without complaint. One comparison
+catches it, and it never fires on proportion data.
+
+#### Locating the asymptote on a `drc` or `brmsfit` object
+
+`drc` exposes it. `fit$fct$names` gives the parameter letters and
+`fit$fct$fixed` which are fixed and to what: on `LL.4()` the lower limit `c` is
+free, and on `LL.3()` it is fixed at 0. The letters are positional convention
+rather than labelled roles, so this needs a lookup keyed on `fit$fct$name`
+covering the families in scope (`LL.*`, `W1.*`, `W2.*`, `BC.*`, `LN.*`),
+written once and tested.
+
+`LL.3()` fixing the lower limit at 0 collapses `relative` onto `absolute` for
+exactly the reason a `bot`-free `bayesnec` equation does, so the two engines
+agree without special-casing.
+
+For a user-written `brms` non-linear formula there is no way to know which
+parameter is the asymptote. **Add an argument by which the user names the
+parameter or supplies a value, and refuse `relative` when it is absent**, with a
+message naming the argument.
+
+#### `relative` changes meaning
+
+`ecx_x_relative()` (`R/ecx.R:181-206`) currently computes `max(y)` → `min(y)`.
+That behaviour maps onto the new **`range`**, not the new `relative`. Deprecate
+via `lifecycle::deprecate_warn()` pointing at `range`, and state in the message
+that it is not an exact equivalent: the old form takes `max(y)` as the top of
+the span and `range` takes the control, which differ for a non-monotonic curve.
+NEWS item required; 1.0.0 is released.
+
+#### Output
+
+Per the transparency answer on #19, the implied reference points are columns,
+not prose. §3.1 already specifies `control` and `reference`; add **`asymptote`**,
+present for `ecx` and `nsec`, `NA` where `type` does not use one (`absolute`,
+`direct`).
+
+Where `relative` drops equations from a model-averaged set, the retained
+equations and their renormalised weights must be recoverable from the result.
+
+#### Consequences elsewhere
+
+- **§3.9 (`ecnsec`, #49).** Its formula table was written against the current
+  meaning of `relative`. The existing `relative` row becomes the `range` row and
+  `relative` gets a new one. Decision T8 itself is unchanged: `ecnsec` inverts
+  whatever `ecx` does, under the same `type`.
+- **§3.1.** `type` takes four values, and `asymptote` joins the descriptor
+  columns.
+- **#12, #14.** `type = "direct"` returning something unexpected, and output
+  shape differing across methods, are governed by this section and §3.1.
+- **§3.6 (#20).** These definitions presume the direction framing. #19 cannot be
+  implemented before #20 is settled.
+
 ## 4. Phased implementation
 
 Two constraints drive the order.
 
-**The `ecx` half of #19 first, on paper.** `ecx.bnecfit` and `ecx.brmsfit`
-implement *different estimators* — a single scalar reference versus a
-per-realisation one. Phase 1 promises that the numbers do not move; this
-determines which ones do. Answering it afterwards means being unable to
-distinguish a refactor bug from a definition change. It does not need code, only
-a decision, and #20 (direction) should be decided with it.
+**The definitions first, on paper.** `ecx.bnecfit` and `ecx.brmsfit` implement
+*different estimators* — a single scalar reference versus a per-realisation one.
+Phase 1 promises that the numbers do not move; the definitions determine which
+ones do. Settling them afterwards would mean being unable to distinguish a
+refactor bug from a definition change. **All of phase 0 is now settled**: T8
+(#49), T9 (#19, `ecx`), T10 (#20), T11 (#43) and T12 (the `anchor` default).
 
 The `nsec` half does **not** block, because
 [3.8](#38-the-nsec-reference-the-anchor-argument) exposes it as `anchor` rather
-than resolving it by fiat. Only the default has to be agreed, and a default can
+than resolving it by fiat. Only the default had to be agreed, and a default can
 be revisited without invalidating anything.
 
 **`toxval` must reach CRAN before #39 can ship.** `bayesnec` is on CRAN;
@@ -684,7 +1000,7 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 
 | # | phase | numbers |
 |---|---|---|
-| 0 | Decide the `ecx` reference (#19) and direction (#20); agree the `anchor` default. No code. | — |
+| 0 | **Done.** The `ecx` reference and `type` vocabulary (#19, T9), direction (#20, T10), `ecnsec` (#49, T8), frequentist realisations (#43, T11) and the `anchor` default (T12). No code. | — |
 | 1 | **Lock a regression net.** Capture current estimates as golden values, split into "must not move" and "expected to move, because #19/#20/#34/xform". The existing `if (FALSE)` tests and `TODO` markers are the starting ledger for the second list. | — |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`; move `bayesnec` to `Suggests`, or out entirely if the tests no longer need it. | `ecx` on `bnecfit` adopts the #19 answer |
