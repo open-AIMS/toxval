@@ -4,20 +4,23 @@ Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
 2026-09-04/05 with T8-T12, which settle the definitions gating the refactor. A
 session implements these rather than re-opening them.
 
+**Scope.** This file records decisions about the **package** — what the code
+does and why. Workflow is not recorded here: branching, remotes and review live
+in `CLAUDE.md`, and the unattended-session protocol is a local working note.
+Duplicating either here is what let the branching entry go stale when the
+workflow changed in #50.
+
+**Numbering is stable.** T-numbers are cited from issues, pull requests and the
+plan documents, so they are never reused or renumbered. The list begins at T2
+because T1 recorded the branching workflow and was removed under the scope rule
+above.
+
 **"Tier" is repo-specific.** `bayesnec` has its own
 `notes/implementation/01_work_queue.md` with its own Tier 1 and Tier 2.
 **bayesnec Tier 1 is complete**; **toxval Tier 1 is two of twelve done** — #33
 (PR #46) and #37 (PR #48). References below mean *toxval* tiers unless stated.
 
 ---
-
-## T1 — Branching and review
-
-Branch per issue off `main`, push to `origin` (`beckyfisher/toxval`), PR into
-`open-AIMS/toxval` **`main`**. Never push to `upstream`. Sessions do not merge.
-
-**Amended 2026-09-04.** This said "off `dev` (fork-only integration branch)".
-`dev` was dropped in #50; `main` is the integration branch in both repos.
 
 ## T2 — Formatting
 
