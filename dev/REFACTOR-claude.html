@@ -51,20 +51,25 @@
 <li>consolidate argument validation on <code>chk</code>
 </li>
 <li>remove duplication, dead code, and fix the known inconsistencies</li>
-</ul><p><strong>Out of scope but adjacent.</strong> Three decisions have to be made <em>before</em> or <em>alongside</em> this work because they determine what the numbers are, not just what shape they come in. Each has its own issue; none is settled here:</p>
-<table class="table"><colgroup><col width="33%"><col width="33%"><col width="33%"></colgroup><thead><tr><th></th>
+</ul><p><strong>Out of scope but adjacent.</strong> Three decisions have to be made <em>before</em> or <em>alongside</em> this work because they determine what the numbers are, not just what shape they come in. Each has its own issue:</p>
+<table class="table"><colgroup><col width="25%"><col width="25%"><col width="25%"><col width="25%"></colgroup><thead><tr><th></th>
 <th>what it decides</th>
 <th>issue</th>
+<th>status</th>
 </tr></thead><tbody><tr><td>Reference semantics</td>
 <td>how the reference y-value is computed</td>
 <td>#19</td>
+<td>settled — §3.10</td>
 </tr><tr><td>Direction</td>
 <td>increasing vs decreasing responses, and how hormesis relates</td>
 <td>#20</td>
+<td>settled — §3.6</td>
 </tr><tr><td>Frequentist intervals</td>
 <td>how uncertainty is generated for a non-Bayesian fit</td>
 <td>#43</td>
-</tr></tbody></table><p><strong>Sequencing constraint.</strong> The <code>bayesnec</code> dependency untangle (#39) shares its central abstraction with this plan — see <a href="#id_33-single-generic-architecture">3.3</a> — and has a hard ordering requirement against it. See <a href="#id_4-phased-implementation">4. Phased implementation</a>.</p>
+<td>settled — §3.4</td>
+</tr></tbody></table><p>§3.10 presumes §3.6. All are settled, and the <code>anchor</code> default was ratified on 2026-09-05 (§3.8), so phase 0 is complete.</p>
+<p><strong>Sequencing constraint.</strong> The <code>bayesnec</code> dependency untangle (#39) shares its central abstraction with this plan — see <a href="#id_33-single-generic-architecture">3.3</a> — and has a hard ordering requirement against it. See <a href="#id_4-phased-implementation">4. Phased implementation</a>.</p>
 </div>
 <div class="section level2">
 <h2 id="id_3-design-decisions">3. Design decisions<a class="anchor" aria-label="anchor" href="#id_3-design-decisions"></a></h2>
@@ -84,7 +89,10 @@
 <li>
 <code>response</code> — <code>ecx</code>, <code>nsec</code>, <code>n(s)ec</code>; one row per response, for multivariate fits</li>
 <li>
-<code>ecx_val</code>, <code>type</code> — <code>ecx</code>
+<code>ecx_val</code> — <code>ecx</code>
+</li>
+<li>
+<code>type</code> — <code>ecx</code>, <code>nsec</code>
 </li>
 <li>
 <code>sig_val</code>, <code>anchor</code> — <code>nsec</code>, <code>n(s)ec</code>
@@ -96,9 +104,12 @@
 <code>reference</code> — <code>ecx</code>, <code>nsec</code>
 </li>
 <li>
+<code>asymptote</code> — <code>ecx</code>, <code>nsec</code>; <code>NA</code> where <code>type</code> does not use one (§3.10)</li>
+<li>
 <code>ecnsec</code>, <code>ecnsec.low</code>, <code>ecnsec.high</code> — <code>nsec</code>
 </li>
-</ul><p><code>control</code> is reported for <code>nsec</code> even though the NSEC itself does not use it. <code>ecnsec</code> is expressed as a percentage change from the control, so without the control value the reported percentage cannot be interpreted.</p>
+</ul><p><code>control</code> is reported for <code>nsec</code> even though the NSEC itself does not use it, because under <code>type = "absolute"</code> the control is the denominator of <code>ecnsec</code> and the percentage cannot be interpreted without it.</p>
+<p><code>type</code> appears for <code>nsec</code> as well as <code>ecx</code> because it selects the <code>ecnsec</code> definition (#49, decision T8), and with it the units of the <code>ecnsec</code> columns: a percentage under <code>absolute</code>, <code>relative</code> and <code>range</code>, a response value under <code>direct</code>. Without the column those units are invisible in the result. <code>type</code> takes four values; see §3.10 for the vocabulary.</p>
 <p>Optional column:</p>
 <ul><li>
 <code>draws</code> — a list column of realisations, attached when <code>draws = TRUE</code>. See <a href="#id_35-draws">3.5</a>.</li>
@@ -312,7 +323,9 @@
 </div>
 <div class="section level3">
 <h3 id="id_36-direction">3.6 Direction<a class="anchor" aria-label="anchor" href="#id_36-direction"></a></h3>
-<p><code>direction</code> is a <strong>property of the result, not an argument.</strong> For each curve the estimator looks for the first <em>decreasing</em> crossing and the first <em>increasing</em> crossing of the reference over the fitted range, and returns what it finds. If there is no crossing of a given direction within range, that estimate is <code>NA</code>.</p>
+<p><code>direction</code> is a <strong>property of the result, not an argument.</strong> For each curve the estimator looks for the first <em>decreasing</em> crossing and the first <em>increasing</em> crossing over the fitted range, and returns what it finds.</p>
+<p><strong>Each direction has its own reference.</strong> A single reference does not work: a monotonic increasing response never crosses a reference set below its control, so both directions would return <code>NA</code> and #20’s primary case would fail. For <code>nsec</code> the references are the <code>sig_val</code> and <code>1 - sig_val</code> quantiles of the control; for <code>ecx</code> they are the decreasing and increasing forms in §3.10. The exception is <code>type = "direct"</code>, where the user supplies one response value and both directions are sought against it.</p>
+<p><code>nsec_multi</code> already implements this — <code>R/helpers.R:44-59</code> builds <code>reference_dec</code> and <code>reference_inc</code> and records both under <code>reference_vals</code>. Generalising it is what #20 asks for.</p>
 <p>This replaces <code>hormesis_def</code> as the mechanism for non-monotone curves. A hormetic curve simply has both an increasing and a decreasing crossing, and both are reported; there is no separate argument and no <code>modify_posterior()</code> blanking out part of the grid.</p>
 <p><strong><code>hormesis_def</code> cannot be repaired in place</strong> (#20, and see #37 / PR #48). The two <code>nsec</code> methods do not compute the same quantity. <code>nsec.bnecfit</code> takes <code>apply(p_samples, 1, max)</code> — <code>MARGIN = 1</code>, one value per draw, so the reference is the <code>sig_val</code> quantile of the posterior of the peak. <code>nsec.brmsfit</code> takes <code>apply(p_samples, 2, max)</code> — <code>MARGIN = 2</code>, the maximum <em>across draws</em> at each x, which is the upper envelope of the posterior band; a quantile of that is not a posterior quantity and has no reading in terms of the fit. That is the concrete diagnosis for #1 and #8.</p>
 <p>Nor can the dormant half simply be switched on: uncommenting the truncation in <code>nsec.brmsfit</code> would let <code>NA</code>s reach an <code>na.rm</code>-less <code><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max()</a></code>, so the reference becomes <code>NA</code> and the crossing fails. The two methods compute the reference and the truncation in the opposite order, so the disabled code is incompatible with the live code around it.</p>
@@ -322,7 +335,7 @@
 <li>makes <code>min(zero_crossings(...))</code> well defined. “First crossing” is ambiguous on a non-monotone curve; “first downward crossing” is not;</li>
 <li>lets univariate <code>gam</code> fits in on the same terms as everything else;</li>
 <li>collapses most of <code>nsec_multi</code>’s <code>type</code> argument. <code>type = "increasing"</code> is <code>filter(direction == "increasing")</code> on the result, and <code>type = "both"</code> is no filter. Only <code>type = "lower"</code> survives as an argument, because it is a <em>selection rule</em> using <code>criterion</code> rather than a filter.</li>
-</ul><p><strong>To pin down:</strong> whether a curve with no crossing in one direction emits a row with <code>NA</code> or omits the row. Under the column rule the direction was looked for and not found, which argues for a row with <code>NA</code>.</p>
+</ul><p><strong>A direction with no crossing emits a row with <code>NA</code></strong>, rather than omitting the row. Settled 2026-09-04 (RF) on #20: the direction was looked for and not found, which is information. This is the §3.1 column rule — present because meaningful, <code>NA</code> because unavailable.</p>
 </div>
 <div class="section level3">
 <h3 id="id_37-validation">3.7 Validation<a class="anchor" aria-label="anchor" href="#id_37-validation"></a></h3>
@@ -379,6 +392,8 @@
 <p>For a single (non-averaged) fit <code>"model"</code> and <code>"component"</code> coincide — there is only one model — so the distinction is a model-averaging one.</p>
 <div class="section level4">
 <h4 id="why-model-is-the-default">Why <code>"model"</code> is the default<a class="anchor" aria-label="anchor" href="#why-model-is-the-default"></a></h4>
+<p><strong>Ratified 2026-09-05 (RF)</strong>; see decision T12.</p>
+<p>The figures below were measured while <code>bayesnec</code> #216 left the model-averaged resampling unseeded, so they varied by about ±0.2 between runs and will not reproduce exactly against a current <code>bayesnec</code> (#216 closed 2026-08-21). The mechanism they illustrate does not depend on the exact values.</p>
 <p>Measured on <code>manec_example</code> (<code>resolution = 50</code>, <code>sig_val = 0.01</code>), holding the curves and sampled draws fixed so only the reference varies:</p>
 <pre><code>"model"      averaged curve, pooled reference    : 1.47273, 0.995858, 1.53957
 "component"  per-model, per-model reference      : 1.47372, 0.717214, 1.55436
@@ -411,12 +426,185 @@
 <code>nec</code> and <code>n(s)ec</code> are unaffected. A NEC is a parameter, so it is inherently a <code>"component"</code>-style mixture; <code>n(s)ec</code> therefore combines a <code>"model"</code>-style and a <code>"component"</code>-style quantity by construction. That follows from the definition rather than being an inconsistency, but should be stated wherever <code>n(s)ec</code> is documented (#25).</li>
 </ul></div>
 </div>
+<div class="section level3">
+<h3 id="id_39-the-ecnsec-definition-49">3.9 The <code>ecnsec</code> definition (#49)<a class="anchor" aria-label="anchor" href="#id_39-the-ecnsec-definition-49"></a></h3>
+<p><strong><code>ecnsec</code> is the inverse of the <code>ecx</code> reference construction under the same <code>type</code>, it takes <code>ecx</code>’s default of <code>type = "absolute"</code>, and <code><a href="reference/nsec.html">nsec()</a></code> accepts the arguments <code><a href="reference/ecx.html">ecx()</a></code> accepts.</strong> Settled 2026-09-04 (RF); see #49 and decision T8.</p>
+<p><code>ecnsec</code> reports the effect at the NSEC. <strong>The defect being fixed:</strong> it is currently computed by three different formulas, one per <code>nsec</code> method, which agree only for a monotonic decreasing curve and only when the fitted-range denominator is requested explicitly — the quantity §3.10 names <code>range</code>, and the default in none of the three.</p>
+<p><code>ecx</code> maps a percentage to a response value; <code>ecnsec</code> maps the NSEC reference back to an effect. One definition serves both directions:</p>
+<table class="table"><colgroup><col width="33%"><col width="33%"><col width="33%"></colgroup><thead><tr><th><code>type</code></th>
+<th>
+<code>ecx</code> reference</th>
+<th><code>ecnsec</code></th>
+</tr></thead><tbody><tr><td><code>absolute</code></td>
+<td><code>y[1] - y[1] * (p/100)</code></td>
+<td><code>(1 - R / y[1]) * 100</code></td>
+</tr><tr><td><code>relative</code></td>
+<td><code>y[1] - (y[1] - a) * (p/100)</code></td>
+<td><code>(1 - (R - a) / (y[1] - a)) * 100</code></td>
+</tr><tr><td><code>range</code></td>
+<td><code>y[1] - (y[1] - min(y)) * (p/100)</code></td>
+<td><code>(1 - (R - min(y)) / (y[1] - min(y))) * 100</code></td>
+</tr><tr><td><code>direct</code></td>
+<td>
+<code>p</code>, a response value</td>
+<td>
+<code>R</code>, the reference on the response scale</td>
+</tr></tbody></table><p><code>R</code> is the NSEC reference, <code>y</code> one realisation’s fitted curve, <code>y[1]</code> the control, <code>a</code> the equation’s theoretical asymptote and <code>p</code> the percentage. The rows are the decreasing forms; the increasing forms follow §3.10.</p>
+<p><strong>The <code>type</code> vocabulary is §3.10’s, not this section’s.</strong> T8 fixes only the relation — <code>ecnsec</code> matches <code>ecx</code> exactly, inverting whatever reference <code>ecx</code> constructs under the same <code>type</code>. The rows above are therefore derived from §3.10 and change with it; they are restated here only because the inverse form is what the <code>nsec</code> methods implement.</p>
+<div class="section level4">
+<h4 id="what-each-method-does-today">What each method does today<a class="anchor" aria-label="anchor" href="#what-each-method-does-today"></a></h4>
+<ul><li>
+<strong><code>nsec.bnecfit</code>, <code>type = "absolute"</code></strong> (<code>R/nsec.R:138</code>) already implements this. Unchanged.</li>
+<li>
+<strong><code>nsec.bnecfit</code>, <code>type = "relative"</code></strong> (<code>R/nsec.R:110-115</code>) takes the top and bottom of the range from <code>p_samples[, 1]</code> and <code>p_samples[, ncol]</code> — the curve endpoints — where <code>ecx_x_relative()</code> uses <code>range(y)</code>. The two agree only for a monotonic curve. It changes to <code>range(y)</code>, which also removes a monotonicity assumption that <code>hormesis_def</code> already contradicts.</li>
+<li>
+<strong><code>nsec.brmsfit</code></strong> (<code>R/nsec.R:232-234</code>, <code>:273-275</code>) and <strong><code>nsec.drc</code></strong> (<code>R/nsec.R:434-436</code>) apply the relative formula unconditionally and have no <code>type</code> argument — it is absorbed by <code>...</code> and ignored, the same defect §3.5 records for <code>posterior</code> on <code>nsec.drc</code>. They gain <code>type</code>, defaulting to <code>"absolute"</code> to match <code>ecx</code>; their present formula becomes the <code>relative</code> branch.</li>
+</ul><p>The three <code><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply()</a></code> blocks are replaced by one helper taking the realisation matrix, the reference and <code>type</code>.</p>
+</div>
+<div class="section level4">
+<h4 id="type--direct-has-no-interval">
+<code>type = "direct"</code> has no interval<a class="anchor" aria-label="anchor" href="#type--direct-has-no-interval"></a></h4>
+<p>The <code>nsec</code> reference is a scalar across realisations — <code>quantile(control_posterior, sig_val)</code>, <code>R/nsec.R:117-121</code>. <code>ecnsec</code> varies between realisations only through its denominator, which is per-realisation. Under <code>direct</code> there is no denominator, so <code>ecnsec</code> equals the <code>reference</code> column and <code>ecnsec.low</code> and <code>ecnsec.high</code> are <code>NA</code>.</p>
+<p><code>NA</code> rather than bounds equal to the estimate: equal bounds assert an interval of zero width, where the intent is that no interval is defined. This is the §3.1 column rule — present because meaningful for the metric, <code>NA</code> because unavailable for this <code>type</code> — and matches <code>control</code> under <code>type = "direct"</code>.</p>
+</div>
+<div class="section level4">
+<h4 id="change-at-default-settings">Change at default settings<a class="anchor" aria-label="anchor" href="#change-at-default-settings"></a></h4>
+<p>For a decreasing curve with a non-negative minimum, <code>(R - min) / (max - min) &lt;= R / y[1]</code>, so the relative percentage is always the larger of the two. <code>nsec.brmsfit</code> and <code>nsec.drc</code> will therefore report a <strong>smaller</strong> <code>ecnsec</code> than they do now at defaults. This is algebra; no fixture was run to size it. The NSEC estimate itself does not change, only the percentage reported beside it.</p>
+<p>Phase 1 golden values must be captured for <code>ecnsec</code> under each <code>type</code> on each method, so this change is separable from a relocation bug.</p>
+</div>
+<div class="section level4">
+<h4 id="consequences-elsewhere">Consequences elsewhere<a class="anchor" aria-label="anchor" href="#consequences-elsewhere"></a></h4>
+<ul><li>
+<strong><code>type</code> becomes a descriptor column for <code>nsec</code></strong> (§3.1). Without it the units of <code>ecnsec</code> are invisible — a percentage under <code>absolute</code> and <code>relative</code>, a response value under <code>direct</code>.</li>
+<li>
+<strong>#32.</strong> Adding <code>type</code> to the <code>nsec</code> generic is an S3 signature change, so the two are done together.</li>
+<li>
+<strong>Not decided here.</strong> How <code>ecx</code> builds its reference is §3.10’s, settled as T9 — per realisation, from that realisation’s own control. <code>ecnsec</code> inverts it without this section restating it. The <code>hormesis_def == "max"</code> branches of <code>ecx_x_relative()</code> and <code>ecx_x_absolute()</code> are retired by §3.6 rather than realigned here.</li>
+</ul></div>
+<div class="section level4">
+<h4 id="tests">Tests<a class="anchor" aria-label="anchor" href="#tests"></a></h4>
+<p><code>tests/testthat/test-nsec.R</code>, using the fixtures in <code>tests/testthat/setup.R</code> rather than fitting anything new. Assert that <code>bnecfit</code>, <code>brmsfit</code> and <code>drc</code> fits of the same monotonic curve return equal <code>ecnsec</code> at default settings, and add a hormetic curve as the edge case, where the endpoint and <code>range(y)</code> forms diverge. Requested on #49.</p>
+</div>
+</div>
+<div class="section level3">
+<h3 id="id_310-the-ecx-reference-and-the-type-vocabulary-19">3.10 The <code>ecx</code> reference and the <code>type</code> vocabulary (#19)<a class="anchor" aria-label="anchor" href="#id_310-the-ecx-reference-and-the-type-vocabulary-19"></a></h3>
+<p><strong>The reference is computed per realisation, and <code>type</code> is a four-value vocabulary naming what the percentage is measured against.</strong> Settled 2026-09-04 (RF) on #19. This section states the decision; the discussion is on the issue.</p>
+<p>These definitions presume §3.6 — an estimate is sought in both directions every time and <code>direction</code> is a property of the result. <code>type</code> therefore has a decreasing and an increasing form, and the increasing form is reached through <code>drc</code> and <code>brms</code> fits. <code><a href="https://open-aims.github.io/bayesnec/reference/bnec.html" class="external-link">bnec()</a></code> fits decreasing curves only and that does not change.</p>
+<div class="section level4">
+<h4 id="the-reference-is-per-realisation">The reference is per realisation<a class="anchor" aria-label="anchor" href="#the-reference-is-per-realisation"></a></h4>
+<p><code>ecx.bnecfit</code> (<code>R/ecx.R:146</code>) builds one scalar reference from medians:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">reference</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/median.html" class="external-link">median</a></span><span class="op">(</span><span class="va">control_posterior</span><span class="op">)</span> <span class="op">-</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/median.html" class="external-link">median</a></span><span class="op">(</span><span class="va">dif_valsC</span><span class="op">)</span> <span class="op">*</span> <span class="op">(</span><span class="va">ecx_val</span> <span class="op">/</span> <span class="fl">100</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<p><code>ecx.brmsfit</code> (<code>R/ecx.R:339</code>) and <code>bayesnec::ecx.bayesnecfit</code> build it from each realisation’s own control. These are different estimators: control uncertainty propagates into the interval in the second and not the first. Two of the three implementations already compute it per realisation, including the one on CRAN.</p>
+<p><strong>Adopt the per-realisation reference and delete the scalar one.</strong> Measured across the six fixtures on #19, the point estimates differ by 0.3% to 2% and the interval bounds by up to 50% — the lower bound, which is the end used for a protective concentration.</p>
+</div>
+<div class="section level4">
+<h4 id="the-type-vocabulary">The <code>type</code> vocabulary<a class="anchor" aria-label="anchor" href="#the-type-vocabulary"></a></h4>
+<p>The control is the predicted response at the lowest concentration in the series. <code>p</code> is <code>ecx_val</code>; <code>y</code> is one realisation’s fitted curve over the predictor range.</p>
+<table class="table"><colgroup><col width="33%"><col width="33%"><col width="33%"></colgroup><thead><tr><th><code>type</code></th>
+<th>decreasing</th>
+<th>increasing</th>
+</tr></thead><tbody><tr><td>
+<code>absolute</code> <em>(default)</em>
+</td>
+<td>control → 0</td>
+<td>control → the upper bound (1, or the family’s)</td>
+</tr><tr><td><code>relative</code></td>
+<td>control → the equation’s theoretical lower asymptote</td>
+<td>control → the equation’s theoretical upper asymptote</td>
+</tr><tr><td><code>range</code></td>
+<td>control → the minimum predicted response over the predictor range</td>
+<td>control → the maximum predicted response over the predictor range</td>
+</tr><tr><td><code>direct</code></td>
+<td>the supplied response value, no proportional change</td>
+<td>as decreasing</td>
+</tr></tbody></table><p><code>range</code> is new. <code>direct</code> is unchanged. <code>absolute</code> is unchanged for decreasing responses.</p>
+</div>
+<div class="section level4">
+<h4 id="relative-and-identifiability">
+<code>relative</code> and identifiability<a class="anchor" aria-label="anchor" href="#relative-and-identifiability"></a></h4>
+<p>The asymptote is the equation’s own theoretical limit:</p>
+<ul><li>the fitted asymptote parameter where the equation has one — <code>bot</code> decreasing, <code>top</code> increasing;</li>
+<li>otherwise the family’s bound, which for the 14 <code>bot</code>-free <code>bayesnec</code> equations is 0, since those curves tend to zero: <code>nec3param</code>, <code>nechorme</code>, <code>necsigm</code>, <code>neclin</code>, <code>neclinhorme</code>, <code>nechormepwr</code>, <code>nechormepwr01</code>, <code>ecxlin</code>, <code>ecxexp</code>, <code>ecxsigm</code>, <code>ecxwb1p3</code>, <code>ecxwb2p3</code>, <code>ecxll3</code>, <code>ecxhormebc4</code>. The nine with <code>bot</code> are <code>nec4param</code>, <code>nechorme4</code>, <code>nechorme4pwr</code>, <code>ecx4param</code>, <code>ecxwb1</code>, <code>ecxwb2</code>, <code>ecxll5</code>, <code>ecxll4</code>, <code>ecxhormebc5</code>.</li>
+</ul><p>Where neither exists the bound is infinite and <code>relative</code> is undefined. <strong>Boundedness is judged by family and per equation</strong>, so an equation without an asymptote parameter fitted with a family that has no natural bound is the case that fails. Of the ten families <code><a href="https://open-aims.github.io/bayesnec/reference/bnec.html" class="external-link">bnec()</a></code> accepts, <code>gaussian</code>, <code>Gamma</code>, <code>poisson</code>, <code>negbinomial</code> and <code>hurdle_gamma</code> have no upper bound and only <code>gaussian</code> has no lower bound.</p>
+<ul><li>
+<strong>Single fit:</strong> error, naming the reason — the bound is infinite, so the percentage has no denominator.</li>
+<li>
+<strong>Model-averaged fit:</strong> drop the affected equations with a warning naming them, renormalise the weights, and proceed on the rest.</li>
+</ul><p>A dropped set is a different model set, so <code>ecx(fit, type = "absolute")</code> and <code>ecx(fit, type = "relative")</code> on one object may be computed from different components. That is intended. It is only interpretable if the output records which equations contributed and at what weight — the same rule the <code>drc</code> Buckland case established, that the candidate set is fixed once for the whole estimate and stated.</p>
+</div>
+<div class="section level4">
+<h4 id="relative-is-a-component-level-quantity">
+<code>relative</code> is a component-level quantity<a class="anchor" aria-label="anchor" href="#relative-is-a-component-level-quantity"></a></h4>
+<p>Under model averaging the components have different asymptotes, so a requested percentage lands at a different response level in each. Measured on <code>manec_example</code> (<code>bayesnec</code> 2.1.3.7, R 4.6.1; posterior medians):</p>
+<table class="table"><thead><tr><th></th>
+<th>weight</th>
+<th><code>bot</code></th>
+<th>control</th>
+<th>EC10 reference</th>
+</tr></thead><tbody><tr><td><code>nec4param</code></td>
+<td>0.827</td>
+<td>−8.42</td>
+<td>2.17</td>
+<td><strong>1.11</strong></td>
+</tr><tr><td><code>ecx4param</code></td>
+<td>0.173</td>
+<td>−5.69</td>
+<td>2.31</td>
+<td><strong>1.51</strong></td>
+</tr></tbody></table><p>Both components have <code>bot</code>, so no drop occurs, and the two EC10 references are 36% apart. <strong>This is accepted rather than refused.</strong> <code>relative</code> is defined against a parameter of the equation, so it is inherently a component-level quantity in the way §3.8 already records for the NEC: “a NEC is a parameter, so it is inherently a <code>component</code>-style mixture”. Requiring every component to have an asymptote parameter would not change this, because the values still differ.</p>
+<p>Nothing extra is implemented — the per-realisation computation already uses each realisation’s own asymptote. Two things follow:</p>
+<ul><li>
+<strong>Document it</strong> where <code>relative</code> is defined. A model-averaged <code>relative</code> ECx does not correspond to a single response level.</li>
+<li>
+<strong><code>ecx</code> does not commute under <code>relative</code>.</strong> The measurement on #19 showing that computing on the averaged curve and computing per component then mixing agree was made under <code>absolute</code>, where the reference is a function of the realisation’s own control. Under <code>relative</code> the reference also depends on which component produced the realisation. So the reason <code>ecx</code> takes no <code>anchor</code> argument (§3.8) covers <code>absolute</code>, <code>range</code> and <code>direct</code> only.</li>
+</ul><p><strong>Caution to document.</strong> On <code>manec_example</code> the <code>nec4param</code> <code>bot</code> is −8.42 with a 95% interval of −13.58 to −5.68, against an observed response range of roughly 0 to 2.2. It is an extrapolated asymptote rather than an estimated feature of the data, and <code>relative</code> inherits that uncertainty in full. <code>absolute</code> does not, because 0 is fixed.</p>
+</div>
+<div class="section level4">
+<h4 id="absolute-uses-0-on-an-unbounded-family-deliberately">
+<code>absolute</code> uses 0 on an unbounded family, deliberately<a class="anchor" aria-label="anchor" href="#absolute-uses-0-on-an-unbounded-family-deliberately"></a></h4>
+<p><code>gaussian</code> has no lower bound, but <code>absolute</code> still sets the reference at control → 0. This follows OECD TG 201, which defines percent inhibition as <code>%I_r = (µ_C − µ_T)/µ_C × 100</code> — algebraically <code>µ_T = µ_C(1 − p/100)</code>, the <code>absolute</code> reference — and lets it exceed 100% when <code>µ_T &lt; 0</code> rather than truncating. See <code>bayesnec</code> <code>vignette("example7")</code> for the context.</p>
+<p><strong>Consequence: <code>ecx_val</code> is not capped at 100.</strong> More than complete inhibition is the defined behaviour for a response that goes negative. It is uncapped today (<code>R/ecx.R:285-287</code> checks only that it is numeric and single-valued); that must stay, and be documented, so it is not later read as a missing guard.</p>
+</div>
+<div class="section level4">
+<h4 id="the-increasing-upper-bound">The increasing upper bound<a class="anchor" aria-label="anchor" href="#the-increasing-upper-bound"></a></h4>
+<p>Where the family has no upper bound, <code>absolute</code> assumes 1, on the basis that an increasing response reached through <code>drc</code> or <code>brms</code> is usually percent inhibition or another proportion.</p>
+<p><strong>Guard: error when the control is at or above the assumed upper bound.</strong> With a control of 20 and an assumed bound of 1 the reference is <code>20 + (1 − 20) × 0.10 = 18.1</code>, below the control — an increasing ECx measured against a decreased reference, returned without complaint. One comparison catches it, and it never fires on proportion data.</p>
+</div>
+<div class="section level4">
+<h4 id="locating-the-asymptote-on-a-drc-or-brmsfit-object">Locating the asymptote on a <code>drc</code> or <code>brmsfit</code> object<a class="anchor" aria-label="anchor" href="#locating-the-asymptote-on-a-drc-or-brmsfit-object"></a></h4>
+<p><code>drc</code> exposes it. <code>fit$fct$names</code> gives the parameter letters and <code>fit$fct$fixed</code> which are fixed and to what: on <code>LL.4()</code> the lower limit <code>c</code> is free, and on <code>LL.3()</code> it is fixed at 0. The letters are positional convention rather than labelled roles, so this needs a lookup keyed on <code>fit$fct$name</code> covering the families in scope (<code>LL.*</code>, <code>W1.*</code>, <code>W2.*</code>, <code>BC.*</code>, <code>LN.*</code>), written once and tested.</p>
+<p><code>LL.3()</code> fixing the lower limit at 0 collapses <code>relative</code> onto <code>absolute</code> for exactly the reason a <code>bot</code>-free <code>bayesnec</code> equation does, so the two engines agree without special-casing.</p>
+<p>For a user-written <code>brms</code> non-linear formula there is no way to know which parameter is the asymptote. <strong>Add an argument by which the user names the parameter or supplies a value, and refuse <code>relative</code> when it is absent</strong>, with a message naming the argument.</p>
+</div>
+<div class="section level4">
+<h4 id="relative-changes-meaning">
+<code>relative</code> changes meaning<a class="anchor" aria-label="anchor" href="#relative-changes-meaning"></a></h4>
+<p><code>ecx_x_relative()</code> (<code>R/ecx.R:181-206</code>) currently computes <code>max(y)</code> → <code>min(y)</code>. That behaviour maps onto the new <strong><code>range</code></strong>, not the new <code>relative</code>. Deprecate via <code><a href="https://lifecycle.r-lib.org/reference/deprecate_soft.html" class="external-link">lifecycle::deprecate_warn()</a></code> pointing at <code>range</code>, and state in the message that it is not an exact equivalent: the old form takes <code>max(y)</code> as the top of the span and <code>range</code> takes the control, which differ for a non-monotonic curve. NEWS item required; 1.0.0 is released.</p>
+</div>
+<div class="section level4">
+<h4 id="output">Output<a class="anchor" aria-label="anchor" href="#output"></a></h4>
+<p>Per the transparency answer on #19, the implied reference points are columns, not prose. §3.1 already specifies <code>control</code> and <code>reference</code>; add <strong><code>asymptote</code></strong>, present for <code>ecx</code> and <code>nsec</code>, <code>NA</code> where <code>type</code> does not use one (<code>absolute</code>, <code>direct</code>).</p>
+<p>Where <code>relative</code> drops equations from a model-averaged set, the retained equations and their renormalised weights must be recoverable from the result.</p>
+</div>
+<div class="section level4">
+<h4 id="consequences-elsewhere-1">Consequences elsewhere<a class="anchor" aria-label="anchor" href="#consequences-elsewhere-1"></a></h4>
+<ul><li>
+<strong>§3.9 (<code>ecnsec</code>, #49).</strong> Its formula table was written against the current meaning of <code>relative</code>. The existing <code>relative</code> row becomes the <code>range</code> row and <code>relative</code> gets a new one. Decision T8 itself is unchanged: <code>ecnsec</code> inverts whatever <code>ecx</code> does, under the same <code>type</code>.</li>
+<li>
+<strong>§3.1.</strong> <code>type</code> takes four values, and <code>asymptote</code> joins the descriptor columns.</li>
+<li>
+<strong>#12, #14.</strong> <code>type = "direct"</code> returning something unexpected, and output shape differing across methods, are governed by this section and §3.1.</li>
+<li>
+<strong>§3.6 (#20).</strong> These definitions presume the direction framing. #19 cannot be implemented before #20 is settled.</li>
+</ul></div>
+</div>
 </div>
 <div class="section level2">
 <h2 id="id_4-phased-implementation">4. Phased implementation<a class="anchor" aria-label="anchor" href="#id_4-phased-implementation"></a></h2>
 <p>Two constraints drive the order.</p>
-<p><strong>The <code>ecx</code> half of #19 first, on paper.</strong> <code>ecx.bnecfit</code> and <code>ecx.brmsfit</code> implement <em>different estimators</em> — a single scalar reference versus a per-realisation one. Phase 1 promises that the numbers do not move; this determines which ones do. Answering it afterwards means being unable to distinguish a refactor bug from a definition change. It does not need code, only a decision, and #20 (direction) should be decided with it.</p>
-<p>The <code>nsec</code> half does <strong>not</strong> block, because <a href="#id_38-the-nsec-reference-the-anchor-argument">3.8</a> exposes it as <code>anchor</code> rather than resolving it by fiat. Only the default has to be agreed, and a default can be revisited without invalidating anything.</p>
+<p><strong>The definitions first, on paper.</strong> <code>ecx.bnecfit</code> and <code>ecx.brmsfit</code> implement <em>different estimators</em> — a single scalar reference versus a per-realisation one. Phase 1 promises that the numbers do not move; the definitions determine which ones do. Settling them afterwards would mean being unable to distinguish a refactor bug from a definition change. <strong>All of phase 0 is now settled</strong>: T8 (#49), T9 (#19, <code>ecx</code>), T10 (#20), T11 (#43) and T12 (the <code>anchor</code> default).</p>
+<p>The <code>nsec</code> half does <strong>not</strong> block, because <a href="#id_38-the-nsec-reference-the-anchor-argument">3.8</a> exposes it as <code>anchor</code> rather than resolving it by fiat. Only the default had to be agreed, and a default can be revisited without invalidating anything.</p>
 <p><strong><code>toxval</code> must reach CRAN before #39 can ship.</strong> <code>bayesnec</code> is on CRAN; <code>toxval</code> is not. A CRAN package’s <code>Imports</code> must resolve from CRAN, and <code>Remotes:</code> is ignored by CRAN, so <code>bayesnec</code> cannot release <code>Imports: toxval</code> until <code>toxval</code> is published there. CRAN-readiness is therefore a prerequisite of the untangle, not a follow-up to it.</p>
 <p>That in turn means <strong>the tibble change belongs before the CRAN submission</strong>, because publishing an API that is about to be broken would force two breaking releases in succession. <code>bayesnec</code> then relocates and adapts to the new shape in a single step.</p>
 <p>This is safer than it sounds. <code>bayesnec</code> consumes <code><a href="reference/ecx.html">ecx()</a></code> positionally as a length-3 vector in <code>plot.R</code>, <code>autoplot.R</code>, <code>summary.R</code> and the hurdle methods (<code>bind_ecx()</code> uses <code>ecx_vals[[1]]</code>, <code>[[2]]</code>, <code>[[3]]</code> and <code>attr(ecx_vals, "ecx_val")</code>), so a shape change <strong>breaks loudly</strong> rather than silently. The dangerous axis is the numbers, and those move at import time under any ordering — so they are verified in isolation inside <code>toxval</code>, before the <code>bayesnec</code> PR.</p>
@@ -424,7 +612,8 @@
 <th>phase</th>
 <th>numbers</th>
 </tr></thead><tbody><tr><td>0</td>
-<td>Decide the <code>ecx</code> reference (#19) and direction (#20); agree the <code>anchor</code> default. No code.</td>
+<td>
+<strong>Done.</strong> The <code>ecx</code> reference and <code>type</code> vocabulary (#19, T9), direction (#20, T10), <code>ecnsec</code> (#49, T8), frequentist realisations (#43, T11) and the <code>anchor</code> default (T12). No code.</td>
 <td>—</td>
 </tr><tr><td>1</td>
 <td>

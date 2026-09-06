@@ -51,20 +51,28 @@
 <li>consolidate argument validation on <code>chk</code>
 </li>
 <li>remove duplication, dead code, and fix the known inconsistencies</li>
-</ul><p><strong>Out of scope, and decided first.</strong> Three questions determine what the numbers are, not what shape they come in. None is settled by this plan, each has its own issue, and section 4 cannot start until they are answered.</p>
-<table class="table"><colgroup><col width="33%"><col width="33%"><col width="33%"></colgroup><thead><tr><th>decision</th>
+</ul><p><strong>Out of scope, and decided first.</strong> Three questions determine what the numbers are, not what shape they come in. None is settled by this plan, each has its own issue, and section 4 cannot start until all three are answered. One is now answered.</p>
+<table class="table"><colgroup><col width="25%"><col width="25%"><col width="25%"><col width="25%"></colgroup><thead><tr><th>decision</th>
 <th>what it decides</th>
 <th>issue</th>
+<th>status</th>
 </tr></thead><tbody><tr><td>The <code>ecx</code> reference</td>
 <td>how the reference response is computed</td>
 <td>#19</td>
+<td>settled</td>
 </tr><tr><td>Direction</td>
 <td>increasing versus decreasing responses, and how hormesis relates</td>
 <td>#20</td>
-</tr><tr><td>The <code>ecnsec</code> denominator</td>
-<td>whether <code>ecnsec</code> is a percentage of the control or of the fitted range</td>
+<td>settled</td>
+</tr><tr><td>The <code>ecnsec</code> definition</td>
+<td>what the effect reported beside the NSEC is measured against</td>
 <td>#49</td>
-</tr></tbody></table><p>The <code>nsec</code> reference does <strong>not</strong> block, because §3.8 exposes it as an argument rather than settling it. Only the default has to be agreed, and a default can be revisited later.</p>
+<td>settled</td>
+</tr></tbody></table><p><strong>The <code>ecx</code> reference (#19).</strong> The reference is computed for each realisation from that realisation’s own control, and the single reference built from posterior medians in <code>ecx.bnecfit</code> is deleted. <code>type</code> becomes a four-value vocabulary naming what the percentage is measured against: <code>absolute</code>, the control down to zero; <code>relative</code>, the control down to the equation’s own theoretical asymptote; <code>range</code>, the control down to the lowest response the curve predicts; and <code>direct</code>, a response value supplied by the user. <code>range</code> is new, and it is what <code>relative</code> means in the current code, so <code>relative</code> changes meaning and is deprecated into <code>range</code>. Decision T9 and <code>REFACTOR-claude.md</code> §3.10 state it in full.</p>
+<p><strong>The <code>ecnsec</code> definition (#49).</strong> <code>ecnsec</code> is the inverse of the <code>ecx</code> reference under the same <code>type</code>, and <code><a href="reference/nsec.html">nsec()</a></code> accepts the arguments <code><a href="reference/ecx.html">ecx()</a></code> accepts, so one <code>type</code> selects both. Under <code>direct</code>, <code>ecnsec</code> is the reference on the response scale rather than a percentage. Decision T8 and §3.9 state it in full.</p>
+<p><strong>Direction (#20).</strong> An estimate is sought in both directions every time and <code>direction</code> is a column of the result, so <code>hormesis_def</code> is removed rather than repaired. Each direction has its own reference, as <code>nsec_multi</code> already does. Where a direction has no crossing the row is still returned, with <code>NA</code> — the direction was looked for and not found, which is information. Decision T10 and <code>REFACTOR-claude.md</code> §3.6 state it in full.</p>
+<p>All three are settled. Section 4’s phase 0 also required agreeing the default for the <code>nsec</code> reference, which is exposed as the <code>anchor</code> argument rather than fixed by the plan (section 3.8). That default was ratified as <code>"model"</code> on 5 September, so phase 0 is complete and phase 1 can begin.</p>
+<p>The <code>nsec</code> reference does <strong>not</strong> block, because §3.8 exposes it as an argument rather than settling it, so only the default had to be agreed. It was ratified as <code>"model"</code> on 5 September, and a default can be revisited later.</p>
 </div>
 <div class="section level2">
 <h2 id="id_3-design-decisions">3. Design decisions<a class="anchor" aria-label="anchor" href="#id_3-design-decisions"></a></h2>
@@ -79,7 +87,10 @@
 <li>
 <code>response</code> — one row per response, for multivariate fits</li>
 <li>
-<code>ecx_val</code>, <code>type</code> — <code>ecx</code>
+<code>ecx_val</code> — <code>ecx</code>
+</li>
+<li>
+<code>type</code> — <code>ecx</code>, <code>nsec</code>
 </li>
 <li>
 <code>sig_val</code>, <code>anchor</code> — <code>nsec</code>, <code>n(s)ec</code>
@@ -93,7 +104,7 @@
 <li>
 <code>ecnsec</code>, <code>ecnsec.low</code>, <code>ecnsec.high</code> — <code>nsec</code>
 </li>
-</ul><p><code>control</code> is reported for <code>nsec</code> even though the NSEC does not use it, because <code>ecnsec</code> is a percentage change from the control and cannot be read without it.</p>
+</ul><p><code>control</code> is reported for <code>nsec</code> even though the NSEC does not use it, because under <code>type = "absolute"</code> the control is the denominator of <code>ecnsec</code> and the percentage cannot be read without it. <code>type</code> appears for <code>nsec</code> because it selects the <code>ecnsec</code> definition, and with it whether <code>ecnsec</code> is a percentage or a response value (#49, decision T8).</p>
 <p><code>metric</code> is a closed vocabulary — <code>"ecx"</code>, <code>"nsec"</code>, <code>"nec"</code>, <code>"n(s)ec"</code>, <code>"noec"</code> — with the value that parameterises it in its own column: <code>metric = "ecx"</code> with <code>ecx_val = 10</code>, never <code>metric = "ec10"</code>. Run settings are displayed as tibble header lines via <code>tbl_sum()</code>, as <code># Groups:</code> is on a grouped tibble.</p>
 <p>Some examples of <code><a href="reference/ecx.html">ecx()</a></code>:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
