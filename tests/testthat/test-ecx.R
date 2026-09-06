@@ -98,6 +98,7 @@ test_that("posterior = true outputs the posterior", {
   )
 })
 
+# EXPECTED-CHANGE type "relative" reference , redefined (old behaviour renamed "range") #19
 test_that("check type = relative argument", {
   output <- ecx(brms_model_1, x_var = "x", type = "relative")
 
@@ -117,6 +118,7 @@ test_that("check type = relative argument", {
   )
 })
 
+# EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24  
 test_that("check type = direct argument", {
   output <- ecx(brms_model_1, x_var = "x", type = "direct")
 
@@ -136,11 +138,7 @@ test_that("check type = direct argument", {
   )
 })
 
-# TODO: Code in function needs to be updated to provide warning if
-# upper limit is hitting upper bound (maybe) but definitely if the
-# lower bound and upper bound are identical as in the above example.
-# See below test
-# for more reasonable output for type = "direct" for brms_model_1
+# EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24  
 test_that("check type = direct argument with in range value", {
   output <- ecx(brms_model_1, x_var = "x", type = "direct", ecx_val = 0.5)
 
@@ -245,6 +243,7 @@ test_that("type = direct and value passed to trigger NAN catch", {
   )
 })
 
+# EXPECTED-CHANGE type vocabulary gains "range"; passing >1 type will error cleanly #7 
 test_that("type errors when wrong value passed", {
   expect_error(
     ecx(brms_model_1, x_var = "x", type = "something"),
@@ -257,9 +256,7 @@ test_that("type errors when wrong value passed", {
   )
 })
 
-# TODO error catch properly if more than one type, Perhaps use only
-# first value with a warning?
-
+# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
 test_that("hormesis_def = max and type = absolute changes output values", {
   output <- ecx(brms_model_1, x_var = "x", hormesis_def = "max")
 
@@ -277,6 +274,7 @@ test_that("hormesis_def = max and type = absolute changes output values", {
   )
 })
 
+# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
 test_that("hormesis_def = control and type = absolute argument", {
   output <- ecx(brms_model_1, x_var = "x", hormesis_def = "control")
 
@@ -294,6 +292,7 @@ test_that("hormesis_def = control and type = absolute argument", {
   )
 })
 
+# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
 test_that("hormesis_def = max and type = relative changes output values", {
   output <- ecx(
     brms_model_1,
@@ -316,6 +315,11 @@ test_that("hormesis_def = max and type = relative changes output values", {
   )
 })
 
+# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
+# The output for hormesis_def = "max" makes no sense.
+# It should be ~2 for these data. When fixed expect this test to fail.
+# Note it should  remain less than hormesis_def = "control" for this example
+# so the expect_gt should still pass
 test_that("hormesis_def = max changes output values", {
   output1 <- ecx(brms_model_5, x_var = "x", ecx_val = 50)
   output2 <- ecx(brms_model_5, x_var = "x", hormesis_def = "max", ecx_val = 50)
@@ -341,14 +345,9 @@ test_that("hormesis_def = max changes output values", {
       toxicity_estimate = "ecx"
     )
   )
-
-  # TODO the output for hormesis_def = "max" makes no sense.
-  # It should be ~2 for these data. When fixed expect this test to fail.
-  # Note it should  remain less than hormesis_def = "control" for this example
-  # so the expect_gt should still pass
 })
 
-
+# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
 test_that("hormesis_def errors wrong values passed", {
   expect_error(
     ecx(brms_model_1, x_var = "x", hormesis_def = c("max", "control")),
@@ -461,8 +460,7 @@ test_that("check prob_vals can have more then 3 values", {
 
 # BRMS specific tests -----------------------------------------------------
 
-# TODO I would like to make this in line with the revised
-# bayesnec methods that do allow this, so this test will fail eventually.
+# EXPECTED-CHANGE multiple ecx_val values will be allowed #9
 test_that("can only pass a single exc_val argument", {
   expect_error(
     ecx(brms_model_1, x_var = "x", ecx_val = c(10, 50, 100)),
@@ -470,9 +468,9 @@ test_that("can only pass a single exc_val argument", {
   )
 })
 
-# TODO Not sure why this is specific to BRMS. Also - lodged issue to make
-# ecx_val a proportion not percentage. Many of these would need to be extrapolated
-# beyond the observed data and so should have a warning to pass an extended xrange.
+# EXPECTED-CHANGE ecx_val may become a proportion not a percentage #3; 
+# ecx_val validation moves to the generic (all methods, not just brms) #55;
+# extreme ecx_val not reached within the tested range will warn to widen x_range #24
 test_that("when type is not direct ecx_val has to between 1 and 99", {
   expect_length(
     ecx(brms_model_1, x_var = "x", type = "absolute", ecx_val = 2),
@@ -528,7 +526,7 @@ test_that("errors if x_var argument not provided", {
   )
 })
 
-# TODO Fix error message typo below "supplied"
+# EXPECTED-CHANGE error message typo "suplied" fixed #53
 test_that("errors if x_var is not in the data set", {
   expect_error(
     ecx(brms_model_1, x_var = "z"),
@@ -601,9 +599,7 @@ test_that("by_group = FALSE, group_var is in the data, get vector with length of
   expect_length(output, 3)
 })
 
-# TODO think this is wrong and you should be able to pass a range
-# all that happens is it takes the value and shoves it in as the output
-# Yes this is definitely wrong! It should take a range.
+# EXPECTED-CHANGE x_range will be treated as a range, not a single value #10
 test_that("x_range argument", {
   output <- ecx(brms_model_1, x_var = "x", x_range = 0.5)
 
@@ -637,7 +633,7 @@ test_that("when using grouping variable the xform function is applied", {
   expect_equal(output_2$Q97.5, output_1$Q97.5 - 1, tolerance = 0.01)
 })
 
-# TODO: this is interesting - we might want to add an error catch when group_var = x_var
+# EXPECTED-CHANGE group_var == x_var will error #15
 test_that("when by_group = TRUE, group_var is provided and posterior = TRUE, you get a long data frame", {
   output <- ecx(
     brms_model_1,
@@ -731,6 +727,7 @@ test_that("by_group = FALSE, group_var is provided and posterior = TRUE and ther
 
 # bnecfit -----------------------------------------------------------------
 
+# EXPECTED-CHANGE ecx.bnecfit reference becomes per-realisation, values will change #19
 test_that("bnecfit works with default parameters", {
   output <- ecx(bnec_model_1)
 
@@ -755,7 +752,8 @@ test_that("bnecfit works with default parameters", {
   )
 })
 
-# NOTE: previously this triggered "need at least two non-NA values to interpolate"
+# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
+# Previously this triggered "need at least two non-NA values to interpolate"
 # due to a bug in interpolation when the model has a hormetic response. With the
 # current nechorme model the bug path is not reached, so the call now returns values.
 test_that("bnecfit checking hormesis_def = max", {
@@ -764,6 +762,7 @@ test_that("bnecfit checking hormesis_def = max", {
   expect_equal(output[[1]], 0.8776, tolerance = 0.01)
 })
 
+# EXPECTED-CHANGE ecx.bnecfit reference per-realisation #19; "relative" redefined #19
 test_that("bnecfit checking type = relative", {
   output <- ecx(bnec_model_1, type = "relative")
 
@@ -786,8 +785,8 @@ test_that("bnecfit checking type = relative", {
   )
 })
 
-# TODO This test is not returning what would be expected for the defaults at all.
-# I'm not even sure what it is returning, definitely broken.
+# EXPECTED-CHANGE ecx.bnecfit reference becomes per-realisation, values will change #19;
+# type "direct" output changes #12 & #14
 test_that("bnecfit checking type = direct", {
   output <- ecx(bnec_model_1, type = "direct")
 
@@ -816,6 +815,7 @@ test_that("bnecfit checking type = relative versus type = absolute behaves as ex
   expect_gt(output2[[1]], output1[[1]])
 })
 
+# EXPECTED-CHANGE ecx.bnecfit reference becomes per-realisation, values will change #19
 test_that("bnecfit checking posterior = TRUE", {
   output <- ecx(bnec_model_1, posterior = TRUE)
 
@@ -837,6 +837,7 @@ test_that("bnecfit checking posterior = TRUE", {
   )
 })
 
+# EXPECTED-CHANGE ecx.bnecfit reference becomes per-realisation, values will change #19
 test_that("bnecfit checking ecx_val changes", {
   output <- ecx(bnec_model_1, ecx_val = 50)
 
@@ -867,6 +868,7 @@ test_that("bnecfit checking ecx_val changes as expect", {
   expect_gt(output3[[1]], output2[[1]])
 })
 
+# EXPECTED-CHANGE ecx.bnecfit reference becomes per-realisation, values will change #19
 test_that("bnecfit checking resolution changes", {
   output <- ecx(bnec_model_1, resolution = 2)
 
@@ -889,8 +891,7 @@ test_that("bnecfit checking resolution changes", {
   )
 })
 
-# TODO, this output it weird, it doesn't make sense
-
+# EXPECTED-CHANGE ecx.bnecfit reference becomes per-realisation, values will change #19
 test_that("bnecfit checking x_range", {
   output <- ecx(bnec_model_1, x_range = c(2, 5))
 
@@ -942,8 +943,10 @@ test_that("brms additional example 1", {
   )
 })
 
-# TODO Again, need to align output to be consistent across all methods
-# also, type = "direct" is not returning expected.
+# EXPECTED-CHANGE per-realisation reference; gains a seed and tighter tolerance 
+# once averaging is reproducible # 19
+# also, type = "direct" is not returning expected 
+#  may work once this test fails, check well when updating to new values
 test_that("bayesmanecfit works", {
   output <- ecx(bayesnec::manec_example)
   expect_equal(
@@ -971,6 +974,7 @@ test_that("bayesmanecfit works", {
   )
 })
 
+# EXPECTED-CHANGE ecx.bnecfit values will change #19
 test_that("bayesnecfit works", {
   output <- ecx(ecx4param)
   expect_equal(
@@ -1019,6 +1023,7 @@ test_that("bnecfit prob_vals changes quantile levels", {
   expect_lte(output[[3]], output_default[[3]])
 })
 
+# EXPECTED-CHANGE type vocabulary gains "range", error message will change #19
 test_that("bnecfit input validation catches bad type", {
   expect_error(
     ecx(bnec_model_1, type = "nonsense"),
@@ -1026,6 +1031,7 @@ test_that("bnecfit input validation catches bad type", {
   )
 })
 
+# EXPECTED-CHANGE hormesis_def removed #20
 test_that("bnecfit input validation catches bad hormesis_def", {
   expect_error(
     ecx(bnec_model_1, hormesis_def = "nonsense"),
@@ -1156,10 +1162,7 @@ test_that("brmsfit type = relative gives smaller ECx than type = absolute", {
 
 # ecx.bnecfit — man page validation gaps ------------------------------------
 
-# TODO: The man page states ecx_val must be between 1 and 99 for type =
-# "relative" and "absolute". This range check is implemented in ecx.brmsfit
-# but NOT in ecx.bnecfit (or the ecx generic). When the refactor adds
-# validation to the generic, remove `if (FALSE)` and these tests should pass.
+# EXPECTED-CHANGE enable once ecx_val validation is on the generic #54
 if (FALSE) {
   test_that("bnecfit ecx_val out-of-range errors for absolute and relative types", {
     expect_error(
@@ -1177,9 +1180,8 @@ if (FALSE) {
     # type = "direct" has no range restriction — should still work
     expect_length(ecx(bnec_model_1, ecx_val = 0, type = "direct"), 3)
   })
-
-  # TODO: length(ecx_val) > 1 check is in ecx.brmsfit only. Man page implies a
-  # single value. When added to the generic, remove `if (FALSE)`.
+  
+  # EXPECTED-CHANGE hoping to update to actually allow multiple values #9
   test_that("bnecfit errors if multiple ecx_val values passed", {
     expect_error(
       ecx(bnec_model_1, ecx_val = c(10, 50)),
