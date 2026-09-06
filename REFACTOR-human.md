@@ -28,17 +28,47 @@ The refactor has three goals:
 
 **Out of scope, and decided first.** Three questions determine what the numbers
 are, not what shape they come in. None is settled by this plan, each has its own
-issue, and section 4 cannot start until they are answered.
+issue, and section 4 cannot start until all three are answered. One is now
+answered.
 
-| decision | what it decides | issue |
-|---|---|---|
-| The `ecx` reference | how the reference response is computed | #19 |
-| Direction | increasing versus decreasing responses, and how hormesis relates | #20 |
-| The `ecnsec` denominator | whether `ecnsec` is a percentage of the control or of the fitted range | #49 |
+| decision | what it decides | issue | status |
+|---|---|---|---|
+| The `ecx` reference | how the reference response is computed | #19 | settled |
+| Direction | increasing versus decreasing responses, and how hormesis relates | #20 | settled |
+| The `ecnsec` definition | what the effect reported beside the NSEC is measured against | #49 | settled |
+
+**The `ecx` reference (#19).** The reference is computed for each realisation
+from that realisation's own control, and the single reference built from
+posterior medians in `ecx.bnecfit` is deleted. `type` becomes a four-value
+vocabulary naming what the percentage is measured against: `absolute`, the
+control down to zero; `relative`, the control down to the equation's own
+theoretical asymptote; `range`, the control down to the lowest response the curve
+predicts; and `direct`, a response value supplied by the user. `range` is new,
+and it is what `relative` means in the current code, so `relative` changes
+meaning and is deprecated into `range`. Decision T9 and `REFACTOR-claude.md`
+§3.10 state it in full.
+
+**The `ecnsec` definition (#49).** `ecnsec` is the inverse of the `ecx`
+reference under the same `type`, and `nsec()` accepts the arguments `ecx()`
+accepts, so one `type` selects both. Under `direct`, `ecnsec` is the reference
+on the response scale rather than a percentage. Decision T8 and §3.9 state it in
+full.
+
+**Direction (#20).** An estimate is sought in both directions every time and
+`direction` is a column of the result, so `hormesis_def` is removed rather than
+repaired. Each direction has its own reference, as `nsec_multi` already does.
+Where a direction has no crossing the row is still returned, with `NA` — the
+direction was looked for and not found, which is information. Decision T10 and
+`REFACTOR-claude.md` §3.6 state it in full.
+
+All three are settled. Section 4's phase 0 also required agreeing the default for
+the `nsec` reference, which is exposed as the `anchor` argument rather than fixed
+by the plan (section 3.8). That default was ratified as `"model"` on 5 September,
+so phase 0 is complete and phase 1 can begin.
 
 The `nsec` reference does **not** block, because §3.8 exposes it as an argument
-rather than settling it. Only the default has to be agreed, and a default can be
-revisited later.
+rather than settling it, so only the default had to be agreed. It was ratified as
+`"model"` on 5 September, and a default can be revisited later.
 
 ## 3. Design decisions
 
@@ -58,14 +88,18 @@ Descriptor columns, each listed once against every metric it appears for:
 
 - `group` — one row per level, when grouped
 - `response` — one row per response, for multivariate fits
-- `ecx_val`, `type` — `ecx`
+- `ecx_val` — `ecx`
+- `type` — `ecx`, `nsec`
 - `sig_val`, `anchor` — `nsec`, `n(s)ec`
 - `control` — `ecx`, `nsec`
 - `reference` — `ecx`, `nsec`
 - `ecnsec`, `ecnsec.low`, `ecnsec.high` — `nsec`
 
 `control` is reported for `nsec` even though the NSEC does not use it, because
-`ecnsec` is a percentage change from the control and cannot be read without it.
+under `type = "absolute"` the control is the denominator of `ecnsec` and the
+percentage cannot be read without it. `type` appears for `nsec` because it
+selects the `ecnsec` definition, and with it whether `ecnsec` is a percentage
+or a response value (#49, decision T8).
 
 `metric` is a closed vocabulary — `"ecx"`, `"nsec"`, `"nec"`, `"n(s)ec"`,
 `"noec"` — with the value that parameterises it in its own column: `metric =
