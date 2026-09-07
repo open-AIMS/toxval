@@ -50,7 +50,7 @@ test_that("predict.bayesmanecfit robust = TRUE uses median", {
   expect_false(identical(preds_mean[, 1], preds_median[, 1]))
 })
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed) #39
 test_that("predict.bayesmanecfit probs argument changes CI columns", {
   preds <- predict(bayesnec::manec_example, probs = c(0.1, 0.9))
 
