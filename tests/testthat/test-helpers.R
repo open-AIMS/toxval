@@ -131,7 +131,7 @@ test_that("newdata_eval respects x_range", {
   expect_equal(max(result$x_vec), 3, tolerance = 0.01)
 })
 
-# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed)
+# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) #39
 test_that("newdata_eval works with bayesnecfit objects", {
   result <- toxval:::newdata_eval(
     ecx4param,
