@@ -119,7 +119,7 @@ test_that("newdata_eval returns list with newdata and x_vec", {
   expect_length(result$x_vec, 50)
 })
 
-# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed)
+# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) #39
 test_that("newdata_eval respects x_range", {
   result <- toxval:::newdata_eval(
     bayesnec::manec_example,
