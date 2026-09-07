@@ -61,7 +61,7 @@ test_that("sig_val warning message triggered when more then 1 value passed", {
   )
 })
 
-# TODO this will fail once fixed up
+# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
 test_that("hormesis_def errors with wrong input value", {
   expect_error(
     nsec(bayesnec::manec_example, hormesis_def = "other"),
@@ -171,7 +171,7 @@ test_that("x_range can be passed various values for bnecfit models", {
   )
 })
 
-# TODO this is wrong, error will fail once fixed
+# EXPECTED-CHANGE x_range will be accepted as a range #10
 test_that("x_range can be passed various values for drc models", {
   output_1 <- nsec(nsec_drc_1, x_range = c(100), x_var = "x")
   expect_equal(as.numeric(output_1), c(100, 100, 100), tolerance = 0.01)
@@ -182,7 +182,7 @@ test_that("x_range can be passed various values for drc models", {
   )
 })
 
-# TODO this is wrong, error will fail once fixed
+# EXPECTED-CHANGE x_range will be accepted as a range #10
 test_that("x_range can be passed various values for brms models", {
   output_1 <- nsec(brms_model_1, x_range = c(100), x_var = "x")
   expect_equal(as.numeric(output_1), c(100, 100, 100), tolerance = 0.01)
@@ -207,6 +207,7 @@ test_that("works for bayesmanecfit", {
   expect_equal(names(nsec1), c("Q50", "Q2.5", "Q97.5"))
 })
 
+# EXPECTED-CHANGE ecnsec reference redefined, ecnsec values change (nsec estimate unchanged) #49
 test_that("additional examples brms 1", {
   output <- nsec(brms_model_3, x_var = "x")
   expect_equal(
@@ -280,6 +281,7 @@ test_that("additional examples brms 2", {
   )
 })
 
+# EXPECTED-CHANGE ecnsec reference redefined, ecnsec values change #49
 test_that("additional examples brms 2", {
   output <- nsec(
     brms_model_4,
@@ -325,7 +327,7 @@ test_that("additional examples brms 2", {
   )
 })
 
-
+# EXPECTED-CHANGE drc estimate changes (parametric bootstrap) and needs a seed
 test_that("nsec works for drc using continuous data", {
   model_LL4 <- drc::drm(y ~ x, data = bayesnec::nec_data, fct = drc::LL.4())
   nsec_val <- as.vector(round(nsec(model_LL4, x_var = "x"), 1))
@@ -370,6 +372,7 @@ test_that("nsec for drc throws an error for an increasing function", {
   expect_error(nsec(daphnids_m1, x_var = "dose"))
 })
 
+# EXPECTED-CHANGE drc bootstrap changes estimate; ecnsec redefined #49; needs a seed
 test_that("nsec drc additional example 1", {
   data <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
@@ -401,6 +404,7 @@ test_that("nsec drc additional example 1", {
   )
 })
 
+# EXPECTED-CHANGE drc bootstrap changes estimate; ecnsec redefined #49; needs a seed
 test_that("nsec drc additional example 2", {
   data <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
@@ -443,9 +447,8 @@ test_that("brms model errors without x_var", {
   )
 })
 
-# TODO make better error handling for this
+# EXPECTED-CHANGE enable once x_var is validated before x_range (REFACTOR 3.7)
 if (FALSE) {
-  # turn off for running covr
   test_that("brms model errors if x_var isn't in the dataset", {
     expect_error(
       nsec(brms_model_1, x_var = "z"),
@@ -462,7 +465,7 @@ test_that("brms model errors if by_group is true but no group_var is supplied", 
   )
 })
 
-# TODO make better error handling
+# EXPECTED-CHANGE cleaner error when extra predictors require group_var #56
 test_that("brms model errors if there are additional groups but aren't specified", {
   expect_error(
     nsec(brms_model_2, x_var = "x"),
@@ -488,6 +491,7 @@ test_that("brms model errors if group_var is not in the dataset when non-charact
   )
 })
 
+# EXPECTED-CHANGE ecnsec reference redefined, ecnsec values change #49
 test_that("brms model runs when multiple variables in data and group_var specified", {
   output <- nsec(brms_model_2, x_var = "x", group_var = "z", by_group = FALSE)
 
@@ -512,6 +516,7 @@ test_that("brms model runs when multiple variables in data and group_var specifi
   )
 })
 
+# EXPECTED-CHANGE ecnsec reference redefined, ecnsec values change #49
 test_that("brms model runs when multiple variables in data and group_var specified", {
   output <- nsec(brms_model_2, x_var = "x", group_var = "z", by_group = TRUE)
 
@@ -543,7 +548,7 @@ test_that("brms model runs when multiple variables in data and group_var specifi
   )
 })
 
-# TODO fix this partial matching error, this should fail once fixed
+# EXPECTED-CHANGE horme/hormesis_def removed, direction becomes a result column #20
 test_that("brms model errors if only horme supplied as partial matching to other variable", {
   expect_error(
     nsec(brms_model_1, x_var = "x", horme = TRUE),
@@ -551,6 +556,7 @@ test_that("brms model errors if only horme supplied as partial matching to other
   )
 })
 
+# EXPECTED-CHANGE horme/hormesis_def removed #20; ecnsec redefined #49
 test_that("brms model using horme when hormesis_def is control", {
   output <- nsec(
     brms_model_1,
@@ -583,6 +589,7 @@ test_that("brms model using horme when hormesis_def is control", {
 # Golden values updated when the hormetic reference was fixed to max over
 # draws (MARGIN = 1) rather than over x values (MARGIN = 2). The old
 # expectations were nsec_fct()'s max(x_vec) fallback, not estimates.
+# EXPECTED-CHANGE horme/hormesis_def removed #20; ecnsec redefined #49
 test_that("brms model using horme when hormesis_def is max", {
   output <- nsec(brms_model_1, x_var = "x", hormesis_def = "max", horme = TRUE)
   expect_equal(
@@ -607,6 +614,7 @@ test_that("brms model using horme when hormesis_def is max", {
   )
 })
 
+# EXPECTED-CHANGE horme/hormesis_def removed #20; ecnsec redefined #49
 test_that("brms model using horme when hormesis_def is max and group is supplied", {
   output <- nsec(
     brms_model_2,
@@ -666,6 +674,7 @@ test_that("brms model when posterior is true and group_var is na", {
   expect_equal(output_attr$toxicity_estimate, "nsec")
 })
 
+# EXPECTED-CHANGE ecnsec reference redefined, ecnsec values change #49
 test_that("brms model by_group is false, group_var is supplied and posterior is true", {
   output <- nsec(
     brms_model_2,
@@ -700,7 +709,7 @@ test_that("drc model errors if no x_var is supplied", {
   )
 })
 
-# TODO make better error handling to check right x_var is supplied
+# EXPECTED-CHANGE clearer error when x_var absent (curveid/columns by name) #34
 test_that("drc model errors if wrong x_var is supplied", {
   expect_error(
     nsec(nsec_drc_1, x_var = "a"),
@@ -715,6 +724,7 @@ test_that("drc model errors if more then 1 sig val is passed", {
   )
 })
 
+# EXPECTED-CHANGE drc bootstrap changes estimate #43; ecnsec redefined #49; needs a seed 
 test_that("drc model output attributes", {
   output <- nsec(nsec_drc_1, x_var = "x")
   expect_equal(
@@ -738,7 +748,7 @@ test_that("drc model output attributes", {
   )
 })
 
-# TODO ask about if there should be a check that the curveid exists in the data
+# EXPECTED-CHANGE drc bootstrap #43; ecnsec redefined #49; curveid selected by name #34; needs a seed
 test_that("drc model curveid switches attributes to have a matrix for ecnsec_relativeP", {
   output <- nsec(nsec_drc_1, x_var = "x", curveid = "a")
   expect_equal(
@@ -774,8 +784,8 @@ test_that("drc model errors if increasing model supplied", {
   )
 })
 
-# TODO the curveid parameter can just be anything which seems wrong
-test_that("drc model errors if increasing model supplied", {
+# EXPECTED-CHANGE curveid validated rather than accepted as anything #34
+test_that("curveid paramer must be in the data", {
   expect_error(
     nsec(nsec_drc_2, x_var = "x", curveid = "a"),
     regexp = "nsec can currently only be estimated for curves that represent an overall decreasing function"
@@ -827,6 +837,7 @@ test_that("bnecfit nsec xform is applied to posterior before summarising", {
   expect_gt(as.numeric(output_2[1]), as.numeric(output_1[1]))
 })
 
+# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
 test_that("bnecfit nsec hormesis_def = max uses maximum as reference", {
   output_control <- nsec(
     bayesnec_ecx4param,
@@ -1004,11 +1015,7 @@ test_that("brmsfit default resolution is 1000", {
 
 # nsec.drc — man page gaps documented as known bugs -------------------------
 
-# TODO: Bug in nsec.drc (single-curve case, no curveid). The line
-# `xform(nsec_out)` does not assign its result, so xform is called but
-# discarded. out_vals is built from the unmodified nsec_out. The existing
-# test "drc nsec xform changes output values" uses >= which passes even when
-# both outputs are identical. Remove `if (FALSE)` once the assignment is fixed.
+# EXPECTED-CHANGE enable once drc xform assignment is fixed #57
 if (FALSE) {
   test_that("drc nsec xform multiplies all output values when curveid is NA", {
     output_1 <- nsec(nsec_drc_1, x_var = "x")
@@ -1021,9 +1028,7 @@ if (FALSE) {
   })
 }
 
-# TODO: nsec.drc returns an unnamed numeric vector (via as.numeric(unlist(...))).
-# nsec.brmsfit and nsec.bnecfit both return named vectors c("Q50","Q2.5","Q97.5").
-# Remove `if (FALSE)` once nsec.drc adds clean_names() like the other methods.
+# EXPECTED-CHANGE enable once output is the toxval tibble (uniform naming)
 if (FALSE) {
   test_that("drc nsec output is named Q50, Q2.5, Q97.5 consistent with other methods", {
     output <- nsec(nsec_drc_1, x_var = "x")
