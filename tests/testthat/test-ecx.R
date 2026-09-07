@@ -98,7 +98,7 @@ test_that("posterior = true outputs the posterior", {
   )
 })
 
-# EXPECTED-CHANGE type "relative" reference , redefined (old behaviour renamed "range") #19
+# EXPECTED-CHANGE type "relative" reference, redefined (old behaviour renamed "range") #19
 test_that("check type = relative argument", {
   output <- ecx(brms_model_1, x_var = "x", type = "relative")
 
