@@ -1,3 +1,13 @@
+# Tests whose values or behaviour are expected to change during the refactor
+# have a `# EXPECTED-CHANGE` comment giving the reason and the issue. If a test
+# without one changes, the developer should double check the change was
+# intentional.
+#
+# Two changes are deliberately not marked, because each would alter almost every
+# test in this file: the phase-5 switch to a toxval tibble (#4), and the
+# replacement of the evaluation grid with root-finding (#40), which is not yet
+# in the refactor plan.
+
 # parameters --------------------------------------------------------------
 test_that("prob_vals warnings behave as expected", {
   expect_error(
