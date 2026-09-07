@@ -447,7 +447,7 @@ test_that("brms model errors without x_var", {
   )
 })
 
-# EXPECTED-CHANGE enable once x_var is validated before x_range (REFACTOR 3.7)
+# EXPECTED-CHANGE enable once x_var is validated before x_range #55
 if (FALSE) {
   test_that("brms model errors if x_var isn't in the dataset", {
     expect_error(
