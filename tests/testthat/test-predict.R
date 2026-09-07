@@ -39,7 +39,7 @@ test_that("predict.bayesmanecfit summary = FALSE returns raw posterior", {
   expect_gt(nrow(preds), 3)
 })
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed) #39
 test_that("predict.bayesmanecfit robust = TRUE uses median", {
   preds_mean <- predict(bayesnec::manec_example, robust = FALSE)
   preds_median <- predict(bayesnec::manec_example, robust = TRUE)
