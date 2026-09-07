@@ -2,7 +2,7 @@
 
 # predict.bayesnecfit ------------------------------------------------------
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed) #39
 test_that("predict on pulled brmsfit returns expected structure", {
   bf <- bayesnec::pull_brmsfit(ecx4param)
   preds <- predict(bf)
