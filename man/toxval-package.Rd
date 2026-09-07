@@ -28,5 +28,11 @@ Authors:
   \item Ayla Pearson \email{ayla@poissonconsulting.ca} (\href{https://orcid.org/0000-0001-7388-1222}{ORCID})
 }
 
+Other contributors:
+\itemize{
+  \item Australian Institute of Marine Science [copyright holder, funder]
+  \item Poisson Consulting Ltd. [copyright holder]
+}
+
 }
 \keyword{internal}
