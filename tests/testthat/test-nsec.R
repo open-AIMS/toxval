@@ -327,7 +327,7 @@ test_that("additional examples brms 2", {
   )
 })
 
-# EXPECTED-CHANGE drc estimate changes (parametric bootstrap) and needs a seed
+# EXPECTED-CHANGE drc estimate changes (parametric bootstrap) #43; needs a seed
 test_that("nsec works for drc using continuous data", {
   model_LL4 <- drc::drm(y ~ x, data = bayesnec::nec_data, fct = drc::LL.4())
   nsec_val <- as.vector(round(nsec(model_LL4, x_var = "x"), 1))
