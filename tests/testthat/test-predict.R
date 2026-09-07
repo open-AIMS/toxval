@@ -30,7 +30,7 @@ test_that("predict.bayesmanecfit returns summary by default", {
   )
 })
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed) #39
 test_that("predict.bayesmanecfit summary = FALSE returns raw posterior", {
   preds <- predict(bayesnec::manec_example, summary = FALSE)
 
