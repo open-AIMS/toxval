@@ -944,7 +944,7 @@ test_that("brms additional example 1", {
 })
 
 # EXPECTED-CHANGE per-realisation reference; gains a seed and tighter tolerance
-# once averaging is reproducible # 19
+# once averaging is reproducible #19
 # also, type = "direct" is not returning expected
 #  may work once this test fails, check well when updating to new values
 test_that("bayesmanecfit works", {
