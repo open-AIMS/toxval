@@ -2,7 +2,7 @@
 
 # predict.bayesnecfit ------------------------------------------------------
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed) 
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
 test_that("predict on pulled brmsfit returns expected structure", {
   bf <- bayesnec::pull_brmsfit(ecx4param)
   preds <- predict(bf)
@@ -18,7 +18,7 @@ test_that("predict on pulled brmsfit returns expected structure", {
 
 # predict.bayesmanecfit ----------------------------------------------------
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)  
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
 test_that("predict.bayesmanecfit returns summary by default", {
   preds <- predict(bayesnec::manec_example)
 
@@ -30,7 +30,7 @@ test_that("predict.bayesmanecfit returns summary by default", {
   )
 })
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)  
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
 test_that("predict.bayesmanecfit summary = FALSE returns raw posterior", {
   preds <- predict(bayesnec::manec_example, summary = FALSE)
 
@@ -39,7 +39,7 @@ test_that("predict.bayesmanecfit summary = FALSE returns raw posterior", {
   expect_gt(nrow(preds), 3)
 })
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)  
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
 test_that("predict.bayesmanecfit robust = TRUE uses median", {
   preds_mean <- predict(bayesnec::manec_example, robust = FALSE)
   preds_median <- predict(bayesnec::manec_example, robust = TRUE)
@@ -50,7 +50,7 @@ test_that("predict.bayesmanecfit robust = TRUE uses median", {
   expect_false(identical(preds_mean[, 1], preds_median[, 1]))
 })
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)  
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
 test_that("predict.bayesmanecfit probs argument changes CI columns", {
   preds <- predict(bayesnec::manec_example, probs = c(0.1, 0.9))
 
@@ -60,7 +60,7 @@ test_that("predict.bayesmanecfit probs argument changes CI columns", {
 
 # predict.bayesmanecfit probs with > 2 values --------------------------------
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)  
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
 test_that("predict.bayesmanecfit probs with 3 values returns 5-column matrix", {
   # Man page: probs is "The percentiles to be computed by the quantile function."
   # No restriction to exactly 2 values — source pads to c("Estimate","Est.Error",
@@ -74,7 +74,7 @@ test_that("predict.bayesmanecfit probs with 3 values returns 5-column matrix", {
   )
 })
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)  
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
 test_that("predict.bayesnecfit dispatches correctly and returns 4-column matrix", {
   preds <- predict(ecx4param)
 

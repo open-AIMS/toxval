@@ -724,7 +724,7 @@ test_that("drc model errors if more then 1 sig val is passed", {
   )
 })
 
-# EXPECTED-CHANGE drc bootstrap changes estimate #43; ecnsec redefined #49; needs a seed 
+# EXPECTED-CHANGE drc bootstrap changes estimate #43; ecnsec redefined #49; needs a seed
 test_that("drc model output attributes", {
   output <- nsec(nsec_drc_1, x_var = "x")
   expect_equal(

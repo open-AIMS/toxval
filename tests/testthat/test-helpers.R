@@ -105,7 +105,7 @@ test_that("modify_posterior with hormesis_def = control leaves all values", {
 
 # newdata_eval -------------------------------------------------------------
 
-# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) 
+# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed)
 test_that("newdata_eval returns list with newdata and x_vec", {
   result <- toxval:::newdata_eval(
     bayesnec::manec_example,
@@ -119,7 +119,7 @@ test_that("newdata_eval returns list with newdata and x_vec", {
   expect_length(result$x_vec, 50)
 })
 
-# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) 
+# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed)
 test_that("newdata_eval respects x_range", {
   result <- toxval:::newdata_eval(
     bayesnec::manec_example,
@@ -131,7 +131,7 @@ test_that("newdata_eval respects x_range", {
   expect_equal(max(result$x_vec), 3, tolerance = 0.01)
 })
 
-# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) 
+# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed)
 test_that("newdata_eval works with bayesnecfit objects", {
   result <- toxval:::newdata_eval(
     ecx4param,

@@ -118,7 +118,7 @@ test_that("check type = relative argument", {
   )
 })
 
-# EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24  
+# EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24
 test_that("check type = direct argument", {
   output <- ecx(brms_model_1, x_var = "x", type = "direct")
 
@@ -138,7 +138,7 @@ test_that("check type = direct argument", {
   )
 })
 
-# EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24  
+# EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24
 test_that("check type = direct argument with in range value", {
   output <- ecx(brms_model_1, x_var = "x", type = "direct", ecx_val = 0.5)
 
@@ -243,7 +243,7 @@ test_that("type = direct and value passed to trigger NAN catch", {
   )
 })
 
-# EXPECTED-CHANGE type vocabulary gains "range"; passing >1 type will error cleanly #7 
+# EXPECTED-CHANGE type vocabulary gains "range"; passing >1 type will error cleanly #7
 test_that("type errors when wrong value passed", {
   expect_error(
     ecx(brms_model_1, x_var = "x", type = "something"),
@@ -468,7 +468,7 @@ test_that("can only pass a single exc_val argument", {
   )
 })
 
-# EXPECTED-CHANGE ecx_val may become a proportion not a percentage #3; 
+# EXPECTED-CHANGE ecx_val may become a proportion not a percentage #3;
 # ecx_val validation moves to the generic (all methods, not just brms) #55;
 # extreme ecx_val not reached within the tested range will warn to widen x_range #24
 test_that("when type is not direct ecx_val has to between 1 and 99", {
@@ -943,9 +943,9 @@ test_that("brms additional example 1", {
   )
 })
 
-# EXPECTED-CHANGE per-realisation reference; gains a seed and tighter tolerance 
+# EXPECTED-CHANGE per-realisation reference; gains a seed and tighter tolerance
 # once averaging is reproducible # 19
-# also, type = "direct" is not returning expected 
+# also, type = "direct" is not returning expected
 #  may work once this test fails, check well when updating to new values
 test_that("bayesmanecfit works", {
   output <- ecx(bayesnec::manec_example)
@@ -1180,7 +1180,7 @@ if (FALSE) {
     # type = "direct" has no range restriction — should still work
     expect_length(ecx(bnec_model_1, ecx_val = 0, type = "direct"), 3)
   })
-  
+
   # EXPECTED-CHANGE hoping to update to actually allow multiple values #9
   test_that("bnecfit errors if multiple ecx_val values passed", {
     expect_error(
