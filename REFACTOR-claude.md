@@ -751,8 +751,10 @@ larger of the two. `nsec.brmsfit` and `nsec.drc` will therefore report a
 was run to size it. The NSEC estimate itself does not change, only the
 percentage reported beside it.
 
-Phase 1 golden values must be captured for `ecnsec` under each `type` on each
-method, so this change is separable from a relocation bug.
+The `ecnsec` assertions under each `type` on each method have an
+`EXPECTED-CHANGE` marker, so this change is separable from a relocation bug.
+
+Those assertions are at test-nsec.R:210, 284, 330, 375, 407, 494, 519, 559, 592, 617, 677, 727, 751.
 
 #### Consequences elsewhere
 
@@ -1001,7 +1003,7 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | # | phase | numbers |
 |---|---|---|
 | 0 | **Done.** The `ecx` reference and `type` vocabulary (#19, T9), direction (#20, T10), `ecnsec` (#49, T8), frequentist realisations (#43, T11) and the `anchor` default (T12). No code. | — |
-| 1 | **Lock a regression net.** Capture current estimates as golden values, split into "must not move" and "expected to move, because #19/#20/#34/xform". The existing `if (FALSE)` tests and `TODO` markers are the starting ledger for the second list. | — |
+| 1 | **Lock a regression net.** Mark every test a later phase changes with `# EXPECTED-CHANGE <reason> #<issue>`, replacing the existing `TODO` markers; unmarked tests are the "must not move" set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan. | - |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`; move `bayesnec` to `Suggests`, or out entirely if the tests no longer need it. | `ecx` on `bnecfit` adopts the #19 answer |
 | 4 | **Move metrics onto the spine** (`ecx`, then `nsec`, then `nsec_multi`), each gaining `draws`, with `posterior` deprecated but working. | per #19/#20 |

@@ -342,9 +342,10 @@ break would force two breaking releases in a row.
 0. **Decide #19, #20 and #49, and agree the `anchor` default.** No code. Fixes
    what the numbers should be before anything locks them. Done when the answers
    are on the issues.
-1. **Lock a regression net.** Capture current estimates as golden values, split
-   into "must not move" and "expected to move, because X", so every later phase
-   is checkable. Done when both lists exist and pass.
+1. **Lock a regression net.** Mark tests that are expected to change with the 
+   comment `# EXPECTED-CHANGE`, tests that are unmarked developers should be 
+   more cautious if they change unless it is one of the tasks that will change
+   all values like the tibble change over. 
 2. **Build the new spine alongside the old code.** `toxval_pred`,
    `toxval_predict()` and its methods, the shared `chk` validator, the
    class-agnostic compute functions, the parametric bootstrap. Purely additive.
