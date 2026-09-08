@@ -9,9 +9,9 @@
 #'
 #' @noRd
 find_crossings <- function(y, x_vec, reference) {
-  chk::chk_scalar(reference) 
-  chk::chk_numeric(reference) 
-  
+  chk::chk_scalar(reference)
+  chk::chk_numeric(reference)
+
   d <- y - reference
   n <- length(d)
   ok <- is.finite(d)
