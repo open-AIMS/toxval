@@ -112,7 +112,7 @@ test_that("find_crossings when an increasing crossing lands on a point", {
   expect_equal(result$increasing, 1)
 })
 
-test_that("find_crossings when an decreasing crossing lands on a point", {
+test_that("find_crossings when a decreasing crossing lands on a point", {
   x_vec <- 0:5
   y <- 5:0
   reference <- 1
@@ -169,7 +169,7 @@ test_that("find_crossings when reference is NA", {
 })
 
 # TODO Confirm with Becky what this should be for NA cases
-test_that("find_crossings returns NA when an NA hides is adjacent to the crossing", {
+test_that("find_crossings returns NA when an NA is adjacent to the crossing", {
   x_vec <- c(0, 1, 2, 3, 4, 5)
   y <- c(0, 1, 2, NA, 4, 5)
   reference <- 3
@@ -202,7 +202,7 @@ test_that("find_crossings returns NA when the whole curve is NA", {
   expect_identical(result$increasing, NA_real_)
 })
 
-test_that("find_crossings returna NA when increasing to an Inf value", {
+test_that("find_crossings returns NA when increasing to an Inf value", {
   x_vec <- c(0, 1)
   y <- c(1, Inf)
   reference <- 3
