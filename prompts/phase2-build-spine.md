@@ -569,3 +569,19 @@ inline like `daphnids_m2`); and `R/toxval-params.R`, both the shared parameter
 additions and its stale `object` entry.
 
 ---
+
+**User:** The test is passing now
+
+**Claude:** Verified green: 24 tests, 52 assertions, no failures or errors. The
+guard is now `chk::chk_scalar()` + `chk::chk_numeric()`, so an `NA` reference
+returns `NA`/`NA` and the `compute_*` layer will own counting and warning about
+`NA` realisations. The duplicate #40 test is gone and the multi-value regexp
+matches chk's scalar message.
+
+Three typos remain in the renamed tests: `"returns NA when an NA hides is
+adjacent to the crossing"` (leftover word); `"when an decreasing crossing"`; and
+`"returna NA"`. Noted that the user's "adjacent" framing for the two NA tests is
+better than the originally suggested wording, since it names what distinguishes
+them rather than describing the NA's effect.
+
+---
