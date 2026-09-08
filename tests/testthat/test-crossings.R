@@ -145,7 +145,12 @@ test_that("find_crossings returns NA when the curve only reaches the reference a
   expect_identical(result$increasing, NA_real_)
 })
 
-# TODO Flag for Becky: different behaviour then test above
+# The test above and the one below are not symmetric, and are not meant to be.
+# A value exactly on the reference is assigned to the left of its interval, so
+# the last grid point starts no interval and can never be a crossing, while the
+# first can. Settled 2026-09-08 (RF) on #59: the convention is kept because the
+# alternative returns NA for the two plateau curves below, which are the case
+# nsec is defined to estimate.
 test_that("find_crossings returns increasing value when the curve only leaves the reference at the first point", {
   x_vec <- 0:2
   y <- 0:2
@@ -155,6 +160,28 @@ test_that("find_crossings returns increasing value when the curve only leaves th
 
   expect_identical(result$decreasing, NA_real_)
   expect_equal(result$increasing, 0)
+})
+
+test_that("find_crossings finds the departure from a plateau on the reference", {
+  x_vec <- 0:4
+  y <- c(2, 2, 2, 3, 4)
+  reference <- 2
+
+  result <- toxval:::find_crossings(y, x_vec, reference)
+
+  expect_identical(result$decreasing, NA_real_)
+  expect_equal(result$increasing, 2)
+})
+
+test_that("find_crossings finds the departure from a plateau below the reference", {
+  x_vec <- 0:4
+  y <- c(2, 2, 2, 1, 0)
+  reference <- 2
+
+  result <- toxval:::find_crossings(y, x_vec, reference)
+
+  expect_equal(result$decreasing, 2)
+  expect_identical(result$increasing, NA_real_)
 })
 
 test_that("find_crossings when reference is NA", {
@@ -168,7 +195,12 @@ test_that("find_crossings when reference is NA", {
   expect_identical(result$increasing, NA_real_)
 })
 
-# TODO Confirm with Becky what this should be for NA cases
+# Settled 2026-09-08 (RF) on #59: an NA is not bridged. modify_posterior()
+# (R/helpers.R:12-20) only ever writes a leading block of NAs, so once T10
+# removes it an interior NA is a prediction failure, and interpolating across it
+# invents a value. On y = 10 * exp(-x) over 0:5 with x = 2 dropped and
+# reference = 1.5, bridging returns 2.369 against a true crossing of 1.897, an
+# error of 24.9 per cent where the same grid with no gap gives 2.0 per cent.
 test_that("find_crossings returns NA when an NA is adjacent to the crossing", {
   x_vec <- c(0, 1, 2, 3, 4, 5)
   y <- c(0, 1, 2, NA, 4, 5)
@@ -177,7 +209,7 @@ test_that("find_crossings returns NA when an NA is adjacent to the crossing", {
   result <- toxval:::find_crossings(y, x_vec, reference)
 
   expect_identical(result$decreasing, NA_real_)
-  expect_identical(result$increasing, NA_real_) # I think it should be 3 not NA
+  expect_identical(result$increasing, NA_real_)
 })
 
 test_that("find_crossings returns a value when NA not adjacent to the crossing", {

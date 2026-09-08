@@ -4,6 +4,14 @@
 #' @param x_vec Numeric, the predictor grid.
 #' @param reference Numeric scalar, the response value to cross.
 #'
+#' @details
+#' A crossing is a change of side of `reference` between two adjacent grid
+#' points. A value exactly on the reference is assigned to the left of its
+#' interval, so a curve sitting on the reference and then departing crosses
+#' where it departs. Only the `n - 1` intervals are scanned, so the last grid
+#' point starts no interval and a curve that only reaches the reference there
+#' has not crossed.
+#'
 #' @return A list of two scalars, `decreasing` and `increasing`, each the x
 #'   value of the first crossing in that direction, or `NA_real_`.
 #'
