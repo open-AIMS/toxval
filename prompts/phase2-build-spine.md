@@ -451,3 +451,121 @@ plotting `dip()` over `seq(0, 11, 0.01)` with the two grids overlaid makes it
 obvious at a glance.
 
 ---
+
+**User:** The coarse example doesn't dip below — is that intentional? How do you
+know the true crossing values for the fine example?
+
+**Claude:** Intentional, and it is the whole test. The *function* reaches -3 at
+x = 5.5; the *coarse grid* never samples it. What is actually passed to
+`find_crossings()` is
+
+```
+   0    1    2    3    4        5        6    7    8    9   10   11
+   1    1    1    1    1  0.999985 0.999985    1    1    1    1    1
+```
+
+so nothing crosses the reference and `NA` is correct — the function must not
+invent a crossing it has no evidence for. Had the coarse grid dipped below, the
+test would just be another "finds a crossing" case. Recommended making the
+comment state the coarse values explicitly, since the question showed the purpose
+was not obvious from the code.
+
+True crossings come from solving `dip(x) = 0` in closed form:
+`(x - 5.5)^2 = 0.02 * log(4)`, so `x = 5.5 +/- 0.1665109` = 5.33348908 and
+5.66651092; verified by substitution, `dip()` at both is `3.1e-15`. The constants
+were chosen so the function inverts analytically rather than the truth being
+estimated from a finer grid.
+
+Clarified the distinction: the *asserted* values (5.324335, 5.675665) are what
+`find_crossings()` returns — straight-line interpolation on a 0.1 grid — while
+the analytic values appear only in the comment as the yardstick showing the
+0.009 interpolation error. Offered the alternative of asserting closeness to
+truth (`5.333489, tolerance = 0.01`), which survives a future interpolation
+improvement where the tight assertion would need updating, and noted both could
+be asserted.
+
+---
+
+**User:** Great. Those are done now. Anything remaining? Do the test names make
+sense?
+
+**Claude:** Ran the file: 25 tests, 51 assertions, **1 error** — the suite is not
+green.
+
+**The failure is a real decision surfaced by accident.** `chk::chk_number()`
+requires a *non-missing* numeric scalar, so it rejects `NA_real_` and the
+NA-reference test now errors. An `NA` reference is reachable: under T9 the ECx
+reference is built per realisation from that realisation's own control, so a
+degenerate draw with `NA` at the control yields an `NA` reference. Erroring means
+one bad draw of 4000 aborts the whole estimate; returning `NA` lets it drop out
+of the quantile. Recommended allowing `NA` and putting the flagging one level up
+— `compute_*` counts `NA` realisations and warns with the count, which satisfies
+"flag explicitly rather than silently exclude" without a single draw killing the
+run, and is the hook #6/#24 needs anyway. `chk_scalar()` + `chk_numeric()` gives
+exactly those semantics, verified: `NA_real_` ok, `1.5` ok, `c(1, 2)` -> scalar
+error, `"a"` -> numeric error. The multi-value test's regexp reverts to the
+scalar message.
+
+**A copy-paste leftover:** `"find_crossings resolution limite (issue #40)"` is an
+exact duplicate of the reference-scalar error test — wrong body, duplicating the
+assertions above it, and a typo. Delete; the real #40 test follows it.
+
+**Test names.** The convention that reads best is `find_crossings <does what>`,
+so a failure line states a broken promise; several names described the input
+instead. Supplied a 14-row rename table. Two mattered beyond cosmetics: the two
+"has two crossing" tests differed only in word order, so a failure report could
+not identify which broke (renamed by curve shape — hormetic and U-shaped, which
+also connects them to the biology); and the top-of-line / bottom-of-line pair is
+the asymmetry Becky must rule on, so naming them by what they assert makes the
+asymmetry visible from the test names alone.
+
+Two leftovers: the `# TODO Check with becky as this seems wrong` on the `Inf`
+test is resolved (`is.finite()` is why it returns `NA`, which is correct); and
+the #40 test uses `reference <- 0` for the coarse call but a literal `0` for the
+fine one.
+
+---
+
+**User:** I am going to send a PR so that Becky can review the comments and
+choices. If she approves this function what would the next steps be?
+
+**Claude:** **The PR would duplicate #58 unless stacked.** Verified `phase-1` is
+an ancestor of `phase-2`: `phase-2` is `phase-1` plus exactly two commits
+(`ed464f0` crossings + tests, `786036c` the log), and PR #58 is already open as
+`phase-1` -> `main` with 12 files. So `phase-2` -> `main` would re-show those 12
+files. Recommended opening it as **`phase-2` -> `phase-1`**, giving a diff of
+just the two commits; GitHub retargets to `main` when #58 merges and `phase-1` is
+deleted.
+
+**Recommended putting the open questions in the PR body**, since they will be
+missed as `# TODO` comments alone: the endpoint asymmetry, whether an `NA` at the
+crossing should bridge, and whether an `NA` reference should error. Also
+recommended *naming* the settled change — no crossing now returns `NA` rather
+than `max(x_vec)` — because it ripples into `test-helpers.R` and moves NSEC
+values at phase 4.
+
+**Next unit: `R/toxval-pred.R`**, being independent of everything under review
+and a prerequisite for everything after it, mostly transcription from §3.4, and
+public API that `bayesnec` constructs from outside so it warrants its own review
+round. Four decisions to settle before writing: what names `curves` carries when
+ungrouped; whether the validator enforces the alignment invariant (recommended
+yes — equal `nrow` across `curves`, `threshold` elements matching it, `ncol`
+matching `length(x_vec)`); the exact `meta` contents, fixed now since `compute_*`
+reads `family` for the gaussian guard and `dimension` for row construction; and
+that `threshold`/`control` stay `NULL` from phase-2 methods while the slots and
+their validation exist.
+
+**Then, in dependency order:** `R/validate.R`; `toxval_predict.brmsfit` split
+into ungrouped, `group_var`, then multivariate; `R/bootstrap.R` plus
+`toxval_predict.drc` (needs `MASS` and `withr` in Imports and the `curveid`
+fixture decided); and `R/compute.R` last, depending on `crossings.R`,
+`toxval_pred`, Becky's `NA` answer and T9's four-value `type`.
+
+**Unblocked during review:** the `test-helpers.R:31` marker gap (it asserts the
+`max(x_vec)` fallback unmarked, so it belongs with the phase-1 net); a comment on
+#55 that the target architecture has one generic so "validation in the generic"
+resolves as §3.7's split; the `drc` `curveid` fixture choice (stored versus
+inline like `daphnids_m2`); and `R/toxval-params.R`, both the shared parameter
+additions and its stale `object` entry.
+
+---
