@@ -470,7 +470,8 @@
 <div class="section level4">
 <h4 id="change-at-default-settings">Change at default settings<a class="anchor" aria-label="anchor" href="#change-at-default-settings"></a></h4>
 <p>For a decreasing curve with a non-negative minimum, <code>(R - min) / (max - min) &lt;= R / y[1]</code>, so the relative percentage is always the larger of the two. <code>nsec.brmsfit</code> and <code>nsec.drc</code> will therefore report a <strong>smaller</strong> <code>ecnsec</code> than they do now at defaults. This is algebra; no fixture was run to size it. The NSEC estimate itself does not change, only the percentage reported beside it.</p>
-<p>Phase 1 golden values must be captured for <code>ecnsec</code> under each <code>type</code> on each method, so this change is separable from a relocation bug.</p>
+<p>The <code>ecnsec</code> assertions under each <code>type</code> on each method have an <code>EXPECTED-CHANGE</code> marker, so this change is separable from a relocation bug.</p>
+<p>Those assertions are the <code>EXPECTED-CHANGE</code> markers in <code>test-nsec.R</code> that name #49.</p>
 </div>
 <div class="section level4">
 <h4 id="consequences-elsewhere">Consequences elsewhere<a class="anchor" aria-label="anchor" href="#consequences-elsewhere"></a></h4>
@@ -617,8 +618,8 @@
 <td>—</td>
 </tr><tr><td>1</td>
 <td>
-<strong>Lock a regression net.</strong> Capture current estimates as golden values, split into “must not move” and “expected to move, because #19/#20/#34/xform”. The existing <code>if (FALSE)</code> tests and <code>TODO</code> markers are the starting ledger for the second list.</td>
-<td>—</td>
+<strong>Lock a regression net.</strong> Mark every test a later phase changes with <code># EXPECTED-CHANGE &lt;reason&gt; #&lt;issue&gt;</code>, replacing the existing <code>TODO</code> markers; unmarked tests are the “must not move” set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan.</td>
+<td>-</td>
 </tr><tr><td>2</td>
 <td>
 <strong>Build the spine.</strong> <code>toxval_pred</code>, <code>toxval_predict()</code> and its methods, the shared <code>chk</code> validator, the class-agnostic compute functions, the parametric bootstrap. <code><a href="reference/ecx.html">ecx()</a></code> / <code><a href="reference/nsec.html">nsec()</a></code> keep returning <strong>today’s named vectors</strong>. Purely additive.</td>

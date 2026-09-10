@@ -22,12 +22,12 @@ Source:
 [`DESCRIPTION`](https://github.com/open-aims/toxval/blob/main/DESCRIPTION)
 
 Fisher R, Barneche D, Koppel D, Fox D, Pearson A (2026). *toxval:
-Functions for Extracting NSEC and ECx Values from fitted Frequentist and
+Functions for Extracting NSEC and ECx Values from Fitted Frequentist and
 Bayesian Model Objects*. R package version 1.0.0.9000,
 <https://open-aims.github.io/toxval/>.
 
     @Manual{,
-      title = {toxval: Functions for Extracting NSEC and ECx Values from fitted Frequentist and Bayesian Model Objects},
+      title = {toxval: Functions for Extracting NSEC and ECx Values from Fitted Frequentist and Bayesian Model Objects},
       author = {Rebecca Fisher and Diego Barneche and Darren Koppel and David Fox and Ayla Pearson},
       year = {2026},
       note = {R package version 1.0.0.9000},

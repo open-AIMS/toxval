@@ -273,7 +273,7 @@
 <ol start="0" style="list-style-type: decimal"><li>
 <strong>Decide #19, #20 and #49, and agree the <code>anchor</code> default.</strong> No code. Fixes what the numbers should be before anything locks them. Done when the answers are on the issues.</li>
 <li>
-<strong>Lock a regression net.</strong> Capture current estimates as golden values, split into “must not move” and “expected to move, because X”, so every later phase is checkable. Done when both lists exist and pass.</li>
+<strong>Lock a regression net.</strong> Mark every test that a later phase is expected to change with a <code># EXPECTED-CHANGE</code> comment giving the reason and the issue. An unmarked test that changes should be treated as unintended until shown otherwise. Done when no <code>TODO</code> marker is left in <code>tests/</code> and the suite is green. Two changes are excluded because each alters almost every assertion: the phase-5 tibble (#4) and, if adopted, the grid replacement (#40).</li>
 <li>
 <strong>Build the new spine alongside the old code.</strong> <code>toxval_pred</code>, <code>toxval_predict()</code> and its methods, the shared <code>chk</code> validator, the class-agnostic compute functions, the parametric bootstrap. Purely additive. Done when it is tested and <code><a href="reference/ecx.html">ecx()</a></code> / <code><a href="reference/nsec.html">nsec()</a></code> still return today’s values.</li>
 <li>
