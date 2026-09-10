@@ -13,3 +13,6 @@
 ^.editorconfig$
 ^PHASE1_DEPENDENCY_UNTANGLE\.md$
 ^notes$
+^REFACTOR-claude.md$
+^REFACTOR-human.md$
+^air.toml$

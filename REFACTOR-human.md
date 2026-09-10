@@ -342,9 +342,13 @@ break would force two breaking releases in a row.
 0. **Decide #19, #20 and #49, and agree the `anchor` default.** No code. Fixes
    what the numbers should be before anything locks them. Done when the answers
    are on the issues.
-1. **Lock a regression net.** Capture current estimates as golden values, split
-   into "must not move" and "expected to move, because X", so every later phase
-   is checkable. Done when both lists exist and pass.
+1. **Lock a regression net.** Mark every test that a later phase is expected
+   to change with a `# EXPECTED-CHANGE` comment giving the reason and the
+   issue. An unmarked test that changes should be treated as unintended until
+   shown otherwise. Done when no `TODO` marker is left in `tests/` and the
+   suite is green. Two changes are excluded because each alters almost every
+   assertion: the phase-5 tibble (#4) and, if adopted, the grid replacement
+   (#40).
 2. **Build the new spine alongside the old code.** `toxval_pred`,
    `toxval_predict()` and its methods, the shared `chk` validator, the
    class-agnostic compute functions, the parametric bootstrap. Purely additive.

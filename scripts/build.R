@@ -1,5 +1,5 @@
 # Format/style code
-# Must have air (https://posit-dev.github.io/air); 
+# Must have air (https://posit-dev.github.io/air);
 # if missing, the format step below fails silently
 system2("air", c("format", "."))
 

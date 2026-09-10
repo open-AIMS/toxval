@@ -1,3 +1,13 @@
+# Tests whose values or behaviour are expected to change during the refactor
+# have a `# EXPECTED-CHANGE` comment giving the reason and the issue. If a test
+# without one changes, the developer should double check the change was
+# intentional.
+#
+# Two changes are deliberately not marked, because each would alter almost every
+# test in this file: the phase-5 switch to a toxval tibble (#4), and the
+# replacement of the evaluation grid with root-finding (#40), which is not yet
+# in the refactor plan.
+
 # Tests for helper functions in R/helpers.R
 
 # clean_names --------------------------------------------------------------
@@ -64,6 +74,7 @@ test_that("tox_fct interpolates crossing correctly", {
 
 # modify_posterior ---------------------------------------------------------
 
+# EXPECTED-CHANGE hormesis handling reworked with direction #20
 test_that("modify_posterior with hormesis_def = max sets values before peak to NA", {
   x_vec <- seq(0, 10, length.out = 20)
   # Posterior sample with peak at position 5
@@ -84,6 +95,7 @@ test_that("modify_posterior with hormesis_def = max sets values before peak to N
   expect_equal(result[5], 5)
 })
 
+# EXPECTED-CHANGE hormesis handling reworked with direction #20
 test_that("modify_posterior with hormesis_def = control leaves all values", {
   x_vec <- seq(0, 10, length.out = 20)
   p_sample <- c(1, 2, 3, 4, 5, 4, 3, 2, 1, 0.5, rep(0.3, 10))
@@ -103,6 +115,7 @@ test_that("modify_posterior with hormesis_def = control leaves all values", {
 
 # newdata_eval -------------------------------------------------------------
 
+# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) #39
 test_that("newdata_eval returns list with newdata and x_vec", {
   result <- toxval:::newdata_eval(
     bayesnec::manec_example,
@@ -116,6 +129,7 @@ test_that("newdata_eval returns list with newdata and x_vec", {
   expect_length(result$x_vec, 50)
 })
 
+# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) #39
 test_that("newdata_eval respects x_range", {
   result <- toxval:::newdata_eval(
     bayesnec::manec_example,
@@ -127,6 +141,7 @@ test_that("newdata_eval respects x_range", {
   expect_equal(max(result$x_vec), 3, tolerance = 0.01)
 })
 
+# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) #39
 test_that("newdata_eval works with bayesnecfit objects", {
   result <- toxval:::newdata_eval(
     ecx4param,
