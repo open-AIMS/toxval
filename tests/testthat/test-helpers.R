@@ -115,7 +115,7 @@ test_that("modify_posterior with hormesis_def = control leaves all values", {
 
 # newdata_eval -------------------------------------------------------------
 
-# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed)
+# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) #39
 test_that("newdata_eval returns list with newdata and x_vec", {
   result <- toxval:::newdata_eval(
     bayesnec::manec_example,

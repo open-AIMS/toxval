@@ -754,7 +754,7 @@ percentage reported beside it.
 The `ecnsec` assertions under each `type` on each method have an
 `EXPECTED-CHANGE` marker, so this change is separable from a relocation bug.
 
-Those assertions are at test-nsec.R:210, 284, 330, 375, 407, 494, 519, 559, 592, 617, 677, 727, 751.
+Those assertions are the `EXPECTED-CHANGE` markers in `test-nsec.R` that name #49.
 
 #### Consequences elsewhere
 

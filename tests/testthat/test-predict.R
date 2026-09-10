@@ -70,7 +70,7 @@ test_that("predict.bayesmanecfit probs argument changes CI columns", {
 
 # predict.bayesmanecfit probs with > 2 values --------------------------------
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed) #39
 test_that("predict.bayesmanecfit probs with 3 values returns 5-column matrix", {
   # Man page: probs is "The percentiles to be computed by the quantile function."
   # No restriction to exactly 2 values — source pads to c("Estimate","Est.Error",
@@ -84,7 +84,7 @@ test_that("predict.bayesmanecfit probs with 3 values returns 5-column matrix", {
   )
 })
 
-# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed)
+# EXPECTED-CHANGE predict method moves to bayesnec (test will be removed) #39
 test_that("predict.bayesnecfit dispatches correctly and returns 4-column matrix", {
   preds <- predict(ecx4param)
 
