@@ -201,6 +201,38 @@ test_that("new_toxval_pred errors when an ungrouped fit names a multi_var", {
   )
 })
 
+test_that("new_toxval_pred errors when a grouped fit names a multi_var", {
+  # `curves` is keyed by one descriptor, so a fit cannot be grouped and
+  # multivariate at once; see the class documentation
+  expect_error(
+    new_toxval_pred(
+      curves = list(A = pred_curve(), B = pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(
+        dimension = "group",
+        group_var = "site",
+        multi_var = "endpoint"
+      )
+    ),
+    regexp = "`meta\\$multi_var` must be NULL when `meta\\$dimension` is \"group\""
+  )
+})
+
+test_that("new_toxval_pred errors when a multivariate fit names a group_var", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(growth = pred_curve(), survival = pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(
+        dimension = "response",
+        multi_var = "endpoint",
+        group_var = "site"
+      )
+    ),
+    regexp = "`meta\\$group_var` must be NULL when `meta\\$dimension` is \"response\""
+  )
+})
+
 test_that("new_toxval_pred errors when an ungrouped fit has more than one curve", {
   expect_error(
     new_toxval_pred(

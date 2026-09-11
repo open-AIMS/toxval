@@ -35,6 +35,15 @@
 #' collide with. `threshold`, when supplied, carries the same names in the same
 #' order.
 #'
+#' @section One descriptor at a time:
+#' `dimension` names a single descriptor, so `curves` is keyed by group or by
+#' response and never by both: a fit that is both grouped and multivariate has
+#' no representation here. No supported fitting path produces one -- `nsec_multi()`
+#' takes no `group_var` -- so the limit sits in the contract rather than in the
+#' code. Lifting it means keying `curves` by a table of descriptors, one row per
+#' curve, rather than by a single dimension, which is a change to this contract
+#' rather than an addition to it.
+#'
 #' @section Realisation alignment:
 #' Realisation *i* is the same underlying draw in every slot: row *i* of every
 #' matrix in `curves`, element *i* of every element of `threshold`, and element
@@ -228,6 +237,16 @@ chk_meta <- function(meta) {
   if (meta$dimension == "response" && is.null(meta$multi_var)) {
     chk::abort_chk(
       "`meta$multi_var` must be supplied when `meta$dimension` is \"response\"."
+    )
+  }
+  if (meta$dimension == "group" && !is.null(meta$multi_var)) {
+    chk::abort_chk(
+      "`meta$multi_var` must be NULL when `meta$dimension` is \"group\"."
+    )
+  }
+  if (meta$dimension == "response" && !is.null(meta$group_var)) {
+    chk::abort_chk(
+      "`meta$group_var` must be NULL when `meta$dimension` is \"response\"."
     )
   }
   if (meta$dimension == "none" && !is.null(meta$group_var)) {
