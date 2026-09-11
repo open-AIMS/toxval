@@ -177,6 +177,30 @@ test_that("new_toxval_pred errors when a multivariate fit has no multi_var", {
   )
 })
 
+test_that("new_toxval_pred errors when an ungrouped fit names a group_var", {
+  # the three descriptor fields encode one fact, so an object cannot call itself
+  # ungrouped and name a grouping variable
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(group_var = "site")
+    ),
+    regexp = "`meta\\$group_var` must be NULL when `meta\\$dimension` is \"none\""
+  )
+})
+
+test_that("new_toxval_pred errors when an ungrouped fit names a multi_var", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(multi_var = "endpoint")
+    ),
+    regexp = "`meta\\$multi_var` must be NULL when `meta\\$dimension` is \"none\""
+  )
+})
+
 test_that("new_toxval_pred errors when an ungrouped fit has more than one curve", {
   expect_error(
     new_toxval_pred(

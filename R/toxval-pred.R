@@ -58,12 +58,14 @@
 #'   \item{`source_class`}{String, the class of the fitted object the
 #'     realisations came from.}
 #'   \item{`x_var`}{String, the name of the predictor variable.}
-#'   \item{`group_var`}{String naming the grouping variable, or `NULL`.}
+#'   \item{`group_var`}{String naming the grouping variable. Required when
+#'     `dimension` is `"group"`, and `NULL` when `dimension` is `"none"`.}
 #'   \item{`multi_var`}{String naming the response variable of a multivariate
-#'     fit, or `NULL`.}
+#'     fit. Required when `dimension` is `"response"`, and `NULL` when
+#'     `dimension` is `"none"`.}
 #'   \item{`dimension`}{One of `"none"`, `"group"` or `"response"`. Determines
 #'     whether the result carries a `group` column, a `response` column or
-#'     neither.}
+#'     neither, and which of `group_var` and `multi_var` the object must carry.}
 #'   \item{`resolution`}{Whole number, the resolution the grid was requested at.}
 #'   \item{`x_range`}{Numeric of length 2, the requested predictor range.}
 #'   \item{`family`}{String naming the response distribution, or `NULL` where
@@ -226,6 +228,16 @@ chk_meta <- function(meta) {
   if (meta$dimension == "response" && is.null(meta$multi_var)) {
     chk::abort_chk(
       "`meta$multi_var` must be supplied when `meta$dimension` is \"response\"."
+    )
+  }
+  if (meta$dimension == "none" && !is.null(meta$group_var)) {
+    chk::abort_chk(
+      "`meta$group_var` must be NULL when `meta$dimension` is \"none\"."
+    )
+  }
+  if (meta$dimension == "none" && !is.null(meta$multi_var)) {
+    chk::abort_chk(
+      "`meta$multi_var` must be NULL when `meta$dimension` is \"none\"."
     )
   }
   invisible(meta)
