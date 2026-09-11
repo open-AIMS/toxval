@@ -267,6 +267,17 @@ test_that("new_toxval_pred errors when a curve has the wrong number of rows", {
   )
 })
 
+test_that("new_toxval_pred errors when a single-realisation curve has extra rows", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(nrow = 2)),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(n_realisation = 1)
+    ),
+    regexp = "`curves\\[\\[1\\]\\]` must have 1 row to match `meta\\$n_realisation`, not 2"
+  )
+})
+
 test_that("new_toxval_pred errors when curves have different numbers of rows", {
   expect_error(
     new_toxval_pred(

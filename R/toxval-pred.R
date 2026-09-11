@@ -272,7 +272,7 @@ chk_curves <- function(curves, x_vec, meta) {
         nm,
         " must have ",
         meta$n_realisation,
-        plural(" row", meta$n_realisation),
+        if (meta$n_realisation == 1) " row" else " rows",
         " to match `meta$n_realisation`, not ",
         nrow(curves[[i]]),
         "."
@@ -303,10 +303,7 @@ chk_threshold <- function(threshold, curves, meta) {
   }
   if (length(threshold) != length(curves)) {
     chk::abort_chk(
-      "`threshold` must have ",
-      length(curves),
-      plural(" element", length(curves)),
-      " to match `curves`, not ",
+      "`threshold` must have 1 element to match `curves`, not ",
       length(threshold),
       "."
     )
@@ -333,11 +330,6 @@ chk_control <- function(control, meta) {
   chk::chk_vector(control, x_name = "`control`")
   chk::chk_length(control, as.integer(meta$n_realisation), x_name = "`control`")
   invisible(control)
-}
-
-#' @noRd
-plural <- function(word, n) {
-  if (n == 1) word else paste0(word, "s")
 }
 
 #' @noRd
