@@ -585,3 +585,206 @@ better than the originally suggested wording, since it names what distinguishes
 them rather than describing the NA's effect.
 
 ---
+
+## Session: phase-2 catch-up after crossings review
+Date: 2026-09-09
+Model: Claude Opus 5 (1M context), claude-opus-5[1m]
+
+### Prompts and Responses
+
+**User:** Can you get caught up on where we are with phase 2 and start logging
+the conversation. Becky reviewed the code and update the comments in the tests
+to the decisions made.
+
+**Claude:** Read the two phase-2 logs, PR #59, `R/crossings.R`,
+`tests/testthat/test-crossings.R` and the branch state, and started this log.
+
+**Where phase 2 stands.** `find_crossings()` is written and reviewed. Becky
+pushed `4d23f68` to `phase-2` directly: both `TODO` markers resolved, two plateau
+tests added, and an `@details` block added to `R/crossings.R`. No change to the
+function body. Her two answers were to keep the tie-break (a value on the
+reference is assigned to the left of its interval, so only the first grid point
+can be a crossing) and not to bridge an interior `NA`. Her follow-up on
+2026-09-09 added that once the hormesis block goes there is no reason for an `NA`
+to arise at all, but the behaviour is sound regardless. The test comments already
+carry both decisions, dated and attributed, so nothing needed rewriting there.
+
+**Open, not settled.** Becky left the mixed-draw `na.rm` question unresolved and
+did not open an issue: `nsec.R:144`, `ecx.R:396` and `ecx.R:405` call
+`quantile()` without `na.rm`, safe today only because the helpers return
+`max(x_vec)`. Needed before phase 4, not before the next unit.
+
+**Two branch facts worth acting on.** PR #58 merged, so `main` is `792e41a`, but
+`phase-2` does not contain it — it is missing `4e1b3d9` (a phase-1 fix) and the
+merge commit. And #59 still has base `phase-1`, because the `phase-1` branch was
+not deleted, so GitHub has not retargeted it to `main`.
+
+**Next unit is `R/toxval-pred.R`**, unchanged from the plan in the previous
+session: independent of everything under review, a prerequisite for
+`R/validate.R`, the `toxval_predict` methods, `R/bootstrap.R` and `R/compute.R`.
+Four decisions to settle before writing it — the names `curves` carries when
+ungrouped, whether the validator enforces the alignment invariant, the exact
+`meta` contents, and that `threshold`/`control` stay `NULL` from phase-2 methods.
+
+---
+
+**User:** Go into toxval_pred decision. What is next here
+
+**Claude:** Read §3.1, §3.4, §3.5, §3.6 and §3.7 of `REFACTOR-claude.md` and laid
+out the four open decisions with a recommendation for each, plus two not on the
+original list.
+
+1. **Names of `curves` when ungrouped.** Names required and unique for
+`dimension` of `"group"` or `"response"`; exactly one element and `NULL` names
+for `"none"`. The §3.1 column rule one level down — absent because not
+meaningful, rather than a sentinel a real group could collide with.
+
+2. **Alignment invariant.** Not checkable from the object, since nothing records
+which draw a row came from. Check conformability instead, which is where a
+violation surfaces: equal `nrow` across `curves` matching `meta$n_realisation`,
+`ncol` matching `length(x_vec)`, `threshold` and `control` lengths matching.
+Added one rule not in the plan — `x_vec` finite, strictly increasing, length
+>= 2 — because `find_crossings()` scans adjacent intervals and interpolates, so
+an unordered or duplicated grid returns a wrong value silently. Nothing guarded
+it before.
+
+3. **`meta` contents.** Closed the plan's `...` at eleven required keys:
+`source_class`, `x_var`, `group_var`, `multi_var`, `dimension`, `resolution`,
+`x_range`, `family`, `realisation`, `n_realisation`, `seed`. Required keys are
+type-checked; extra keys are allowed and ignored, because `bayesnec` populates
+this from outside and a closed set makes every addition there a breaking change
+here. `family` is `NULL` for a `drc` fit rather than `"gaussian"`, so the
+gaussian + `absolute` + no-`bot` guard cannot fire on a model with no family.
+
+4. **`threshold` and `control`.** Slots defined and fully validated, populated by
+nothing in phase 2.
+
+Two additions: `x_vec` ordering (above), and that `validate_toxval_pred()` stays
+internal with `new_toxval_pred()` always validating, so an unvalidated object
+cannot be constructed and `bayesnec` gets the check by calling the constructor.
+
+---
+
+**User:** This looks like a good starting point
+
+**Claude:** Wrote `R/toxval-pred.R` and `tests/testthat/test-toxval-pred.R`
+implementing the above.
+
+`R/toxval-pred.R` holds the exported constructor `new_toxval_pred(curves, x_vec,
+meta, threshold = NULL, control = NULL)`, the internal
+`validate_toxval_pred()` and its five per-slot check helpers, and an exported
+`print.toxval_pred()`. The class documentation carries the slot contract, the
+naming rule, the alignment invariant and the `meta` table, since a
+`toxval_predict()` method written in another package has to satisfy it from
+outside.
+
+Error messages are `chk`, per §3.7. `chk::chk_equal()` was replaced with
+`chk::abort_chk()` for the conformability checks because its message
+(`"Number of rows of X must be equal to 3L"` plus an `rlang::last_error()`
+line) reads backwards; the messages now name the slot, the expected value, the
+reason and what was supplied — `` `curves$B` must have 2 rows to match
+`meta$n_realisation`, not 3. ``
+
+31 tests: seven construct valid objects (ungrouped, grouped, multivariate,
+threshold and control, extra meta keys, bootstrap with a seed, `NA` and `Inf`
+carried through a curve), twenty-two assert one broken rule each, and two are
+print snapshots.
+
+**One gap found in the plan, not resolved.** §3.4 types `control` as
+`numeric [n_realisation]`, a bare vector, but a grouped fit has one control per
+group, which a vector cannot represent — unlike `curves` and `threshold`, which
+are lists keyed by group. §3.8 does not address it either: `control_fit` is a
+single control-only fit. Implemented as the plan says and flagged. The cost of
+changing it later is low while nothing populates the slot, but it should be
+settled before `anchor = "control"` is written.
+
+---
+
+**User:** There are no tests for the print mehtod, how is that tested?
+
+**Claude:** They were there — `test-toxval-pred.R:362-383`, two
+`expect_snapshot()` calls — but nothing was being tested.
+`tests/testthat/_snaps/` is empty, so no snapshot had been recorded, and a
+snapshot test with no recorded snapshot passes unconditionally on its first run.
+
+Two reasons to replace them rather than record them. `_snaps/` is empty across
+the whole package, so this would be the first snapshot and a convention the repo
+does not otherwise use. And a snapshot puts the expected output in a second file
+that the PR diff shows separately from the test, where the point of these tests
+is that a reviewer can read the expected output beside the code that produced
+it.
+
+**Change made.** The two snapshots became five explicit tests asserting
+`capture.output(print(result))` against the literal lines: the ungrouped and the
+grouped form in full, the multivariate `curves` line, the `drc` + bootstrap
+header, and that `print()` returns its input invisibly. Also removed a trailing
+space from the first line, which `cat("<toxval_pred>", source_class, "\n")` was
+emitting before the newline.
+
+Ran the file: 34 tests, 47 assertions, no failures.
+
+---
+
+**User:** The abort_chk is not tested. [coverage output showing
+`R/toxval-pred.R:262` uncovered]
+
+**Claude:** Confirmed uncovered and confirmed reachable — it is not dead code.
+`chk::chk_named()` only checks that `names()` is not `NULL`, so a partially named
+list passes it and falls through to the branch with one usable name and one empty
+string. There are two routes in: `list(pred_curve(), B = pred_curve())` gives
+names `c("", "B")`, and a name can be `NA`. Both now have a test.
+
+Auditing the file's other `abort_chk()` calls found one more untested: the
+`threshold` list-length mismatch. It is reachable only when both lists are
+unnamed, which is the ungrouped case, because the identical-names check passes
+vacuously on two `NULL`s and only the length check is left. Tested.
+
+Writing that third test surfaced a wording defect in two messages — `"must have
+1 elements"` and `"must have 1 rows"`, both reachable (`length(curves) == 1` for
+every ungrouped fit, `n_realisation == 1` for a single-draw object). Added a
+`plural()` helper.
+
+**One test was removed.** `test-toxval-pred.R:405`, added during this exchange,
+passed an unnamed ungrouped list — which is valid, so it threw nothing and the
+file failed. The two tests above cover the branch it was aiming at, from both
+routes.
+
+34 tests, 50 assertions, no failures.
+
+---
+
+**User:** No changing the code for a moment. What is a test case that reaches
+the plural for this phrase? `threshold` must have 1 element to match `curves`,
+not 2
+
+**Claude:** There is none — the plural branch is unreachable. The names check
+runs first, and `names()` of a list is always the same length as the list, so two
+identical non-`NULL` name vectors force equal lengths and the length check cannot
+fire for a named `curves`. The only way past the names check with unequal lengths
+is both being `NULL`, which means `curves` is unnamed, which `chk_curves()` only
+allows when `dimension` is `"none"`, which requires exactly one element. So
+`length(curves)` is always 1 wherever that line runs.
+
+The row message is the opposite case: the existing wrong-number-of-rows test
+covers the plural, and it is the *singular* that has no test — reachable with
+`n_realisation = 1`.
+
+Stated plainly: `plural()` was added after seeing `"1 elements"` in the message
+without checking whether that state was reachable.
+
+---
+
+**User:** Ok, so lets remove it where it is unreachable
+
+**Claude:** The `threshold` message is now a literal `" element"`, with a comment
+recording why the count is always 1 there, so the next reader does not
+reintroduce the same fix.
+
+That left `plural()` with one call site, so it was inlined as
+`if (meta$n_realisation == 1) " row" else " rows"` and the helper deleted. Added
+the missing singular-row test (`n_realisation = 1` against a two-row curve), so
+both sides of the one remaining plural are covered.
+
+35 tests, 51 assertions, no failures.
+
+---
