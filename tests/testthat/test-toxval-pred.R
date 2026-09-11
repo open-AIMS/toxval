@@ -93,7 +93,12 @@ test_that("new_toxval_pred accepts a bootstrap source with a seed", {
   result <- new_toxval_pred(
     curves = list(pred_curve()),
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(source_class = "drc", realisation = "bootstrap", seed = 42, family = NULL)
+    meta = pred_meta(
+      source_class = "drc",
+      realisation = "bootstrap",
+      seed = 42,
+      family = NULL
+    )
   )
 
   expect_identical(result$meta$realisation, "bootstrap")
@@ -404,8 +409,6 @@ test_that("new_toxval_pred errors on a fractional seed", {
     regexp = "`meta\\$seed` must be a whole number"
   )
 })
-
-
 
 
 # print.toxval_pred ---------------------------------------------------------

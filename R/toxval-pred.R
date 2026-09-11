@@ -174,8 +174,16 @@ chk_meta <- function(meta) {
 
   chk::chk_string(meta$source_class, x_name = "`meta$source_class`")
   chk::chk_string(meta$x_var, x_name = "`meta$x_var`")
-  chk::chk_null_or(meta$group_var, vld = chk::vld_string, x_name = "`meta$group_var`")
-  chk::chk_null_or(meta$multi_var, vld = chk::vld_string, x_name = "`meta$multi_var`")
+  chk::chk_null_or(
+    meta$group_var,
+    vld = chk::vld_string,
+    x_name = "`meta$group_var`"
+  )
+  chk::chk_null_or(
+    meta$multi_var,
+    vld = chk::vld_string,
+    x_name = "`meta$multi_var`"
+  )
 
   chk::chk_string(meta$dimension, x_name = "`meta$dimension`")
   chk::chk_subset(
@@ -204,7 +212,11 @@ chk_meta <- function(meta) {
   chk::chk_whole_number(meta$n_realisation, x_name = "`meta$n_realisation`")
   chk::chk_gt(meta$n_realisation, 0, x_name = "`meta$n_realisation`")
 
-  chk::chk_null_or(meta$seed, vld = chk::vld_whole_number, x_name = "`meta$seed`")
+  chk::chk_null_or(
+    meta$seed,
+    vld = chk::vld_whole_number,
+    x_name = "`meta$seed`"
+  )
 
   if (meta$dimension == "group" && is.null(meta$group_var)) {
     chk::abort_chk(
@@ -299,7 +311,9 @@ chk_threshold <- function(threshold, curves, meta) {
   }
   chk::chk_list(threshold, x_name = "`threshold`")
   if (!identical(names(threshold), names(curves))) {
-    chk::abort_chk("names of `threshold` must be identical to names of `curves`.")
+    chk::abort_chk(
+      "names of `threshold` must be identical to names of `curves`."
+    )
   }
   if (length(threshold) != length(curves)) {
     chk::abort_chk(
