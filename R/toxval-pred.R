@@ -379,7 +379,7 @@ threshold_name <- function(threshold, i) {
 #' @export
 print.toxval_pred <- function(x, ...) {
   meta <- x$meta
-  cat("<toxval_pred>", meta$source_class, "\n")
+  cat("<toxval_pred> ", meta$source_class, "\n", sep = "")
   cat(
     "  realisations: ",
     meta$n_realisation,

@@ -366,7 +366,17 @@ test_that("print.toxval_pred describes an ungrouped fit", {
     meta = pred_meta()
   )
 
-  expect_snapshot(print(result))
+  expect_identical(
+    capture.output(print(result)),
+    c(
+      "<toxval_pred> brmsfit",
+      "  realisations: 2 (draws)",
+      "  grid:         x, 4 values from 0 to 3",
+      "  curves:       1 (ungrouped)",
+      "  threshold:    none",
+      "  control:      none"
+    )
+  )
 })
 
 test_that("print.toxval_pred names the groups of a grouped fit", {
@@ -378,5 +388,56 @@ test_that("print.toxval_pred names the groups of a grouped fit", {
     control = c(10.2, 10.6)
   )
 
-  expect_snapshot(print(result))
+  expect_identical(
+    capture.output(print(result)),
+    c(
+      "<toxval_pred> brmsfit",
+      "  realisations: 2 (draws)",
+      "  grid:         x, 4 values from 0 to 3",
+      "  curves:       2 by site: A, B",
+      "  threshold:    present",
+      "  control:      present"
+    )
+  )
+})
+
+test_that("print.toxval_pred names the responses of a multivariate fit", {
+  result <- new_toxval_pred(
+    curves = list(growth = pred_curve(), survival = pred_curve()),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(dimension = "response", multi_var = "endpoint")
+  )
+
+  expect_identical(
+    capture.output(print(result))[4],
+    "  curves:       2 by endpoint: growth, survival"
+  )
+})
+
+test_that("print.toxval_pred names the bootstrap source", {
+  result <- new_toxval_pred(
+    curves = list(pred_curve()),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(
+      source_class = "drc",
+      realisation = "bootstrap",
+      seed = 42,
+      family = NULL
+    )
+  )
+
+  expect_identical(
+    capture.output(print(result))[1:2],
+    c("<toxval_pred> drc", "  realisations: 2 (bootstrap)")
+  )
+})
+
+test_that("print.toxval_pred returns its input invisibly", {
+  result <- new_toxval_pred(
+    curves = list(pred_curve()),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta()
+  )
+
+  expect_output(expect_invisible(print(result)))
 })
