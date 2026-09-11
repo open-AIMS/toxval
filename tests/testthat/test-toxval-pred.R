@@ -218,6 +218,31 @@ test_that("new_toxval_pred errors on duplicate curve names", {
   )
 })
 
+test_that("new_toxval_pred errors when only some curves are named", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(), B = pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(dimension = "group", group_var = "site")
+    ),
+    regexp = "Names of `curves` must not be missing or empty"
+  )
+})
+
+test_that("new_toxval_pred errors when a curve name is NA", {
+  curves <- list(A = pred_curve(), B = pred_curve())
+  names(curves) <- c(NA, "B")
+
+  expect_error(
+    new_toxval_pred(
+      curves = curves,
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(dimension = "group", group_var = "site")
+    ),
+    regexp = "Names of `curves` must not be missing or empty"
+  )
+})
+
 test_that("new_toxval_pred errors when a curve is not a matrix", {
   expect_error(
     new_toxval_pred(
@@ -322,6 +347,18 @@ test_that("new_toxval_pred errors when threshold names do not match curves", {
   )
 })
 
+test_that("new_toxval_pred errors when threshold has more elements than curves", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(),
+      threshold = list(c(1.5, 1.7), c(2.1, 2.4))
+    ),
+    regexp = "`threshold` must have 1 element to match `curves`, not 2"
+  )
+})
+
 test_that("new_toxval_pred errors when threshold has the wrong length", {
   expect_error(
     new_toxval_pred(
@@ -356,6 +393,9 @@ test_that("new_toxval_pred errors on a fractional seed", {
     regexp = "`meta\\$seed` must be a whole number"
   )
 })
+
+
+
 
 # print.toxval_pred ---------------------------------------------------------
 
