@@ -244,15 +244,30 @@ toxval_pred:
               per-realisation threshold parameter where the model has a
               genuine one (a NEC); NULL otherwise. Needed for `nec` and
               `n(s)ec`, which are not recoverable from `curves`.
-  control   : numeric [n_realisation] from a control-only fit, or NULL.
-              Realisations of the control response estimated *independently
-              of the dose-response shape*. Subject to the same alignment
-              invariant as `curves`. Needed by `anchor = "control"` (3.8)
-              and by the mismatch warning that guards it.
+  control   : named list of numeric [n_realisation] from a control-only fit,
+              or NULL. Keyed like `curves`. Realisations of the control
+              response estimated *independently of the dose-response shape*.
+              Subject to the same alignment invariant as `curves`. Needed by
+              `anchor = "control"` (3.8) and by the mismatch warning that
+              guards it.
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
               dimension ("none" | "group" | "response"), family, realisation
               source ("draws" | "bootstrap"), n_realisation, ...
 ```
+
+**`control` is keyed like `curves`, not a bare vector.** Settled 2026-09-12
+(AP) on #59. A grouped fit has one control per group, so a single vector cannot
+carry it. Measured on three synthetic sites decaying at the same relative rate
+from baselines of 10, 6 and 2, where the correct NSEC is identical for all
+three: per-group controls give 0.289, 0.301 and 0.309, while pooling the control
+draws into one vector gives 2.947, 2.376 and 0.216, and 99 per cent of the
+first site's draws never reach the pooled reference at all. The mismatch warning
+in [3.8](#38-the-nsec-reference-the-anchor-argument) also needs the per-group
+basis: against a pooled vector it either always fires or never does.
+
+A consequence for `anchor = "control"`: the control-only fit must be grouped the
+same way as the dose-response fit, since the two sets of names have to match.
+Where it is not, that is an error rather than something to pool.
 
 #### One realisation mechanism for every fit  (#43)
 

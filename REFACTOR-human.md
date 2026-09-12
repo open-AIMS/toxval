@@ -214,7 +214,8 @@ toxval_pred:
   curves    : named list of matrices, each [n_realisation x n_x]
   x_vec     : numeric [n_x]
   threshold : per-realisation threshold parameter (a NEC), or NULL
-  control   : realisations of a control-only fit, or NULL
+  control   : realisations of a control-only fit, or NULL; keyed like `curves`,
+              since a grouped fit has one control per group
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
               dimension, family, realisation source, n_realisation, ...
 ```

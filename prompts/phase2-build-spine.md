@@ -788,3 +788,279 @@ both sides of the one remaining plural are covered.
 35 tests, 51 assertions, no failures.
 
 ---
+
+**User:** Is there anything else that is outstanding on these functions? There is
+100% code coverage now, all tests are passing, R CMD checks are all passing
+
+**Claude:** Five, and none of them is a line coverage can see — each is a *state
+the validator accepts* rather than a line it fails to execute. All five
+construct successfully against the code as it stood:
+
+```
+none + group_var                    : ACCEPTED
+group + multi_var                   : ACCEPTED
+x_range c(100, 200) with x_vec 0:3  : ACCEPTED
+x_range c(0, Inf)                   : ACCEPTED
+resolution 1000 on a 4-point grid   : ACCEPTED
+```
+
+1. The `dimension` cross-checks run in one direction only — `group_var` is
+required when `dimension` is `"group"` but never required to be absent when it
+is `"none"`.
+2. `dimension = "group"` with `multi_var` set is accepted and means nothing.
+Underneath it, a fit that is both grouped and multivariate has no
+representation, since `curves` is a flat list keyed one way or the other.
+Inherited from §3.4, which writes them as alternatives, and `nsec_multi()` has no
+`group_var` today.
+3. `resolution` and `x_range` can contradict `x_vec`, and `x_range` need not be
+finite. Both are display-only under §3.1, with `x_vec` the authority.
+4. The `control` typing gap, still open.
+5. `?toxval_pred` does not resolve — the class contract is documented in the
+`new_toxval_pred` topic with no alias for the class name.
+
+Recommended acting on 1, 3 and 5, documenting 2 as a limit, and putting 4 to
+Becky.
+
+---
+
+**User:** Ok lets start with the first point and work through it. I think that is
+worth tightening.
+
+**Claude:** `chk_meta()` now checks each `dimension` value in both directions —
+the variable it needs is present, and the one it has no use for is absent.
+`"none"` with a `group_var` or a `multi_var` is now an error naming the offending
+field, rather than a silently inconsistent object. The two `"supplied when"`
+rules are unchanged.
+
+The `meta` documentation was the other half: `group_var` and `multi_var` read
+"Required when `dimension` is ..., and `NULL` when `dimension` is `"none"`",
+since a `toxval_predict()` method written in another package has only the
+documented contract to work from.
+
+Two tests added, one per field. 37 tests, 53 assertions, no failures.
+
+Left for the next point: `"group"` with `multi_var` set, and `"response"` with
+`group_var` set, are still accepted. They are one line each in the same block,
+but they are point 2 and carry the grouped-plus-multivariate question with them.
+
+---
+
+**User:** We want to have nsec_multi not be its own thing but just part of nsec,
+is that how the plan sets it out?
+
+**Claude:** No. The plan keeps them separate in every place it mentions them:
+§3.3 lists the metric functions as "`ecx`, `nsec`, `nsec_multi`, ..."; phase 4
+moves them onto the spine one at a time; §5 records "`nsec_multi` is
+brms-multivariate only" as a method gap rather than something to absorb.
+
+But the plan's own machinery dismantles nearly every reason they are separate.
+One estimate per response becomes `dimension = "response"` (§3.4) and a
+`response` column (§3.1), so the return shape is already identical.
+`type = "both"/"increasing"/"decreasing"` collapse into row filters once
+direction is a property of the result (§3.6). The per-direction reference that
+`nsec_multi` already builds is exactly what §3.6 generalises to `nsec`. The
+shared `chk` helper (§3.7) removes its duplicated validation.
+
+What survives is `multi_var`, `trials_var`, and `criterion` with
+`type = "lower"` -- and of those only `type = "lower"` is genuinely
+metric-level, because it is a selection rule rather than a filter. `multi_var`
+and `trials_var` are predict-level under §3.7's own split.
+
+Flagged one connection: if `nsec()` absorbs `nsec_multi()`, then
+`nsec(fit, group_var = , multi_var = )` becomes expressible, which makes the
+grouped-plus-multivariate state reachable -- the state `toxval_pred` cannot
+represent. Phase 4/5 decision, not phase 2 work, but it wants recording as a
+numbered decision since the plan currently implies the opposite by omission.
+
+---
+
+**User:** Lets talk about 2 now, what needs to be done here?
+
+**Claude:** Separated it into the mechanical half (the two remaining guards) and
+the contract decision they depend on, since what the guards *mean* differs
+either way.
+
+Noted the plan is inconsistent with itself: §3.1 lists `group` and `response` as
+independent descriptor columns under the "present when meaningful" rule, so the
+output contract already permits a row carrying both, while §3.4 cannot produce
+one. The tibble side is general; the pred side is not.
+
+Three ways out: declare it out of scope; key `curves` by a descriptor table;
+composite names (rejected -- a separator collides with real factor levels).
+Recommended the first on proportion, while saying plainly that the change is
+nearly free now and expensive after phase 7 when `bayesnec` builds these against
+a published contract.
+
+---
+
+**User:** I think that there may be grouped multivariate objects at some point,
+before you can change things, outline it here before
+
+**Claude:** Outlined the descriptor-table design rather than implementing it.
+`curves` stops carrying identity in its names and carries it in a parallel
+`keys` data frame, one row per curve, columns drawn from the §3.1 descriptor set
+`{group, response}`; ungrouped is one row and zero columns. `dimension` is
+deleted and derived as `names(keys)`, since storing both reintroduces the
+two-fields-one-fact bug fixed under point 1.
+
+Checked the mechanics rather than assuming them: a zero-column one-row frame is
+legal, `nrow()` is 1, and `bind_cols(keys[i, ], tibble(metric = , estimate = ))`
+produces exactly the §3.1 row in all four shapes.
+
+Also noted it deletes the naming rule from decision 1 and about six tests, and
+that it resolves the `control` typing gap as a side effect, `control` becoming a
+list aligned to `keys` like `threshold`.
+
+---
+
+**User:** I think we should go with option 1 and then becky can chime in if I am
+incorrect
+
+**Claude:** Read as option 1 of the three ways out, and said so at the top so a
+misread would be caught. Implemented: `"group"` with a `multi_var` and
+`"response"` with a `group_var` are now errors, so all three `dimension` values
+are checked in both directions.
+
+The limit is documented in a `One descriptor at a time` section on the class,
+which states that no supported fitting path produces such an object, that the
+limit is in the contract rather than the code, and that lifting it means the
+descriptor-table keying outlined above -- a change to the contract rather than
+an addition, which is the part Becky needs in front of her.
+
+Two tests. 39 tests, 55 assertions, no failures.
+
+Noted separately: the comment added under point 1 above the cross-checks is no
+longer in the file, having been removed in parallel editing. Left as found
+rather than reinstated.
+
+---
+
+**User:** For point 3. Yes cross check and validate them
+
+**Claude:** Added `chk_settings(x_vec, meta)`, run after `chk_x_vec()` so the
+grid is known sane before anything is compared against it. `meta$x_range` must
+equal `range(x_vec)` and `meta$resolution` must equal `length(x_vec)`, so the
+settings a result reports in its header provably describe the grid it was
+computed on.
+
+Equality rather than containment, because the grid is generated as
+`seq(x_range[1], x_range[2], length.out = resolution)`, so equality holds by
+construction for every path that builds one. It also forces honesty on a
+user-supplied grid: a method accepting `newdata` has to record
+`resolution = length(x_vec)` and `x_range = range(x_vec)` rather than the
+arguments it was called with. Compared through `all.equal()` so an integer
+`x_range` against a double `x_vec` passes, which has a test.
+
+The documentation changed with it, since it previously described the wrong
+thing: `resolution` is "the number of values in `x_vec`", not "the resolution
+the grid was requested at", and `x_range` is "the range of `x_vec`", not "the
+requested predictor range".
+
+`x_range` being infinite is closed by the same check rather than by a rule of
+its own -- `c(0, Inf)` cannot equal the range of a finite `x_vec`.
+
+Two rules in `chk_meta()` now only fire ahead of the cross-check: an unsorted
+`x_range` and an `NA` in it would both fail the comparison too. Kept, because
+naming the reversal is more use than reporting the mismatch it causes, and both
+messages are now pinned by a test.
+
+Six tests. 45 tests, 61 assertions, no failures.
+
+---
+
+**User:** Do point 5 next
+
+**Claude:** Added `@aliases toxval_pred` to the `new_toxval_pred()` block, so
+`?toxval_pred` resolves to the topic carrying the slot contract, the keying rule,
+the one-descriptor limit, the alignment invariant and the `meta` table.
+
+Kept as an alias on the constructor rather than a separate documentation-only
+topic. The contract and the constructor arguments describe the same thing, and
+someone implementing a `toxval_predict()` method needs both in front of them at
+once; splitting them puts the argument descriptions one hop away from the rules
+they have to satisfy.
+
+The `man/` page and the alias appear on the next `document()`.
+
+---
+
+**User:** Ok lets chat about point 4 because I think it can be resolved now and
+there are already a bunch of checks for it. Show me an example of the grouped
+control vs not grouped.
+
+**Claude:** Built a synthetic three-site illustration: same relative decay
+(`y = control * exp(-x / 2)`) from baselines of 10, 6 and 2, so the correct NSEC
+is identical for all three and any difference in the answer is the artefact.
+
+The 5 per cent quantile of each site's control draws is 8.684, 5.182 and 1.727;
+pooled it is 1.826.
+
+```
+ site control nsec_per_site nsec_pooled pooled_no_crossing
+    A      10         0.289       2.947                99%
+    B       6         0.301       2.376                 0%
+    C       2         0.309       0.216                15%
+```
+
+Per site all three land on 0.289-0.309, which is right. Pooled they span an
+order of magnitude, and site A's reference sits below where its curve ever
+reaches, so 99 per cent of its draws never cross -- the 2.947 reported for A is
+the median of the surviving 1 per cent, which is Becky's open `na.rm` question
+appearing as a second-order effect of this one.
+
+---
+
+**User:** Lets switch control to a list, where names are required when more then
+1 element just like the other structures that can have multiple values
+
+**Claude:** `control` is now a list keyed like `curves`, so `chk_threshold()` and
+`chk_control()` collapsed into one `chk_aligned_list(x, arg, curves, meta)` that
+both slots call, and `curve_name()` / `threshold_name()` into one
+`element_name(x, arg, i)` that all three use. The validator lost a function and
+gained a slot's worth of checking.
+
+Two things this makes impossible rather than merely wrong: a bare vector where a
+keyed list belongs, and a control-only fit grouped differently from the
+dose-response fit -- the names have to match, so a mismatch is an error rather
+than a silent pool.
+
+Four tests added, three updated. 50 tests, 65 assertions, no failures.
+
+**The plan is updated**, since it specified the bare vector. §3.4's slot listing
+now reads "named list of numeric [n_realisation] ... Keyed like `curves`", with
+the decision recorded above the realisation-mechanism heading in the style of the
+other settled decisions -- dated 2026-09-12 (AP) on #59, carrying the
+three-site measurement and the consequence that `anchor = "control"` requires the
+control-only fit to be grouped the same way.
+
+---
+
+**User:** This makes more sense and aligns the checks for the multiple
+parameters. We will leave the multi for now and see if Becky has anything
+additional to add on that front. Anything else remaining on this portion before
+I push and update the PR?
+
+**Claude:** Checked the working tree, the roxygen block, the generated `man/`
+pages and both plan documents.
+
+Two things were outstanding and one is now done. `REFACTOR-human.md:217`
+described `control` as "realisations of a control-only fit, or NULL" with no
+mention of keying, so the two plan documents disagreed about the slot. Updated
+to match §3.4, one line, in the human document's summary style rather than
+repeating the argument.
+
+The other is `man/`: it carries the `toxval_pred` alias and the
+`One descriptor at a time` section, so it was regenerated after point 5, but not
+after the `control` change -- `Keyed like` is not in the `.Rd`. The slot table
+and the `@param control` wording are not yet in the built documentation.
+
+Everything else checks out: both roxygen examples construct and print under the
+current validator, including the settings cross-check added after they were
+written; no stray files; the demo script lives outside the repo.
+
+Flagged as the substance for the PR body rather than the code: the grouped
+multivariate question with the descriptor-table design as the alternative, the
+`nsec_multi` question, and the three settled decisions Becky has not seen --
+`control` keying, the settings cross-check, and the `dimension` cross-checks.
+
+---
