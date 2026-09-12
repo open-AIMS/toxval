@@ -71,12 +71,13 @@ test_that("new_toxval_pred accepts a threshold and a control", {
     x_vec = c(0, 1, 2, 3),
     meta = pred_meta(dimension = "group", group_var = "site"),
     threshold = list(A = c(1.5, 1.7), B = c(2.1, 2.4)),
-    control = c(10.2, 10.6)
+    control = list(A = c(10.2, 10.6), B = c(9.4, 9.9))
   )
 
   expect_named(result$threshold, c("A", "B"))
   expect_equal(result$threshold$A, c(1.5, 1.7))
-  expect_equal(result$control, c(10.2, 10.6))
+  expect_named(result$control, c("A", "B"))
+  expect_equal(result$control$A, c(10.2, 10.6))
 })
 
 test_that("new_toxval_pred accepts extra meta elements", {
@@ -381,8 +382,6 @@ test_that("new_toxval_pred errors when a curve is not a matrix", {
 })
 
 test_that("new_toxval_pred errors when a curve has the wrong number of rows", {
-  # the alignment invariant is not checkable, but a curve of the wrong height
-  # is the conformability failure it shows up as
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve(nrow = 3)),
@@ -514,9 +513,45 @@ test_that("new_toxval_pred errors when control has the wrong length", {
       curves = list(pred_curve()),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(),
-      control = c(10.2, 10.6, 10.9)
+      control = list(c(10.2, 10.6, 10.9))
     ),
-    regexp = "`control` must be length 2"
+    regexp = "`control\\[\\[1\\]\\]` must be length 2"
+  )
+})
+
+test_that("new_toxval_pred errors when control is a bare vector", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(),
+      control = c(10.2, 10.6)
+    ),
+    regexp = "`control` must be a list"
+  )
+})
+
+test_that("new_toxval_pred errors when control names do not match curves", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(A = pred_curve(), B = pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(dimension = "group", group_var = "site"),
+      control = list(A = c(10.2, 10.6), C = c(9.4, 9.9))
+    ),
+    regexp = "Names of `control` must be identical to names of `curves`"
+  )
+})
+
+test_that("new_toxval_pred errors when control has more elements than curves", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(),
+      control = list(c(10.2, 10.6), c(9.4, 9.9))
+    ),
+    regexp = "`control` must have 1 element to match `curves`, not 2"
   )
 })
 
@@ -560,7 +595,7 @@ test_that("print.toxval_pred names the groups of a grouped fit", {
     x_vec = c(0, 1, 2, 3),
     meta = pred_meta(dimension = "group", group_var = "site"),
     threshold = list(A = c(1.5, 1.7), B = c(2.1, 2.4)),
-    control = c(10.2, 10.6)
+    control = list(A = c(10.2, 10.6), B = c(9.4, 9.9))
   )
 
   expect_identical(

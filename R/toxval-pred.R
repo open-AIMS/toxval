@@ -22,7 +22,8 @@
 #'     such as a NEC, or `NULL` where the model has none. Not recoverable from
 #'     `curves`, which is why it is carried separately.}
 #'   \item{`control`}{Per-realisation control response from a control-only fit,
-#'     estimated independently of the dose-response shape, or `NULL`.}
+#'     estimated independently of the dose-response shape, or `NULL`. Keyed like
+#'     `curves`, because a grouped fit has one control per group.}
 #'   \item{`meta`}{Named list of metadata; see below.}
 #' }
 #'
@@ -33,7 +34,7 @@
 #' `response` column of the result. For `"none"` the list has exactly one
 #' element and no names, rather than a placeholder name that a real group could
 #' collide with. `threshold`, when supplied, carries the same names in the same
-#' order.
+#' order, and so does `control`.
 #'
 #' @section One descriptor at a time:
 #' `dimension` names a single descriptor, so `curves` is keyed by group or by
@@ -86,6 +87,8 @@
 #'     realisations, or `NULL`.}
 #' }
 #'
+#' @aliases toxval_pred
+#'
 #' @param curves A list of numeric matrices of realisations, one element per
 #'   group or response. See Slots and Naming of `curves`.
 #' @param x_vec A numeric vector of at least two finite, strictly increasing
@@ -93,7 +96,8 @@
 #' @param meta A named list of metadata. See Metadata.
 #' @param threshold A list of numeric vectors of per-realisation threshold
 #'   values, named as `curves` is, or `NULL`.
-#' @param control A numeric vector of per-realisation control values, or `NULL`.
+#' @param control A list of numeric vectors of per-realisation control values,
+#'   named as `curves` is, or `NULL`.
 #'
 #' @return An object of class `toxval_pred`.
 #'
@@ -155,8 +159,12 @@ validate_toxval_pred <- function(x) {
   chk_x_vec(x$x_vec)
   chk_settings(x$x_vec, x$meta)
   chk_curves(x$curves, x$x_vec, x$meta)
-  chk_threshold(x$threshold, x$curves, x$meta)
-  chk_control(x$control, x$meta)
+  if (!is.null(x$threshold)) {
+    chk_aligned_list(x$threshold, "threshold", x$curves, x$meta)
+  }
+  if (!is.null(x$control)) {
+    chk_aligned_list(x$control, "control", x$curves, x$meta)
+  }
 
   invisible(x)
 }
@@ -338,7 +346,7 @@ chk_curves <- function(curves, x_vec, meta) {
   }
 
   for (i in seq_along(curves)) {
-    nm <- curve_name(curves, i)
+    nm <- element_name(curves, "curves", i)
     chk::chk_matrix(curves[[i]], x_name = nm)
     chk::chk_numeric(curves[[i]], x_name = nm)
     if (nrow(curves[[i]]) != meta$n_realisation) {
@@ -367,61 +375,41 @@ chk_curves <- function(curves, x_vec, meta) {
 }
 
 #' @noRd
-chk_threshold <- function(threshold, curves, meta) {
-  if (is.null(threshold)) {
-    return(invisible(threshold))
-  }
-  chk::chk_list(threshold, x_name = "`threshold`")
-  if (!identical(names(threshold), names(curves))) {
+chk_aligned_list <- function(x, arg, curves, meta) {
+  chk::chk_list(x, x_name = paste0("`", arg, "`"))
+  if (!identical(names(x), names(curves))) {
     chk::abort_chk(
-      "names of `threshold` must be identical to names of `curves`."
+      "names of `",
+      arg,
+      "` must be identical to names of `curves`."
     )
   }
-  if (length(threshold) != length(curves)) {
+  # only reachable for an ungrouped fit: identical non-NULL names force equal
+  # lengths, so both name vectors are NULL here and `curves` has one element
+  if (length(x) != length(curves)) {
     chk::abort_chk(
-      "`threshold` must have 1 element to match `curves`, not ",
-      length(threshold),
+      "`",
+      arg,
+      "` must have 1 element to match `curves`, not ",
+      length(x),
       "."
     )
   }
-  for (i in seq_along(threshold)) {
-    nm <- threshold_name(threshold, i)
-    chk::chk_numeric(threshold[[i]], x_name = nm)
-    chk::chk_vector(threshold[[i]], x_name = nm)
-    chk::chk_length(
-      threshold[[i]],
-      as.integer(meta$n_realisation),
-      x_name = nm
-    )
+  for (i in seq_along(x)) {
+    nm <- element_name(x, arg, i)
+    chk::chk_numeric(x[[i]], x_name = nm)
+    chk::chk_vector(x[[i]], x_name = nm)
+    chk::chk_length(x[[i]], as.integer(meta$n_realisation), x_name = nm)
   }
-  invisible(threshold)
+  invisible(x)
 }
 
 #' @noRd
-chk_control <- function(control, meta) {
-  if (is.null(control)) {
-    return(invisible(control))
+element_name <- function(x, arg, i) {
+  if (is.null(names(x))) {
+    return(paste0("`", arg, "[[1]]`"))
   }
-  chk::chk_numeric(control, x_name = "`control`")
-  chk::chk_vector(control, x_name = "`control`")
-  chk::chk_length(control, as.integer(meta$n_realisation), x_name = "`control`")
-  invisible(control)
-}
-
-#' @noRd
-curve_name <- function(curves, i) {
-  if (is.null(names(curves))) {
-    return("`curves[[1]]`")
-  }
-  paste0("`curves$", names(curves)[i], "`")
-}
-
-#' @noRd
-threshold_name <- function(threshold, i) {
-  if (is.null(names(threshold))) {
-    return("`threshold[[1]]`")
-  }
-  paste0("`threshold$", names(threshold)[i], "`")
+  paste0("`", arg, "$", names(x)[i], "`")
 }
 
 #' Print a toxval_pred
