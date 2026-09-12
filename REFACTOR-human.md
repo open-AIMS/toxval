@@ -285,8 +285,9 @@ both are reported. `hormesis_def` cannot be repaired in place, because the two
 `nsec` methods compute different quantities under it (`REFACTOR-claude.md` §3.6).
 #1 and #8 close as a consequence, and #20 is answered directly.
 
-**To pin down:** whether a curve with no crossing in one direction emits a row
-with `NA` or omits the row.
+Where no draw crosses in a direction, the row is still returned with `NA`
+(decision T10). **Still to pin down:** what to report when *some* draws cross and
+some do not, which is #60. It blocks phase 4.
 
 ### 3.7 Validation
 
@@ -358,7 +359,8 @@ break would force two breaking releases in a row.
    Done when `bayesnec` is no longer imported and `ecx` on a `bnecfit` follows
    the #19 answer.
 4. **Move metrics onto the spine one at a time** (`ecx`, then `nsec`, then
-   `nsec_multi`), each gaining `draws`. Done when all three compute from a
+   `nsec_multi`), each gaining `draws`. Needs #60 answered first, since it
+   decides what the aggregation reports. Done when all three compute from a
    `toxval_pred`, with `posterior` deprecated but working.
 5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
    update the tests; remove `posterior` and the dead blocks last. Done when every

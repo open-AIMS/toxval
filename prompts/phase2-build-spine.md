@@ -1064,3 +1064,81 @@ multivariate question with the descriptor-table design as the alternative, the
 `control` keying, the settings cross-check, and the `dimension` cross-checks.
 
 ---
+
+**User:** What is the mixed-draw na.rm question?
+
+**Claude:** Restated it against the current code. `quantile()` is called without
+`na.rm` at `R/nsec.R:144`, `R/ecx.R:396` and `R/ecx.R:405`, safe today only
+because `nsec_fct()` (`R/helpers.R:125`) and the six `max(x_vec)` fallbacks in
+`ecx.R` never return `NA`. Under T10 the first non-crossing draw errors. That is
+the mechanical half and a one-word fix.
+
+The decision underneath is not. `REFACTOR-claude.md:505` settles the aggregate
+case -- no draw crosses, the row is `NA` -- but not the mixed case.
+`na.rm = TRUE` drops the non-crossing draws and reports a lower percentile as
+the median; `max(x_vec)` censors them at the highest tested concentration and
+makes the estimate a function of the design; `NA` for the whole estimate
+discards a result over one bad draw.
+
+---
+
+**User:** Are there tests we should be adding that highlight this and have a
+#TODO flag on them?
+
+**Claude:** Yes, but not `# TODO` -- phase 1 replaced those with
+`# EXPECTED-CHANGE <reason> #<issue>`, and every test file carries a header
+saying so, so a TODO would put the information in a form the regression net does
+not read.
+
+The gap is `test-helpers.R:31`, `nsec_fct returns max x_vec when no crossing
+found`, which asserts exactly the behaviour T10 removes and is unmarked -- it
+would fail at phase 4 as though something had broken. `test-helpers.R:55` needs
+the `(test will be removed)` form, since its value is unchanged but both helpers
+go when `find_crossings()` takes over.
+
+Argued against writing a new test for the mixed case: it lives at an aggregation
+layer that does not exist yet, and the rule is undecided, so a test would encode
+one of three options as expected behaviour and the decision would then rewrite
+it. What was missing was an issue, not a test.
+
+---
+
+**User:** Lets create an issue, that sounds like the right route for now. Can you
+draft up a few little regex examples with text and I will create the issue
+myself
+
+**Claude:** Drafted the issue with runnable examples and real numbers: the
+`quantile()` error path, and a table comparing both rules across censoring
+levels on 4000 lognormal draws.
+
+The framing that came out of the numbers: non-crossing draws are not missing at
+random, they are the draws whose crossing lies beyond `max(x_vec)`, so they are
+the upper tail. At 12.4 per cent not crossing, `na.rm = TRUE` reports the 43.8th
+percentile of the full posterior as the median. `max(x_vec)` holds the median
+until more than half fail to cross, which is its argument, but both return the
+grid boundary or below as the upper compatibility limit against a true 4.788 --
+so under either rule the reported number moves when only the grid changes.
+
+Left the control example out, since it shows the same effect at 99 per cent but
+arrived through `anchor = "control"` keying, and would make the issue about two
+things.
+
+---
+
+**User:** I create the issue it is issue 60. Can we tie it to one of the plans?
+
+**Claude:** Both, in the one place each document reserves for it.
+
+`REFACTOR-claude.md` §3.6 now carries the mixed case as an open question
+directly under the settled aggregate case, with the measurement and the reason
+it blocks phase 4.
+
+`REFACTOR-human.md` had gone stale: its "To pin down" at line 288 still listed
+the aggregate case as open although T10 settled it on 2026-09-04 and line 60 of
+the same document already states the answer. Replaced with the settled statement
+plus #60 as what genuinely remains.
+
+Both phasing tables now name #60 on phase 4, so the blocker is visible where the
+work is sequenced rather than only where it is argued.
+
+---
