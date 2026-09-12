@@ -2,6 +2,7 @@
 % Please edit documentation in R/toxval-pred.R
 \name{new_toxval_pred}
 \alias{new_toxval_pred}
+\alias{toxval_pred}
 \title{Realisations of a fitted curve over a predictor grid}
 \usage{
 new_toxval_pred(curves, x_vec, meta, threshold = NULL, control = NULL)
