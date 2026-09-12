@@ -75,8 +75,8 @@
 #'   \item{`dimension`}{One of `"none"`, `"group"` or `"response"`. Determines
 #'     whether the result carries a `group` column, a `response` column or
 #'     neither, and which of `group_var` and `multi_var` the object must carry.}
-#'   \item{`resolution`}{Whole number, the resolution the grid was requested at.}
-#'   \item{`x_range`}{Numeric of length 2, the requested predictor range.}
+#'   \item{`resolution`}{Whole number, the number of values in `x_vec`.}
+#'   \item{`x_range`}{Numeric of length 2, the range of `x_vec`.}
 #'   \item{`family`}{String naming the response distribution, or `NULL` where
 #'     the fitted object has no family.}
 #'   \item{`realisation`}{Either `"draws"` or `"bootstrap"`, the source of the
@@ -153,6 +153,7 @@ validate_toxval_pred <- function(x) {
 
   chk_meta(x$meta)
   chk_x_vec(x$x_vec)
+  chk_settings(x$x_vec, x$meta)
   chk_curves(x$curves, x$x_vec, x$meta)
   chk_threshold(x$threshold, x$curves, x$meta)
   chk_control(x$control, x$meta)
@@ -278,6 +279,36 @@ chk_x_vec <- function(x_vec) {
   chk::chk_sorted(x_vec, x_name = "`x_vec`")
   chk::chk_unique(x_vec, x_name = "`x_vec`")
   invisible(x_vec)
+}
+
+#' @noRd
+chk_settings <- function(x_vec, meta) {
+  # `resolution` and `x_range` are the settings the grid was built from and are
+  # reported as such, so an object where they disagree with `x_vec` describes
+  # itself wrongly
+  if (!isTRUE(all.equal(as.numeric(meta$x_range), range(x_vec)))) {
+    chk::abort_chk(
+      "`meta$x_range` must be the range of `x_vec` (",
+      format(min(x_vec)),
+      " to ",
+      format(max(x_vec)),
+      "), not ",
+      format(meta$x_range[1]),
+      " to ",
+      format(meta$x_range[2]),
+      "."
+    )
+  }
+  if (meta$resolution != length(x_vec)) {
+    chk::abort_chk(
+      "`meta$resolution` must be the number of values in `x_vec` (",
+      length(x_vec),
+      "), not ",
+      meta$resolution,
+      "."
+    )
+  }
+  invisible(meta)
 }
 
 #' @noRd

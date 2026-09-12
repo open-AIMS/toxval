@@ -64,6 +64,17 @@ collide with. \code{threshold}, when supplied, carries the same names in the sam
 order.
 }
 
+\section{One descriptor at a time}{
+
+\code{dimension} names a single descriptor, so \code{curves} is keyed by group or by
+response and never by both: a fit that is both grouped and multivariate has
+no representation here. No supported fitting path produces one -- \code{nsec_multi()}
+takes no \code{group_var} -- so the limit sits in the contract rather than in the
+code. Lifting it means keying \code{curves} by a table of descriptors, one row per
+curve, rather than by a single dimension, which is a change to this contract
+rather than an addition to it.
+}
+
 \section{Realisation alignment}{
 
 Realisation \emph{i} is the same underlying draw in every slot: row \emph{i} of every
@@ -90,14 +101,16 @@ can record what it needs to.
 \item{\code{source_class}}{String, the class of the fitted object the
 realisations came from.}
 \item{\code{x_var}}{String, the name of the predictor variable.}
-\item{\code{group_var}}{String naming the grouping variable, or \code{NULL}.}
+\item{\code{group_var}}{String naming the grouping variable. Required when
+\code{dimension} is \code{"group"}, and \code{NULL} when \code{dimension} is \code{"none"}.}
 \item{\code{multi_var}}{String naming the response variable of a multivariate
-fit, or \code{NULL}.}
+fit. Required when \code{dimension} is \code{"response"}, and \code{NULL} when
+\code{dimension} is \code{"none"}.}
 \item{\code{dimension}}{One of \code{"none"}, \code{"group"} or \code{"response"}. Determines
 whether the result carries a \code{group} column, a \code{response} column or
-neither.}
-\item{\code{resolution}}{Whole number, the resolution the grid was requested at.}
-\item{\code{x_range}}{Numeric of length 2, the requested predictor range.}
+neither, and which of \code{group_var} and \code{multi_var} the object must carry.}
+\item{\code{resolution}}{Whole number, the number of values in \code{x_vec}.}
+\item{\code{x_range}}{Numeric of length 2, the range of \code{x_vec}.}
 \item{\code{family}}{String naming the response distribution, or \code{NULL} where
 the fitted object has no family.}
 \item{\code{realisation}}{Either \code{"draws"} or \code{"bootstrap"}, the source of the

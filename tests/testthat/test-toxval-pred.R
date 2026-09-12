@@ -155,6 +155,73 @@ test_that("new_toxval_pred errors on an unknown realisation source", {
   )
 })
 
+test_that("new_toxval_pred errors when x_range is reversed", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(x_range = c(3, 0))
+    ),
+    regexp = "`meta\\$x_range` must be sorted"
+  )
+})
+
+test_that("new_toxval_pred errors when x_range is missing a value", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(x_range = c(0, NA))
+    ),
+    regexp = "`meta\\$x_range` must not have any missing values"
+  )
+})
+
+test_that("new_toxval_pred errors when x_range is not the range of x_vec", {
+  # `resolution` and `x_range` are reported as the settings the grid was built
+  # from, so they cannot be allowed to describe a different grid
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(x_range = c(100, 200))
+    ),
+    regexp = "`meta\\$x_range` must be the range of `x_vec` \\(0 to 3\\), not 100 to 200"
+  )
+})
+
+test_that("new_toxval_pred errors when x_range is not finite", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(x_range = c(0, Inf))
+    ),
+    regexp = "`meta\\$x_range` must be the range of `x_vec`"
+  )
+})
+
+test_that("new_toxval_pred errors when resolution is not the length of x_vec", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(resolution = 1000)
+    ),
+    regexp = "`meta\\$resolution` must be the number of values in `x_vec` \\(4\\), not 1000"
+  )
+})
+
+test_that("new_toxval_pred accepts an integer x_range against a double x_vec", {
+  result <- new_toxval_pred(
+    curves = list(pred_curve()),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(x_range = c(0L, 3L))
+  )
+
+  expect_identical(result$meta$x_range, c(0L, 3L))
+})
+
 test_that("new_toxval_pred errors when a grouped fit has no group_var", {
   expect_error(
     new_toxval_pred(
@@ -202,8 +269,6 @@ test_that("new_toxval_pred errors when an ungrouped fit names a multi_var", {
 })
 
 test_that("new_toxval_pred errors when a grouped fit names a multi_var", {
-  # `curves` is keyed by one descriptor, so a fit cannot be grouped and
-  # multivariate at once; see the class documentation
   expect_error(
     new_toxval_pred(
       curves = list(A = pred_curve(), B = pred_curve()),
