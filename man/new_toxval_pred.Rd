@@ -19,7 +19,8 @@ predictor values.}
 \item{threshold}{A list of numeric vectors of per-realisation threshold
 values, named as \code{curves} is, or \code{NULL}.}
 
-\item{control}{A numeric vector of per-realisation control values, or \code{NULL}.}
+\item{control}{A list of numeric vectors of per-realisation control values,
+named as \code{curves} is, or \code{NULL}.}
 }
 \value{
 An object of class \code{toxval_pred}.
@@ -49,7 +50,8 @@ is ungrouped.}
 such as a NEC, or \code{NULL} where the model has none. Not recoverable from
 \code{curves}, which is why it is carried separately.}
 \item{\code{control}}{Per-realisation control response from a control-only fit,
-estimated independently of the dose-response shape, or \code{NULL}.}
+estimated independently of the dose-response shape, or \code{NULL}. Keyed like
+\code{curves}, because a grouped fit has one control per group.}
 \item{\code{meta}}{Named list of metadata; see below.}
 }
 }
@@ -62,7 +64,7 @@ named element per level or response, and those names become the \code{group} or
 \code{response} column of the result. For \code{"none"} the list has exactly one
 element and no names, rather than a placeholder name that a real group could
 collide with. \code{threshold}, when supplied, carries the same names in the same
-order.
+order, and so does \code{control}.
 }
 
 \section{One descriptor at a time}{
