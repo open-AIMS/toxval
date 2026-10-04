@@ -240,32 +240,32 @@ chk_meta <- function(meta) {
 
   if (meta$dimension == "group" && is.null(meta$group_var)) {
     chk::abort_chk(
-      "`meta$group_var` must be supplied when `meta$dimension` is \"group\"."
+      "`meta$group_var` must be supplied when `meta$dimension` is 'group'."
     )
   }
   if (meta$dimension == "response" && is.null(meta$multi_var)) {
     chk::abort_chk(
-      "`meta$multi_var` must be supplied when `meta$dimension` is \"response\"."
+      "`meta$multi_var` must be supplied when `meta$dimension` is 'response'."
     )
   }
   if (meta$dimension == "group" && !is.null(meta$multi_var)) {
     chk::abort_chk(
-      "`meta$multi_var` must be NULL when `meta$dimension` is \"group\"."
+      "`meta$multi_var` must be NULL when `meta$dimension` is 'group'."
     )
   }
   if (meta$dimension == "response" && !is.null(meta$group_var)) {
     chk::abort_chk(
-      "`meta$group_var` must be NULL when `meta$dimension` is \"response\"."
+      "`meta$group_var` must be NULL when `meta$dimension` is 'response'."
     )
   }
   if (meta$dimension == "none" && !is.null(meta$group_var)) {
     chk::abort_chk(
-      "`meta$group_var` must be NULL when `meta$dimension` is \"none\"."
+      "`meta$group_var` must be NULL when `meta$dimension` is 'none'."
     )
   }
   if (meta$dimension == "none" && !is.null(meta$multi_var)) {
     chk::abort_chk(
-      "`meta$multi_var` must be NULL when `meta$dimension` is \"none\"."
+      "`meta$multi_var` must be NULL when `meta$dimension` is 'none'."
     )
   }
   invisible(meta)
@@ -327,14 +327,14 @@ chk_curves <- function(curves, x_vec, meta) {
   if (meta$dimension == "none") {
     if (length(curves) != 1) {
       chk::abort_chk(
-        "`curves` must have 1 element when `meta$dimension` is \"none\", not ",
+        "`curves` must have 1 element when `meta$dimension` is 'none', not ",
         length(curves),
         "."
       )
     }
     if (!is.null(names(curves))) {
       chk::abort_chk(
-        "`curves` must be unnamed when `meta$dimension` is \"none\"."
+        "`curves` must be unnamed when `meta$dimension` is 'none'."
       )
     }
   } else {

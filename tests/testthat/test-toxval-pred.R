@@ -254,7 +254,7 @@ test_that("new_toxval_pred errors when an ungrouped fit names a group_var", {
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(group_var = "site")
     ),
-    regexp = "`meta\\$group_var` must be NULL when `meta\\$dimension` is \"none\""
+    regexp = "`meta\\$group_var` must be NULL when `meta\\$dimension` is 'none'"
   )
 })
 
@@ -265,7 +265,7 @@ test_that("new_toxval_pred errors when an ungrouped fit names a multi_var", {
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(multi_var = "endpoint")
     ),
-    regexp = "`meta\\$multi_var` must be NULL when `meta\\$dimension` is \"none\""
+    regexp = "`meta\\$multi_var` must be NULL when `meta\\$dimension` is 'none'"
   )
 })
 
@@ -280,7 +280,7 @@ test_that("new_toxval_pred errors when a grouped fit names a multi_var", {
         multi_var = "endpoint"
       )
     ),
-    regexp = "`meta\\$multi_var` must be NULL when `meta\\$dimension` is \"group\""
+    regexp = "`meta\\$multi_var` must be NULL when `meta\\$dimension` is 'group'"
   )
 })
 
@@ -295,7 +295,7 @@ test_that("new_toxval_pred errors when a multivariate fit names a group_var", {
         group_var = "site"
       )
     ),
-    regexp = "`meta\\$group_var` must be NULL when `meta\\$dimension` is \"response\""
+    regexp = "`meta\\$group_var` must be NULL when `meta\\$dimension` is 'response'"
   )
 })
 
