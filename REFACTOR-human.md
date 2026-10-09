@@ -176,8 +176,13 @@ by the column rule in §3.1, not by an argument flipping the return type.
 ### 3.3 Single-generic architecture
 
 `toxval_predict()` is the only S3 generic. It dispatches on model class and
-returns a `toxval_pred`. The metric functions (`ecx`, `nsec`, `nsec_multi`, ...)
-are plain, non-generic functions that compute on a `toxval_pred`.
+returns a `toxval_pred`. The metric functions (`ecx`, `nsec`, ...) are plain,
+non-generic functions that compute on a `toxval_pred`.
+
+`nsec_multi()` is folded into `nsec()` and deprecated, so one function serves
+ungrouped, grouped and multivariate fits (decision T15, `REFACTOR-claude.md`
+§3.3). Its `type = "lower"` option stays, under a new name chosen in phase 4,
+because `type` already has another meaning in `nsec()`.
 
 Metric functions accept **either a fitted model or a pre-built `toxval_pred`**
 (one `inherits()` check at the top), which enables predict-once / compute-many
@@ -200,7 +205,7 @@ a `toxval_pred` from outside this package.
 ### 3.4 The `toxval_pred` intermediate object
 
 `toxval_pred` holds **realisations** of the fitted curve as a list, one element
-per group or response, plus metadata.
+per curve, plus a table saying which curve is which, plus metadata.
 
 A *realisation* is one plausible version of the fitted curve. A Bayesian fit
 supplies thousands of them as posterior draws. A frequentist fit gets the same
@@ -211,14 +216,21 @@ confidence interval.
 
 ```
 toxval_pred:
-  curves    : named list of matrices, each [n_realisation x n_x]
+  curves    : list of matrices, each [n_realisation x n_x], one per row of keys
+  keys      : table with one row per curve and a `group` column, a `response`
+              column, both, or neither
   x_vec     : numeric [n_x]
   threshold : per-realisation threshold parameter (a NEC), or NULL
-  control   : realisations of a control-only fit, or NULL; keyed like `curves`,
-              since a grouped fit has one control per group
+  control   : realisations of a control-only fit, one set per row of keys, or
+              NULL, since a grouped fit has one control per group
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
-              dimension, family, realisation source, n_realisation, ...
+              family, realisation source, n_realisation, ...
 ```
+
+`keys` lets one object hold a fit that is both grouped and multivariate, such as
+two endpoints measured at three sites, which gives six curves. `nsec()` has to
+accept such a fit once it absorbs `nsec_multi()` (decision T14,
+`REFACTOR-claude.md` §3.4).
 
 One representation covers every case:
 
@@ -226,7 +238,8 @@ One representation covers every case:
 |---|---|---|---|
 | Ungrouped Bayesian | 1 element | draws | n_draws |
 | `by_group` / `group_var` | one per factor level | draws | n_draws |
-| Multivariate (`nsec_multi`) | one per response | draws | n_draws |
+| Multivariate (`multi_var`) | one per response | draws | n_draws |
+| Grouped multivariate (T14) | one per group and response | draws | n_draws |
 | `drc` | one per curve (or 1) | bootstrap | n_boot |
 | `glm` / `gam` (future, #21) | one per group | bootstrap | n_boot |
 
@@ -308,6 +321,13 @@ some do not, which is #60. It blocks phase 4.
 including `nsec.drc`'s positional `curveid` (#34) and the six differing
 `resolution` defaults.
 
+Estimates from a `brmsfit` with group-level (random) effects are population-level
+estimates. A `group_var` that appears only in a group-level term, such as `site`
+in `y ~ x + (1 | site)`, is therefore an error, because every site would receive
+the same curve (decision T16). For a `drc` fit `x_var` may be left out, since the
+fit records its dose variable, and a supplied `x_var` must match it (decision
+T17). Both are in `REFACTOR-claude.md` §3.7.
+
 ### 3.8 The `nsec` reference: the `anchor` argument
 
 Where the `nsec` reference comes from becomes a visible choice rather than a
@@ -358,10 +378,13 @@ break would force two breaking releases in a row.
 3. **`toxval` sheds `bayesnec`.** Reverses a dependency pointing the wrong way.
    Done when `bayesnec` is no longer imported and `ecx` on a `bnecfit` follows
    the #19 answer.
-4. **Move metrics onto the spine one at a time** (`ecx`, then `nsec`, then
-   `nsec_multi`), each gaining `draws`. Needs #60 answered first, since it
-   decides what the aggregation reports. Done when all three compute from a
-   `toxval_pred`, with `posterior` deprecated but working.
+4. **Move metrics onto the spine one at a time** (`ecx`, then `nsec`), each
+   gaining `draws`, with `nsec_multi()` becoming a deprecated wrapper around
+   `nsec()`. Needs #60 answered first, since it decides what the aggregation
+   reports. Also needs `toxval_predict()` to return one curve per response for a
+   multivariate `brmsfit`, which it refuses until then. Done when `ecx()` and
+   `nsec()` compute from a `toxval_pred` and `nsec_multi()` calls `nsec()`, with
+   `posterior` deprecated but working.
 5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
    update the tests; remove `posterior` and the dead blocks last. Done when every
    metric returns a tibble and the tests assert the new shapes.
@@ -378,7 +401,8 @@ it returns. Separating them keeps each checkable against the regression net, and
 
 - **Method gaps to keep in mind:** `ecx` has no `drc` method, which becomes
   nearly free under §3.4 — whether it is in scope needs a decision. `nsec_multi`
-  is brms-multivariate only.
+  is brms-multivariate only. Under decision T15 that support is provided by
+  `toxval_predict()` instead.
 - **`n(s)ec` and `nec` are reserved in the vocabulary but not implemented here**
   (#25, #18), so the vocabulary does not have to be reopened later.
 - **`anchor = "control"` is specified but not implemented.** It needs a
