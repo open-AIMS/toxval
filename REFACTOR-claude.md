@@ -244,15 +244,30 @@ toxval_pred:
               per-realisation threshold parameter where the model has a
               genuine one (a NEC); NULL otherwise. Needed for `nec` and
               `n(s)ec`, which are not recoverable from `curves`.
-  control   : numeric [n_realisation] from a control-only fit, or NULL.
-              Realisations of the control response estimated *independently
-              of the dose-response shape*. Subject to the same alignment
-              invariant as `curves`. Needed by `anchor = "control"` (3.8)
-              and by the mismatch warning that guards it.
+  control   : named list of numeric [n_realisation] from a control-only fit,
+              or NULL. Keyed like `curves`. Realisations of the control
+              response estimated *independently of the dose-response shape*.
+              Subject to the same alignment invariant as `curves`. Needed by
+              `anchor = "control"` (3.8) and by the mismatch warning that
+              guards it.
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
               dimension ("none" | "group" | "response"), family, realisation
               source ("draws" | "bootstrap"), n_realisation, ...
 ```
+
+**`control` is keyed like `curves`, not a bare vector.** Settled 2026-09-12
+(AP) on #59. A grouped fit has one control per group, so a single vector cannot
+carry it. Measured on three synthetic sites decaying at the same relative rate
+from baselines of 10, 6 and 2, where the correct NSEC is identical for all
+three: per-group controls give 0.289, 0.301 and 0.309, while pooling the control
+draws into one vector gives 2.947, 2.376 and 0.216, and 99 per cent of the
+first site's draws never reach the pooled reference at all. The mismatch warning
+in [3.8](#38-the-nsec-reference-the-anchor-argument) also needs the per-group
+basis: against a pooled vector it either always fires or never does.
+
+A consequence for `anchor = "control"`: the control-only fit must be grouped the
+same way as the dose-response fit, since the two sets of names have to match.
+Where it is not, that is an error rather than something to pool.
 
 #### One realisation mechanism for every fit  (#43)
 
@@ -491,6 +506,17 @@ It also:
 row. Settled 2026-09-04 (RF) on #20: the direction was looked for and not found,
 which is information. This is the §3.1 column rule — present because meaningful,
 `NA` because unavailable.
+
+That settles the case where *no* draw crosses. **The mixed case — some draws
+cross and some do not — is open, and is tracked as #60.** It is a question about
+what the estimate means rather than an `na.rm` argument: non-crossing draws are
+the draws whose crossing lies beyond `max(x_vec)`, so they are the upper tail of
+the posterior, and dropping them biases the estimate downward while censoring
+them at the grid edge makes it a function of where testing stopped. Measured on
+4000 lognormal draws with 12.4 per cent not crossing, `na.rm = TRUE` reports the
+43.8th percentile of the full posterior as the median, and both rules return the
+grid boundary or below it as the upper compatibility limit against a true 4.788.
+It blocks phase 4, because that is where the aggregation moves onto the spine.
 
 ### 3.7 Validation
 
@@ -1006,7 +1032,7 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 1 | **Lock a regression net.** Mark every test a later phase changes with `# EXPECTED-CHANGE <reason> #<issue>`, replacing the existing `TODO` markers; unmarked tests are the "must not move" set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan. | - |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`; move `bayesnec` to `Suggests`, or out entirely if the tests no longer need it. | `ecx` on `bnecfit` adopts the #19 answer |
-| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`, then `nsec_multi`), each gaining `draws`, with `posterior` deprecated but working. | per #19/#20 |
+| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`, then `nsec_multi`), each gaining `draws`, with `posterior` deprecated but working. Needs #60 answered first. | per #19/#20, and #60 |
 | 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
 | 6 | **`toxval` to CRAN**, carrying the final API. | — |
 | 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |

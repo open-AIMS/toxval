@@ -1,0 +1,1144 @@
+## Session: phase2-build-spine
+Date: 2026-09-07
+Model: Claude Opus 5 (1M context)
+
+Planning session for `REFACTOR-claude.md` §4 phase 2. Claude plans, checks and
+works through problems; the user writes all repo code.
+
+### Prompts and Responses
+
+**User:** Ok, lets start working on phase 2. Can you start by giving a short
+outline of what needs to be done in phase two. Keep it to bullet points, it
+should be a high level summary.
+
+**Claude:** High-level outline of phase 2, the additive spine build:
+
+- `toxval_pred` — the intermediate object (`curves`, `x_vec`, `threshold`,
+  `control`, `meta`), with constructor, validator and print method, exported
+  because `bayesnec` constructs one from outside the package at phase 7.
+- `toxval_predict()` — the single S3 generic, with `brmsfit` (ungrouped, grouped,
+  multivariate) and `drc` methods.
+- Two realisation sources, one representation: posterior draws for Bayesian
+  fits, parametric bootstrap from `coef()`/`vcov()` for frequentist ones, so the
+  compute layer never branches on class.
+- Compute core: direction-aware crossing finder, grid interpolation and
+  per-`type` reference construction, replacing the five duplicated copies across
+  `nsec_fct`, `tox_fct` and the three `ecx_x_*` functions, and fixing #29.
+- Shared `chk` validators, called by new code only; the four hand-rolled copies
+  stay until phase 4.
+- Tests: slot contract and alignment invariant, crossings against analytic
+  curves, the `drc` mean function against `predict()`, and equivalence with
+  current output only where definitions coincide.
+
+Not in phase 2: rewiring `ecx()`/`nsec()` (phase 4), tibble output (phase 5),
+`bnecfit` methods (they move to `bayesnec`); `threshold` and `control` are
+defined in the contract but populated `NULL`.
+
+Carried forward as open: which classes get methods (recommended `brmsfit` and
+`drc` only) and the `resolution` default (recommended 1000).
+
+---
+
+**User:** Agreed on not creating things for bayesnec that get removed in the next
+step — `brmsfit` and `drc` only. Start with resolution 1000 and see how that
+goes. So we are writing new functions here and not touching the pre-existing code
+at this phase?
+
+**Claude:** Both decisions settled: methods for `brmsfit` and `drc` only,
+`resolution` defaults to 1000.
+
+Confirmed the additive reading, with three qualifications:
+
+- **Duplication is deliberate and temporary.** The new crossing/interpolation
+  code duplicates `nsec_fct`, `tox_fct` and the three `ecx_x_*` functions, and
+  both copies live in the package through phases 2-4. Worth a comment in the new
+  file, or it reads as not having noticed the existing helpers.
+- **Files that change, none behavioural:** `DESCRIPTION` (`MASS`, `withr` into
+  Imports); `NAMESPACE` and `man/` (regenerated); `R/toxval-params.R`, the one
+  pre-existing file with real edits, documentation-only, to add shared
+  `@inheritParams` entries for `n_boot`, `seed`, `multi_var`. Flagged that its
+  `object` entry still reads "An object of class bayesnecfit or bayesmanecfit",
+  already wrong for the `brmsfit` and `drc` methods — small fix, could ride along
+  here or go with the #56 documentation work. `NEWS.md` left alone, fledge
+  maintains it from commit messages.
+- **Equivalence tests are scaffolding with a known end date.** With nothing
+  wired, the only way to show the spine reproduces today's numbers is to call
+  both paths in one test and compare; those tests are meaningless once the old
+  path goes at phase 5, so they should say so in a comment.
+
+Noted that `brmsfit` + `drc` only means the §3.4 alignment invariant cannot be
+exercised through a method, so it is tested by hand-building a `toxval_pred` from
+a `bayesmanecfit`'s draws — the same path `bayesnec` uses at phase 7, so the test
+doubles as a check that the public constructor works from outside the package.
+
+---
+
+**User:** For the testing, are we just going to have the exact same tests but
+they point to a different file or do all the tests need to be duplicated with the
+new function names? [and, mid-turn] Are we duplicating the files so there will be
+an ecx and ecx_refactor? Or am I adding an ecx_refactor function to the current
+ecx file?
+
+**Claude:** Neither — there is no `ecx_refactor` and no parallel copy of `ecx()`.
+Phase 2 builds a lower layer whose functions are not ECx-shaped:
+`R/toxval-pred.R`, `R/toxval-predict.R`, `R/crossings.R`, `R/compute.R`
+(`compute_ecx()`, `compute_nsec()` on a `toxval_pred`), `R/validate.R`,
+`R/bootstrap.R`. At phase 4 `ecx()` is rewritten *in place* — body becomes
+validate -> `toxval_predict()` -> `compute_ecx()` -> summarise — and
+`ecx_x_relative/absolute/direct` are deleted then. `ecx()` never has a twin.
+
+Corrected the earlier "deliberate duplication" wording, which prompted the
+question: what is duplicated is the crossing-and-interpolation *logic*, present
+in `crossings.R` and the five old copies simultaneously through phases 2-4. No
+public function is duplicated. Noted that `compute_ecx()`/`compute_nsec()` should
+take their permanent names now, since phase 4's public wrappers call them and
+they outlive phase 2.
+
+Tests are therefore not duplicated either, because the argument surface splits:
+predict-level (`x_var`, `group_var`, `x_range`, `resolution`) migrates to
+`toxval_predict()` tests, metric-level (`ecx_val`, `type`, `sig_val`,
+`prob_vals`, `xform`, `posterior`) stays with `ecx()`/`nsec()` until phase 4/5.
+
+Grounded in the current suite (199 tests: ecx 76, nsec 70, nsec-multi 35,
+helpers 11, predict 7): of the 76 `ecx` tests only about ten have a phase-2
+counterpart, and those assert grid contents and `curves` names rather than ECx
+values; ~25 more are `bnecfit` tests heading to `bayesnec`. The 199 existing
+tests are phase 4's acceptance criteria and stay untouched. Only
+`test-helpers.R` is genuinely superseded, since it tests the internals being
+replaced, and 5 of its 11 are already marked. New suite estimated at 40-60
+tests.
+
+**Fixture gap found:** there is no `drc` fixture with a real `curveid`.
+`nsec_drc_1$data` has columns `x, y, 1, 1, weights` — column 4 is literally
+named `1` and holds a constant, which is why `object$data[, 4]` appears to work
+and why `nsec(nsec_drc_1, curveid = "a")` succeeds with a non-existent
+`curveid` (#34 in one line). The only genuine multi-curve test builds
+`daphnids_m2` inline from `drc::daphnids` at `test-nsec.R:347`. Phase 2's
+grouped-`drc` tests either follow that pattern or need a new fixture — decide
+before writing `toxval_predict.drc`.
+
+**Bootstrap verified feasible:** `fct$fct(x, parm)` reproduces
+`predict(fit, newdata)` to a maximum absolute difference of exactly 0 on
+`nsec_drc_1`, and `vcov()` returns a full 4x4. T11's mechanism is sound.
+
+**Defect in the §3.10 asymptote plan (phase 4, flagged early):** the spec keys
+the asymptote lookup on `fit$fct$name`, but on these fixtures `fct$name` is
+`"::"` rather than `"LL.4"` — drc captures the call and `drc::LL.4()` leaves the
+namespace operator as the name. `fct$text` gives
+`"Log-logistic (ED50 as parameter)"`, and the `fct` object carries `lowerAs`,
+`upperAs` and `monoton` slots the spec did not account for, which look like a
+better source than a hand-maintained name table.
+
+---
+
+**User:** Ok, lets start then. Which function should I start with? Can you
+provide a clear but simple outline of the first steps to take
+
+**Claude:** Recommended starting with `R/crossings.R` — the only piece with no
+dependencies (no brms, drc, class or fixtures), testable against hand-computed
+curves immediately, where T10's direction semantics become concrete, and the
+foundation everything else sits on. It replaces `nsec_fct`, `tox_fct` and the
+shared tail of all three `ecx_x_*` functions.
+
+Supplied `find_crossings(y, x_vec, reference)` returning both directions in one
+pass, with an `interp_crossing()` helper:
+
+```r
+find_crossings <- function(y, x_vec, reference) {
+  d <- y - reference
+  n <- length(d)
+  ok <- !is.na(d)
+  j <- which(ok[-n] & ok[-1])
+
+  lo <- d[j]
+  hi <- d[j + 1]
+
+  list(
+    decreasing = interp_crossing(j[lo >= 0 & hi < 0], d, x_vec),
+    increasing = interp_crossing(j[lo <= 0 & hi > 0], d, x_vec)
+  )
+}
+
+interp_crossing <- function(j, d, x_vec) {
+  if (!length(j)) {
+    return(NA_real_)
+  }
+  j <- min(j)
+  frac <- d[j] / (d[j] - d[j + 1])
+  x_vec[j] + frac * (x_vec[j + 1] - x_vec[j])
+}
+```
+
+Interpolates in response space rather than via `zero_crossings()`'s fractional
+index — same answer on a linear segment, one less indirection, no `modelbased`
+call.
+
+Six rules to settle while writing it:
+
+1. No crossing returns `NA_real_`, not `max(x_vec)` (§3.6) — the rule that makes
+   `test-helpers.R:31` change.
+2. First means lowest x (`min(j)`).
+3. Exact zeros count as on the reference, hence `>=`/`<=` on the low side, so a
+   curve starting at the reference and falling registers a crossing at
+   `x_vec[1]` (`frac` = 0). Flip to strict if a touch should never count.
+4. NA gaps break the scan — consecutive non-NA pairs only, so an all-`NA` `y`
+   returns `NA` both ways with no special case.
+5. A curve starting below the reference has no decreasing crossing; reachable
+   because `nsec`'s reference is an across-draw quantile, so a single draw can
+   begin below its own threshold.
+6. This is the #29 fix — a sign-change scan catches every crossing the grid can
+   resolve. A down-and-back-up excursion inside one interval remains out of
+   reach for any grid method, which is #40's territory.
+
+Tests, all hand-computable with no fixtures: monotone decreasing; monotone
+increasing; hormetic with both crossings; flat above; flat below; flat exactly
+equal; crossing on a grid point; two crossings one interval apart (#29); an `NA`
+in the middle; all `NA`; a two-point grid.
+
+Advised against vectorising over realisations for now — the metrics will
+`apply()` row-wise as the current code does, and the scan generalises to a matrix
+later if profiling calls for it. `R/toxval-pred.R` next, mostly transcription
+from §3.4.
+
+---
+
+**User:** I think I have most of the tests covered, except for the two crossings
+one interval apart. Can you help explain what is needed for that one and see if
+there are any tests that I missed?
+
+**Claude:** Read the user's `R/crossings.R` and `tests/testthat/test-crossings.R`
+(15 tests) and traced every expectation against the implementation; all pass as
+written.
+
+**The #29 mechanism.** `modelbased::zero_crossings()` does not scan the input
+vector — it builds a linear interpolant and re-samples onto its own fixed
+100-point grid, so any feature narrower than that spacing is invisible and a
+crossing-and-return loses both crossings. The sign-change scan examines every
+consecutive input pair, so nothing wider than one interval can hide. Supplied the
+test using the issue's reprex shape with `x_vec = seq_along(y)`, asserting
+`19 + 10/11` and `20 + 1/11`; verified `find_crossings()` returns those and
+`zero_crossings()` returns `40.5` alone. Advised keeping the contrast as a
+comment, not an assertion, so the test survives an upstream fix.
+
+**Resolved the user's top/bottom asymmetry TODO.** Only three conventions are
+self-consistent: inclusive-low (current), inclusive-high (the mirror), and
+strict-both — which is broken, since a crossing landing exactly on a grid point
+is missed entirely (the "on a point" test would return `NA` instead of `1`). The
+first two agree wherever the zero is interior and differ only at the two
+endpoints. Keep inclusive-low: the reachable exact zero is at `d[1]`, because
+`nsec`'s reference is a quantile of the control posterior and a draw can land on
+it, and for that draw "NSEC at the lowest concentration" is right rather than
+dropping it from the quantile. A zero at the last point is a touch, not a
+crossing, and #6/#24 will flag range-edge results anyway.
+
+**Resolved the NA TODOs.** The "NA in the curve" test already returns `3`, so its
+comment is stale. The open case is an NA sitting exactly at the crossing, which
+returns `NA` because the scan uses consecutive non-NA pairs only. Recommended not
+bridging: once T10 removes `modify_posterior()`, an `NA` in a fitted curve means
+the model failed to predict there, and interpolating invents a number; better for
+the metric layer to count `NA` realisations and warn (#6/#24). Noted the test
+puts `NA` in `x_vec` as well as `y`, which cannot happen since the grid is
+`seq()` — test `NA` in `y` only.
+
+**Missing tests, ranked:** (1) unequally spaced `x_vec` — every existing test
+uses consecutive integers so `x_vec[j+1] - x_vec[j]` is always 1 and the scaling
+term is never exercised; `x_vec = c(0, 2, 10)`, `y = c(10, 0, -10)`,
+`reference = 5` gives 1, a dropped multiplication gives 0.5. (2) Two crossings in
+the same direction, to test `min(j)`: `y = c(6, 4, 6, 4, 6, 4, 6)`, `x_vec = 0:6`,
+`reference = 5` gives dec 0.5, inc 1.5. (3) Non-finite values. (4) A sub-interval
+excursion, asserting `NA`, commented as #40's limit. (5) The return contract —
+a list of exactly `decreasing` and `increasing`, numeric scalars.
+
+**One code change: `ok <- is.finite(d)` instead of `!is.na(d)`.** Verified
+`y = c(Inf, -1)` with `reference = 0` currently returns `NaN` for the decreasing
+crossing (`frac = Inf / Inf`), leaking a value where a missing one belongs;
+`is.finite()` subsumes the existing NA and NaN handling, returns `NA`, and leaves
+monotone results unchanged. `Inf` is reachable from a bootstrap draw through an
+exponential link.
+
+**Also flagged:** the scratch ggplot block at the end of the test file runs
+outside any `test_that()` and `ggplot2` is in neither Imports nor Suggests, so it
+fails R CMD check on CI. `notes/` is already `.Rbuildignore`d if the visual aid
+is worth keeping.
+
+---
+
+**User:** Does this set of numbers capture 29? `y <- rep(0, 40); y[11] <- 2;
+y[39] <- 5; x_vec <- seq(from = 0.5, to = 20, 0.5); reference <- 1`
+
+**Claude:** No — verified, `zero_crossings()` finds all four crossings
+(`10.5 11.5 38.2 39.8`), so the old implementation handles it. A valid
+narrow-spike test, but not a #29 regression test.
+
+What decides it is not the spike's width in indices (always two intervals here)
+but the width of the window where the curve is above the reference, since that is
+what must contain one of `zero_crossings()`'s internal grid points. For a
+background `b` below the reference and a spike `s` above it, that window is
+`2 * s / (s + b)` index units against a spacing of `(n - 1) / 100`:
+
+- proposed: `s = 1`, `b = 1` -> window 1.0 vs spacing 0.39, so grid points land
+  inside and both crossings are seen;
+- issue reprex: `s = 0.5`, `b = 5` -> window 0.18, nothing lands inside, both
+  lost.
+
+A symmetric spike is always caught. Smallest fix: `y[11] <- 1.1`, verified to
+make `zero_crossings()` return only `38.2 39.8` while `find_crossings()` finds
+both. Expected values in exact form: `increasing = 60 / 11` (5.454545),
+`decreasing = 61 / 11` (5.545455).
+
+Two features of the user's setup worth keeping: the `0.5` grid spacing also
+exercises the interpolation scaling (though a dedicated uneven-spacing test is
+still wanted, since 0.5 is uniform); and because `y[40]` returns to 0 the
+index-39 feature is a spike rather than an end crossing, giving four crossings,
+so the assertion doubles as a check that the first of each direction is returned
+— worth a comment or the second spike looks decorative.
+
+---
+
+**User:** Are there any additional tests to crossings you would add now or is the
+suite complete?
+
+**Claude:** Reviewed the updated files (`is.finite()` applied, unequal-spacing
+and multiple-crossing tests added, 20 tests). Four gaps, plus fixes.
+
+Gaps, ranked:
+
+1. **Rule 3 on the decreasing branch.** The "on a point" test exercises
+   inclusive-low for `lo <= 0 & hi > 0` but nothing tests it for
+   `lo >= 0 & hi < 0`, and decreasing is the primary path for both ECx and NSEC.
+   Verified: `y = 5:0`, `x_vec = 0:5`, `reference = 3` gives
+   `decreasing = 2`, the grid point where the curve sits on the reference.
+2. **A multi-element `reference` recycles silently** — `c(5.5, 2.5)` on `10:0`
+   returns 5.625 / 6.75 with only R's recycling warning. Guard with
+   `chk::chk_scalar()` or pin the behaviour.
+3. **The return contract** — a list of exactly `decreasing` and `increasing`,
+   each a numeric scalar, since `compute_*` will index it by name.
+4. **The resolution limitation (#40), optional.** Same function on two grids,
+   verified: `f(x) = 1 - 4 * exp(-((x - 5.5)^2) / 0.02)` on `0:11` gives `NA`
+   both ways, on `seq(0, 11, 0.1)` gives 5.324335 / 5.675665 (true 5.333489 /
+   5.666511). Documents why an estimate moves with `resolution`.
+
+Fixes: delete the commented-out `#ok <- !is.na(d)` (issue #33's exact smell);
+the all-NA test uses `y <- NA` against a six-point `x_vec`, so it tests a
+length-1 input rather than its stated case — `rep(NA_real_, 6)` gives the same
+answer and tests what the name says, and length mismatches are silent generally
+(`y` length 5 against `x_vec` length 10 returns a value); the
+`expect_equal(modelbased::zero_crossings(y), 40.5)` assertion pins another
+package's bug and goes red if it is fixed upstream; the #29 tolerances are
+unnecessary given `20 + 1/11` and `19 + 10/11` are exact.
+
+Advised stating the same-length and increasing-`x_vec` invariants in the roxygen
+and enforcing them in `compute_*`, rather than putting `chk` in a primitive that
+runs once per realisation. Verified a named `reference` from `quantile()` does not
+leak its name into the result, so no `clean_names()`-style handling is needed.
+Left the two Becky TODOs (asymmetry, NA bridging) as genuine co-author questions.
+
+---
+
+**User:** This doesn't error: `expect_equal(result$decreasing, NaN)`
+
+**Claude:** Correct, and the reason is broader than the one test. `expect_equal()`
+in testthat 3e calls `waldo::compare(..., tolerance = testthat_tolerance())`, and
+setting a tolerance switches waldo to `all.equal()` numeric semantics, where
+`all.equal(NA_real_, NaN)` is `TRUE`. Verified:
+
+```
+expect_equal(NA_real_, NaN)          PASS
+expect_identical(NA_real_, NaN)      FAIL
+all.equal(NA_real_, NaN)             TRUE
+waldo::compare(NA_real_, NaN)                        -> `old`: NA / `new`: NaN
+waldo::compare(NA_real_, NaN, tolerance = default)   -> No differences
+```
+
+So waldo can distinguish them; the tolerance is what makes it stop caring.
+
+**Consequence:** every `expect_equal(..., NA_real_)` in the file — about twenty
+assertions — is blind to `NaN`. Before `is.finite()` was added, when the
+decreasing branch really did return `NaN`, those tests would have passed anyway,
+so they never protected against the leak they appear to.
+
+Fix: `expect_identical()` for missing-value expectations, `expect_equal()` for
+interpolated numbers where floating point matters. `expect_identical()` also pins
+the type, so a logical or integer `NA` would fail, which covers most of the
+return-contract test for free. Recommended the swap across the whole file rather
+than just the `Inf` test, and supplied the rewritten `Inf` test asserting
+`expect_identical(result$decreasing, NA_real_)`.
+
+---
+
+**User:** What about now? I want the tolerances as it is easier for a human to
+eyeball the number on a plot when it is a number and not a fraction.
+
+**Claude:** Ran the file against a loaded package: 48 assertions, all passing.
+
+Accepted the tolerance preference and noted why it is now free: the NaN blindness
+came from tolerance being applied to the *missing-value* comparisons, and since
+those moved to `expect_identical()`, tolerance only touches the interpolated
+numbers where it belongs. Verified both tolerances sit inside the true values.
+Recorded the preference to memory.
+
+Four remaining items, none structural:
+
+1. **Duplicate test name.** Two tests are both called
+   `"find_crossings when multiple crossings"`; the second is the
+   scalar-`reference` guard, so a failure report would not say which broke.
+2. **`chk_scalar()` lets a character through** — a character scalar is a scalar,
+   so `find_crossings(10:0, 0:10, "a")` fails from the arithmetic with
+   "non-numeric argument to binary operator". Adding `chk::chk_numeric(reference)`
+   gives `` `reference` must be numeric. `` and still accepts `NA_real_`, so the
+   NA-reference test keeps working — verified both, along with the existing
+   regexp matching chk's real message exactly.
+3. **The `chk` call costs 27% of the primitive's runtime**, measured — but ~30 ms
+   per 4000 realisations at resolution 1000, which is noise next to
+   `posterior_epred()`. Recommended keeping it: the guard makes the function safe
+   to call from anywhere, and vectorising over the realisation matrix would
+   collapse it to one call. Flagged only so the cost is known rather than a
+   surprise under later profiling.
+4. **Two known leftovers.** The commented `ggplot2` block no longer runs or
+   breaks check but is commented-out code heading into a PR (#33's subject); and
+   the resolution-limitation test (#40) is still absent — optional, but it is the
+   test that would answer "why did my NSEC change when I changed `resolution`".
+
+Minor: `1e-7` reads more easily than `0.0000001`.
+
+---
+
+**User:** Can you give me a full example for this 40 issue. Otherwise I believe
+those things are fixed. The choice to check is intentional, ensuring the right
+values is critical over that small of a speed diff.
+
+**Claude:** Agreed on keeping `chk_scalar()`/`chk_numeric()` — correctness over
+30 ms matches the standard applied elsewhere in the package. Supplied and
+verified the #40 test (4 successes):
+
+```r
+test_that("find_crossings misses an excursion narrower than the grid (#40)", {
+  # A known limitation, not a defect: crossings are found by scanning for sign
+  # changes between adjacent grid points, so a feature that dips below the
+  # reference and returns within a single interval is invisible. Increasing
+  # resolution reveals it. Closed-form inversion or root-finding (#40) is what
+  # would remove the dependence on resolution.
+  dip <- function(x) 1 - 4 * exp(-((x - 5.5)^2) / 0.02)
+
+  coarse <- 0:11
+  result_coarse <- toxval:::find_crossings(dip(coarse), coarse, 0)
+
+  expect_identical(result_coarse$decreasing, NA_real_)
+  expect_identical(result_coarse$increasing, NA_real_)
+
+  fine <- seq(0, 11, 0.1)
+  result_fine <- toxval:::find_crossings(dip(fine), fine, 0)
+
+  # true crossings are 5.333489 and 5.666511; the residual error is the
+  # straight-line interpolation between grid points
+  expect_equal(result_fine$decreasing, 5.324335, tolerance = 1e-6)
+  expect_equal(result_fine$increasing, 5.675665, tolerance = 1e-6)
+})
+```
+
+What it encodes: a narrow Gaussian dip centred at 5.5 from a baseline of 1 down
+to -3, against a reference of 0, crossing at 5.333489 and 5.666511 — an
+excursion 0.33 wide. On the coarse grid the bracketing points x = 5 and x = 6
+both evaluate to 0.999985, so a plot of that grid is a flat line at y = 1 and
+`NA` is the honest answer. On the fine grid both crossings appear at 5.324335 and
+5.675665, about 0.009 from truth, which is the second lesson: finer resolution
+finds the crossing and still only approximates it.
+
+Stressed that the comment carries the weight here — without it a reader sees two
+`NA`s on a curve that visibly crosses the reference and treats it as a bug, where
+naming #40 says the fix is a different algorithm rather than a patch. Noted that
+plotting `dip()` over `seq(0, 11, 0.01)` with the two grids overlaid makes it
+obvious at a glance.
+
+---
+
+**User:** The coarse example doesn't dip below — is that intentional? How do you
+know the true crossing values for the fine example?
+
+**Claude:** Intentional, and it is the whole test. The *function* reaches -3 at
+x = 5.5; the *coarse grid* never samples it. What is actually passed to
+`find_crossings()` is
+
+```
+   0    1    2    3    4        5        6    7    8    9   10   11
+   1    1    1    1    1  0.999985 0.999985    1    1    1    1    1
+```
+
+so nothing crosses the reference and `NA` is correct — the function must not
+invent a crossing it has no evidence for. Had the coarse grid dipped below, the
+test would just be another "finds a crossing" case. Recommended making the
+comment state the coarse values explicitly, since the question showed the purpose
+was not obvious from the code.
+
+True crossings come from solving `dip(x) = 0` in closed form:
+`(x - 5.5)^2 = 0.02 * log(4)`, so `x = 5.5 +/- 0.1665109` = 5.33348908 and
+5.66651092; verified by substitution, `dip()` at both is `3.1e-15`. The constants
+were chosen so the function inverts analytically rather than the truth being
+estimated from a finer grid.
+
+Clarified the distinction: the *asserted* values (5.324335, 5.675665) are what
+`find_crossings()` returns — straight-line interpolation on a 0.1 grid — while
+the analytic values appear only in the comment as the yardstick showing the
+0.009 interpolation error. Offered the alternative of asserting closeness to
+truth (`5.333489, tolerance = 0.01`), which survives a future interpolation
+improvement where the tight assertion would need updating, and noted both could
+be asserted.
+
+---
+
+**User:** Great. Those are done now. Anything remaining? Do the test names make
+sense?
+
+**Claude:** Ran the file: 25 tests, 51 assertions, **1 error** — the suite is not
+green.
+
+**The failure is a real decision surfaced by accident.** `chk::chk_number()`
+requires a *non-missing* numeric scalar, so it rejects `NA_real_` and the
+NA-reference test now errors. An `NA` reference is reachable: under T9 the ECx
+reference is built per realisation from that realisation's own control, so a
+degenerate draw with `NA` at the control yields an `NA` reference. Erroring means
+one bad draw of 4000 aborts the whole estimate; returning `NA` lets it drop out
+of the quantile. Recommended allowing `NA` and putting the flagging one level up
+— `compute_*` counts `NA` realisations and warns with the count, which satisfies
+"flag explicitly rather than silently exclude" without a single draw killing the
+run, and is the hook #6/#24 needs anyway. `chk_scalar()` + `chk_numeric()` gives
+exactly those semantics, verified: `NA_real_` ok, `1.5` ok, `c(1, 2)` -> scalar
+error, `"a"` -> numeric error. The multi-value test's regexp reverts to the
+scalar message.
+
+**A copy-paste leftover:** `"find_crossings resolution limite (issue #40)"` is an
+exact duplicate of the reference-scalar error test — wrong body, duplicating the
+assertions above it, and a typo. Delete; the real #40 test follows it.
+
+**Test names.** The convention that reads best is `find_crossings <does what>`,
+so a failure line states a broken promise; several names described the input
+instead. Supplied a 14-row rename table. Two mattered beyond cosmetics: the two
+"has two crossing" tests differed only in word order, so a failure report could
+not identify which broke (renamed by curve shape — hormetic and U-shaped, which
+also connects them to the biology); and the top-of-line / bottom-of-line pair is
+the asymmetry Becky must rule on, so naming them by what they assert makes the
+asymmetry visible from the test names alone.
+
+Two leftovers: the `# TODO Check with becky as this seems wrong` on the `Inf`
+test is resolved (`is.finite()` is why it returns `NA`, which is correct); and
+the #40 test uses `reference <- 0` for the coarse call but a literal `0` for the
+fine one.
+
+---
+
+**User:** I am going to send a PR so that Becky can review the comments and
+choices. If she approves this function what would the next steps be?
+
+**Claude:** **The PR would duplicate #58 unless stacked.** Verified `phase-1` is
+an ancestor of `phase-2`: `phase-2` is `phase-1` plus exactly two commits
+(`ed464f0` crossings + tests, `786036c` the log), and PR #58 is already open as
+`phase-1` -> `main` with 12 files. So `phase-2` -> `main` would re-show those 12
+files. Recommended opening it as **`phase-2` -> `phase-1`**, giving a diff of
+just the two commits; GitHub retargets to `main` when #58 merges and `phase-1` is
+deleted.
+
+**Recommended putting the open questions in the PR body**, since they will be
+missed as `# TODO` comments alone: the endpoint asymmetry, whether an `NA` at the
+crossing should bridge, and whether an `NA` reference should error. Also
+recommended *naming* the settled change — no crossing now returns `NA` rather
+than `max(x_vec)` — because it ripples into `test-helpers.R` and moves NSEC
+values at phase 4.
+
+**Next unit: `R/toxval-pred.R`**, being independent of everything under review
+and a prerequisite for everything after it, mostly transcription from §3.4, and
+public API that `bayesnec` constructs from outside so it warrants its own review
+round. Four decisions to settle before writing: what names `curves` carries when
+ungrouped; whether the validator enforces the alignment invariant (recommended
+yes — equal `nrow` across `curves`, `threshold` elements matching it, `ncol`
+matching `length(x_vec)`); the exact `meta` contents, fixed now since `compute_*`
+reads `family` for the gaussian guard and `dimension` for row construction; and
+that `threshold`/`control` stay `NULL` from phase-2 methods while the slots and
+their validation exist.
+
+**Then, in dependency order:** `R/validate.R`; `toxval_predict.brmsfit` split
+into ungrouped, `group_var`, then multivariate; `R/bootstrap.R` plus
+`toxval_predict.drc` (needs `MASS` and `withr` in Imports and the `curveid`
+fixture decided); and `R/compute.R` last, depending on `crossings.R`,
+`toxval_pred`, Becky's `NA` answer and T9's four-value `type`.
+
+**Unblocked during review:** the `test-helpers.R:31` marker gap (it asserts the
+`max(x_vec)` fallback unmarked, so it belongs with the phase-1 net); a comment on
+#55 that the target architecture has one generic so "validation in the generic"
+resolves as §3.7's split; the `drc` `curveid` fixture choice (stored versus
+inline like `daphnids_m2`); and `R/toxval-params.R`, both the shared parameter
+additions and its stale `object` entry.
+
+---
+
+**User:** The test is passing now
+
+**Claude:** Verified green: 24 tests, 52 assertions, no failures or errors. The
+guard is now `chk::chk_scalar()` + `chk::chk_numeric()`, so an `NA` reference
+returns `NA`/`NA` and the `compute_*` layer will own counting and warning about
+`NA` realisations. The duplicate #40 test is gone and the multi-value regexp
+matches chk's scalar message.
+
+Three typos remain in the renamed tests: `"returns NA when an NA hides is
+adjacent to the crossing"` (leftover word); `"when an decreasing crossing"`; and
+`"returna NA"`. Noted that the user's "adjacent" framing for the two NA tests is
+better than the originally suggested wording, since it names what distinguishes
+them rather than describing the NA's effect.
+
+---
+
+## Session: phase-2 catch-up after crossings review
+Date: 2026-09-09
+Model: Claude Opus 5 (1M context), claude-opus-5[1m]
+
+### Prompts and Responses
+
+**User:** Can you get caught up on where we are with phase 2 and start logging
+the conversation. Becky reviewed the code and update the comments in the tests
+to the decisions made.
+
+**Claude:** Read the two phase-2 logs, PR #59, `R/crossings.R`,
+`tests/testthat/test-crossings.R` and the branch state, and started this log.
+
+**Where phase 2 stands.** `find_crossings()` is written and reviewed. Becky
+pushed `4d23f68` to `phase-2` directly: both `TODO` markers resolved, two plateau
+tests added, and an `@details` block added to `R/crossings.R`. No change to the
+function body. Her two answers were to keep the tie-break (a value on the
+reference is assigned to the left of its interval, so only the first grid point
+can be a crossing) and not to bridge an interior `NA`. Her follow-up on
+2026-09-09 added that once the hormesis block goes there is no reason for an `NA`
+to arise at all, but the behaviour is sound regardless. The test comments already
+carry both decisions, dated and attributed, so nothing needed rewriting there.
+
+**Open, not settled.** Becky left the mixed-draw `na.rm` question unresolved and
+did not open an issue: `nsec.R:144`, `ecx.R:396` and `ecx.R:405` call
+`quantile()` without `na.rm`, safe today only because the helpers return
+`max(x_vec)`. Needed before phase 4, not before the next unit.
+
+**Two branch facts worth acting on.** PR #58 merged, so `main` is `792e41a`, but
+`phase-2` does not contain it — it is missing `4e1b3d9` (a phase-1 fix) and the
+merge commit. And #59 still has base `phase-1`, because the `phase-1` branch was
+not deleted, so GitHub has not retargeted it to `main`.
+
+**Next unit is `R/toxval-pred.R`**, unchanged from the plan in the previous
+session: independent of everything under review, a prerequisite for
+`R/validate.R`, the `toxval_predict` methods, `R/bootstrap.R` and `R/compute.R`.
+Four decisions to settle before writing it — the names `curves` carries when
+ungrouped, whether the validator enforces the alignment invariant, the exact
+`meta` contents, and that `threshold`/`control` stay `NULL` from phase-2 methods.
+
+---
+
+**User:** Go into toxval_pred decision. What is next here
+
+**Claude:** Read §3.1, §3.4, §3.5, §3.6 and §3.7 of `REFACTOR-claude.md` and laid
+out the four open decisions with a recommendation for each, plus two not on the
+original list.
+
+1. **Names of `curves` when ungrouped.** Names required and unique for
+`dimension` of `"group"` or `"response"`; exactly one element and `NULL` names
+for `"none"`. The §3.1 column rule one level down — absent because not
+meaningful, rather than a sentinel a real group could collide with.
+
+2. **Alignment invariant.** Not checkable from the object, since nothing records
+which draw a row came from. Check conformability instead, which is where a
+violation surfaces: equal `nrow` across `curves` matching `meta$n_realisation`,
+`ncol` matching `length(x_vec)`, `threshold` and `control` lengths matching.
+Added one rule not in the plan — `x_vec` finite, strictly increasing, length
+>= 2 — because `find_crossings()` scans adjacent intervals and interpolates, so
+an unordered or duplicated grid returns a wrong value silently. Nothing guarded
+it before.
+
+3. **`meta` contents.** Closed the plan's `...` at eleven required keys:
+`source_class`, `x_var`, `group_var`, `multi_var`, `dimension`, `resolution`,
+`x_range`, `family`, `realisation`, `n_realisation`, `seed`. Required keys are
+type-checked; extra keys are allowed and ignored, because `bayesnec` populates
+this from outside and a closed set makes every addition there a breaking change
+here. `family` is `NULL` for a `drc` fit rather than `"gaussian"`, so the
+gaussian + `absolute` + no-`bot` guard cannot fire on a model with no family.
+
+4. **`threshold` and `control`.** Slots defined and fully validated, populated by
+nothing in phase 2.
+
+Two additions: `x_vec` ordering (above), and that `validate_toxval_pred()` stays
+internal with `new_toxval_pred()` always validating, so an unvalidated object
+cannot be constructed and `bayesnec` gets the check by calling the constructor.
+
+---
+
+**User:** This looks like a good starting point
+
+**Claude:** Wrote `R/toxval-pred.R` and `tests/testthat/test-toxval-pred.R`
+implementing the above.
+
+`R/toxval-pred.R` holds the exported constructor `new_toxval_pred(curves, x_vec,
+meta, threshold = NULL, control = NULL)`, the internal
+`validate_toxval_pred()` and its five per-slot check helpers, and an exported
+`print.toxval_pred()`. The class documentation carries the slot contract, the
+naming rule, the alignment invariant and the `meta` table, since a
+`toxval_predict()` method written in another package has to satisfy it from
+outside.
+
+Error messages are `chk`, per §3.7. `chk::chk_equal()` was replaced with
+`chk::abort_chk()` for the conformability checks because its message
+(`"Number of rows of X must be equal to 3L"` plus an `rlang::last_error()`
+line) reads backwards; the messages now name the slot, the expected value, the
+reason and what was supplied — `` `curves$B` must have 2 rows to match
+`meta$n_realisation`, not 3. ``
+
+31 tests: seven construct valid objects (ungrouped, grouped, multivariate,
+threshold and control, extra meta keys, bootstrap with a seed, `NA` and `Inf`
+carried through a curve), twenty-two assert one broken rule each, and two are
+print snapshots.
+
+**One gap found in the plan, not resolved.** §3.4 types `control` as
+`numeric [n_realisation]`, a bare vector, but a grouped fit has one control per
+group, which a vector cannot represent — unlike `curves` and `threshold`, which
+are lists keyed by group. §3.8 does not address it either: `control_fit` is a
+single control-only fit. Implemented as the plan says and flagged. The cost of
+changing it later is low while nothing populates the slot, but it should be
+settled before `anchor = "control"` is written.
+
+---
+
+**User:** There are no tests for the print mehtod, how is that tested?
+
+**Claude:** They were there — `test-toxval-pred.R:362-383`, two
+`expect_snapshot()` calls — but nothing was being tested.
+`tests/testthat/_snaps/` is empty, so no snapshot had been recorded, and a
+snapshot test with no recorded snapshot passes unconditionally on its first run.
+
+Two reasons to replace them rather than record them. `_snaps/` is empty across
+the whole package, so this would be the first snapshot and a convention the repo
+does not otherwise use. And a snapshot puts the expected output in a second file
+that the PR diff shows separately from the test, where the point of these tests
+is that a reviewer can read the expected output beside the code that produced
+it.
+
+**Change made.** The two snapshots became five explicit tests asserting
+`capture.output(print(result))` against the literal lines: the ungrouped and the
+grouped form in full, the multivariate `curves` line, the `drc` + bootstrap
+header, and that `print()` returns its input invisibly. Also removed a trailing
+space from the first line, which `cat("<toxval_pred>", source_class, "\n")` was
+emitting before the newline.
+
+Ran the file: 34 tests, 47 assertions, no failures.
+
+---
+
+**User:** The abort_chk is not tested. [coverage output showing
+`R/toxval-pred.R:262` uncovered]
+
+**Claude:** Confirmed uncovered and confirmed reachable — it is not dead code.
+`chk::chk_named()` only checks that `names()` is not `NULL`, so a partially named
+list passes it and falls through to the branch with one usable name and one empty
+string. There are two routes in: `list(pred_curve(), B = pred_curve())` gives
+names `c("", "B")`, and a name can be `NA`. Both now have a test.
+
+Auditing the file's other `abort_chk()` calls found one more untested: the
+`threshold` list-length mismatch. It is reachable only when both lists are
+unnamed, which is the ungrouped case, because the identical-names check passes
+vacuously on two `NULL`s and only the length check is left. Tested.
+
+Writing that third test surfaced a wording defect in two messages — `"must have
+1 elements"` and `"must have 1 rows"`, both reachable (`length(curves) == 1` for
+every ungrouped fit, `n_realisation == 1` for a single-draw object). Added a
+`plural()` helper.
+
+**One test was removed.** `test-toxval-pred.R:405`, added during this exchange,
+passed an unnamed ungrouped list — which is valid, so it threw nothing and the
+file failed. The two tests above cover the branch it was aiming at, from both
+routes.
+
+34 tests, 50 assertions, no failures.
+
+---
+
+**User:** No changing the code for a moment. What is a test case that reaches
+the plural for this phrase? `threshold` must have 1 element to match `curves`,
+not 2
+
+**Claude:** There is none — the plural branch is unreachable. The names check
+runs first, and `names()` of a list is always the same length as the list, so two
+identical non-`NULL` name vectors force equal lengths and the length check cannot
+fire for a named `curves`. The only way past the names check with unequal lengths
+is both being `NULL`, which means `curves` is unnamed, which `chk_curves()` only
+allows when `dimension` is `"none"`, which requires exactly one element. So
+`length(curves)` is always 1 wherever that line runs.
+
+The row message is the opposite case: the existing wrong-number-of-rows test
+covers the plural, and it is the *singular* that has no test — reachable with
+`n_realisation = 1`.
+
+Stated plainly: `plural()` was added after seeing `"1 elements"` in the message
+without checking whether that state was reachable.
+
+---
+
+**User:** Ok, so lets remove it where it is unreachable
+
+**Claude:** The `threshold` message is now a literal `" element"`, with a comment
+recording why the count is always 1 there, so the next reader does not
+reintroduce the same fix.
+
+That left `plural()` with one call site, so it was inlined as
+`if (meta$n_realisation == 1) " row" else " rows"` and the helper deleted. Added
+the missing singular-row test (`n_realisation = 1` against a two-row curve), so
+both sides of the one remaining plural are covered.
+
+35 tests, 51 assertions, no failures.
+
+---
+
+**User:** Is there anything else that is outstanding on these functions? There is
+100% code coverage now, all tests are passing, R CMD checks are all passing
+
+**Claude:** Five, and none of them is a line coverage can see — each is a *state
+the validator accepts* rather than a line it fails to execute. All five
+construct successfully against the code as it stood:
+
+```
+none + group_var                    : ACCEPTED
+group + multi_var                   : ACCEPTED
+x_range c(100, 200) with x_vec 0:3  : ACCEPTED
+x_range c(0, Inf)                   : ACCEPTED
+resolution 1000 on a 4-point grid   : ACCEPTED
+```
+
+1. The `dimension` cross-checks run in one direction only — `group_var` is
+required when `dimension` is `"group"` but never required to be absent when it
+is `"none"`.
+2. `dimension = "group"` with `multi_var` set is accepted and means nothing.
+Underneath it, a fit that is both grouped and multivariate has no
+representation, since `curves` is a flat list keyed one way or the other.
+Inherited from §3.4, which writes them as alternatives, and `nsec_multi()` has no
+`group_var` today.
+3. `resolution` and `x_range` can contradict `x_vec`, and `x_range` need not be
+finite. Both are display-only under §3.1, with `x_vec` the authority.
+4. The `control` typing gap, still open.
+5. `?toxval_pred` does not resolve — the class contract is documented in the
+`new_toxval_pred` topic with no alias for the class name.
+
+Recommended acting on 1, 3 and 5, documenting 2 as a limit, and putting 4 to
+Becky.
+
+---
+
+**User:** Ok lets start with the first point and work through it. I think that is
+worth tightening.
+
+**Claude:** `chk_meta()` now checks each `dimension` value in both directions —
+the variable it needs is present, and the one it has no use for is absent.
+`"none"` with a `group_var` or a `multi_var` is now an error naming the offending
+field, rather than a silently inconsistent object. The two `"supplied when"`
+rules are unchanged.
+
+The `meta` documentation was the other half: `group_var` and `multi_var` read
+"Required when `dimension` is ..., and `NULL` when `dimension` is `"none"`",
+since a `toxval_predict()` method written in another package has only the
+documented contract to work from.
+
+Two tests added, one per field. 37 tests, 53 assertions, no failures.
+
+Left for the next point: `"group"` with `multi_var` set, and `"response"` with
+`group_var` set, are still accepted. They are one line each in the same block,
+but they are point 2 and carry the grouped-plus-multivariate question with them.
+
+---
+
+**User:** We want to have nsec_multi not be its own thing but just part of nsec,
+is that how the plan sets it out?
+
+**Claude:** No. The plan keeps them separate in every place it mentions them:
+§3.3 lists the metric functions as "`ecx`, `nsec`, `nsec_multi`, ..."; phase 4
+moves them onto the spine one at a time; §5 records "`nsec_multi` is
+brms-multivariate only" as a method gap rather than something to absorb.
+
+But the plan's own machinery dismantles nearly every reason they are separate.
+One estimate per response becomes `dimension = "response"` (§3.4) and a
+`response` column (§3.1), so the return shape is already identical.
+`type = "both"/"increasing"/"decreasing"` collapse into row filters once
+direction is a property of the result (§3.6). The per-direction reference that
+`nsec_multi` already builds is exactly what §3.6 generalises to `nsec`. The
+shared `chk` helper (§3.7) removes its duplicated validation.
+
+What survives is `multi_var`, `trials_var`, and `criterion` with
+`type = "lower"` -- and of those only `type = "lower"` is genuinely
+metric-level, because it is a selection rule rather than a filter. `multi_var`
+and `trials_var` are predict-level under §3.7's own split.
+
+Flagged one connection: if `nsec()` absorbs `nsec_multi()`, then
+`nsec(fit, group_var = , multi_var = )` becomes expressible, which makes the
+grouped-plus-multivariate state reachable -- the state `toxval_pred` cannot
+represent. Phase 4/5 decision, not phase 2 work, but it wants recording as a
+numbered decision since the plan currently implies the opposite by omission.
+
+---
+
+**User:** Lets talk about 2 now, what needs to be done here?
+
+**Claude:** Separated it into the mechanical half (the two remaining guards) and
+the contract decision they depend on, since what the guards *mean* differs
+either way.
+
+Noted the plan is inconsistent with itself: §3.1 lists `group` and `response` as
+independent descriptor columns under the "present when meaningful" rule, so the
+output contract already permits a row carrying both, while §3.4 cannot produce
+one. The tibble side is general; the pred side is not.
+
+Three ways out: declare it out of scope; key `curves` by a descriptor table;
+composite names (rejected -- a separator collides with real factor levels).
+Recommended the first on proportion, while saying plainly that the change is
+nearly free now and expensive after phase 7 when `bayesnec` builds these against
+a published contract.
+
+---
+
+**User:** I think that there may be grouped multivariate objects at some point,
+before you can change things, outline it here before
+
+**Claude:** Outlined the descriptor-table design rather than implementing it.
+`curves` stops carrying identity in its names and carries it in a parallel
+`keys` data frame, one row per curve, columns drawn from the §3.1 descriptor set
+`{group, response}`; ungrouped is one row and zero columns. `dimension` is
+deleted and derived as `names(keys)`, since storing both reintroduces the
+two-fields-one-fact bug fixed under point 1.
+
+Checked the mechanics rather than assuming them: a zero-column one-row frame is
+legal, `nrow()` is 1, and `bind_cols(keys[i, ], tibble(metric = , estimate = ))`
+produces exactly the §3.1 row in all four shapes.
+
+Also noted it deletes the naming rule from decision 1 and about six tests, and
+that it resolves the `control` typing gap as a side effect, `control` becoming a
+list aligned to `keys` like `threshold`.
+
+---
+
+**User:** I think we should go with option 1 and then becky can chime in if I am
+incorrect
+
+**Claude:** Read as option 1 of the three ways out, and said so at the top so a
+misread would be caught. Implemented: `"group"` with a `multi_var` and
+`"response"` with a `group_var` are now errors, so all three `dimension` values
+are checked in both directions.
+
+The limit is documented in a `One descriptor at a time` section on the class,
+which states that no supported fitting path produces such an object, that the
+limit is in the contract rather than the code, and that lifting it means the
+descriptor-table keying outlined above -- a change to the contract rather than
+an addition, which is the part Becky needs in front of her.
+
+Two tests. 39 tests, 55 assertions, no failures.
+
+Noted separately: the comment added under point 1 above the cross-checks is no
+longer in the file, having been removed in parallel editing. Left as found
+rather than reinstated.
+
+---
+
+**User:** For point 3. Yes cross check and validate them
+
+**Claude:** Added `chk_settings(x_vec, meta)`, run after `chk_x_vec()` so the
+grid is known sane before anything is compared against it. `meta$x_range` must
+equal `range(x_vec)` and `meta$resolution` must equal `length(x_vec)`, so the
+settings a result reports in its header provably describe the grid it was
+computed on.
+
+Equality rather than containment, because the grid is generated as
+`seq(x_range[1], x_range[2], length.out = resolution)`, so equality holds by
+construction for every path that builds one. It also forces honesty on a
+user-supplied grid: a method accepting `newdata` has to record
+`resolution = length(x_vec)` and `x_range = range(x_vec)` rather than the
+arguments it was called with. Compared through `all.equal()` so an integer
+`x_range` against a double `x_vec` passes, which has a test.
+
+The documentation changed with it, since it previously described the wrong
+thing: `resolution` is "the number of values in `x_vec`", not "the resolution
+the grid was requested at", and `x_range` is "the range of `x_vec`", not "the
+requested predictor range".
+
+`x_range` being infinite is closed by the same check rather than by a rule of
+its own -- `c(0, Inf)` cannot equal the range of a finite `x_vec`.
+
+Two rules in `chk_meta()` now only fire ahead of the cross-check: an unsorted
+`x_range` and an `NA` in it would both fail the comparison too. Kept, because
+naming the reversal is more use than reporting the mismatch it causes, and both
+messages are now pinned by a test.
+
+Six tests. 45 tests, 61 assertions, no failures.
+
+---
+
+**User:** Do point 5 next
+
+**Claude:** Added `@aliases toxval_pred` to the `new_toxval_pred()` block, so
+`?toxval_pred` resolves to the topic carrying the slot contract, the keying rule,
+the one-descriptor limit, the alignment invariant and the `meta` table.
+
+Kept as an alias on the constructor rather than a separate documentation-only
+topic. The contract and the constructor arguments describe the same thing, and
+someone implementing a `toxval_predict()` method needs both in front of them at
+once; splitting them puts the argument descriptions one hop away from the rules
+they have to satisfy.
+
+The `man/` page and the alias appear on the next `document()`.
+
+---
+
+**User:** Ok lets chat about point 4 because I think it can be resolved now and
+there are already a bunch of checks for it. Show me an example of the grouped
+control vs not grouped.
+
+**Claude:** Built a synthetic three-site illustration: same relative decay
+(`y = control * exp(-x / 2)`) from baselines of 10, 6 and 2, so the correct NSEC
+is identical for all three and any difference in the answer is the artefact.
+
+The 5 per cent quantile of each site's control draws is 8.684, 5.182 and 1.727;
+pooled it is 1.826.
+
+```
+ site control nsec_per_site nsec_pooled pooled_no_crossing
+    A      10         0.289       2.947                99%
+    B       6         0.301       2.376                 0%
+    C       2         0.309       0.216                15%
+```
+
+Per site all three land on 0.289-0.309, which is right. Pooled they span an
+order of magnitude, and site A's reference sits below where its curve ever
+reaches, so 99 per cent of its draws never cross -- the 2.947 reported for A is
+the median of the surviving 1 per cent, which is Becky's open `na.rm` question
+appearing as a second-order effect of this one.
+
+---
+
+**User:** Lets switch control to a list, where names are required when more then
+1 element just like the other structures that can have multiple values
+
+**Claude:** `control` is now a list keyed like `curves`, so `chk_threshold()` and
+`chk_control()` collapsed into one `chk_aligned_list(x, arg, curves, meta)` that
+both slots call, and `curve_name()` / `threshold_name()` into one
+`element_name(x, arg, i)` that all three use. The validator lost a function and
+gained a slot's worth of checking.
+
+Two things this makes impossible rather than merely wrong: a bare vector where a
+keyed list belongs, and a control-only fit grouped differently from the
+dose-response fit -- the names have to match, so a mismatch is an error rather
+than a silent pool.
+
+Four tests added, three updated. 50 tests, 65 assertions, no failures.
+
+**The plan is updated**, since it specified the bare vector. §3.4's slot listing
+now reads "named list of numeric [n_realisation] ... Keyed like `curves`", with
+the decision recorded above the realisation-mechanism heading in the style of the
+other settled decisions -- dated 2026-09-12 (AP) on #59, carrying the
+three-site measurement and the consequence that `anchor = "control"` requires the
+control-only fit to be grouped the same way.
+
+---
+
+**User:** This makes more sense and aligns the checks for the multiple
+parameters. We will leave the multi for now and see if Becky has anything
+additional to add on that front. Anything else remaining on this portion before
+I push and update the PR?
+
+**Claude:** Checked the working tree, the roxygen block, the generated `man/`
+pages and both plan documents.
+
+Two things were outstanding and one is now done. `REFACTOR-human.md:217`
+described `control` as "realisations of a control-only fit, or NULL" with no
+mention of keying, so the two plan documents disagreed about the slot. Updated
+to match §3.4, one line, in the human document's summary style rather than
+repeating the argument.
+
+The other is `man/`: it carries the `toxval_pred` alias and the
+`One descriptor at a time` section, so it was regenerated after point 5, but not
+after the `control` change -- `Keyed like` is not in the `.Rd`. The slot table
+and the `@param control` wording are not yet in the built documentation.
+
+Everything else checks out: both roxygen examples construct and print under the
+current validator, including the settings cross-check added after they were
+written; no stray files; the demo script lives outside the repo.
+
+Flagged as the substance for the PR body rather than the code: the grouped
+multivariate question with the descriptor-table design as the alternative, the
+`nsec_multi` question, and the three settled decisions Becky has not seen --
+`control` keying, the settings cross-check, and the `dimension` cross-checks.
+
+---
+
+**User:** What is the mixed-draw na.rm question?
+
+**Claude:** Restated it against the current code. `quantile()` is called without
+`na.rm` at `R/nsec.R:144`, `R/ecx.R:396` and `R/ecx.R:405`, safe today only
+because `nsec_fct()` (`R/helpers.R:125`) and the six `max(x_vec)` fallbacks in
+`ecx.R` never return `NA`. Under T10 the first non-crossing draw errors. That is
+the mechanical half and a one-word fix.
+
+The decision underneath is not. `REFACTOR-claude.md:505` settles the aggregate
+case -- no draw crosses, the row is `NA` -- but not the mixed case.
+`na.rm = TRUE` drops the non-crossing draws and reports a lower percentile as
+the median; `max(x_vec)` censors them at the highest tested concentration and
+makes the estimate a function of the design; `NA` for the whole estimate
+discards a result over one bad draw.
+
+---
+
+**User:** Are there tests we should be adding that highlight this and have a
+#TODO flag on them?
+
+**Claude:** Yes, but not `# TODO` -- phase 1 replaced those with
+`# EXPECTED-CHANGE <reason> #<issue>`, and every test file carries a header
+saying so, so a TODO would put the information in a form the regression net does
+not read.
+
+The gap is `test-helpers.R:31`, `nsec_fct returns max x_vec when no crossing
+found`, which asserts exactly the behaviour T10 removes and is unmarked -- it
+would fail at phase 4 as though something had broken. `test-helpers.R:55` needs
+the `(test will be removed)` form, since its value is unchanged but both helpers
+go when `find_crossings()` takes over.
+
+Argued against writing a new test for the mixed case: it lives at an aggregation
+layer that does not exist yet, and the rule is undecided, so a test would encode
+one of three options as expected behaviour and the decision would then rewrite
+it. What was missing was an issue, not a test.
+
+---
+
+**User:** Lets create an issue, that sounds like the right route for now. Can you
+draft up a few little regex examples with text and I will create the issue
+myself
+
+**Claude:** Drafted the issue with runnable examples and real numbers: the
+`quantile()` error path, and a table comparing both rules across censoring
+levels on 4000 lognormal draws.
+
+The framing that came out of the numbers: non-crossing draws are not missing at
+random, they are the draws whose crossing lies beyond `max(x_vec)`, so they are
+the upper tail. At 12.4 per cent not crossing, `na.rm = TRUE` reports the 43.8th
+percentile of the full posterior as the median. `max(x_vec)` holds the median
+until more than half fail to cross, which is its argument, but both return the
+grid boundary or below as the upper compatibility limit against a true 4.788 --
+so under either rule the reported number moves when only the grid changes.
+
+Left the control example out, since it shows the same effect at 99 per cent but
+arrived through `anchor = "control"` keying, and would make the issue about two
+things.
+
+---
+
+**User:** I create the issue it is issue 60. Can we tie it to one of the plans?
+
+**Claude:** Both, in the one place each document reserves for it.
+
+`REFACTOR-claude.md` §3.6 now carries the mixed case as an open question
+directly under the settled aggregate case, with the measurement and the reason
+it blocks phase 4.
+
+`REFACTOR-human.md` had gone stale: its "To pin down" at line 288 still listed
+the aggregate case as open although T10 settled it on 2026-09-04 and line 60 of
+the same document already states the answer. Replaced with the settled statement
+plus #60 as what genuinely remains.
+
+Both phasing tables now name #60 on phase 4, so the blocker is visible where the
+work is sequenced rather than only where it is argued.
+
+---
