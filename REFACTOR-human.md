@@ -134,7 +134,7 @@ ecx(brms_grouped, x_var = "x", group_var = "site", by_group = TRUE, ecx_val = 10
 #> # Settings: resolution 1000 | 4000 posterior draws
 #> # Groups:   site [3]
 #>   metric direction  group estimate conf.low conf.high ecx_val type     control reference
-#>   <chr>  <chr>      <chr>    <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
+#>   <chr>  <chr>      <fct>    <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
 #> 1 ecx    decreasing A         0.71     0.55      0.88      10 absolute    0.98      0.88
 #> 2 ecx    decreasing B         1.02     0.83      1.24      10 absolute    1.10      0.99
 #> 3 ecx    decreasing C         0.44     0.31      0.58      10 absolute    0.87      0.78

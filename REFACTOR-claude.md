@@ -165,7 +165,7 @@ ecx(brms_grouped, x_var = "x", group_var = "site", by_group = TRUE, ecx_val = 10
 #> # Settings: resolution 1000 | 4000 posterior draws
 #> # Groups:   site [3]
 #>   metric direction  group estimate conf.low conf.high ecx_val type     control reference
-#>   <chr>  <chr>      <chr>    <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
+#>   <chr>  <chr>      <fct>    <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
 #> 1 ecx    decreasing A         0.71     0.55      0.88      10 absolute    0.98      0.88
 #> 2 ecx    decreasing B         1.02     0.83      1.24      10 absolute    1.10      0.99
 #> 3 ecx    decreasing C         0.44     0.31      0.58      10 absolute    0.87      0.78
@@ -347,10 +347,12 @@ The rules:
   recorded in `prompts/phase2-build-spine.md`.
 
 The decision covers the object only. `toxval_predict.brmsfit()` continues to
-refuse a multivariate fit until a later phase adds one curve per response. Still
-open, and settled when the change is made: whether the `group` column is a
-factor, which keeps the level order, or character, as
-[3.1](#31-output-contract-everything-is-a-toxval-tibble) shows it.
+refuse a multivariate fit until a later phase adds one curve per response.
+
+The `group` column is a factor whose levels follow the row order, so the order
+`group_levels()` gives survives into the result (settled 2026-10-11, AP). The
+`response` column is a factor for the same reason, its levels following the
+order of the responses in the fit.
 
 #### One realisation mechanism for every fit  (#43)
 
