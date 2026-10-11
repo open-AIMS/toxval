@@ -676,17 +676,20 @@ test_that("group_levels orders character levels the same in every locale", {
 
 # TODO Becky to review next
 test_that("group_levels keeps the declared order of a factor", {
+  # the declared order differs from both the alphabetical order (control, high,
+  # medium) and the order of first appearance (high, control, medium), so the
+  # test fails if either replaces it
   x <- factor(
-    c("high", "control", "high"),
-    levels = c("control", "low", "high")
+    c("high", "control", "medium", "high"),
+    levels = c("control", "low", "medium", "high")
   )
   result <- toxval:::group_levels(x)
 
   # the unused level is dropped, the declared order of the rest is kept, and
   # the result stays a factor so the levels reach `newdata`
   expect_s3_class(result, "factor")
-  expect_equal(as.character(result), c("control", "high"))
-  expect_equal(levels(result), c("control", "high"))
+  expect_equal(as.character(result), c("control", "medium", "high"))
+  expect_equal(levels(result), c("control", "medium", "high"))
 })
 
 # TODO Becky to review next
