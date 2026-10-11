@@ -563,7 +563,8 @@ test_that("drc_split_parm_names errors on a name it cannot split", {
 test_that("toxval_predict builds each curve of a drc fit with shared parameters", {
   # `pmodels` fits one slope across both curves and an ED50 for each, so the
   # coefficients are `b:(Intercept)`, `e:24h` and `e:48h`: a curve is assembled
-  # from its own parameters plus the shared one
+  # from its own parameters plus the shared one. With every replicate set to
+  # coef(), each curve must be the fitted curve for its level.
   fit <- drc::drm(
     (total - no) / total ~ dose,
     weights = total,
@@ -573,28 +574,34 @@ test_that("toxval_predict builds each curve of a drc fit with shared parameters"
     type = "binomial",
     pmodels = data.frame(1, time)
   )
+  mu <- coef(fit)
+  local_mocked_bindings(
+    boot_parms = function(object, n_boot, seed = NULL) {
+      matrix(
+        mu,
+        nrow = n_boot,
+        ncol = length(mu),
+        byrow = TRUE,
+        dimnames = list(NULL, names(mu))
+      )
+    }
+  )
   result <- toxval_predict(
     fit,
     x_var = "dose",
     group_var = "time",
     resolution = 4,
-    n_boot = 4000,
-    seed = 5
+    n_boot = 1
   )
 
   expect_named(result$curves, c("24h", "48h"))
-  expect_equal(
-    colMeans(result$curves[["24h"]]),
-    c(0.996, 0.620, 0.374, 0.250),
-    tolerance = 0.002,
-    ignore_attr = TRUE
-  )
-  expect_equal(
-    colMeans(result$curves[["48h"]]),
-    c(0.979, 0.236, 0.103, 0.061),
-    tolerance = 0.002,
-    ignore_attr = TRUE
-  )
+  for (level in c("24h", "48h")) {
+    fitted <- predict(
+      fit,
+      newdata = data.frame(dose = result$x_vec, time = level)
+    )
+    expect_equal(result$curves[[level]][1, ], as.numeric(fitted))
+  }
 })
 
 test_that("drc_curve_cols errors when a parameter is missing for a curve", {
