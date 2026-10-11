@@ -391,36 +391,64 @@ test_that("toxval_predict leaves the random number state alone", {
   expect_equal(.Random.seed, before)
 })
 
-test_that("the bootstrap mean curve approaches the drc fitted curve", {
+test_that("toxval_predict at the fitted coefficients reproduces predict()", {
+  # with every replicate set to coef(), the curve must be the fitted curve, so
+  # this checks that each parameter reaches the drc mean function in the
+  # position it expects; with b and e swapped, the same grid gives 0.897, 0.883,
+  # 0.842 and 0.782
+  mu <- coef(nsec_drc_1)
+  local_mocked_bindings(
+    boot_parms = function(object, n_boot, seed = NULL) {
+      matrix(
+        mu,
+        nrow = n_boot,
+        ncol = length(mu),
+        byrow = TRUE,
+        dimnames = list(NULL, names(mu))
+      )
+    }
+  )
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
     x_range = c(0, 3),
     resolution = 4,
-    n_boot = 4000,
-    seed = 42
+    n_boot = 2
   )
   fitted <- predict(nsec_drc_1, newdata = data.frame(x = result$x_vec))
 
-  # TODO AI written - verification by human needed 
-  # the bootstrap curves only approximates the fitted curve, and 0.01 was
-  # chosen because it fits, so the property being asserted wants a check.
-  # the mean of the realisations is not the fitted curve exactly, because the
-  # mean function is non-linear in the parameters; 0.01 is wide enough for that
-  # and for Monte Carlo error at 4000 replicates, and far below the 0.1-0.9
-  # range the curve covers here
-  # the fitted curve at x = 0, 1, 2, 3, with its ED50 at 1.995 putting the
-  # third value mid-way down
-  expect_equal(
-    colMeans(result$curves[[1]]),
-    c(0.897, 0.893, 0.444, 0.035),
-    tolerance = 0.01,
-    ignore_attr = TRUE
-  )
-  expect_equal(
-    colMeans(result$curves[[1]]),
-    as.numeric(fitted),
-    tolerance = 0.01
+  expect_equal(result$curves[[1]][1, ], as.numeric(fitted))
+  expect_equal(result$curves[[1]][2, ], as.numeric(fitted))
+})
+
+test_that("boot_parms draws from MVN(coef(object), vcov(object))", {
+  # tested on the parameter scale rather than against the fitted curve: the
+  # curve is nonlinear in its parameters, so the mean bootstrap curve differs
+  # from the fitted curve by more than Monte Carlo error (0.0376 against 0.0351
+  # at x = 3, 4000 replicates)
+  n_boot <- 4000
+  parms <- toxval:::boot_parms(nsec_drc_1, n_boot = n_boot, seed = 42)
+  mu <- coef(nsec_drc_1)
+  sigma <- vcov(nsec_drc_1)
+  sample_sigma <- stats::cov(parms)
+
+  expect_equal(colnames(parms), names(mu))
+
+  # each mean within 4 Monte Carlo standard errors of its coefficient
+  z <- (colMeans(parms) - mu) / sqrt(diag(sigma) / n_boot)
+  expect_lt(max(abs(z)), 4)
+
+  # the standard error of a sample variance relative to its target is about
+  # sqrt(2 / n_boot), 0.022 here, so 0.1 is between four and five of them
+  expect_lt(max(abs(diag(sample_sigma) / diag(sigma) - 1)), 0.1)
+
+  # the standard error of a sample correlation is at most 1 / sqrt(n_boot),
+  # 0.016 here; the fit's b-e and c-e correlations of -0.75 and -0.91 mean a
+  # draw that ignored the off-diagonal of `vcov()` would fail by an order of
+  # magnitude
+  expect_lt(
+    max(abs(stats::cov2cor(sample_sigma) - stats::cov2cor(sigma))),
+    0.05
   )
 })
 
