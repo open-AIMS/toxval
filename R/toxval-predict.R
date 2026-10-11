@@ -319,8 +319,9 @@ epred_curve <- function(object, x_vec, x_var, group_var = NULL, group = NULL) {
 #' Split `drc` parameter names into parameter and curve
 #'
 #' `drc` names its coefficients `<parameter>:<curve>`, using `(Intercept)` as
-#' the curve for a fit with a single curve. The split is on the last colon,
-#' because a curve level may itself contain one.
+#' the curve for a fit with a single curve. The split is on the first colon:
+#' `drc`'s parameter names (`b`, `c`, `d`, `e`, `f`) contain none, while a curve
+#' level comes from the data and may.
 #'
 #' @param nms Character vector of coefficient names.
 #'
@@ -328,7 +329,7 @@ epred_curve <- function(object, x_vec, x_var, group_var = NULL, group = NULL) {
 #'
 #' @noRd
 drc_split_parm_names <- function(nms) {
-  pos <- regexpr(":[^:]*$", nms)
+  pos <- regexpr(":", nms, fixed = TRUE)
   if (any(pos == -1L)) {
     chk::abort_chk(
       "`coef(object)` must be named <parameter>:<curve>, as `drc` names them."
