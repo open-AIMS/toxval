@@ -658,6 +658,22 @@ test_that("toxval_predict orders the curves by the content of the grouping varia
   )
 })
 
+test_that("group_levels orders character levels the same in every locale", {
+  # testthat runs with a C collation, under which plain `sort()` would also
+  # pass, so the session collation is set to a locale that orders mixed case
+  # differently
+  withr::local_collate("en_US.UTF-8")
+  skip_if_not(
+    Sys.getlocale("LC_COLLATE") == "en_US.UTF-8",
+    "en_US.UTF-8 collation is not available"
+  )
+
+  expect_equal(
+    toxval:::group_levels(c("b", "A", "a", "B")),
+    c("A", "B", "a", "b")
+  )
+})
+
 # TODO Becky to review next
 test_that("group_levels keeps the declared order of a factor", {
   x <- factor(
