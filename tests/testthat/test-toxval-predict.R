@@ -694,10 +694,10 @@ test_that("group_levels keeps the declared order of a factor", {
 
 # TODO Becky to review next
 test_that("toxval_predict handles a single bootstrap replicate", {
-  # `MASS::mvrnorm()` returns a named numeric vector rather than a 1-row matrix
-  # when n = 1, so `boot_parms()` restores the dimensions. Without that the
-  # curve has no `nrow()` and no `colnames()`, and `n_boot = 1` fails inside
-  # `drc_eval_curve()` rather than anywhere that names the cause.
+  # n_boot = 1 is the edge case where a draw is most easily returned as a
+  # vector rather than a 1-row matrix. The values also pin the draw for a
+  # seed: the Cholesky factor of `vcov()` is unique, so they are the same on
+  # every platform, which `MASS::mvrnorm()` did not give (#59)
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
@@ -712,7 +712,7 @@ test_that("toxval_predict handles a single bootstrap replicate", {
   expect_equal(result$meta$n_realisation, 1)
   expect_equal(
     as.numeric(result$curves[[1]]),
-    c(0.905, 0.899, 0.457, 0.029),
-    tolerance = 0.001
+    c(0.9002389, 0.8941983, 0.4380216, 0.0091685),
+    tolerance = 1e-6
   )
 })
