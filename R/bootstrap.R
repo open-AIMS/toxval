@@ -20,8 +20,8 @@ boot_parms <- function(object, n_boot, seed = NULL) {
 
   if (anyNA(mu)) {
     chk::abort_chk(
-      "`coef(object)` must not contain missing values; the fit may not have ",
-      "converged."
+      "`coef(object)` must not contain missing values; a parameter may not be ",
+      "estimable from the data."
     )
   }
   if (anyNA(sigma)) {

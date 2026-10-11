@@ -391,36 +391,64 @@ test_that("toxval_predict leaves the random number state alone", {
   expect_equal(.Random.seed, before)
 })
 
-test_that("the bootstrap mean curve approaches the drc fitted curve", {
+test_that("toxval_predict at the fitted coefficients reproduces predict()", {
+  # with every replicate set to coef(), the curve must be the fitted curve, so
+  # this checks that each parameter reaches the drc mean function in the
+  # position it expects; with b and e swapped, the same grid gives 0.897, 0.883,
+  # 0.842 and 0.782
+  mu <- coef(nsec_drc_1)
+  local_mocked_bindings(
+    boot_parms = function(object, n_boot, seed = NULL) {
+      matrix(
+        mu,
+        nrow = n_boot,
+        ncol = length(mu),
+        byrow = TRUE,
+        dimnames = list(NULL, names(mu))
+      )
+    }
+  )
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
     x_range = c(0, 3),
     resolution = 4,
-    n_boot = 4000,
-    seed = 42
+    n_boot = 2
   )
   fitted <- predict(nsec_drc_1, newdata = data.frame(x = result$x_vec))
 
-  # TODO AI written - verification by human needed 
-  # the bootstrap curves only approximates the fitted curve, and 0.01 was
-  # chosen because it fits, so the property being asserted wants a check.
-  # the mean of the realisations is not the fitted curve exactly, because the
-  # mean function is non-linear in the parameters; 0.01 is wide enough for that
-  # and for Monte Carlo error at 4000 replicates, and far below the 0.1-0.9
-  # range the curve covers here
-  # the fitted curve at x = 0, 1, 2, 3, with its ED50 at 1.995 putting the
-  # third value mid-way down
-  expect_equal(
-    colMeans(result$curves[[1]]),
-    c(0.897, 0.893, 0.444, 0.035),
-    tolerance = 0.01,
-    ignore_attr = TRUE
-  )
-  expect_equal(
-    colMeans(result$curves[[1]]),
-    as.numeric(fitted),
-    tolerance = 0.01
+  expect_equal(result$curves[[1]][1, ], as.numeric(fitted))
+  expect_equal(result$curves[[1]][2, ], as.numeric(fitted))
+})
+
+test_that("boot_parms draws from MVN(coef(object), vcov(object))", {
+  # tested on the parameter scale rather than against the fitted curve: the
+  # curve is nonlinear in its parameters, so the mean bootstrap curve differs
+  # from the fitted curve by more than Monte Carlo error (0.0376 against 0.0351
+  # at x = 3, 4000 replicates)
+  n_boot <- 4000
+  parms <- toxval:::boot_parms(nsec_drc_1, n_boot = n_boot, seed = 42)
+  mu <- coef(nsec_drc_1)
+  sigma <- vcov(nsec_drc_1)
+  sample_sigma <- stats::cov(parms)
+
+  expect_equal(colnames(parms), names(mu))
+
+  # each mean within 4 Monte Carlo standard errors of its coefficient
+  z <- (colMeans(parms) - mu) / sqrt(diag(sigma) / n_boot)
+  expect_lt(max(abs(z)), 4)
+
+  # the standard error of a sample variance relative to its target is about
+  # sqrt(2 / n_boot), 0.022 here, so 0.1 is between four and five of them
+  expect_lt(max(abs(diag(sample_sigma) / diag(sigma) - 1)), 0.1)
+
+  # the standard error of a sample correlation is at most 1 / sqrt(n_boot),
+  # 0.016 here; the fit's b-e and c-e correlations of -0.75 and -0.91 mean a
+  # draw that ignored the off-diagonal of `vcov()` would fail by an order of
+  # magnitude
+  expect_lt(
+    max(abs(stats::cov2cor(sample_sigma) - stats::cov2cor(sigma))),
+    0.05
   )
 })
 
@@ -465,21 +493,54 @@ test_that("drc_eval_curve reproduces the drc mean function row by row", {
   result <- toxval:::drc_eval_curve(nsec_drc_1, x_vec, parms)
 
   expect_equal(dim(result), c(2L, 3L))
-  expect_equal(
-    result[1, ],
-    nsec_drc_1$fct$fct(
-      x_vec,
-      matrix(coef(nsec_drc_1), nrow = 3, ncol = 4, byrow = TRUE)
+  # each row is evaluated at its own parameter vector; checking only the first
+  # row would pass an implementation that applied it to every row
+  for (i in seq_len(nrow(parms))) {
+    expect_equal(
+      result[i, ],
+      nsec_drc_1$fct$fct(
+        x_vec,
+        matrix(parms[i, ], nrow = 3, ncol = 4, byrow = TRUE)
+      )
     )
-  )
+  }
 })
 
 # TODO Becky to review next
-test_that("drc_split_parm_names splits drc coefficient names on the last colon", {
-  result <- toxval:::drc_split_parm_names(c("b:(Intercept)", "e:24h", "b:a:b"))
+test_that("drc_split_parm_names splits drc coefficient names on the first colon", {
+  # a curve level comes from the data and may contain a colon; a drc parameter
+  # name does not
+  result <- toxval:::drc_split_parm_names(c(
+    "b:(Intercept)",
+    "e:24h",
+    "b:t:24h"
+  ))
 
-  expect_equal(result$param, c("b", "e", "b:a"))
-  expect_equal(result$curve, c("(Intercept)", "24h", "b"))
+  expect_equal(result$param, c("b", "e", "b"))
+  expect_equal(result$curve, c("(Intercept)", "24h", "t:24h"))
+})
+
+test_that("toxval_predict keeps a curveid level that contains a colon", {
+  data <- drc::daphnids
+  data$time <- ifelse(data$time == "24h", "t:24h", "t:48h")
+  fit <- drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = data,
+    fct = drc::LL.2(),
+    type = "binomial"
+  )
+  result <- toxval_predict(
+    fit,
+    x_var = "dose",
+    group_var = "time",
+    resolution = 3,
+    n_boot = 2,
+    seed = 1
+  )
+
+  expect_named(result$curves, c("t:24h", "t:48h"))
 })
 
 test_that("drc_split_parm_names splits drc coefficients as expected", {
@@ -502,7 +563,8 @@ test_that("drc_split_parm_names errors on a name it cannot split", {
 test_that("toxval_predict builds each curve of a drc fit with shared parameters", {
   # `pmodels` fits one slope across both curves and an ED50 for each, so the
   # coefficients are `b:(Intercept)`, `e:24h` and `e:48h`: a curve is assembled
-  # from its own parameters plus the shared one
+  # from its own parameters plus the shared one. With every replicate set to
+  # coef(), each curve must be the fitted curve for its level.
   fit <- drc::drm(
     (total - no) / total ~ dose,
     weights = total,
@@ -512,28 +574,34 @@ test_that("toxval_predict builds each curve of a drc fit with shared parameters"
     type = "binomial",
     pmodels = data.frame(1, time)
   )
+  mu <- coef(fit)
+  local_mocked_bindings(
+    boot_parms = function(object, n_boot, seed = NULL) {
+      matrix(
+        mu,
+        nrow = n_boot,
+        ncol = length(mu),
+        byrow = TRUE,
+        dimnames = list(NULL, names(mu))
+      )
+    }
+  )
   result <- toxval_predict(
     fit,
     x_var = "dose",
     group_var = "time",
     resolution = 4,
-    n_boot = 4000,
-    seed = 5
+    n_boot = 1
   )
 
   expect_named(result$curves, c("24h", "48h"))
-  expect_equal(
-    colMeans(result$curves[["24h"]]),
-    c(0.996, 0.620, 0.374, 0.250),
-    tolerance = 0.002,
-    ignore_attr = TRUE
-  )
-  expect_equal(
-    colMeans(result$curves[["48h"]]),
-    c(0.979, 0.236, 0.103, 0.061),
-    tolerance = 0.002,
-    ignore_attr = TRUE
-  )
+  for (level in c("24h", "48h")) {
+    fitted <- predict(
+      fit,
+      newdata = data.frame(dose = result$x_vec, time = level)
+    )
+    expect_equal(result$curves[[level]][1, ], as.numeric(fitted))
+  }
 })
 
 test_that("drc_curve_cols errors when a parameter is missing for a curve", {
@@ -597,27 +665,46 @@ test_that("toxval_predict orders the curves by the content of the grouping varia
   )
 })
 
+test_that("group_levels orders character levels the same in every locale", {
+  # testthat runs with a C collation, under which plain `sort()` would also
+  # pass, so the session collation is set to a locale that orders mixed case
+  # differently
+  withr::local_collate("en_US.UTF-8")
+  skip_if_not(
+    Sys.getlocale("LC_COLLATE") == "en_US.UTF-8",
+    "en_US.UTF-8 collation is not available"
+  )
+
+  expect_equal(
+    toxval:::group_levels(c("b", "A", "a", "B")),
+    c("A", "B", "a", "b")
+  )
+})
+
 # TODO Becky to review next
 test_that("group_levels keeps the declared order of a factor", {
+  # the declared order differs from both the alphabetical order (control, high,
+  # medium) and the order of first appearance (high, control, medium), so the
+  # test fails if either replaces it
   x <- factor(
-    c("high", "control", "high"),
-    levels = c("control", "low", "high")
+    c("high", "control", "medium", "high"),
+    levels = c("control", "low", "medium", "high")
   )
   result <- toxval:::group_levels(x)
 
   # the unused level is dropped, the declared order of the rest is kept, and
   # the result stays a factor so the levels reach `newdata`
   expect_s3_class(result, "factor")
-  expect_equal(as.character(result), c("control", "high"))
-  expect_equal(levels(result), c("control", "high"))
+  expect_equal(as.character(result), c("control", "medium", "high"))
+  expect_equal(levels(result), c("control", "medium", "high"))
 })
 
 # TODO Becky to review next
 test_that("toxval_predict handles a single bootstrap replicate", {
-  # `MASS::mvrnorm()` returns a named numeric vector rather than a 1-row matrix
-  # when n = 1, so `boot_parms()` restores the dimensions. Without that the
-  # curve has no `nrow()` and no `colnames()`, and `n_boot = 1` fails inside
-  # `drc_eval_curve()` rather than anywhere that names the cause.
+  # n_boot = 1 is the edge case where a draw is most easily returned as a
+  # vector rather than a 1-row matrix. The values also pin the draw for a
+  # seed: the Cholesky factor of `vcov()` is unique, so they are the same on
+  # every platform, which `MASS::mvrnorm()` did not give (#59)
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
@@ -632,7 +719,7 @@ test_that("toxval_predict handles a single bootstrap replicate", {
   expect_equal(result$meta$n_realisation, 1)
   expect_equal(
     as.numeric(result$curves[[1]]),
-    c(0.905, 0.899, 0.457, 0.029),
-    tolerance = 0.001
+    c(0.9002389, 0.8941983, 0.4380216, 0.0091685),
+    tolerance = 1e-6
   )
 })

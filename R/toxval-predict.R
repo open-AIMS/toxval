@@ -282,6 +282,10 @@ brms_curves <- function(object, x_vec, x_var, group_var) {
 #' The curve names become the group descriptor of the result, so they are
 #' ordered by the content of the variable rather than by the order its rows
 #' happen to be in: re-sorting the input data must not re-order the output.
+#' Character levels are sorted with `method = "radix"`, which uses the C-locale
+#' order in every session. Plain `sort()` collates by the session locale, so
+#' mixed-case levels would be ordered differently for users in different
+#' locales, and differently again under testthat, which runs with a C collation.
 #'
 #' @param x A grouping variable.
 #'
@@ -294,7 +298,7 @@ group_levels <- function(x) {
     x <- droplevels(x)
     return(factor(levels(x), levels = levels(x)))
   }
-  sort(unique(x))
+  sort(unique(x), method = "radix")
 }
 
 #' Posterior draws of the mean curve over a grid
@@ -319,8 +323,9 @@ epred_curve <- function(object, x_vec, x_var, group_var = NULL, group = NULL) {
 #' Split `drc` parameter names into parameter and curve
 #'
 #' `drc` names its coefficients `<parameter>:<curve>`, using `(Intercept)` as
-#' the curve for a fit with a single curve. The split is on the last colon,
-#' because a curve level may itself contain one.
+#' the curve for a fit with a single curve. The split is on the first colon:
+#' `drc`'s parameter names (`b`, `c`, `d`, `e`, `f`) contain none, while a curve
+#' level comes from the data and may.
 #'
 #' @param nms Character vector of coefficient names.
 #'
@@ -328,7 +333,7 @@ epred_curve <- function(object, x_vec, x_var, group_var = NULL, group = NULL) {
 #'
 #' @noRd
 drc_split_parm_names <- function(nms) {
-  pos <- regexpr(":[^:]*$", nms)
+  pos <- regexpr(":", nms, fixed = TRUE)
   if (any(pos == -1L)) {
     chk::abort_chk(
       "`coef(object)` must be named <parameter>:<curve>, as `drc` names them."
