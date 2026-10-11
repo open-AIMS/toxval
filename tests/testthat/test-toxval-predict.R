@@ -507,11 +507,40 @@ test_that("drc_eval_curve reproduces the drc mean function row by row", {
 })
 
 # TODO Becky to review next
-test_that("drc_split_parm_names splits drc coefficient names on the last colon", {
-  result <- toxval:::drc_split_parm_names(c("b:(Intercept)", "e:24h", "b:a:b"))
+test_that("drc_split_parm_names splits drc coefficient names on the first colon", {
+  # a curve level comes from the data and may contain a colon; a drc parameter
+  # name does not
+  result <- toxval:::drc_split_parm_names(c(
+    "b:(Intercept)",
+    "e:24h",
+    "b:t:24h"
+  ))
 
-  expect_equal(result$param, c("b", "e", "b:a"))
-  expect_equal(result$curve, c("(Intercept)", "24h", "b"))
+  expect_equal(result$param, c("b", "e", "b"))
+  expect_equal(result$curve, c("(Intercept)", "24h", "t:24h"))
+})
+
+test_that("toxval_predict keeps a curveid level that contains a colon", {
+  data <- drc::daphnids
+  data$time <- ifelse(data$time == "24h", "t:24h", "t:48h")
+  fit <- drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = data,
+    fct = drc::LL.2(),
+    type = "binomial"
+  )
+  result <- toxval_predict(
+    fit,
+    x_var = "dose",
+    group_var = "time",
+    resolution = 3,
+    n_boot = 2,
+    seed = 1
+  )
+
+  expect_named(result$curves, c("t:24h", "t:48h"))
 })
 
 test_that("drc_split_parm_names splits drc coefficients as expected", {
