@@ -493,13 +493,17 @@ test_that("drc_eval_curve reproduces the drc mean function row by row", {
   result <- toxval:::drc_eval_curve(nsec_drc_1, x_vec, parms)
 
   expect_equal(dim(result), c(2L, 3L))
-  expect_equal(
-    result[1, ],
-    nsec_drc_1$fct$fct(
-      x_vec,
-      matrix(coef(nsec_drc_1), nrow = 3, ncol = 4, byrow = TRUE)
+  # each row is evaluated at its own parameter vector; checking only the first
+  # row would pass an implementation that applied it to every row
+  for (i in seq_len(nrow(parms))) {
+    expect_equal(
+      result[i, ],
+      nsec_drc_1$fct$fct(
+        x_vec,
+        matrix(parms[i, ], nrow = 3, ncol = 4, byrow = TRUE)
+      )
     )
-  )
+  }
 })
 
 # TODO Becky to review next
