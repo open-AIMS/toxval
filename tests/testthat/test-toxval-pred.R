@@ -9,7 +9,6 @@ pred_meta <- function(...) {
     x_var = "x",
     group_var = NULL,
     multi_var = NULL,
-    dimension = "none",
     resolution = 4,
     x_range = c(0, 3),
     family = "gaussian",
@@ -22,6 +21,15 @@ pred_meta <- function(...) {
   meta
 }
 
+# The keys of an ungrouped fit when called with no arguments, otherwise a data
+# frame of the descriptor columns supplied
+pred_keys <- function(...) {
+  if (length(list(...)) == 0) {
+    return(data.frame(row.names = 1L))
+  }
+  data.frame(...)
+}
+
 pred_curve <- function(nrow = 2, ncol = 4) {
   matrix(as.double(seq_len(nrow * ncol)), nrow = nrow)
 }
@@ -29,60 +37,92 @@ pred_curve <- function(nrow = 2, ncol = 4) {
 test_that("new_toxval_pred returns the documented slots for an ungrouped fit", {
   result <- new_toxval_pred(
     curves = list(pred_curve()),
+    keys = pred_keys(),
     x_vec = c(0, 1, 2, 3),
     meta = pred_meta()
   )
 
   expect_s3_class(result, "toxval_pred")
-  expect_named(result, c("curves", "x_vec", "threshold", "control", "meta"))
+  expect_named(
+    result,
+    c("curves", "keys", "x_vec", "threshold", "control", "meta")
+  )
   expect_length(result$curves, 1)
-  expect_null(names(result$curves))
+  expect_equal(dim(result$keys), c(1L, 0L))
   expect_identical(result$x_vec, c(0, 1, 2, 3))
   expect_null(result$threshold)
   expect_null(result$control)
-  expect_identical(result$meta$dimension, "none")
 })
 
-test_that("new_toxval_pred keeps the names of a grouped fit", {
+test_that("new_toxval_pred keeps the keys of a grouped fit", {
   result <- new_toxval_pred(
-    curves = list(A = pred_curve(), B = pred_curve()),
+    curves = list(pred_curve(), pred_curve()),
+    keys = pred_keys(group = factor(c("A", "B"))),
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(dimension = "group", group_var = "site")
+    meta = pred_meta(group_var = "site")
   )
 
-  expect_named(result$curves, c("A", "B"))
+  expect_equal(result$keys, data.frame(group = factor(c("A", "B"))))
   expect_identical(result$meta$group_var, "site")
 })
 
-test_that("new_toxval_pred keeps the names of a multivariate fit", {
+test_that("new_toxval_pred keeps the keys of a multivariate fit", {
   result <- new_toxval_pred(
-    curves = list(growth = pred_curve(), survival = pred_curve()),
+    curves = list(pred_curve(), pred_curve()),
+    keys = pred_keys(response = factor(c("growth", "survival"))),
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(dimension = "response", multi_var = "endpoint")
+    meta = pred_meta(multi_var = "endpoint")
   )
 
-  expect_named(result$curves, c("growth", "survival"))
+  expect_equal(
+    result$keys,
+    data.frame(response = factor(c("growth", "survival")))
+  )
+  expect_identical(result$meta$multi_var, "endpoint")
+})
+
+test_that("new_toxval_pred keeps the keys of a grouped multivariate fit", {
+  # EXPECTED-CHANGE remove comment if additional tests to toxval_predict are added
+  # no toxval_predict() method produces this yet, so it is built by hand to
+  # show the contract can hold one curve per combination of group and response
+  keys <- pred_keys(
+    group = factor(c("A", "A", "B", "B")),
+    response = factor(c("growth", "survival", "growth", "survival"))
+  )
+  result <- new_toxval_pred(
+    curves = list(pred_curve(), pred_curve(), pred_curve(), pred_curve()),
+    keys = keys,
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(group_var = "site", multi_var = "endpoint")
+  )
+
+  expect_length(result$curves, 4)
+  expect_equal(result$keys, keys)
+  expect_identical(result$meta$group_var, "site")
   expect_identical(result$meta$multi_var, "endpoint")
 })
 
 test_that("new_toxval_pred accepts a threshold and a control", {
   result <- new_toxval_pred(
-    curves = list(A = pred_curve(), B = pred_curve()),
+    curves = list(pred_curve(), pred_curve()),
+    keys = pred_keys(group = factor(c("A", "B"))),
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(dimension = "group", group_var = "site"),
-    threshold = list(A = c(1.5, 1.7), B = c(2.1, 2.4)),
-    control = list(A = c(10.2, 10.6), B = c(9.4, 9.9))
+    meta = pred_meta(group_var = "site"),
+    threshold = list(c(1.5, 1.7), c(2.1, 2.4)),
+    control = list(c(10.2, 10.6), c(9.4, 9.9))
   )
 
-  expect_named(result$threshold, c("A", "B"))
-  expect_equal(result$threshold$A, c(1.5, 1.7))
-  expect_named(result$control, c("A", "B"))
-  expect_equal(result$control$A, c(10.2, 10.6))
+  expect_equal(result$threshold[[1]], c(1.5, 1.7))
+  expect_equal(result$control[[1]], c(10.2, 10.6))
+  
+  expect_equal(result$threshold[[2]], c(2.1, 2.4))
+  expect_equal(result$control[[2]], c(9.4, 9.9))
 })
 
 test_that("new_toxval_pred accepts extra meta elements", {
   result <- new_toxval_pred(
     curves = list(pred_curve()),
+    keys = pred_keys(),
     x_vec = c(0, 1, 2, 3),
     meta = pred_meta(dpar = "hu")
   )
@@ -93,6 +133,7 @@ test_that("new_toxval_pred accepts extra meta elements", {
 test_that("new_toxval_pred accepts a bootstrap source with a seed", {
   result <- new_toxval_pred(
     curves = list(pred_curve()),
+    keys = pred_keys(),
     x_vec = c(0, 1, 2, 3),
     meta = pred_meta(
       source_class = "drc",
@@ -116,6 +157,7 @@ test_that("new_toxval_pred accepts NA and Inf in a curve", {
 
   result <- new_toxval_pred(
     curves = list(curve),
+    keys = pred_keys(),
     x_vec = c(0, 1, 2, 3),
     meta = pred_meta()
   )
@@ -127,6 +169,7 @@ test_that("new_toxval_pred errors when a required meta element is absent", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta()[-4]
     ),
@@ -134,21 +177,11 @@ test_that("new_toxval_pred errors when a required meta element is absent", {
   )
 })
 
-test_that("new_toxval_pred errors on an unknown dimension", {
-  expect_error(
-    new_toxval_pred(
-      curves = list(pred_curve()),
-      x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(dimension = "site")
-    ),
-    regexp = "`meta\\$dimension` must match 'group', 'none' or 'response'"
-  )
-})
-
 test_that("new_toxval_pred errors on an unknown realisation source", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(realisation = "posterior")
     ),
@@ -160,6 +193,7 @@ test_that("new_toxval_pred errors when x_range is reversed", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(x_range = c(3, 0))
     ),
@@ -171,6 +205,7 @@ test_that("new_toxval_pred errors when x_range is missing a value", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(x_range = c(0, NA))
     ),
@@ -184,6 +219,7 @@ test_that("new_toxval_pred errors when x_range is not the range of x_vec", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(x_range = c(100, 200))
     ),
@@ -195,6 +231,7 @@ test_that("new_toxval_pred errors when x_range is not finite", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(x_range = c(0, Inf))
     ),
@@ -206,6 +243,7 @@ test_that("new_toxval_pred errors when resolution is not the length of x_vec", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(resolution = 1000)
     ),
@@ -216,6 +254,7 @@ test_that("new_toxval_pred errors when resolution is not the length of x_vec", {
 test_that("new_toxval_pred accepts an integer x_range against a double x_vec", {
   result <- new_toxval_pred(
     curves = list(pred_curve()),
+    keys = pred_keys(),
     x_vec = c(0, 1, 2, 3),
     meta = pred_meta(x_range = c(0L, 3L))
   )
@@ -223,79 +262,216 @@ test_that("new_toxval_pred accepts an integer x_range against a double x_vec", {
   expect_identical(result$meta$x_range, c(0L, 3L))
 })
 
+test_that("new_toxval_pred errors when keys is not a data frame", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = list(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta()
+    ),
+    regexp = "`keys` must be a data.frame"
+  )
+})
+ 
+test_that("new_toxval_pred errors when keys has a column other than group or response", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(site = factor("A")),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta()
+    ),
+    regexp = "Names of `keys` must match 'group' or 'response'"
+  )
+})
+
+test_that("new_toxval_pred errors when keys repeats a column", {
+  keys <- data.frame(
+    group = factor("A"),
+    group = factor("B"),
+    check.names = FALSE
+  )
+
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = keys,
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(group_var = "site")
+    ),
+    regexp = "Names of `keys` must be unique"
+  )
+})
+
+test_that("new_toxval_pred errors when keys has no rows", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(),
+      keys = pred_keys(group = factor(character())),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(group_var = "site")
+    ),
+    regexp = "`keys` must have at least 1 row"
+  )
+})
+
+test_that("new_toxval_pred errors when keys has no columns and more than one row", {
+  # without a descriptor column there is nothing to tell two curves apart
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(), pred_curve()),
+      keys = data.frame(row.names = 1:2),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta()
+    ),
+    regexp = "`keys` must have 1 row when it has no columns, not 2"
+  )
+})
+
+test_that("new_toxval_pred errors when keys has a missing value", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(group = factor(c("A", NA))),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(group_var = "site")
+    ),
+    regexp = "`keys` must not have any missing values"
+  )
+})
+
+test_that("new_toxval_pred errors when two rows of keys are the same", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(group = factor(c("A", "A"))),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(group_var = "site")
+    ),
+    regexp = "Rows of `keys` must be unique"
+  )
+})
+
+test_that("new_toxval_pred accepts a repeated group when the responses differ", {
+  # uniqueness is of the row, not of each column
+  result <- new_toxval_pred(
+    curves = list(pred_curve(), pred_curve()),
+    keys = pred_keys(
+      group = factor(c("A", "A")),
+      response = factor(c("growth", "survival"))
+    ),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(group_var = "site", multi_var = "endpoint")
+  )
+
+  expect_equal(nrow(result$keys), 2)
+})
+
+test_that("new_toxval_pred accepts a group and a response with the same values", {
+  # a site called "A" and a response called "A" are told apart by their column
+  keys <- pred_keys(
+    group = factor(c("A", "B")),
+    response = factor(c("A", "B"))
+  )
+  result <- new_toxval_pred(
+    curves = list(pred_curve(), pred_curve()),
+    keys = keys,
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(group_var = "site", multi_var = "endpoint")
+  )
+
+  expect_equal(result$keys, keys)
+})
+
+test_that("new_toxval_pred accepts rows that would collide if the columns were pasted", {
+  # both rows paste to "ABC", so a check on pasted identifiers would reject
+  # this; the columns are compared separately instead
+  keys <- pred_keys(
+    group = factor(c("A", "AB")),
+    response = factor(c("BC", "C"))
+  )
+  result <- new_toxval_pred(
+    curves = list(pred_curve(), pred_curve()),
+    keys = keys,
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(group_var = "site", multi_var = "endpoint")
+  )
+
+  expect_equal(result$keys, keys)
+})
+
+test_that("new_toxval_pred errors when the group column is not a factor", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(group = c("A", "B")),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(group_var = "site")
+    ),
+    regexp = "`keys\\$group` must be factor"
+  )
+})
+
+test_that("new_toxval_pred errors when the response column is not a factor", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(response = c("growth", "survival")),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(multi_var = "endpoint")
+    ),
+    regexp = "`keys\\$response` must be factor"
+  )
+})
+
 test_that("new_toxval_pred errors when a grouped fit has no group_var", {
   expect_error(
     new_toxval_pred(
-      curves = list(A = pred_curve()),
+      curves = list(pred_curve()),
+      keys = pred_keys(group = factor("A")),
       x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(dimension = "group")
+      meta = pred_meta()
     ),
-    regexp = "`meta\\$group_var` must be supplied"
+    regexp = "`meta\\$group_var` must be supplied when `keys` has a 'group' column"
   )
 })
 
 test_that("new_toxval_pred errors when a multivariate fit has no multi_var", {
   expect_error(
     new_toxval_pred(
-      curves = list(growth = pred_curve()),
+      curves = list(pred_curve()),
+      keys = pred_keys(response = factor("growth")),
       x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(dimension = "response")
+      meta = pred_meta()
     ),
-    regexp = "`meta\\$multi_var` must be supplied"
+    regexp = "`meta\\$multi_var` must be supplied when `keys` has a 'response' column"
   )
 })
 
 test_that("new_toxval_pred errors when an ungrouped fit names a group_var", {
-  # the three descriptor fields encode one fact, so an object cannot call itself
+  # `keys` and `group_var` record one fact, so an object cannot call itself
   # ungrouped and name a grouping variable
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(group_var = "site")
     ),
-    regexp = "`meta\\$group_var` must be NULL when `meta\\$dimension` is 'none'"
+    regexp = "`meta\\$group_var` must be NULL when `keys` has no 'group' column"
   )
 })
 
-test_that("new_toxval_pred errors when an ungrouped fit names a multi_var", {
+test_that("new_toxval_pred errors when a univariate fit names a multi_var", {
   expect_error(
     new_toxval_pred(
-      curves = list(pred_curve()),
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(group = factor(c("A", "B"))),
       x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(multi_var = "endpoint")
+      meta = pred_meta(group_var = "site", multi_var = "endpoint")
     ),
-    regexp = "`meta\\$multi_var` must be NULL when `meta\\$dimension` is 'none'"
-  )
-})
-
-test_that("new_toxval_pred errors when a grouped fit names a multi_var", {
-  expect_error(
-    new_toxval_pred(
-      curves = list(A = pred_curve(), B = pred_curve()),
-      x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(
-        dimension = "group",
-        group_var = "site",
-        multi_var = "endpoint"
-      )
-    ),
-    regexp = "`meta\\$multi_var` must be NULL when `meta\\$dimension` is 'group'"
-  )
-})
-
-test_that("new_toxval_pred errors when a multivariate fit names a group_var", {
-  expect_error(
-    new_toxval_pred(
-      curves = list(growth = pred_curve(), survival = pred_curve()),
-      x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(
-        dimension = "response",
-        multi_var = "endpoint",
-        group_var = "site"
-      )
-    ),
-    regexp = "`meta\\$group_var` must be NULL when `meta\\$dimension` is 'response'"
+    regexp = "`meta\\$multi_var` must be NULL when `keys` has no 'response' column"
   )
 })
 
@@ -303,19 +479,33 @@ test_that("new_toxval_pred errors when an ungrouped fit has more than one curve"
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta()
     ),
-    regexp = "`curves` must have 1 element"
+    regexp = "`curves` must have 1 element to match the rows of `keys`, not 2"
   )
 })
 
-test_that("new_toxval_pred errors when an ungrouped curve is named", {
-  # names are carried only where they mean something; a name on an ungrouped
-  # fit would reach the result as a `group` value that does not exist
+test_that("new_toxval_pred errors when a grouped fit is missing a curve", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(group = factor(c("A", "B"))),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(group_var = "site")
+    ),
+    regexp = "`curves` must have 2 elements to match the rows of `keys`, not 1"
+  )
+})
+
+test_that("new_toxval_pred errors when curves is named", {
+  # a name would be a second record of which curve is which, able to disagree
+  # with `keys`
   expect_error(
     new_toxval_pred(
       curves = list(A = pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta()
     ),
@@ -323,57 +513,11 @@ test_that("new_toxval_pred errors when an ungrouped curve is named", {
   )
 })
 
-test_that("new_toxval_pred errors when a grouped curve is unnamed", {
-  expect_error(
-    new_toxval_pred(
-      curves = list(pred_curve(), pred_curve()),
-      x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(dimension = "group", group_var = "site")
-    ),
-    regexp = "`curves` must be named"
-  )
-})
-
-test_that("new_toxval_pred errors on duplicate curve names", {
-  expect_error(
-    new_toxval_pred(
-      curves = list(A = pred_curve(), A = pred_curve()),
-      x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(dimension = "group", group_var = "site")
-    ),
-    regexp = "Names of `curves` must be unique"
-  )
-})
-
-test_that("new_toxval_pred errors when only some curves are named", {
-  expect_error(
-    new_toxval_pred(
-      curves = list(pred_curve(), B = pred_curve()),
-      x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(dimension = "group", group_var = "site")
-    ),
-    regexp = "Names of `curves` must not be missing or empty"
-  )
-})
-
-test_that("new_toxval_pred errors when a curve name is NA", {
-  curves <- list(A = pred_curve(), B = pred_curve())
-  names(curves) <- c(NA, "B")
-
-  expect_error(
-    new_toxval_pred(
-      curves = curves,
-      x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(dimension = "group", group_var = "site")
-    ),
-    regexp = "Names of `curves` must not be missing or empty"
-  )
-})
-
 test_that("new_toxval_pred errors when a curve is not a matrix", {
   expect_error(
     new_toxval_pred(
       curves = list(c(1, 2, 3, 4)),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(n_realisation = 1)
     ),
@@ -385,6 +529,7 @@ test_that("new_toxval_pred errors when a curve has the wrong number of rows", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve(nrow = 3)),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta()
     ),
@@ -396,6 +541,7 @@ test_that("new_toxval_pred errors when a single-realisation curve has extra rows
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve(nrow = 2)),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(n_realisation = 1)
     ),
@@ -406,11 +552,12 @@ test_that("new_toxval_pred errors when a single-realisation curve has extra rows
 test_that("new_toxval_pred errors when curves have different numbers of rows", {
   expect_error(
     new_toxval_pred(
-      curves = list(A = pred_curve(), B = pred_curve(nrow = 3)),
+      curves = list(pred_curve(), pred_curve(nrow = 3)),
+      keys = pred_keys(group = factor(c("A", "B"))),
       x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(dimension = "group", group_var = "site")
+      meta = pred_meta(group_var = "site")
     ),
-    regexp = "`curves\\$B` must have 2 rows"
+    regexp = "`curves\\[\\[2\\]\\]` must have 2 rows"
   )
 })
 
@@ -418,6 +565,7 @@ test_that("new_toxval_pred errors when a curve does not match the grid", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve(ncol = 3)),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta()
     ),
@@ -431,6 +579,7 @@ test_that("new_toxval_pred errors when x_vec is not sorted", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 2, 1, 3),
       meta = pred_meta()
     ),
@@ -442,6 +591,7 @@ test_that("new_toxval_pred errors when x_vec repeats a value", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 1, 3),
       meta = pred_meta()
     ),
@@ -453,6 +603,7 @@ test_that("new_toxval_pred errors when x_vec is not finite", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, Inf),
       meta = pred_meta()
     ),
@@ -464,6 +615,7 @@ test_that("new_toxval_pred errors when x_vec has a single value", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve(ncol = 1)),
+      keys = pred_keys(),
       x_vec = 0,
       meta = pred_meta()
     ),
@@ -471,15 +623,16 @@ test_that("new_toxval_pred errors when x_vec has a single value", {
   )
 })
 
-test_that("new_toxval_pred errors when threshold names do not match curves", {
+test_that("new_toxval_pred errors when threshold is named", {
   expect_error(
     new_toxval_pred(
-      curves = list(A = pred_curve(), B = pred_curve()),
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(group = factor(c("A", "B"))),
       x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(dimension = "group", group_var = "site"),
-      threshold = list(A = c(1.5, 1.7), C = c(2.1, 2.4))
+      meta = pred_meta(group_var = "site"),
+      threshold = list(A = c(1.5, 1.7), B = c(2.1, 2.4))
     ),
-    regexp = "Names of `threshold` must be identical to names of `curves`"
+    regexp = "`threshold` must be unnamed"
   )
 })
 
@@ -487,11 +640,12 @@ test_that("new_toxval_pred errors when threshold has more elements than curves",
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(),
       threshold = list(c(1.5, 1.7), c(2.1, 2.4))
     ),
-    regexp = "`threshold` must have 1 element to match `curves`, not 2"
+    regexp = "`threshold` must have 1 element to match the rows of `keys`, not 2"
   )
 })
 
@@ -499,6 +653,7 @@ test_that("new_toxval_pred errors when threshold has the wrong length", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(),
       threshold = list(c(1.5, 1.7, 1.9))
@@ -511,6 +666,7 @@ test_that("new_toxval_pred errors when control has the wrong length", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(),
       control = list(c(10.2, 10.6, 10.9))
@@ -523,6 +679,7 @@ test_that("new_toxval_pred errors when control is a bare vector", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(),
       control = c(10.2, 10.6)
@@ -531,15 +688,16 @@ test_that("new_toxval_pred errors when control is a bare vector", {
   )
 })
 
-test_that("new_toxval_pred errors when control names do not match curves", {
+test_that("new_toxval_pred errors when control is named", {
   expect_error(
     new_toxval_pred(
-      curves = list(A = pred_curve(), B = pred_curve()),
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(group = factor(c("A", "B"))),
       x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(dimension = "group", group_var = "site"),
-      control = list(A = c(10.2, 10.6), C = c(9.4, 9.9))
+      meta = pred_meta(group_var = "site"),
+      control = list(A = c(10.2, 10.6), B = c(9.4, 9.9))
     ),
-    regexp = "Names of `control` must be identical to names of `curves`"
+    regexp = "`control` must be unnamed"
   )
 })
 
@@ -547,11 +705,12 @@ test_that("new_toxval_pred errors when control has more elements than curves", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(),
       control = list(c(10.2, 10.6), c(9.4, 9.9))
     ),
-    regexp = "`control` must have 1 element to match `curves`, not 2"
+    regexp = "`control` must have 1 element to match the rows of `keys`, not 2"
   )
 })
 
@@ -559,6 +718,7 @@ test_that("new_toxval_pred errors on a fractional seed", {
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
+      keys = pred_keys(),
       x_vec = c(0, 1, 2, 3),
       meta = pred_meta(realisation = "bootstrap", seed = 1.5)
     ),
@@ -572,6 +732,7 @@ test_that("new_toxval_pred errors on a fractional seed", {
 test_that("print.toxval_pred describes an ungrouped fit", {
   result <- new_toxval_pred(
     curves = list(pred_curve()),
+    keys = pred_keys(),
     x_vec = c(0, 1, 2, 3),
     meta = pred_meta()
   )
@@ -591,11 +752,12 @@ test_that("print.toxval_pred describes an ungrouped fit", {
 
 test_that("print.toxval_pred names the groups of a grouped fit", {
   result <- new_toxval_pred(
-    curves = list(A = pred_curve(), B = pred_curve()),
+    curves = list(pred_curve(), pred_curve()),
+    keys = pred_keys(group = factor(c("A", "B"))),
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(dimension = "group", group_var = "site"),
-    threshold = list(A = c(1.5, 1.7), B = c(2.1, 2.4)),
-    control = list(A = c(10.2, 10.6), B = c(9.4, 9.9))
+    meta = pred_meta(group_var = "site"),
+    threshold = list(c(1.5, 1.7), c(2.1, 2.4)),
+    control = list(c(10.2, 10.6), c(9.4, 9.9))
   )
 
   expect_identical(
@@ -613,9 +775,10 @@ test_that("print.toxval_pred names the groups of a grouped fit", {
 
 test_that("print.toxval_pred names the responses of a multivariate fit", {
   result <- new_toxval_pred(
-    curves = list(growth = pred_curve(), survival = pred_curve()),
+    curves = list(pred_curve(), pred_curve()),
+    keys = pred_keys(response = factor(c("growth", "survival"))),
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(dimension = "response", multi_var = "endpoint")
+    meta = pred_meta(multi_var = "endpoint")
   )
 
   expect_identical(
@@ -624,9 +787,27 @@ test_that("print.toxval_pred names the responses of a multivariate fit", {
   )
 })
 
+test_that("print.toxval_pred names the groups and responses of a grouped multivariate fit", {
+  result <- new_toxval_pred(
+    curves = list(pred_curve(), pred_curve(), pred_curve(), pred_curve()),
+    keys = pred_keys(
+      group = factor(c("A", "A", "B", "B")),
+      response = factor(c("growth", "survival", "growth", "survival"))
+    ),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(group_var = "site", multi_var = "endpoint")
+  )
+
+  expect_identical(
+    capture.output(print(result))[4],
+    "  curves:       4 by site: A, B; endpoint: growth, survival"
+  )
+})
+
 test_that("print.toxval_pred names the bootstrap source", {
   result <- new_toxval_pred(
     curves = list(pred_curve()),
+    keys = pred_keys(),
     x_vec = c(0, 1, 2, 3),
     meta = pred_meta(
       source_class = "drc",
@@ -645,6 +826,7 @@ test_that("print.toxval_pred names the bootstrap source", {
 test_that("print.toxval_pred returns its input invisibly", {
   result <- new_toxval_pred(
     curves = list(pred_curve()),
+    keys = pred_keys(),
     x_vec = c(0, 1, 2, 3),
     meta = pred_meta()
   )
