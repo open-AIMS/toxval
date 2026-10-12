@@ -32,8 +32,10 @@
 #' @section Grouping:
 #' Supply `group_var` to get one curve per level rather than a single curve
 #' marginalised across levels. For a `brmsfit` it names a column of the model
-#' data; for a `drc` fit it names the column passed as `curveid`, and the levels
-#' are read from the coefficient names rather than from a column position.
+#' data; for a `drc` fit it must name the column passed as `curveid`, and the
+#' levels are read from the coefficient names rather than from a column
+#' position. The curves follow the declared order of a factor, and otherwise
+#' the sorted order of the levels, for both methods.
 #'
 #' @param object A fitted model object. Methods are provided for [brms::brmsfit]
 #'   and `drc` fits.
@@ -430,6 +432,21 @@ drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
       "`group_var` must be NULL for a `drc` fit with a single curve; ",
       "`object` was not fitted with a `curveid`."
     )
+  }
+
+  if (grouped) {
+    curveid <- object$dataList$names$cNames
+    if (group_var != curveid) {
+      chk::abort_chk(
+        "`group_var` must be the `curveid` of `object`, not ",
+        chk::cc(group_var),
+        "."
+      )
+    }
+    # `coef()` orders the curves by row when the `curveid` is a character
+    # column, so they are put in the order `brms_curves()` gives its groups
+    labels <- as.character(group_levels(object$dataList$curveid))
+    curve_ids <- curve_ids[order(match(curve_ids, labels))]
   }
 
   curves <- lapply(curve_ids, function(id) {

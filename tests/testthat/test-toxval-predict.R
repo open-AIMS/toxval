@@ -272,6 +272,66 @@ test_that("toxval_predict errors when an ungrouped drc fit is given a group_var"
   )
 })
 
+test_that("toxval_predict errors when group_var is not the curveid of a drc fit", {
+  # `dose` is a column of the data, so only the comparison with the `curveid`
+  # stops it being recorded as the grouping variable
+  expect_error(
+    toxval_predict(
+      daphnids_fit(),
+      x_var = "dose",
+      group_var = "dose",
+      resolution = 5,
+      n_boot = 10
+    ),
+    "`group_var` must be the `curveid` of `object`, not 'dose'"
+  )
+})
+
+test_that("toxval_predict orders the curves of a drc fit by level, not by row", {
+  # with the rows reversed and `time` a character column, `coef()` names the
+  # 48h curve first; each curve is compared with `predict()` for its level, so
+  # a reordering of `keys` without the curves also fails
+  data <- drc::daphnids[rev(seq_len(nrow(drc::daphnids))), ]
+  data$time <- as.character(data$time)
+  fit <- drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = data,
+    fct = drc::LL.2(),
+    type = "binomial"
+  )
+  mu <- coef(fit)
+  local_mocked_bindings(
+    boot_parms = function(object, n_boot, seed = NULL) {
+      matrix(
+        mu,
+        nrow = n_boot,
+        ncol = length(mu),
+        byrow = TRUE,
+        dimnames = list(NULL, names(mu))
+      )
+    }
+  )
+  result <- toxval_predict(
+    fit,
+    x_var = "dose",
+    group_var = "time",
+    resolution = 4,
+    n_boot = 1
+  )
+
+  expect_equal(result$keys, data.frame(group = factor(c("24h", "48h"))))
+  for (i in seq_len(nrow(result$keys))) {
+    level <- as.character(result$keys$group[i])
+    fitted <- predict(
+      fit,
+      newdata = data.frame(dose = result$x_vec, time = level)
+    )
+    expect_equal(result$curves[[i]][1, ], as.numeric(fitted))
+  }
+})
+
 test_that("toxval_predict errors when n_boot is not a positive whole number", {
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", n_boot = 2.5),
