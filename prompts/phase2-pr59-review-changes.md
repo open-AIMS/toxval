@@ -328,19 +328,6 @@ made.
 
 ---
 
-**User:** [The grouped brmsfit test] The names for the groups/keys come from
-the groups in z, ie when I look in the data z has values 1 and 2
-
-**Claude:** Yes. `brms_curves()` calls `group_levels(object$data[["z"]])`, and
-`group_keys()` turns the result into the `group` factor. Checked: `z` in
-`brms_model_2` is numeric with values 1 (3 rows) and 2 (2 rows), so
-`group_levels()` returns the sorted unique values `1, 2`, used as numbers when
-predicting each curve, and `group_keys()` converts them to character for the
-factor, giving levels `"1"`, `"2"`. Hence the expected `factor(c("1", "2"))`.
-No change made.
-
----
-
 **User:** Why does this use [`local_mocked_bindings()` replacing `boot_parms()`]
 
 **Claude:** It takes the randomness out so the result has an exact expected
@@ -356,5 +343,425 @@ nonlinear in its parameters (Becky's 0.0376 against 0.0351 at x = 3), so the
 old tolerance was guesswork. The draw itself is tested separately on the
 parameter scale. `local_` restores the real function when the test ends.
 No change made.
+
+---
+
+**User:** Push to the branch
+
+**Claude:** Pushed `phase-2-keys` to `origin` with `-u`, so it now tracks
+`origin/phase-2-keys` and RStudio's pull and push work. The push carried the
+user's four commits (`a2cfeba`, `1d250d1`, `0d51202`, `e74c895`) and
+`0147b1d`, which was still unpushed on `phase-2`. Noted that until `phase-2`
+itself is pushed, a PR into `phase-2` also shows the version-bounds commit.
+
+---
+
+**User:** Ok so now the keys table task that becky requested is done. Lets move
+onto the next part, I think the bootstrap switch should be next so we can get
+that test passing.
+
+**Claude:** Switched `boot_parms()` (`R/bootstrap.R`) to Becky's Cholesky
+draw:
+
+```r
+  root <- tryCatch(chol(sigma), error = function(e) NULL)
+  if (is.null(root)) {
+    chk::abort_chk(
+      "`vcov(object)` must be positive definite; the fit may not be ",
+      "identified."
+    )
+  }
+
+  if (!is.null(seed)) {
+    withr::local_seed(seed)
+  }
+  z <- matrix(stats::rnorm(n_boot * length(mu)), nrow = n_boot, byrow = TRUE)
+  parms <- sweep(z %*% root, 2, mu, "+")
+  colnames(parms) <- names(mu)
+  parms
+```
+
+- `chol()` runs before the seed is set, so a failure leaves the RNG alone. The
+  abort is outside the `tryCatch()` handler; inside it the error reported
+  `tryCatchOne()` as its call.
+- `colnames()` is still set explicitly: `vcov()` of a `drc` fit has no
+  dimnames, so the product has none.
+- The `n_boot = 1` reshape is gone. The roxygen block says why Cholesky rather
+  than `eigen()`, and that the by-row fill makes a larger `n_boot` append
+  replicates.
+- `MASS` removed from `Imports` in `DESCRIPTION`.
+- New test after the missing-`vcov()` test: "boot_parms errors when the
+  variance-covariance matrix is not positive definite", with a stub class of
+  its own (`toxval_stub_not_pd`) returning `matrix(c(1, 2, 2, 1), 2)`.
+
+Smoke-checked with `load_all()`: the single-replicate call gives 0.90023888,
+0.89419834, 0.43802155, 0.0091684954, the test's values; `n_boot = 3` with a
+seed equals the first three rows of `n_boot = 5`; the non-positive-definite
+stub gives the new message. Tests not run.
+
+---
+
+**User:** I don't want it on its own PR I wanted the various set of changes on
+this one. The branch name is just not going to represent things and that is
+fine.
+
+**Claude:** Acknowledged: the remaining review changes all go on
+`phase-2-keys` and one PR into `phase-2`. No change made.
+
+---
+
+**User:** If we aren't using MASS anymore why is it listed here? [the
+`boot_parms()` roxygen paragraph naming `MASS::mvrnorm()`]
+
+**Claude:** It records why the obvious function is not used, so nobody swaps
+`mvrnorm()` back in: it factorises with `eigen()`, and the eigenvector signs
+depend on the LAPACK build. But naming the replaced function is history rather
+than a reason. Offered to state only the reason: a draw built from `eigen()`
+is not reproducible across platforms because eigenvector signs depend on the
+LAPACK build. The single-replicate test comment also names
+`MASS::mvrnorm()`. No change made.
+
+---
+
+**User:** Leave for now while building
+
+**Claude:** Left both `MASS::mvrnorm()` mentions as they are.
+
+---
+
+**User:** Ok that has been pushed onto the next item in the list: Fix drc curve
+order and check group_var. Take the original labels from the last column named
+group_var, order them with group_levels(), and error if they don't match the
+curve ids from coef(). That catches group_var = "dose"
+
+**Claude:** Checked the `drc` object first. Under the installed drc 4.0.0 the
+original labels are not in a second column named `group_var`: `object$data`
+has `time` (integer codes) and `orig.time` (labels), so "the last column named
+`time`" is the codes. Used `object$dataList` instead, which records both
+directly: `dataList$names$cNames` is the `curveid` column name and
+`dataList$curveid` the labels, keeping a factor's declared levels. Same field
+family T17 reads `dName` from.
+
+In `drc_curves()`, for a grouped fit:
+
+```r
+  if (grouped) {
+    curveid <- object$dataList$names$cNames
+    if (group_var != curveid) {
+      chk::abort_chk(
+        "`group_var` must be ",
+        chk::cc(curveid),
+        ", the `curveid` of `object`, not ",
+        chk::cc(group_var),
+        "."
+      )
+    }
+    # `coef()` orders the curves by row when the `curveid` is a character
+    # column, so they are put in the order `brms_curves()` gives its groups
+    labels <- as.character(group_levels(object$dataList$curveid))
+    curve_ids <- curve_ids[order(match(curve_ids, labels))]
+  }
+```
+
+Comparing `group_var` with `cNames` replaces Becky's set comparison: it
+catches `group_var = "dose"` directly and names the right column in the
+message. The "Grouping" section of `?toxval_predict` now says `group_var` must
+name the `curveid` and that both methods order curves the same way.
+
+Two tests after "errors when an ungrouped drc fit is given a group_var":
+"errors when group_var is not the curveid of a drc fit" (line 275) and "orders
+the curves of a drc fit by level, not by row" (line 290), which reverses the
+rows with `time` as character, mocks `boot_parms()` to return `coef()`, and
+compares each curve with `predict()` for the level in its row of `keys`.
+
+Smoke-checked with `load_all()`: the reversed fit gives `keys` 24h, 48h, and
+`group_var = "dose"` gives the new message. Also ran `test-toxval-predict.R`
+once by mistake, with the output discarded and not read.
+
+---
+
+**User:** I simplified the error message as it felt a bit too long.
+
+**Claude:** Read it: now "`group_var` must be the `curveid` of `object`, not
+'dose'.", with the test regex updated to match. Consistent with the
+`` `name` must <rule>, not <value> `` shape. It no longer names the right
+column, but `cNames` is still read for the comparison. No change made.
+
+---
+
+**User:** The other part of Becky's comment feels not done, "error if they
+don't match the curve ids from coef()".
+
+**Claude:** Left out deliberately, but not said clearly enough. In Becky's
+version the set comparison was the mechanism that caught `group_var = "dose"`:
+labels read from the `dose` column would not match the curve ids. Comparing
+`group_var` with `cNames` catches that directly. And the labels now come from
+`dataList$curveid`, the same `curveid` drc builds the coefficient names from,
+so the two sets cannot differ for a grouped fit. Checked under `pmodels`:
+shared `b` per-curve `e`, per-curve `b` shared `e`, and both shared all give
+coefficient curve ids equal to the labels or none at all. The check would be
+unreachable, like the guards removed earlier in the phase. One edge found: with
+`pmodels = data.frame(1, 1)` every parameter is shared, so the fit has a
+`curveid` but one curve; a `group_var` then gets "must be NULL ... `object`
+was not fitted with a `curveid`", which is untrue. Offered the set check if
+wanted, and a rewording of that message. No change made.
+
+---
+
+**User:** Ok then lets mark this as also done. unless that edge case needs a
+test?
+
+**Claude:** Marked done. No test needed: the behaviour in the all-shared
+`pmodels` case is right (one curve, so `group_var` is refused); only the second
+half of the message is inaccurate. If the message is reworded to "`object` has
+a single curve", the existing test's regex still matches, since it checks only
+the first half. No change made.
+
+---
+
+**User:** Lets do this one next: guard against a brmsfit `group_var` that only
+appears in group-level terms (T16). Error when every curve comes out identical.
+
+**Claude:** In `toxval_predict.brmsfit()`, after `brms_curves()`:
+
+```r
+  # compared on the curves rather than read from the formula, which also
+  # covers a nonlinear formula
+  curves <- curve_set$curves
+  same <- vapply(curves[-1], identical, logical(1), curves[[1]])
+  if (length(curves) > 1 && all(same)) {
+    chk::abort_chk(
+      "`group_var` must be a population-level effect in `object`; group-level ",
+      "effects are marginalised, so every level would get the same curve."
+    )
+  }
+```
+
+`length(curves) > 1` keeps a single-level group from tripping it vacuously.
+The "Grouping" section of `?toxval_predict` now says a `brmsfit` `group_var`
+must enter as a population-level effect, with `y ~ x + (1 | site)` as the
+example.
+
+No existing fixture could reach the guard: brms keeps only formula variables
+in `object$data`, so a group absent from the formula fails the column check
+first. Asked how to test it; the user chose a new fixture. Added
+`brms_model_6` (`y ~ log(x) + (1 | z)` on `brms_model_2`'s five rows, same
+settings and seed) to `data-raw/DATASET.R` and fitted it. rstan failed to
+compile any model on this machine (a C++ toolchain error, also on a trivial
+model), so the fit was run with `options(brms.backend = "cmdstanr")` set in the
+runner script only, leaving `DATASET.R` backend-neutral like the other
+fixtures. 1000 draws, 67 divergent transitions (7%), expected for a two-level
+group-level term on five rows and irrelevant to its use here. Saved and
+stripped to `tests/testthat/fixtures/brms_model_6.rda` (128 KB).
+
+Test "toxval_predict errors when group_var is only a group-level effect"
+after "returns different curves for different groups". Smoke-checked: the
+guard fires on `brms_model_6` with `group_var = "z"`, and the same fit
+ungrouped still returns a `toxval_pred`; `brms_model_2` grouped is unaffected.
+
+---
+
+**User:** Update the error message to align better with "message states that
+group-level effects are marginalised, and that the group must be fitted as a
+population-level effect to obtain one curve per level"
+
+**Claude:** Message is now "`group_var` must be fitted as a population-level
+effect in `object` to give one curve per level; group-level effects are
+marginalised.", keeping the `` `name` must <rule>; <explanation> `` shape. Test
+regex updated to the full message.
+
+---
+
+**User:** Is this point done? rename the test at about line 630 to "contains
+missing values"
+
+**Claude:** It was not. Renamed the test at `test-toxval-predict.R:695` (moved
+down by the tests added since) to "boot_parms errors when the
+variance-covariance matrix contains missing values".
+
+---
+
+**User:** Now this one: read `x_var` from the drc fit (T17). If `x_var` is NULL,
+read it from `object$dataList$names$dName`; if it's supplied and doesn't match,
+error naming both. Update the `@param x_var` text and remove the comment at
+line 173. Test with `x_var` omitted, with `x_var = "x"`, and with `x_var = "y"`.
+
+**Claude:** In `toxval_predict.drc()`, replacing the `EXPECTED-CHANGE` comment
+block, `chk_x_var_supplied()` and `chk_var_in_data()` for `x_var`:
+
+```r
+  dose_var <- object$dataList$names$dName
+  if (is.null(x_var)) {
+    x_var <- dose_var
+  } else if (x_var != dose_var) {
+    chk::abort_chk(
+      "`x_var` must be ",
+      chk::cc(dose_var),
+      ", the dose variable of `object`, not ",
+      chk::cc(x_var),
+      "."
+    )
+  }
+```
+
+The column check went because `dName` is always a column of the data, so it
+became unreachable. `chk_x_var_supplied()` is now called only by the `brmsfit`
+method. `@param x_var` now says the `brmsfit` method requires a string and the
+`drc` method reads it from the fit when `NULL`, with a supplied value having to
+match; "Supplying the predictor" adds that the check stops another column, such
+as the response, being passed as the predictor.
+
+Tests in `test-toxval-predict.R`:
+
+- "errors when a method is given no x_var" lost its `drc` half and is renamed
+  "errors when a brmsfit is given no x_var" (line 19).
+- "errors when x_var is not a column of the data" (line 112) now uses
+  `brms_model_1`, since `nsec_drc_1` with `x_var = "dose"` gives the new
+  mismatch error.
+- New, before the ungrouped `drc` test: "reads x_var from a drc fit when it is
+  not supplied" (line 214), which checks `meta$x_var` is `"x"` and that the
+  result is identical to `x_var = "x"` at the same seed, covering both the
+  omitted and the matching case; and "errors when x_var is not the dose
+  variable of a drc fit" (line 228) with `x_var = "y"`.
+
+Smoke-checked with `load_all()`: omitted and `"x"` give identical objects,
+`"y"` gives the new message, and `brms_model_1` with `"dose"` still gives the
+column message. Tests not run.
+
+---
+
+**User:** [The `@param x_var` text naming each method] I don't think this makes
+sense. It means every new method needs to be added to `x_var`. Is there not
+method specific docs this could go in? Don't change anything just pondering
+
+**Claude:** Agreed. Under `@describeIn` every method shares the
+`?toxval_predict` page, and one argument can only have one `@param` entry on
+it, so a per-method `@param x_var` is not possible (`n_boot` and `seed` work
+from the `drc` block only because no other method has them). The per-method
+place is the `@describeIn` line, which renders under "Methods (by class)": the
+`brmsfit` line can say `x_var` is required, and the `drc` line that it is read
+from the fit and a supplied value must match. `@param x_var` then stays
+generic and never needs editing for a new method, which matters most for
+methods defined in `bayesnec`, which `toxval`'s page cannot list anyway. No
+change made.
+
+---
+
+**User:** Ok yes make those changes. This seems more logical.
+
+**Claude:** In `R/toxval-predict.R`:
+
+- `@param x_var` is now generic: "A string naming the predictor variable in
+  `object`, or `NULL` where the class of `object` records which of its
+  variables is the predictor. Each method states whether it accepts `NULL`."
+- `brmsfit` `@describeIn` line gains "`x_var` is required, since a `brmsfit`
+  may have several predictors."
+- `drc` `@describeIn` line gains "`x_var` is read from the fit when `NULL`,
+  and a supplied `x_var` must match the dose variable of the fit, so another
+  column, such as the response, cannot be passed as the predictor."
+- The sentence about the `drc` check added to "Supplying the predictor" in the
+  previous change is removed, since it now sits with the method; the section
+  keeps the rationale for allowing `NULL`.
+
+Noted that the Grouping section has the same per-method content
+(`brmsfit` population-level effect, `drc` `curveid`). Not changed.
+
+---
+
+**User:** The last part of the requests was to run air formatting. Can you run
+air formatting on only the files we have changed
+
+**Claude:** Ran `air format` (0.12.0) on the six R files changed on this
+branch against `origin/phase-2`, committed or not: `data-raw/DATASET.R`,
+`R/bootstrap.R`, `R/toxval-pred.R`, `R/toxval-predict.R`,
+`tests/testthat/test-toxval-pred.R`, `tests/testthat/test-toxval-predict.R`.
+Changes were whitespace only (trailing spaces in `DATASET.R` and
+`R/toxval-predict.R`, blank lines with spaces in both test files, a double
+space in a call), plus three long lines in `test-toxval-predict.R` split
+across lines. `R/bootstrap.R` and `R/toxval-pred.R` were already formatted.
+`air format --check` is clean on all six.
+
+---
+
+**User:** Were there any remaining points left in beckys requested changes?
+
+**Claude:** One. Went through the review item by item: the six code changes,
+the suggested test changes, the `testthat` and `chk` bounds, the test rename,
+`air format`, and retargeting #59 to `main` with a new title (already done:
+base `main`, title "Phase 2") are all complete. Outstanding is the separate tag
+for comments to delete, so a search for `EXPECTED-CHANGE` returns only the
+tests a later phase changes. Six markers in this PR's code mark comments to
+delete: `R/toxval-predict.R:549` and `:599`, `test-toxval-pred.R:85`, and
+`test-toxval-predict.R:72` and `:290`, with `test-toxval-predict.R:1` (move a
+helper) a pending change rather than a deletion. Phase 1's markers in the
+regression tests are all genuine expected changes. Also listed the optional
+items raised this session: the multivariate marker on `group_keys()`, the
+"marginalised" wording to raise with Becky, and moving the Grouping section's
+per-method text into the method descriptions. No change made.
+
+---
+
+**User:** Ok lets switch the EXPECTED-CHANGE to REVIEW-TEXT. There is going to
+be a lot of text review and I just wanted to start flagging things as I go.
+
+**Claude:** Retagged the five comment-deletion markers to `# REVIEW-TEXT`:
+`R/toxval-predict.R:549` and `:599`, `test-toxval-pred.R:85`,
+`test-toxval-predict.R:72` and `:290`. The multivariate markers and
+`test-toxval-predict.R:1` (move a helper) keep `EXPECTED-CHANGE`, being pending
+code changes. Updated the marker memory note, which had recorded a single
+flag.
+
+---
+
+**User:** What is this one about? Move the per-method text in the Grouping
+section into the method descriptions, as we did for `x_var`.
+
+**Claude:** The Grouping section of `?toxval_predict` (`R/toxval-predict.R:32`)
+is generic page text, but most of it describes individual methods: what
+`group_var` must be for a `brmsfit` (a population-level effect, not only a
+group-level term) and for a `drc` fit (the `curveid`, levels read from the
+coefficient names). That is the same problem as the old `@param x_var` text:
+each new method, including those in `bayesnec`, would need a sentence added to
+`toxval`'s generic section. The suggestion was to keep only the generic part
+there (one curve per level instead of one marginalised curve; curves follow a
+factor's declared order, otherwise sorted) and move the per-method rules to the
+`brmsfit` and `drc` `@describeIn` lines. Optional; not required by Becky's
+review. No change made.
+
+---
+
+**User:** Yes lets move the grouping specific things to the methods for now
+
+**Claude:** In `R/toxval-predict.R`, the Grouping section now holds only the
+generic text: one curve per level rather than one marginalised curve; curves
+follow a factor's declared order, otherwise sorted; "Each method states what
+`group_var` must name." The `brmsfit` `@describeIn` line gains the
+population-level rule with the `y ~ x + (1 | site)` example, and the `drc` line
+gains that `group_var` must name the `curveid` column, with levels read from
+the coefficient names. Wording moved unchanged.
+
+---
+
+**User:** What is this one about? Add the multivariate marker to
+`group_keys()`.
+
+**Claude:** From the earlier question about responses with no groups:
+`group_keys()` builds only ungrouped and grouped `keys`, because no method
+produces a response curve yet. When multivariate `brmsfit` support is added it
+has to build a `response` column too, alone or crossed with groups. The other
+sites that change with that work carry
+`# EXPECTED-CHANGE multivariate brmsfit support, one curve per response`; adding
+the same line to `group_keys()` means one search finds it as well. Optional.
+No change made.
+
+---
+
+**User:** Ok, then it seems that everything is done as the last few things you
+mentioned are not critical or really needed
+
+**Claude:** Agreed: all of Becky's requested changes are in. Left aside by
+choice: the multivariate marker on `group_keys()` and the "marginalised"
+wording point for Becky. Noted what is uncommitted on `phase-2-keys` and that
+`brms_model_6.rda` is a new file needing `git add`.
 
 ---
