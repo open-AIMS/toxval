@@ -27,9 +27,7 @@
 #' knows, and no method could relax it, because the generic validates before
 #' dispatch. A method that cannot identify the predictor -- a `brmsfit` may have
 #' several, and a nonlinear formula mixes them with the model parameters --
-#' errors on `NULL` instead. The `drc` method checks a supplied `x_var` against
-#' the dose variable of the fit, so another column, such as the response,
-#' cannot be passed as the predictor.
+#' errors on `NULL` instead.
 #'
 #' @section Grouping:
 #' Supply `group_var` to get one curve per level rather than a single curve
@@ -46,9 +44,7 @@
 #'   and `drc` fits.
 #' @param x_var A string naming the predictor variable in `object`, or `NULL`
 #'   where the class of `object` records which of its variables is the
-#'   predictor, for a method that reads it from there. The `brmsfit` method
-#'   requires a string. The `drc` method reads it from the fit when `NULL`, and
-#'   a supplied value must match it.
+#'   predictor. Each method states whether it accepts `NULL`.
 #' @param group_var A string naming the grouping variable in `object`, or `NULL`
 #'   for a single curve.
 #' @param resolution A whole number giving the number of predictor values to
@@ -106,7 +102,8 @@ toxval_predict.default <- function(
 
 #' @describeIn toxval_predict Method for a `brms` fit of class
 #'   [brms::brmsfit]. Realisations are the posterior draws, and group-level
-#'   effects are marginalised out (`re_formula = NA`).
+#'   effects are marginalised out (`re_formula = NA`). `x_var` is required,
+#'   since a `brmsfit` may have several predictors.
 #'
 #' @export
 toxval_predict.brmsfit <- function(
@@ -167,7 +164,9 @@ toxval_predict.brmsfit <- function(
 
 #' @describeIn toxval_predict Method for a `drc` fit returned by [drc::drm()].
 #'   Realisations are parametric bootstrap replicates, so results are stochastic
-#'   unless `seed` is supplied.
+#'   unless `seed` is supplied. `x_var` is read from the fit when `NULL`, and a
+#'   supplied `x_var` must match the dose variable of the fit, so another
+#'   column, such as the response, cannot be passed as the predictor.
 #'
 #' @param n_boot A whole number giving the number of parametric bootstrap
 #'   replicates to draw.
