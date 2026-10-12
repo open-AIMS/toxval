@@ -630,6 +630,26 @@ test_that("boot_parms errors when the variance-covariance matrix is missing valu
   )
 })
 
+test_that("boot_parms errors when the variance-covariance matrix is not positive definite", {
+  # a correlation of 2 between the parameters is impossible, so `chol()` fails
+  registerS3method(
+    "coef",
+    "toxval_stub_not_pd",
+    function(object, ...) c(a = 1, b = 2)
+  )
+  registerS3method("vcov", "toxval_stub_not_pd", function(object, ...) {
+    matrix(c(1, 2, 2, 1), nrow = 2, dimnames = list(c("a", "b"), c("a", "b")))
+  })
+
+  expect_error(
+    toxval:::boot_parms(
+      structure(list(), class = "toxval_stub_not_pd"),
+      n_boot = 5
+    ),
+    "`vcov\\(object\\)` must be positive definite; the fit may not be identified"
+  )
+})
+
 test_that("toxval_predict orders the curves by the content of the grouping variable", {
   # `herbicide` appears in the data as irgarol, diuron, ametryn, ..., so an
   # order taken from the rows would depend on how the data happened to be

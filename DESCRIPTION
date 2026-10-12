@@ -25,7 +25,6 @@ Imports:
     brms,
     chk (>= 0.11.0),
     dplyr,
-    MASS,
     modelbased,
     tidyr,
     withr
