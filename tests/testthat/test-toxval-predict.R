@@ -692,7 +692,7 @@ test_that("boot_parms errors when a coefficient is missing", {
   )
 })
 
-test_that("boot_parms errors when the variance-covariance matrix is missing values", {
+test_that("boot_parms errors when the variance-covariance matrix contains missing values", {
   registerS3method("coef", "toxval_stub", function(object, ...) c(a = 1, b = 2))
   registerS3method("vcov", "toxval_stub", function(object, ...) {
     matrix(c(1, NA, NA, 1), nrow = 2, dimnames = list(c("a", "b"), c("a", "b")))
