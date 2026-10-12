@@ -16,11 +16,7 @@ daphnids_fit <- function() {
 
 # toxval_predict argument checks --------------------------------------------
 
-test_that("toxval_predict errors when a method is given no x_var", {
-  expect_error(
-    toxval_predict(nsec_drc_1),
-    "`x_var` must be supplied for a `drc` fit"
-  )
+test_that("toxval_predict errors when a brmsfit is given no x_var", {
   expect_error(
     toxval_predict(brms_model_1),
     "`x_var` must be supplied for a `brmsfit`"
@@ -115,7 +111,7 @@ test_that("toxval_predict errors when x_range is not increasing", {
 
 test_that("toxval_predict errors when x_var is not a column of the data", {
   expect_error(
-    toxval_predict(nsec_drc_1, x_var = "dose"),
+    toxval_predict(brms_model_1, x_var = "dose"),
     "`x_var` must name a column of the data in `object`, not 'dose'"
   )
 })
@@ -214,6 +210,27 @@ test_that("toxval_predict errors for a multivariate brmsfit", {
 })
 
 # toxval_predict.drc --------------------------------------------------------
+
+test_that("toxval_predict reads x_var from a drc fit when it is not supplied", {
+  result <- toxval_predict(nsec_drc_1, resolution = 5, n_boot = 10, seed = 42)
+  supplied <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    resolution = 5,
+    n_boot = 10,
+    seed = 42
+  )
+
+  expect_equal(result$meta$x_var, "x")
+  expect_identical(result, supplied)
+})
+
+test_that("toxval_predict errors when x_var is not the dose variable of a drc fit", {
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "y", n_boot = 10),
+    "`x_var` must be 'x', the dose variable of `object`, not 'y'"
+  )
+})
 
 test_that("toxval_predict returns a toxval_pred for an ungrouped drc fit", {
   result <- toxval_predict(

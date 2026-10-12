@@ -27,7 +27,9 @@
 #' knows, and no method could relax it, because the generic validates before
 #' dispatch. A method that cannot identify the predictor -- a `brmsfit` may have
 #' several, and a nonlinear formula mixes them with the model parameters --
-#' errors on `NULL` instead.
+#' errors on `NULL` instead. The `drc` method checks a supplied `x_var` against
+#' the dose variable of the fit, so another column, such as the response,
+#' cannot be passed as the predictor.
 #'
 #' @section Grouping:
 #' Supply `group_var` to get one curve per level rather than a single curve
@@ -44,8 +46,9 @@
 #'   and `drc` fits.
 #' @param x_var A string naming the predictor variable in `object`, or `NULL`
 #'   where the class of `object` records which of its variables is the
-#'   predictor, for a method that reads it from there. Both methods in this
-#'   package require a string.
+#'   predictor, for a method that reads it from there. The `brmsfit` method
+#'   requires a string. The `drc` method reads it from the fit when `NULL`, and
+#'   a supplied value must match it.
 #' @param group_var A string naming the grouping variable in `object`, or `NULL`
 #'   for a single curve.
 #' @param resolution A whole number giving the number of predictor values to
@@ -187,14 +190,19 @@ toxval_predict.drc <- function(
   chk::chk_gt(n_boot, 0)
   chk::chk_null_or(seed, vld = chk::vld_whole_number)
 
-  # EXPECTED-CHANGE Delete comment at end of refactoring
-  # Comment about choosing to supply x_var instead of deriving it
-  # This is one of the model types that can derive it themselves, but this is safer
-  # `object$dataList$names$dName` records the predictor, so this method could
-  # read it rather than require it
-  chk_x_var_supplied(x_var, "`drc` fit")
+  dose_var <- object$dataList$names$dName
+  if (is.null(x_var)) {
+    x_var <- dose_var
+  } else if (x_var != dose_var) {
+    chk::abort_chk(
+      "`x_var` must be ",
+      chk::cc(dose_var),
+      ", the dose variable of `object`, not ",
+      chk::cc(x_var),
+      "."
+    )
+  }
   data <- object$data
-  chk_var_in_data(x_var, data, "x_var")
   if (!is.null(group_var)) {
     chk_var_in_data(group_var, data, "group_var")
   }
