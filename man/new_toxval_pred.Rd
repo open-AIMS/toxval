@@ -72,8 +72,8 @@ Row \emph{i} of \code{keys} identifies element \emph{i} of \code{curves}, and of
 \item{Ungrouped}{One row and no columns, such as
 \code{data.frame(row.names = 1L)}.}
 \item{Grouped}{A \code{group} column, a factor with one row per level.}
-\item{Multivariate}{A \code{response} column, a character vector with one row
-per response.}
+\item{Multivariate}{A \code{response} column, a factor with one row per
+response.}
 \item{Grouped multivariate}{Both columns, with one row per combination of
 group and response.}
 }

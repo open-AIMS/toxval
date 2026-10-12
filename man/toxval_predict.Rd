@@ -51,8 +51,7 @@ and \code{drc} fits.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
-predictor, for a method that reads it from there. Both methods in this
-package require a string.}
+predictor. Each method states whether it accepts \code{NULL}.}
 
 \item{group_var}{A string naming the grouping variable in \code{object}, or \code{NULL}
 for a single curve.}
@@ -101,11 +100,14 @@ several curves, as posterior draws are.
 
 \item \code{toxval_predict(brmsfit)}: Method for a \code{brms} fit of class
 \link[brms:brmsfit]{brms::brmsfit}. Realisations are the posterior draws, and group-level
-effects are marginalised out (\code{re_formula = NA}).
+effects are marginalised out (\code{re_formula = NA}). \code{x_var} is required,
+since a \code{brmsfit} may have several predictors.
 
 \item \code{toxval_predict(drc)}: Method for a \code{drc} fit returned by \code{\link[drc:drm]{drc::drm()}}.
 Realisations are parametric bootstrap replicates, so results are stochastic
-unless \code{seed} is supplied.
+unless \code{seed} is supplied. \code{x_var} is read from the fit when \code{NULL}, and a
+supplied \code{x_var} must match the dose variable of the fit, so another
+column, such as the response, cannot be passed as the predictor.
 
 }}
 \section{Supplying the predictor}{
@@ -124,8 +126,13 @@ errors on \code{NULL} instead.
 
 Supply \code{group_var} to get one curve per level rather than a single curve
 marginalised across levels. For a \code{brmsfit} it names a column of the model
-data; for a \code{drc} fit it names the column passed as \code{curveid}, and the levels
-are read from the coefficient names rather than from a column position.
+data that enters as a population-level effect: group-level effects are
+marginalised, so a variable that appears only in a group-level term, such as
+\code{site} in \code{y ~ x + (1 | site)}, gives every level the same curve and is an
+error. For a \code{drc} fit it must name the column passed as \code{curveid}, and the
+levels are read from the coefficient names rather than from a column
+position. The curves follow the declared order of a factor, and otherwise
+the sorted order of the levels, for both methods.
 }
 
 \examples{
