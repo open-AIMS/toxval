@@ -449,7 +449,6 @@ test_that("boot_parms draws from MVN(coef(object), vcov(object))", {
 })
 
 test_that("the realisations of a grouped drc fit come from one joint parameter draw", {
-  # TODO Becky to review next
   # alignment: replicate i of every curve is the same draw of the whole
   # parameter vector, which is what makes per-realisation quantities from
   # different curves comparable row by row
@@ -483,7 +482,6 @@ test_that("the realisations of a grouped drc fit come from one joint parameter d
   )
 })
 
-# TODO Becky to review next
 test_that("drc_eval_curve reproduces the drc mean function row by row", {
   x_vec <- c(0.5, 1, 2)
   parms <- rbind(coef(nsec_drc_1), coef(nsec_drc_1) * 1.1)
@@ -503,7 +501,6 @@ test_that("drc_eval_curve reproduces the drc mean function row by row", {
   }
 })
 
-# TODO Becky to review next
 test_that("drc_split_parm_names splits drc coefficient names on the first colon", {
   # a curve level comes from the data and may contain a colon; a drc parameter
   # name does not
@@ -548,7 +545,6 @@ test_that("drc_split_parm_names splits drc coefficients as expected", {
   expect_equal(result$curve, c("(Intercept)", "(Intercept)", "(Intercept)", "(Intercept)"))
 })
 
-# TODO Becky to review next
 test_that("drc_split_parm_names errors on a name it cannot split", {
   expect_error(
     toxval:::drc_split_parm_names(c("b", "e")),
@@ -556,7 +552,6 @@ test_that("drc_split_parm_names errors on a name it cannot split", {
   )
 })
 
-# TODO Becky to review next
 test_that("toxval_predict builds each curve of a drc fit with shared parameters", {
   # `pmodels` fits one slope across both curves and an ED50 for each, so the
   # coefficients are `b:(Intercept)`, `e:24h` and `e:48h`: a curve is assembled
@@ -611,7 +606,6 @@ test_that("drc_curve_cols errors when a parameter is missing for a curve", {
   )
 })
 
-# TODO Becky to review next
 test_that("boot_parms errors when a coefficient is missing", {
   # a rank-deficient fit drops a coefficient to NA rather than failing
   data <- data.frame(y = c(1, 2, 3, 5), x = c(1, 2, 3, 4))
@@ -624,7 +618,6 @@ test_that("boot_parms errors when a coefficient is missing", {
   )
 })
 
-# TODO Becky to review next
 test_that("boot_parms errors when the variance-covariance matrix is missing values", {
   registerS3method("coef", "toxval_stub", function(object, ...) c(a = 1, b = 2))
   registerS3method("vcov", "toxval_stub", function(object, ...) {
@@ -637,7 +630,6 @@ test_that("boot_parms errors when the variance-covariance matrix is missing valu
   )
 })
 
-# TODO Becky to review next
 test_that("toxval_predict orders the curves by the content of the grouping variable", {
   # `herbicide` appears in the data as irgarol, diuron, ametryn, ..., so an
   # order taken from the rows would depend on how the data happened to be
@@ -679,7 +671,6 @@ test_that("group_levels orders character levels the same in every locale", {
   )
 })
 
-# TODO Becky to review next
 test_that("group_levels keeps the declared order of a factor", {
   # the declared order differs from both the alphabetical order (control, high,
   # medium) and the order of first appearance (high, control, medium), so the
@@ -697,7 +688,6 @@ test_that("group_levels keeps the declared order of a factor", {
   expect_equal(levels(result), c("control", "medium", "high"))
 })
 
-# TODO Becky to review next
 test_that("toxval_predict handles a single bootstrap replicate", {
   # n_boot = 1 is the edge case where a draw is most easily returned as a
   # vector rather than a 1-row matrix. The values also pin the draw for a
