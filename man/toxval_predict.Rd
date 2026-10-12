@@ -101,13 +101,18 @@ several curves, as posterior draws are.
 \item \code{toxval_predict(brmsfit)}: Method for a \code{brms} fit of class
 \link[brms:brmsfit]{brms::brmsfit}. Realisations are the posterior draws, and group-level
 effects are marginalised out (\code{re_formula = NA}). \code{x_var} is required,
-since a \code{brmsfit} may have several predictors.
+since a \code{brmsfit} may have several predictors. \code{group_var} must name a
+column of the model data that enters as a population-level effect: a
+variable that appears only in a group-level term, such as \code{site} in
+\code{y ~ x + (1 | site)}, gives every level the same curve and is an error.
 
 \item \code{toxval_predict(drc)}: Method for a \code{drc} fit returned by \code{\link[drc:drm]{drc::drm()}}.
 Realisations are parametric bootstrap replicates, so results are stochastic
 unless \code{seed} is supplied. \code{x_var} is read from the fit when \code{NULL}, and a
 supplied \code{x_var} must match the dose variable of the fit, so another
 column, such as the response, cannot be passed as the predictor.
+\code{group_var} must name the column passed as \code{curveid}, and the levels are
+read from the coefficient names rather than from a column position.
 
 }}
 \section{Supplying the predictor}{
@@ -125,14 +130,9 @@ errors on \code{NULL} instead.
 \section{Grouping}{
 
 Supply \code{group_var} to get one curve per level rather than a single curve
-marginalised across levels. For a \code{brmsfit} it names a column of the model
-data that enters as a population-level effect: group-level effects are
-marginalised, so a variable that appears only in a group-level term, such as
-\code{site} in \code{y ~ x + (1 | site)}, gives every level the same curve and is an
-error. For a \code{drc} fit it must name the column passed as \code{curveid}, and the
-levels are read from the coefficient names rather than from a column
-position. The curves follow the declared order of a factor, and otherwise
-the sorted order of the levels, for both methods.
+marginalised across levels. The curves follow the declared order of a
+factor, and otherwise the sorted order of the levels. Each method states
+what \code{group_var} must name.
 }
 
 \examples{
