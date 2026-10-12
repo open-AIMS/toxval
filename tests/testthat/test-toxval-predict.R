@@ -190,6 +190,20 @@ test_that("toxval_predict returns different curves for different groups", {
   expect_false(identical(result$curves[[1]], result$curves[[2]]))
 })
 
+test_that("toxval_predict errors when group_var is only a group-level effect", {
+  # brms_model_6 is `y ~ log(x) + (1 | z)`; with group-level effects
+  # marginalised both levels of z would get the same curve
+  expect_error(
+    toxval_predict(
+      brms_model_6,
+      x_var = "x",
+      group_var = "z",
+      resolution = 6
+    ),
+    "`group_var` must be fitted as a population-level effect in `object` to give one curve per level; group-level effects are marginalised"
+  )
+})
+
 test_that("toxval_predict errors for a multivariate brmsfit", {
   # EXPECTED-CHANGE multivariate brmsfit support, one curve per response
   # this test will stop erroring once that change is applied

@@ -32,7 +32,10 @@
 #' @section Grouping:
 #' Supply `group_var` to get one curve per level rather than a single curve
 #' marginalised across levels. For a `brmsfit` it names a column of the model
-#' data; for a `drc` fit it must name the column passed as `curveid`, and the
+#' data that enters as a population-level effect: group-level effects are
+#' marginalised, so a variable that appears only in a group-level term, such as
+#' `site` in `y ~ x + (1 | site)`, gives every level the same curve and is an
+#' error. For a `drc` fit it must name the column passed as `curveid`, and the
 #' levels are read from the coefficient names rather than from a column
 #' position. The curves follow the declared order of a factor, and otherwise
 #' the sorted order of the levels, for both methods.
@@ -131,6 +134,17 @@ toxval_predict.brmsfit <- function(
 
   x_vec <- predict_grid(x_range, data[[x_var]], resolution)
   curve_set <- brms_curves(object, x_vec, x_var, group_var)
+
+  # check effects are population-level
+  curves <- curve_set$curves
+  same <- vapply(curves[-1], identical, logical(1), curves[[1]])
+  if (length(curves) > 1 && all(same)) {
+    chk::abort_chk(
+      "group-level effects are marginalised;", 
+      "`group_var` must be fitted as a population-level effect in `object` to ",
+      "give one curve per level."
+    )
+  }
 
   new_toxval_pred(
     curves = curve_set$curves,
