@@ -140,7 +140,7 @@ toxval_predict.brmsfit <- function(
   same <- vapply(curves[-1], identical, logical(1), curves[[1]])
   if (length(curves) > 1 && all(same)) {
     chk::abort_chk(
-      "group-level effects are marginalised;", 
+      "group-level effects are marginalised; ", 
       "`group_var` must be fitted as a population-level effect in `object` to ",
       "give one curve per level."
     )

@@ -200,7 +200,7 @@ test_that("toxval_predict errors when group_var is only a group-level effect", {
       group_var = "z",
       resolution = 6
     ),
-    "`group_var` must be fitted as a population-level effect in `object` to give one curve per level; group-level effects are marginalised"
+    "Group-level effects are marginalised; `group_var` must be fitted as a population-level effect in `object` to give one curve per level."
   )
 })
 
