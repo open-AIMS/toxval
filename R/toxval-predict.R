@@ -31,14 +31,9 @@
 #'
 #' @section Grouping:
 #' Supply `group_var` to get one curve per level rather than a single curve
-#' marginalised across levels. For a `brmsfit` it names a column of the model
-#' data that enters as a population-level effect: group-level effects are
-#' marginalised, so a variable that appears only in a group-level term, such as
-#' `site` in `y ~ x + (1 | site)`, gives every level the same curve and is an
-#' error. For a `drc` fit it must name the column passed as `curveid`, and the
-#' levels are read from the coefficient names rather than from a column
-#' position. The curves follow the declared order of a factor, and otherwise
-#' the sorted order of the levels, for both methods.
+#' marginalised across levels. The curves follow the declared order of a
+#' factor, and otherwise the sorted order of the levels. Each method states
+#' what `group_var` must name.
 #'
 #' @param object A fitted model object. Methods are provided for [brms::brmsfit]
 #'   and `drc` fits.
@@ -103,7 +98,10 @@ toxval_predict.default <- function(
 #' @describeIn toxval_predict Method for a `brms` fit of class
 #'   [brms::brmsfit]. Realisations are the posterior draws, and group-level
 #'   effects are marginalised out (`re_formula = NA`). `x_var` is required,
-#'   since a `brmsfit` may have several predictors.
+#'   since a `brmsfit` may have several predictors. `group_var` must name a
+#'   column of the model data that enters as a population-level effect: a
+#'   variable that appears only in a group-level term, such as `site` in
+#'   `y ~ x + (1 | site)`, gives every level the same curve and is an error.
 #'
 #' @export
 toxval_predict.brmsfit <- function(
@@ -167,6 +165,8 @@ toxval_predict.brmsfit <- function(
 #'   unless `seed` is supplied. `x_var` is read from the fit when `NULL`, and a
 #'   supplied `x_var` must match the dose variable of the fit, so another
 #'   column, such as the response, cannot be passed as the predictor.
+#'   `group_var` must name the column passed as `curveid`, and the levels are
+#'   read from the coefficient names rather than from a column position.
 #'
 #' @param n_boot A whole number giving the number of parametric bootstrap
 #'   replicates to draw.
