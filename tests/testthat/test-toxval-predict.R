@@ -148,7 +148,7 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped brmsfit", {
   expect_s3_class(result, "toxval_pred")
   expect_type(result$curves, "list")
   expect_length(result$curves, 1)
-  expect_null(names(result$curves))
+  expect_equal(result$keys, data.frame(row.names = 1L))
   expect_equal(ncol(result$curves[[1]]), 6)
   expect_equal(nrow(result$curves[[1]]), brms::ndraws(brms_model_1))
 
@@ -156,7 +156,6 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped brmsfit", {
   expect_equal(result$meta$x_var, "x")
   expect_null(result$meta$group_var)
   expect_null(result$meta$multi_var)
-  expect_equal(result$meta$dimension, "none")
   expect_equal(result$meta$resolution, 6)
   expect_equal(result$meta$x_range, c(0.8, 1.05))
   expect_equal(result$meta$family, "gaussian")
@@ -165,7 +164,7 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped brmsfit", {
   expect_null(result$meta$seed)
 })
 
-test_that("toxval_predict returns one named curve per group for a grouped brmsfit", {
+test_that("toxval_predict returns one curve per group for a grouped brmsfit", {
   result <- toxval_predict(
     brms_model_2,
     x_var = "x",
@@ -174,11 +173,10 @@ test_that("toxval_predict returns one named curve per group for a grouped brmsfi
   )
 
   expect_length(result$curves, 2)
-  expect_named(result$curves, c("1", "2"))
-  expect_equal(result$meta$dimension, "group")
+  expect_equal(result$keys, data.frame(group = factor(c("1", "2"))))
   expect_equal(result$meta$group_var, "z")
-  expect_equal(ncol(result$curves[["1"]]), 6)
-  expect_equal(ncol(result$curves[["2"]]), 6)
+  expect_equal(ncol(result$curves[[1]]), 6)
+  expect_equal(ncol(result$curves[[2]]), 6)
 })
 
 test_that("toxval_predict returns different curves for different groups", {
@@ -189,7 +187,7 @@ test_that("toxval_predict returns different curves for different groups", {
     resolution = 6
   )
 
-  expect_false(identical(result$curves[["1"]], result$curves[["2"]]))
+  expect_false(identical(result$curves[[1]], result$curves[[2]]))
 })
 
 test_that("toxval_predict errors for a multivariate brmsfit", {
@@ -214,14 +212,13 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped drc fit", {
 
   expect_s3_class(result, "toxval_pred")
   expect_length(result$curves, 1)
-  expect_null(names(result$curves))
+  expect_equal(result$keys, data.frame(row.names = 1L))
   expect_equal(dim(result$curves[[1]]), c(10L, 5L))
 
   expect_equal(result$meta$source_class, "drc")
   expect_equal(result$meta$x_var, "x")
   expect_null(result$meta$group_var)
   expect_null(result$meta$multi_var)
-  expect_equal(result$meta$dimension, "none")
   expect_equal(result$meta$resolution, 5)
   expect_equal(result$meta$x_range, c(0.032, 3.221), tolerance = 0.001)
   expect_null(result$meta$family)
@@ -230,7 +227,7 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped drc fit", {
   expect_equal(result$meta$seed, 42)
 })
 
-test_that("toxval_predict returns one named curve per curveid for a grouped drc fit", {
+test_that("toxval_predict returns one curve per curveid for a grouped drc fit", {
   result <- toxval_predict(
     daphnids_fit(),
     x_var = "dose",
@@ -241,10 +238,9 @@ test_that("toxval_predict returns one named curve per curveid for a grouped drc 
   )
 
   expect_length(result$curves, 2)
-  expect_named(result$curves, c("24h", "48h"))
-  expect_equal(result$meta$dimension, "group")
+  expect_equal(result$keys, data.frame(group = factor(c("24h", "48h"))))
   expect_equal(result$meta$group_var, "time")
-  expect_equal(dim(result$curves[["24h"]]), c(10L, 5L))
+  expect_equal(dim(result$curves[[1]]), c(10L, 5L))
 })
 
 test_that("toxval_predict errors when a grouped drc fit is given no group_var", {
@@ -468,8 +464,9 @@ test_that("the realisations of a grouped drc fit come from one joint parameter d
   )
   parms <- toxval:::boot_parms(fit, n_boot = 5, seed = 11)
 
+  expect_equal(as.character(result$keys$group), c("24h", "48h"))
   expect_equal(
-    result$curves[["24h"]],
+    result$curves[[1]],
     toxval:::drc_eval_curve(
       fit,
       result$x_vec,
@@ -477,7 +474,7 @@ test_that("the realisations of a grouped drc fit come from one joint parameter d
     )
   )
   expect_equal(
-    result$curves[["48h"]],
+    result$curves[[2]],
     toxval:::drc_eval_curve(
       fit,
       result$x_vec,
@@ -540,7 +537,7 @@ test_that("toxval_predict keeps a curveid level that contains a colon", {
     seed = 1
   )
 
-  expect_named(result$curves, c("t:24h", "t:48h"))
+  expect_equal(as.character(result$keys$group), c("t:24h", "t:48h"))
 })
 
 test_that("drc_split_parm_names splits drc coefficients as expected", {
@@ -594,13 +591,14 @@ test_that("toxval_predict builds each curve of a drc fit with shared parameters"
     n_boot = 1
   )
 
-  expect_named(result$curves, c("24h", "48h"))
-  for (level in c("24h", "48h")) {
+  expect_equal(as.character(result$keys$group), c("24h", "48h"))
+  for (i in seq_len(nrow(result$keys))) {
+    level <- as.character(result$keys$group[i])
     fitted <- predict(
       fit,
       newdata = data.frame(dose = result$x_vec, time = level)
     )
-    expect_equal(result$curves[[level]][1, ], as.numeric(fitted))
+    expect_equal(result$curves[[i]][1, ], as.numeric(fitted))
   }
 })
 
@@ -643,7 +641,7 @@ test_that("boot_parms errors when the variance-covariance matrix is missing valu
 test_that("toxval_predict orders the curves by the content of the grouping variable", {
   # `herbicide` appears in the data as irgarol, diuron, ametryn, ..., so an
   # order taken from the rows would depend on how the data happened to be
-  # sorted, and the curve names become the group descriptor of the result
+  # sorted, and the levels become the group descriptor of the result
   result <- toxval_predict(
     brms_model_4,
     x_var = "x",
@@ -651,8 +649,8 @@ test_that("toxval_predict orders the curves by the content of the grouping varia
     resolution = 3
   )
 
-  expect_named(
-    result$curves,
+  expect_equal(
+    as.character(result$keys$group),
     c(
       "ametryn",
       "atrazine",
