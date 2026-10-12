@@ -546,7 +546,7 @@ chk_x_range <- function(x_range) {
     return(invisible(x_range))
   }
   chk::chk_numeric(x_range, x_name = "`x_range`")
-  # EXPECTED-CHANGE Remove this comment after refactor is done
+  # REVIEW-TEXT Remove this comment after refactor is done
   # length is checked before anything that would be applied element-wise, so a
   # length-2 `x_range` never reaches a scalar test (see `is.na(x_range)` in the
   # pre-refactor entry points)
@@ -596,7 +596,7 @@ chk_x_var_supplied <- function(x_var, source) {
 
 #' @noRd
 chk_var_in_data <- function(var, data, arg) {
-  # EXPECTED-CHANGE delete comment around phase 5
+  # REVIEW-TEXT delete comment around phase 5
   # Matched with `%in%` rather than the `max(grepl(var, col_names)) == 0` still
   # used by `nsec.brmsfit()`, `nsec_multi()` and `ecx.brmsfit()`, so
   # `x_var = "x"` does not match a column called `max_x`.
