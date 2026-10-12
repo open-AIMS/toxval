@@ -140,7 +140,7 @@ toxval_predict.brmsfit <- function(
   same <- vapply(curves[-1], identical, logical(1), curves[[1]])
   if (length(curves) > 1 && all(same)) {
     chk::abort_chk(
-      "group-level effects are marginalised; ", 
+      "group-level effects are marginalised; ",
       "`group_var` must be fitted as a population-level effect in `object` to ",
       "give one curve per level."
     )
@@ -324,7 +324,7 @@ group_keys <- function(groups = NULL) {
 #' the content of the variable rather than by the order its rows happen to be
 #' in: re-sorting the input data must not re-order the output.
 #' Character levels are sorted with `method = "radix"`, which uses the C-locale
-#' order in every session. 
+#' order in every session.
 #'
 #' @param x A grouping variable.
 #'
@@ -404,7 +404,7 @@ drc_eval_curve <- function(object, x_vec, parms) {
   x_rep <- rep(x_vec, times = n)
   draw_rows <- rep(seq_len(n), each = nx)
   y <- object$fct$fct(
-    x_rep, 
+    x_rep,
     parms[draw_rows, , drop = FALSE]
   )
   matrix(as.numeric(y), nrow = n, ncol = nx, byrow = TRUE)

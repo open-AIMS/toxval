@@ -114,7 +114,7 @@ test_that("new_toxval_pred accepts a threshold and a control", {
 
   expect_equal(result$threshold[[1]], c(1.5, 1.7))
   expect_equal(result$control[[1]], c(10.2, 10.6))
-  
+
   expect_equal(result$threshold[[2]], c(2.1, 2.4))
   expect_equal(result$control[[2]], c(9.4, 9.9))
 })
@@ -273,7 +273,7 @@ test_that("new_toxval_pred errors when keys is not a data frame", {
     regexp = "`keys` must be a data.frame"
   )
 })
- 
+
 test_that("new_toxval_pred errors when keys has a column other than group or response", {
   expect_error(
     new_toxval_pred(

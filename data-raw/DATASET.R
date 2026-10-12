@@ -164,7 +164,7 @@ save(
 )
 strip_stanmodel("tests/testthat/fixtures/brms_model_5.rda")
 
-# z enters only through a group-level term 
+# z enters only through a group-level term
 # compared to the population level of brms_model_2
 data <- data.frame(
   x = c(1.05, 1.0, 0.95, 0.9, 0.8),

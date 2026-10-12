@@ -379,7 +379,7 @@ test_that("toxval_predict errors when seed is not a whole number", {
     toxval_predict(nsec_drc_1, x_var = "x", seed = "42"),
     "`seed` must be a whole number .* or NULL"
   )
-  
+
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", seed = 42.5),
     "`seed` must be a whole number .* or NULL"
@@ -420,11 +420,17 @@ test_that("toxval_predict errors when the predictor takes a single value", {
   fit$data$x <- 1
 
   expect_error(
-    toxval_predict(fit, x_var = "x",  resolution = 4, n_boot = 5),
+    toxval_predict(fit, x_var = "x", resolution = 4, n_boot = 5),
     "`object` must have more than one value of the predictor, or `x_range` must be supplied"
   )
   expect_no_error(
-    toxval_predict(fit, x_var = "x", x_range = c(0, 3), resolution = 4, n_boot = 5)
+    toxval_predict(
+      fit,
+      x_var = "x",
+      x_range = c(0, 3),
+      resolution = 4,
+      n_boot = 5
+    )
   )
 })
 
@@ -631,9 +637,12 @@ test_that("toxval_predict keeps a curveid level that contains a colon", {
 test_that("drc_split_parm_names splits drc coefficients as expected", {
   # nsec_drc_1 uses LL.4 is the four parameter log-logistic model
   result <- toxval:::drc_split_parm_names(names(coef(nsec_drc_1)))
-  
+
   expect_equal(result$param, c("b", "c", "d", "e"))
-  expect_equal(result$curve, c("(Intercept)", "(Intercept)", "(Intercept)", "(Intercept)"))
+  expect_equal(
+    result$curve,
+    c("(Intercept)", "(Intercept)", "(Intercept)", "(Intercept)")
+  )
 })
 
 test_that("drc_split_parm_names errors on a name it cannot split", {
