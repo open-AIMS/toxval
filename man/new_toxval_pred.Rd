@@ -5,22 +5,25 @@
 \alias{toxval_pred}
 \title{Realisations of a fitted curve over a predictor grid}
 \usage{
-new_toxval_pred(curves, x_vec, meta, threshold = NULL, control = NULL)
+new_toxval_pred(curves, keys, x_vec, meta, threshold = NULL, control = NULL)
 }
 \arguments{
-\item{curves}{A list of numeric matrices of realisations, one element per
-group or response. See Slots and Naming of \code{curves}.}
+\item{curves}{An unnamed list of numeric matrices of realisations, one
+element per row of \code{keys}. See Slots.}
+
+\item{keys}{A data frame identifying the curves, one row per element of
+\code{curves}. See Identifying curves.}
 
 \item{x_vec}{A numeric vector of at least two finite, strictly increasing
 predictor values.}
 
 \item{meta}{A named list of metadata. See Metadata.}
 
-\item{threshold}{A list of numeric vectors of per-realisation threshold
-values, named as \code{curves} is, or \code{NULL}.}
+\item{threshold}{An unnamed list of numeric vectors of per-realisation
+threshold values, one element per row of \code{keys}, or \code{NULL}.}
 
-\item{control}{A list of numeric vectors of per-realisation control values,
-named as \code{curves} is, or \code{NULL}.}
+\item{control}{An unnamed list of numeric vectors of per-realisation control
+values, one element per row of \code{keys}, or \code{NULL}.}
 }
 \value{
 An object of class \code{toxval_pred}.
@@ -41,56 +44,58 @@ contract documented here is what such a method has to satisfy.
 \section{Slots}{
 
 \describe{
-\item{\code{curves}}{A list of numeric matrices, each \code{n_realisation} rows by
-\code{length(x_vec)} columns, holding one realisation of the fitted curve per
-row. One element per group or per response; a single element when the fit
-is ungrouped.}
+\item{\code{curves}}{An unnamed list of numeric matrices, each \code{n_realisation}
+rows by \code{length(x_vec)} columns, holding one realisation of the fitted
+curve per row. One element per row of \code{keys}.}
+\item{\code{keys}}{A data frame identifying the curves, one row per element of
+\code{curves}; see below.}
 \item{\code{x_vec}}{The predictor grid the curves are evaluated over.}
-\item{\code{threshold}}{Per-realisation values of a genuine threshold parameter
-such as a NEC, or \code{NULL} where the model has none. Not recoverable from
-\code{curves}, which is why it is carried separately.}
-\item{\code{control}}{Per-realisation control response from a control-only fit,
-estimated independently of the dose-response shape, or \code{NULL}. Keyed like
-\code{curves}, because a grouped fit has one control per group.}
+\item{\code{threshold}}{An unnamed list of per-realisation values of a genuine
+threshold parameter such as a NEC, one element per row of \code{keys}, or
+\code{NULL} where the model has none. Not recoverable from \code{curves}, which is
+why it is carried separately.}
+\item{\code{control}}{An unnamed list of per-realisation control responses from
+a control-only fit, estimated independently of the dose-response shape,
+one element per row of \code{keys}, or \code{NULL}. One element per curve, because
+a grouped fit has one control per group.}
 \item{\code{meta}}{Named list of metadata; see below.}
 }
 }
 
-\section{Naming of \code{curves}}{
+\section{Identifying curves}{
 
-\code{curves} is named when the names mean something and unnamed when they do not.
-For \code{meta$dimension} of \code{"group"} or \code{"response"} the list has one uniquely
-named element per level or response, and those names become the \code{group} or
-\code{response} column of the result. For \code{"none"} the list has exactly one
-element and no names, rather than a placeholder name that a real group could
-collide with. \code{threshold}, when supplied, carries the same names in the same
-order, and so does \code{control}.
+Row \emph{i} of \code{keys} identifies element \emph{i} of \code{curves}, and of \code{threshold} and
+\code{control} when they are supplied. The columns of \code{keys} are drawn from
+\code{group} and \code{response}, and become the descriptor columns of the result:
+
+\describe{
+\item{Ungrouped}{One row and no columns, such as
+\code{data.frame(row.names = 1L)}.}
+\item{Grouped}{A \code{group} column, a factor with one row per level.}
+\item{Multivariate}{A \code{response} column, a factor with one row per
+response.}
+\item{Grouped multivariate}{Both columns, with one row per combination of
+group and response.}
 }
 
-\section{One descriptor at a time}{
-
-\code{dimension} names a single descriptor, so \code{curves} is keyed by group or by
-response and never by both: a fit that is both grouped and multivariate has
-no representation here. No supported fitting path produces one -- \code{nsec_multi()}
-takes no \code{group_var} -- so the limit sits in the contract rather than in the
-code. Lifting it means keying \code{curves} by a table of descriptors, one row per
-curve, rather than by a single dimension, which is a change to this contract
-rather than an addition to it.
+Rows of \code{keys} are unique and contain no missing values. A curve is
+identified by its row rather than by a list name, because a fit that is both
+grouped and multivariate needs two descriptors per curve.
 }
 
 \section{Realisation alignment}{
 
 Realisation \emph{i} is the same underlying draw in every slot: row \emph{i} of every
 matrix in \code{curves}, element \emph{i} of every element of \code{threshold}, and element
-\emph{i} of \code{control} all come from the same posterior draw or the same bootstrap
-replicate. This is what makes per-realisation quantities computed from
-different slots comparable row by row.
+\emph{i} of every element of \code{control} all come from the same posterior draw or
+the same bootstrap replicate. This is what makes per-realisation quantities
+computed from different slots comparable row by row.
 
 The invariant itself cannot be checked from the object -- nothing records
 which draw a row came from. What \code{new_toxval_pred()} does check is
 conformability, which is where a violation shows up: every matrix in \code{curves}
-has \code{meta$n_realisation} rows and \code{length(x_vec)} columns, and every
-\code{threshold} element and \code{control} has \code{meta$n_realisation} values. Supplying
+has \code{meta$n_realisation} rows and \code{length(x_vec)} columns, and every element
+of \code{threshold} and \code{control} has \code{meta$n_realisation} values. Supplying
 aligned realisations is the caller's responsibility.
 }
 
@@ -105,13 +110,10 @@ can record what it needs to.
 realisations came from.}
 \item{\code{x_var}}{String, the name of the predictor variable.}
 \item{\code{group_var}}{String naming the grouping variable. Required when
-\code{dimension} is \code{"group"}, and \code{NULL} when \code{dimension} is \code{"none"}.}
+\code{keys} has a \code{group} column, and \code{NULL} otherwise.}
 \item{\code{multi_var}}{String naming the response variable of a multivariate
-fit. Required when \code{dimension} is \code{"response"}, and \code{NULL} when
-\code{dimension} is \code{"none"}.}
-\item{\code{dimension}}{One of \code{"none"}, \code{"group"} or \code{"response"}. Determines
-whether the result carries a \code{group} column, a \code{response} column or
-neither, and which of \code{group_var} and \code{multi_var} the object must carry.}
+fit. Required when \code{keys} has a \code{response} column, and \code{NULL}
+otherwise.}
 \item{\code{resolution}}{Whole number, the number of values in \code{x_vec}.}
 \item{\code{x_range}}{Numeric of length 2, the range of \code{x_vec}.}
 \item{\code{family}}{String naming the response distribution, or \code{NULL} where
@@ -127,13 +129,13 @@ realisations, or \code{NULL}.}
 \examples{
 new_toxval_pred(
   curves = list(matrix(c(10, 9, 8, 7, 11, 9, 7, 5), nrow = 2, byrow = TRUE)),
+  keys = data.frame(row.names = 1L),
   x_vec = c(0, 1, 2, 3),
   meta = list(
     source_class = "brmsfit",
     x_var = "x",
     group_var = NULL,
     multi_var = NULL,
-    dimension = "none",
     resolution = 4,
     x_range = c(0, 3),
     family = "gaussian",

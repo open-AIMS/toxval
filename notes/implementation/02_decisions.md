@@ -246,6 +246,10 @@ T15 makes such a call valid. `bayesnec` constructs `toxval_pred` from outside
 confined to one PR. `toxval_predict.brmsfit()` still refuses a multivariate fit
 until a later phase adds one curve per response.
 
+The `group` column is a factor whose levels follow the row order, so the order
+`group_levels()` gives survives into the result. `response` is a factor for the
+same reason (2026-10-11, AP).
+
 ## T15 — `nsec_multi()` folded into `nsec()` (#20)
 
 Settled 2026-09-04 (RF) on #20. Recorded 2026-10-09 (RF), after the review of

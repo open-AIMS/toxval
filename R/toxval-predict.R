@@ -31,16 +31,15 @@
 #'
 #' @section Grouping:
 #' Supply `group_var` to get one curve per level rather than a single curve
-#' marginalised across levels. For a `brmsfit` it names a column of the model
-#' data; for a `drc` fit it names the column passed as `curveid`, and the levels
-#' are read from the coefficient names rather than from a column position.
+#' marginalised across levels. The curves follow the declared order of a
+#' factor, and otherwise the sorted order of the levels. Each method states
+#' what `group_var` must name.
 #'
 #' @param object A fitted model object. Methods are provided for [brms::brmsfit]
 #'   and `drc` fits.
 #' @param x_var A string naming the predictor variable in `object`, or `NULL`
 #'   where the class of `object` records which of its variables is the
-#'   predictor, for a method that reads it from there. Both methods in this
-#'   package require a string.
+#'   predictor. Each method states whether it accepts `NULL`.
 #' @param group_var A string naming the grouping variable in `object`, or `NULL`
 #'   for a single curve.
 #' @param resolution A whole number giving the number of predictor values to
@@ -98,7 +97,11 @@ toxval_predict.default <- function(
 
 #' @describeIn toxval_predict Method for a `brms` fit of class
 #'   [brms::brmsfit]. Realisations are the posterior draws, and group-level
-#'   effects are marginalised out (`re_formula = NA`).
+#'   effects are marginalised out (`re_formula = NA`). `x_var` is required,
+#'   since a `brmsfit` may have several predictors. `group_var` must name a
+#'   column of the model data that enters as a population-level effect: a
+#'   variable that appears only in a group-level term, such as `site` in
+#'   `y ~ x + (1 | site)`, gives every level the same curve and is an error.
 #'
 #' @export
 toxval_predict.brmsfit <- function(
@@ -128,16 +131,28 @@ toxval_predict.brmsfit <- function(
   }
 
   x_vec <- predict_grid(x_range, data[[x_var]], resolution)
-  curves <- brms_curves(object, x_vec, x_var, group_var)
+  curve_set <- brms_curves(object, x_vec, x_var, group_var)
+
+  # check effects are population-level
+  curves <- curve_set$curves
+  same <- vapply(curves[-1], identical, logical(1), curves[[1]])
+  if (length(curves) > 1 && all(same)) {
+    chk::abort_chk(
+      "group-level effects are marginalised; ",
+      "`group_var` must be fitted as a population-level effect in `object` to ",
+      "give one curve per level."
+    )
+  }
 
   new_toxval_pred(
-    curves = curves,
+    curves = curve_set$curves,
+    keys = curve_set$keys,
     x_vec = x_vec,
     meta = build_meta(
       object = object,
       x_vec = x_vec,
       x_var = x_var,
-      curves = curves,
+      curves = curve_set$curves,
       group_var = group_var,
       realisation = "draws",
       family = object$family$family
@@ -147,7 +162,11 @@ toxval_predict.brmsfit <- function(
 
 #' @describeIn toxval_predict Method for a `drc` fit returned by [drc::drm()].
 #'   Realisations are parametric bootstrap replicates, so results are stochastic
-#'   unless `seed` is supplied.
+#'   unless `seed` is supplied. `x_var` is read from the fit when `NULL`, and a
+#'   supplied `x_var` must match the dose variable of the fit, so another
+#'   column, such as the response, cannot be passed as the predictor.
+#'   `group_var` must name the column passed as `curveid`, and the levels are
+#'   read from the coefficient names rather than from a column position.
 #'
 #' @param n_boot A whole number giving the number of parametric bootstrap
 #'   replicates to draw.
@@ -170,29 +189,35 @@ toxval_predict.drc <- function(
   chk::chk_gt(n_boot, 0)
   chk::chk_null_or(seed, vld = chk::vld_whole_number)
 
-  # EXPECTED-CHANGE Delete comment at end of refactoring
-  # Comment about choosing to supply x_var instead of deriving it
-  # This is one of the model types that can derive it themselves, but this is safer
-  # `object$dataList$names$dName` records the predictor, so this method could
-  # read it rather than require it
-  chk_x_var_supplied(x_var, "`drc` fit")
+  dose_var <- object$dataList$names$dName
+  if (is.null(x_var)) {
+    x_var <- dose_var
+  } else if (x_var != dose_var) {
+    chk::abort_chk(
+      "`x_var` must be ",
+      chk::cc(dose_var),
+      ", the dose variable of `object`, not ",
+      chk::cc(x_var),
+      "."
+    )
+  }
   data <- object$data
-  chk_var_in_data(x_var, data, "x_var")
   if (!is.null(group_var)) {
     chk_var_in_data(group_var, data, "group_var")
   }
 
   x_vec <- predict_grid(x_range, data[[x_var]], resolution)
-  curves <- drc_curves(object, x_vec, group_var, n_boot, seed)
+  curve_set <- drc_curves(object, x_vec, group_var, n_boot, seed)
 
   new_toxval_pred(
-    curves = curves,
+    curves = curve_set$curves,
+    keys = curve_set$keys,
     x_vec = x_vec,
     meta = build_meta(
       object = object,
       x_vec = x_vec,
       x_var = x_var,
-      curves = curves,
+      curves = curve_set$curves,
       group_var = group_var,
       realisation = "bootstrap",
       seed = seed
@@ -231,14 +256,12 @@ build_meta <- function(
 ) {
   # EXPECTED-CHANGE multivariate brmsfit support, one curve per response
   # The one place that assumes every supported fit is univariate: such a fit
-  # keys its curves by response, so it would supply `multi_var` and take
-  # `dimension` from that rather than from `group_var`.
+  # identifies its curves by response, so it would supply `multi_var`.
   list(
     source_class = class(object)[1],
     x_var = x_var,
     group_var = group_var,
     multi_var = NULL,
-    dimension = if (is.null(group_var)) "none" else "group",
     resolution = length(x_vec),
     x_range = range(x_vec),
     family = family,
@@ -250,42 +273,58 @@ build_meta <- function(
 
 #' Posterior draws of every curve in a brmsfit
 #'
-#' Returns the `curves` list, named by group and `NULL`-named when ungrouped,
-#' following the [toxval_pred] naming rule.
-#'
 #' EXPECTED-CHANGE multivariate brmsfit support, one curve per response
-#' A multivariate fit adds a third branch here, keyed by the response names
-#' `posterior_epred()` returns in `dimnames(.)[[3]]`.
+#' A multivariate fit adds a third branch here, with a `response` column of
+#' `keys` taken from the response names `posterior_epred()` returns in
+#' `dimnames(.)[[3]]`.
 #'
 #' @param object A fitted model of class [brms::brmsfit].
 #' @param x_vec The predictor grid.
 #' @param x_var Name of the predictor variable.
 #' @param group_var Name of the grouping variable, or `NULL`.
 #'
-#' @return A list of matrices, one per curve.
+#' @return A list with `curves`, a list of matrices with one per curve, and
+#'   `keys`, the [toxval_pred] table identifying them.
 #'
 #' @noRd
 brms_curves <- function(object, x_vec, x_var, group_var) {
   if (is.null(group_var)) {
-    return(list(epred_curve(object, x_vec, x_var)))
+    return(list(
+      curves = list(epred_curve(object, x_vec, x_var)),
+      keys = group_keys()
+    ))
   }
   groups <- group_levels(object$data[[group_var]])
   curves <- lapply(seq_along(groups), function(i) {
     epred_curve(object, x_vec, x_var, group_var, groups[i])
   })
-  names(curves) <- as.character(groups)
-  curves
+  list(curves = curves, keys = group_keys(groups))
+}
+
+#' The `keys` table of an ungrouped or grouped fit
+#'
+#' @param groups The levels of the grouping variable, in curve order, or `NULL`
+#'   for a single curve.
+#'
+#' @return A data frame with a factor `group` column whose levels follow the
+#'   curve order, or one row and no columns when `groups` is `NULL`.
+#'
+#' @noRd
+group_keys <- function(groups = NULL) {
+  if (is.null(groups)) {
+    return(data.frame(row.names = 1L))
+  }
+  groups <- as.character(groups)
+  data.frame(group = factor(groups, levels = groups))
 }
 
 #' The levels of a grouping variable, in a stable order
 #'
-#' The curve names become the group descriptor of the result, so they are
-#' ordered by the content of the variable rather than by the order its rows
-#' happen to be in: re-sorting the input data must not re-order the output.
+#' The levels become the group descriptor of the result, so they are ordered by
+#' the content of the variable rather than by the order its rows happen to be
+#' in: re-sorting the input data must not re-order the output.
 #' Character levels are sorted with `method = "radix"`, which uses the C-locale
-#' order in every session. Plain `sort()` collates by the session locale, so
-#' mixed-case levels would be ordered differently for users in different
-#' locales, and differently again under testthat, which runs with a C collation.
+#' order in every session.
 #'
 #' @param x A grouping variable.
 #'
@@ -365,7 +404,7 @@ drc_eval_curve <- function(object, x_vec, parms) {
   x_rep <- rep(x_vec, times = n)
   draw_rows <- rep(seq_len(n), each = nx)
   y <- object$fct$fct(
-    x_rep, 
+    x_rep,
     parms[draw_rows, , drop = FALSE]
   )
   matrix(as.numeric(y), nrow = n, ncol = nx, byrow = TRUE)
@@ -379,8 +418,8 @@ drc_eval_curve <- function(object, x_vec, parms) {
 #' @param n_boot Number of bootstrap replicates.
 #' @param seed Seed for the draw, or `NULL`.
 #'
-#' @return A list of matrices, named by curve and `NULL`-named for a single
-#'   curve, following the `toxval_pred` naming rule.
+#' @return A list with `curves`, a list of matrices with one per curve, and
+#'   `keys`, the [toxval_pred] table identifying them.
 #'
 #' @noRd
 drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
@@ -416,6 +455,21 @@ drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
     )
   }
 
+  if (grouped) {
+    curveid <- object$dataList$names$cNames
+    if (group_var != curveid) {
+      chk::abort_chk(
+        "`group_var` must be the `curveid` of `object`, not ",
+        chk::cc(group_var),
+        "."
+      )
+    }
+    # `coef()` orders the curves by row when the `curveid` is a character
+    # column, so they are put in the order `brms_curves()` gives its groups
+    labels <- as.character(group_levels(object$dataList$curveid))
+    curve_ids <- curve_ids[order(match(curve_ids, labels))]
+  }
+
   curves <- lapply(curve_ids, function(id) {
     # one draw of the whole parameter vector per replicate, so the curves stay
     # aligned with each other replicate by replicate
@@ -426,10 +480,7 @@ drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
     )
   })
 
-  if (grouped) {
-    names(curves) <- curve_ids
-  }
-  curves
+  list(curves = curves, keys = group_keys(if (grouped) curve_ids))
 }
 
 #' Locate the parameter columns of one curve
@@ -495,7 +546,7 @@ chk_x_range <- function(x_range) {
     return(invisible(x_range))
   }
   chk::chk_numeric(x_range, x_name = "`x_range`")
-  # EXPECTED-CHANGE Remove this comment after refactor is done
+  # REVIEW-TEXT Remove this comment after refactor is done
   # length is checked before anything that would be applied element-wise, so a
   # length-2 `x_range` never reaches a scalar test (see `is.na(x_range)` in the
   # pre-refactor entry points)
@@ -545,7 +596,7 @@ chk_x_var_supplied <- function(x_var, source) {
 
 #' @noRd
 chk_var_in_data <- function(var, data, arg) {
-  # EXPECTED-CHANGE delete comment around phase 5
+  # REVIEW-TEXT delete comment around phase 5
   # Matched with `%in%` rather than the `max(grepl(var, col_names)) == 0` still
   # used by `nsec.brmsfit()`, `nsec_multi()` and `ecx.brmsfit()`, so
   # `x_var = "x"` does not match a column called `max_x`.

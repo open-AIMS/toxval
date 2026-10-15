@@ -6,6 +6,13 @@
 #' and replicate *i* of another come from the same parameter draw, which is the
 #' alignment invariant `toxval_pred` carries.
 #'
+#' The draw is built from the Cholesky factor of `vcov(object)`, which is unique
+#' for a positive-definite matrix, so a seed gives the same replicates on every
+#' platform. `MASS::mvrnorm()` factorises with `eigen()`, where the sign of each
+#' eigenvector depends on the LAPACK build. The normal deviates fill the matrix
+#' by row, so increasing `n_boot` appends replicates rather than redrawing the
+#' first ones.
+#'
 #' @param object A fitted model with `coef()` and `vcov()` methods.
 #' @param n_boot Number of bootstrap replicates.
 #' @param seed Seed for the draw, or `NULL` to use the current RNG state.
@@ -31,11 +38,19 @@ boot_parms <- function(object, n_boot, seed = NULL) {
     )
   }
 
+  root <- tryCatch(chol(sigma), error = function(e) NULL)
+  if (is.null(root)) {
+    chk::abort_chk(
+      "`vcov(object)` must be positive definite; the fit may not be ",
+      "identified."
+    )
+  }
+
   if (!is.null(seed)) {
     withr::local_seed(seed)
   }
-  parms <- MASS::mvrnorm(n = n_boot, mu = mu, Sigma = sigma)
-
-  # mvrnorm() returns a named numeric vector for n = 1 instead of a 1-row matrix
-  matrix(parms, nrow = n_boot, dimnames = list(NULL, names(mu)))
+  z <- matrix(stats::rnorm(n_boot * length(mu)), nrow = n_boot, byrow = TRUE)
+  parms <- sweep(z %*% root, 2, mu, "+")
+  colnames(parms) <- names(mu)
+  parms
 }

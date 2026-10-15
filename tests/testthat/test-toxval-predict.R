@@ -16,11 +16,7 @@ daphnids_fit <- function() {
 
 # toxval_predict argument checks --------------------------------------------
 
-test_that("toxval_predict errors when a method is given no x_var", {
-  expect_error(
-    toxval_predict(nsec_drc_1),
-    "`x_var` must be supplied for a `drc` fit"
-  )
+test_that("toxval_predict errors when a brmsfit is given no x_var", {
   expect_error(
     toxval_predict(brms_model_1),
     "`x_var` must be supplied for a `brmsfit`"
@@ -73,7 +69,7 @@ test_that("toxval_predict errors when resolution is 1 or less", {
 })
 
 test_that("toxval_predict errors when x_range is not length 2", {
-  # EXPECTED-CHANGE Remove comment after refactoring is done
+  # REVIEW-TEXT Remove comment after refactoring is done
   # a length-2 `x_range` must reach the comparisons below without being tested
   # element-wise first, which is what `is.na(x_range)` did in the pre-refactor
   # entry points
@@ -115,7 +111,7 @@ test_that("toxval_predict errors when x_range is not increasing", {
 
 test_that("toxval_predict errors when x_var is not a column of the data", {
   expect_error(
-    toxval_predict(nsec_drc_1, x_var = "dose"),
+    toxval_predict(brms_model_1, x_var = "dose"),
     "`x_var` must name a column of the data in `object`, not 'dose'"
   )
 })
@@ -148,7 +144,7 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped brmsfit", {
   expect_s3_class(result, "toxval_pred")
   expect_type(result$curves, "list")
   expect_length(result$curves, 1)
-  expect_null(names(result$curves))
+  expect_equal(result$keys, data.frame(row.names = 1L))
   expect_equal(ncol(result$curves[[1]]), 6)
   expect_equal(nrow(result$curves[[1]]), brms::ndraws(brms_model_1))
 
@@ -156,7 +152,6 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped brmsfit", {
   expect_equal(result$meta$x_var, "x")
   expect_null(result$meta$group_var)
   expect_null(result$meta$multi_var)
-  expect_equal(result$meta$dimension, "none")
   expect_equal(result$meta$resolution, 6)
   expect_equal(result$meta$x_range, c(0.8, 1.05))
   expect_equal(result$meta$family, "gaussian")
@@ -165,7 +160,7 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped brmsfit", {
   expect_null(result$meta$seed)
 })
 
-test_that("toxval_predict returns one named curve per group for a grouped brmsfit", {
+test_that("toxval_predict returns one curve per group for a grouped brmsfit", {
   result <- toxval_predict(
     brms_model_2,
     x_var = "x",
@@ -174,11 +169,10 @@ test_that("toxval_predict returns one named curve per group for a grouped brmsfi
   )
 
   expect_length(result$curves, 2)
-  expect_named(result$curves, c("1", "2"))
-  expect_equal(result$meta$dimension, "group")
+  expect_equal(result$keys, data.frame(group = factor(c("1", "2"))))
   expect_equal(result$meta$group_var, "z")
-  expect_equal(ncol(result$curves[["1"]]), 6)
-  expect_equal(ncol(result$curves[["2"]]), 6)
+  expect_equal(ncol(result$curves[[1]]), 6)
+  expect_equal(ncol(result$curves[[2]]), 6)
 })
 
 test_that("toxval_predict returns different curves for different groups", {
@@ -189,7 +183,21 @@ test_that("toxval_predict returns different curves for different groups", {
     resolution = 6
   )
 
-  expect_false(identical(result$curves[["1"]], result$curves[["2"]]))
+  expect_false(identical(result$curves[[1]], result$curves[[2]]))
+})
+
+test_that("toxval_predict errors when group_var is only a group-level effect", {
+  # brms_model_6 is `y ~ log(x) + (1 | z)`; with group-level effects
+  # marginalised both levels of z would get the same curve
+  expect_error(
+    toxval_predict(
+      brms_model_6,
+      x_var = "x",
+      group_var = "z",
+      resolution = 6
+    ),
+    "Group-level effects are marginalised; `group_var` must be fitted as a population-level effect in `object` to give one curve per level."
+  )
 })
 
 test_that("toxval_predict errors for a multivariate brmsfit", {
@@ -203,6 +211,27 @@ test_that("toxval_predict errors for a multivariate brmsfit", {
 
 # toxval_predict.drc --------------------------------------------------------
 
+test_that("toxval_predict reads x_var from a drc fit when it is not supplied", {
+  result <- toxval_predict(nsec_drc_1, resolution = 5, n_boot = 10, seed = 42)
+  supplied <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    resolution = 5,
+    n_boot = 10,
+    seed = 42
+  )
+
+  expect_equal(result$meta$x_var, "x")
+  expect_identical(result, supplied)
+})
+
+test_that("toxval_predict errors when x_var is not the dose variable of a drc fit", {
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "y", n_boot = 10),
+    "`x_var` must be 'x', the dose variable of `object`, not 'y'"
+  )
+})
+
 test_that("toxval_predict returns a toxval_pred for an ungrouped drc fit", {
   result <- toxval_predict(
     nsec_drc_1,
@@ -214,14 +243,13 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped drc fit", {
 
   expect_s3_class(result, "toxval_pred")
   expect_length(result$curves, 1)
-  expect_null(names(result$curves))
+  expect_equal(result$keys, data.frame(row.names = 1L))
   expect_equal(dim(result$curves[[1]]), c(10L, 5L))
 
   expect_equal(result$meta$source_class, "drc")
   expect_equal(result$meta$x_var, "x")
   expect_null(result$meta$group_var)
   expect_null(result$meta$multi_var)
-  expect_equal(result$meta$dimension, "none")
   expect_equal(result$meta$resolution, 5)
   expect_equal(result$meta$x_range, c(0.032, 3.221), tolerance = 0.001)
   expect_null(result$meta$family)
@@ -230,7 +258,7 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped drc fit", {
   expect_equal(result$meta$seed, 42)
 })
 
-test_that("toxval_predict returns one named curve per curveid for a grouped drc fit", {
+test_that("toxval_predict returns one curve per curveid for a grouped drc fit", {
   result <- toxval_predict(
     daphnids_fit(),
     x_var = "dose",
@@ -241,10 +269,9 @@ test_that("toxval_predict returns one named curve per curveid for a grouped drc 
   )
 
   expect_length(result$curves, 2)
-  expect_named(result$curves, c("24h", "48h"))
-  expect_equal(result$meta$dimension, "group")
+  expect_equal(result$keys, data.frame(group = factor(c("24h", "48h"))))
   expect_equal(result$meta$group_var, "time")
-  expect_equal(dim(result$curves[["24h"]]), c(10L, 5L))
+  expect_equal(dim(result$curves[[1]]), c(10L, 5L))
 })
 
 test_that("toxval_predict errors when a grouped drc fit is given no group_var", {
@@ -260,7 +287,7 @@ test_that("toxval_predict errors when a grouped drc fit is given no group_var", 
 })
 
 test_that("toxval_predict errors when an ungrouped drc fit is given a group_var", {
-  # EXPECTED-CHANGE remove this comment after re-factoring
+  # REVIEW-TEXT remove this comment after re-factoring
   # the curves are read from the coefficient names, so a `group_var` that names
   # a real column of a single-curve fit is still an error unlike issue (#34)
   # in the original code, ie new code didn't code in that bug
@@ -274,6 +301,66 @@ test_that("toxval_predict errors when an ungrouped drc fit is given a group_var"
     ),
     "`group_var` must be NULL for a `drc` fit with a single curve"
   )
+})
+
+test_that("toxval_predict errors when group_var is not the curveid of a drc fit", {
+  # `dose` is a column of the data, so only the comparison with the `curveid`
+  # stops it being recorded as the grouping variable
+  expect_error(
+    toxval_predict(
+      daphnids_fit(),
+      x_var = "dose",
+      group_var = "dose",
+      resolution = 5,
+      n_boot = 10
+    ),
+    "`group_var` must be the `curveid` of `object`, not 'dose'"
+  )
+})
+
+test_that("toxval_predict orders the curves of a drc fit by level, not by row", {
+  # with the rows reversed and `time` a character column, `coef()` names the
+  # 48h curve first; each curve is compared with `predict()` for its level, so
+  # a reordering of `keys` without the curves also fails
+  data <- drc::daphnids[rev(seq_len(nrow(drc::daphnids))), ]
+  data$time <- as.character(data$time)
+  fit <- drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = data,
+    fct = drc::LL.2(),
+    type = "binomial"
+  )
+  mu <- coef(fit)
+  local_mocked_bindings(
+    boot_parms = function(object, n_boot, seed = NULL) {
+      matrix(
+        mu,
+        nrow = n_boot,
+        ncol = length(mu),
+        byrow = TRUE,
+        dimnames = list(NULL, names(mu))
+      )
+    }
+  )
+  result <- toxval_predict(
+    fit,
+    x_var = "dose",
+    group_var = "time",
+    resolution = 4,
+    n_boot = 1
+  )
+
+  expect_equal(result$keys, data.frame(group = factor(c("24h", "48h"))))
+  for (i in seq_len(nrow(result$keys))) {
+    level <- as.character(result$keys$group[i])
+    fitted <- predict(
+      fit,
+      newdata = data.frame(dose = result$x_vec, time = level)
+    )
+    expect_equal(result$curves[[i]][1, ], as.numeric(fitted))
+  }
 })
 
 test_that("toxval_predict errors when n_boot is not a positive whole number", {
@@ -292,7 +379,7 @@ test_that("toxval_predict errors when seed is not a whole number", {
     toxval_predict(nsec_drc_1, x_var = "x", seed = "42"),
     "`seed` must be a whole number .* or NULL"
   )
-  
+
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", seed = 42.5),
     "`seed` must be a whole number .* or NULL"
@@ -333,11 +420,17 @@ test_that("toxval_predict errors when the predictor takes a single value", {
   fit$data$x <- 1
 
   expect_error(
-    toxval_predict(fit, x_var = "x",  resolution = 4, n_boot = 5),
+    toxval_predict(fit, x_var = "x", resolution = 4, n_boot = 5),
     "`object` must have more than one value of the predictor, or `x_range` must be supplied"
   )
   expect_no_error(
-    toxval_predict(fit, x_var = "x", x_range = c(0, 3), resolution = 4, n_boot = 5)
+    toxval_predict(
+      fit,
+      x_var = "x",
+      x_range = c(0, 3),
+      resolution = 4,
+      n_boot = 5
+    )
   )
 })
 
@@ -453,7 +546,6 @@ test_that("boot_parms draws from MVN(coef(object), vcov(object))", {
 })
 
 test_that("the realisations of a grouped drc fit come from one joint parameter draw", {
-  # TODO Becky to review next
   # alignment: replicate i of every curve is the same draw of the whole
   # parameter vector, which is what makes per-realisation quantities from
   # different curves comparable row by row
@@ -468,8 +560,9 @@ test_that("the realisations of a grouped drc fit come from one joint parameter d
   )
   parms <- toxval:::boot_parms(fit, n_boot = 5, seed = 11)
 
+  expect_equal(as.character(result$keys$group), c("24h", "48h"))
   expect_equal(
-    result$curves[["24h"]],
+    result$curves[[1]],
     toxval:::drc_eval_curve(
       fit,
       result$x_vec,
@@ -477,7 +570,7 @@ test_that("the realisations of a grouped drc fit come from one joint parameter d
     )
   )
   expect_equal(
-    result$curves[["48h"]],
+    result$curves[[2]],
     toxval:::drc_eval_curve(
       fit,
       result$x_vec,
@@ -486,7 +579,6 @@ test_that("the realisations of a grouped drc fit come from one joint parameter d
   )
 })
 
-# TODO Becky to review next
 test_that("drc_eval_curve reproduces the drc mean function row by row", {
   x_vec <- c(0.5, 1, 2)
   parms <- rbind(coef(nsec_drc_1), coef(nsec_drc_1) * 1.1)
@@ -506,7 +598,6 @@ test_that("drc_eval_curve reproduces the drc mean function row by row", {
   }
 })
 
-# TODO Becky to review next
 test_that("drc_split_parm_names splits drc coefficient names on the first colon", {
   # a curve level comes from the data and may contain a colon; a drc parameter
   # name does not
@@ -540,18 +631,20 @@ test_that("toxval_predict keeps a curveid level that contains a colon", {
     seed = 1
   )
 
-  expect_named(result$curves, c("t:24h", "t:48h"))
+  expect_equal(as.character(result$keys$group), c("t:24h", "t:48h"))
 })
 
 test_that("drc_split_parm_names splits drc coefficients as expected", {
   # nsec_drc_1 uses LL.4 is the four parameter log-logistic model
   result <- toxval:::drc_split_parm_names(names(coef(nsec_drc_1)))
-  
+
   expect_equal(result$param, c("b", "c", "d", "e"))
-  expect_equal(result$curve, c("(Intercept)", "(Intercept)", "(Intercept)", "(Intercept)"))
+  expect_equal(
+    result$curve,
+    c("(Intercept)", "(Intercept)", "(Intercept)", "(Intercept)")
+  )
 })
 
-# TODO Becky to review next
 test_that("drc_split_parm_names errors on a name it cannot split", {
   expect_error(
     toxval:::drc_split_parm_names(c("b", "e")),
@@ -559,7 +652,6 @@ test_that("drc_split_parm_names errors on a name it cannot split", {
   )
 })
 
-# TODO Becky to review next
 test_that("toxval_predict builds each curve of a drc fit with shared parameters", {
   # `pmodels` fits one slope across both curves and an ED50 for each, so the
   # coefficients are `b:(Intercept)`, `e:24h` and `e:48h`: a curve is assembled
@@ -594,13 +686,14 @@ test_that("toxval_predict builds each curve of a drc fit with shared parameters"
     n_boot = 1
   )
 
-  expect_named(result$curves, c("24h", "48h"))
-  for (level in c("24h", "48h")) {
+  expect_equal(as.character(result$keys$group), c("24h", "48h"))
+  for (i in seq_len(nrow(result$keys))) {
+    level <- as.character(result$keys$group[i])
     fitted <- predict(
       fit,
       newdata = data.frame(dose = result$x_vec, time = level)
     )
-    expect_equal(result$curves[[level]][1, ], as.numeric(fitted))
+    expect_equal(result$curves[[i]][1, ], as.numeric(fitted))
   }
 })
 
@@ -613,7 +706,6 @@ test_that("drc_curve_cols errors when a parameter is missing for a curve", {
   )
 })
 
-# TODO Becky to review next
 test_that("boot_parms errors when a coefficient is missing", {
   # a rank-deficient fit drops a coefficient to NA rather than failing
   data <- data.frame(y = c(1, 2, 3, 5), x = c(1, 2, 3, 4))
@@ -626,8 +718,7 @@ test_that("boot_parms errors when a coefficient is missing", {
   )
 })
 
-# TODO Becky to review next
-test_that("boot_parms errors when the variance-covariance matrix is missing values", {
+test_that("boot_parms errors when the variance-covariance matrix contains missing values", {
   registerS3method("coef", "toxval_stub", function(object, ...) c(a = 1, b = 2))
   registerS3method("vcov", "toxval_stub", function(object, ...) {
     matrix(c(1, NA, NA, 1), nrow = 2, dimnames = list(c("a", "b"), c("a", "b")))
@@ -639,11 +730,30 @@ test_that("boot_parms errors when the variance-covariance matrix is missing valu
   )
 })
 
-# TODO Becky to review next
+test_that("boot_parms errors when the variance-covariance matrix is not positive definite", {
+  # a correlation of 2 between the parameters is impossible, so `chol()` fails
+  registerS3method(
+    "coef",
+    "toxval_stub_not_pd",
+    function(object, ...) c(a = 1, b = 2)
+  )
+  registerS3method("vcov", "toxval_stub_not_pd", function(object, ...) {
+    matrix(c(1, 2, 2, 1), nrow = 2, dimnames = list(c("a", "b"), c("a", "b")))
+  })
+
+  expect_error(
+    toxval:::boot_parms(
+      structure(list(), class = "toxval_stub_not_pd"),
+      n_boot = 5
+    ),
+    "`vcov\\(object\\)` must be positive definite; the fit may not be identified"
+  )
+})
+
 test_that("toxval_predict orders the curves by the content of the grouping variable", {
   # `herbicide` appears in the data as irgarol, diuron, ametryn, ..., so an
   # order taken from the rows would depend on how the data happened to be
-  # sorted, and the curve names become the group descriptor of the result
+  # sorted, and the levels become the group descriptor of the result
   result <- toxval_predict(
     brms_model_4,
     x_var = "x",
@@ -651,8 +761,8 @@ test_that("toxval_predict orders the curves by the content of the grouping varia
     resolution = 3
   )
 
-  expect_named(
-    result$curves,
+  expect_equal(
+    as.character(result$keys$group),
     c(
       "ametryn",
       "atrazine",
@@ -681,7 +791,6 @@ test_that("group_levels orders character levels the same in every locale", {
   )
 })
 
-# TODO Becky to review next
 test_that("group_levels keeps the declared order of a factor", {
   # the declared order differs from both the alphabetical order (control, high,
   # medium) and the order of first appearance (high, control, medium), so the
@@ -699,7 +808,6 @@ test_that("group_levels keeps the declared order of a factor", {
   expect_equal(levels(result), c("control", "medium", "high"))
 })
 
-# TODO Becky to review next
 test_that("toxval_predict handles a single bootstrap replicate", {
   # n_boot = 1 is the edge case where a draw is most easily returned as a
   # vector rather than a 1-row matrix. The values also pin the draw for a

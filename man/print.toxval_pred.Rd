@@ -20,13 +20,13 @@ Print a toxval_pred
 \examples{
 pred <- new_toxval_pred(
   curves = list(matrix(c(10, 9, 8, 7, 11, 9, 7, 5), nrow = 2, byrow = TRUE)),
+  keys = data.frame(row.names = 1L),
   x_vec = c(0, 1, 2, 3),
   meta = list(
     source_class = "brmsfit",
     x_var = "x",
     group_var = NULL,
     multi_var = NULL,
-    dimension = "none",
     resolution = 4,
     x_range = c(0, 3),
     family = "gaussian",
