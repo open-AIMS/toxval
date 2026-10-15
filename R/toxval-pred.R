@@ -272,6 +272,19 @@ chk_keys <- function(keys, meta) {
     chk::chk_factor(keys$response, x_name = "`keys$response`")
   }
 
+  # `arrange()` and plotting order a factor by its levels, so the levels must
+  # follow the rows of `keys` for the result to keep the curve order
+  for (col in names(keys)) {
+    if (!identical(levels(keys[[col]]), unique(as.character(keys[[col]])))) {
+      chk::abort_chk(
+        "Levels of `keys$",
+        col,
+        "` must be its values in order of first appearance, ",
+        "with no unused levels."
+      )
+    }
+  }
+
   if ("group" %in% names(keys) && is.null(meta$group_var)) {
     chk::abort_chk(
       "`meta$group_var` must be supplied when `keys` has a 'group' column."
