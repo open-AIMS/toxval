@@ -1,8 +1,9 @@
 # Decisions — toxval
 
 Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
-2026-09-04/05 with T8-T12, which settle the definitions gating the refactor. A
-session implements these rather than re-opening them.
+2026-09-04/05 with T8-T12, which settle the definitions gating the refactor, and
+2026-10-09 with T13-T17, from the review of PR #59. A session implements these
+rather than re-opening them.
 
 **Scope.** This file records decisions about the **package** — what the code
 does and why. Workflow is not recorded here: branching, remotes and review live
@@ -218,6 +219,71 @@ does the reserved `"control"`. Only the default was in question.
 
 **This completes phase 0.** #19, #20, #49 and the `anchor` default are all
 settled, so `REFACTOR-claude.md` §4 phase 1 can begin.
+
+## T13 — per-curve `control` (#59)
+
+Settled 2026-09-12 (AP), ratified 2026-10-09 (RF). Stated in full in
+`REFACTOR-claude.md` §3.4.
+
+`control` holds one vector of control realisations per curve, aligned to the
+rows of `keys` (T14), rather than a single vector. A grouped fit has one control
+per group. On three simulated sites with control responses of 10, 6 and 2 and a
+common NSEC, per-site controls gave 0.289, 0.301 and 0.309, while one pooled
+control gave 2.947, 2.376 and 0.216. Under `anchor = "control"` the control-only
+fit must be grouped as the dose-response fit is, and a mismatch is an error.
+
+## T14 — the `keys` table of `toxval_pred` (#59, #20)
+
+Settled 2026-10-09 (RF). Stated in full in `REFACTOR-claude.md` §3.4.
+
+`toxval_pred` identifies each curve by a row of `keys`, a data frame whose
+columns are drawn from `group` and `response`. An ungrouped fit has one row and
+no columns. `keys` replaces the names of `curves` and `meta$dimension`, so that a
+fit that is both grouped and multivariate can be represented.
+
+T15 makes such a call valid. `bayesnec` constructs `toxval_pred` from outside
+`toxval` from phase 7, so the structure changes in phase 2, while the change is
+confined to one PR. `toxval_predict.brmsfit()` still refuses a multivariate fit
+until a later phase adds one curve per response.
+
+The `group` column is a factor whose levels follow the row order, so the order
+`group_levels()` gives survives into the result. `response` is a factor for the
+same reason (2026-10-11, AP).
+
+## T15 — `nsec_multi()` folded into `nsec()` (#20)
+
+Settled 2026-09-04 (RF) on #20. Recorded 2026-10-09 (RF), after the review of
+#59 found the plan still listing `nsec_multi` as a separate metric function.
+Stated in full in `REFACTOR-claude.md` §3.3.
+
+`nsec_multi()` becomes a deprecated wrapper around `nsec()`. Its arguments are
+redistributed:
+
+- `multi_var` and `trials_var` become arguments of `toxval_predict.brmsfit()`.
+- `type = "both"`, `"increasing"` and `"decreasing"` become filters on the
+  `direction` column (T10).
+- `type = "lower"` with `criterion` stays an argument of `nsec()`, under a new
+  name chosen in phase 4, because `type` in `nsec()` selects the `ecnsec`
+  definition (T8).
+
+## T16 — marginalised group-level effects in a `brmsfit` (#59)
+
+Settled 2026-10-09 (RF). Stated in full in `REFACTOR-claude.md` §3.7.
+
+Group-level (random) effects are marginalised with `re_formula = NA`, so every
+estimate is a population-level estimate. A user who wants one estimate per group
+fits the group as a population-level effect. A `group_var` that enters the model
+only through a group-level term is an error, because every level would receive
+the same curve.
+
+## T17 — the predictor of a `drc` fit (#59)
+
+Settled 2026-10-09 (RF). Stated in full in `REFACTOR-claude.md` §3.7.
+
+`x_var` is optional for a `drc` fit. It is read from
+`object$dataList$names$dName` when `NULL`, and a supplied value must equal that
+name. Requiring it, and checking only that it named a column of the data,
+accepted the response as the predictor without an error.
 
 ---
 

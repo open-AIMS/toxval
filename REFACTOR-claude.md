@@ -165,7 +165,7 @@ ecx(brms_grouped, x_var = "x", group_var = "site", by_group = TRUE, ecx_val = 10
 #> # Settings: resolution 1000 | 4000 posterior draws
 #> # Groups:   site [3]
 #>   metric direction  group estimate conf.low conf.high ecx_val type     control reference
-#>   <chr>  <chr>      <chr>    <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
+#>   <chr>  <chr>      <fct>    <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
 #> 1 ecx    decreasing A         0.71     0.55      0.88      10 absolute    0.98      0.88
 #> 2 ecx    decreasing B         1.02     0.83      1.24      10 absolute    1.10      0.99
 #> 3 ecx    decreasing C         0.44     0.31      0.58      10 absolute    0.87      0.78
@@ -203,8 +203,9 @@ not by an argument flipping the return type.
 ### 3.3 Single-generic architecture
 
 `toxval_predict()` is the only S3 generic. It dispatches on model class and
-returns a `toxval_pred`. The metric functions (`ecx`, `nsec`, `nsec_multi`,
-...) are plain, non-generic functions that compute on a `toxval_pred`.
+returns a `toxval_pred`. The metric functions (`ecx`, `nsec`, ...) are plain,
+non-generic functions that compute on a `toxval_pred`. `nsec_multi()` is not
+among them: it is folded into `nsec()` (T15, below).
 
 Metric functions accept **either a fitted model or a pre-built `toxval_pred`**
 (one `inherits()` check at the top), which enables predict-once / compute-many
@@ -231,28 +232,127 @@ This is also what makes #39 tractable: `toxval_pred` **is** the "plain-input
 API" that untangle needs. It should be built once, here, and not prototyped
 separately.
 
+#### Folding `nsec_multi()` into `nsec()`  (T15)
+
+Settled 2026-09-04 (RF) on #20, and recorded here 2026-10-09 (RF) on #59, after
+the review of #59 found the plan still listing `nsec_multi` as a separate metric
+function. `nsec_multi()` becomes a deprecated wrapper around `nsec()`.
+
+Once direction is a column of the result ([3.6](#36-direction)), each argument
+that only `nsec_multi()` takes is either handled elsewhere or kept:
+
+- `multi_var` and `trials_var` say which data the curves are predicted from, so
+  they are predict-level under [3.7](#37-validation) and become arguments of
+  `toxval_predict.brmsfit()`. `trials_var` names the column of trial counts in a
+  binomial model.
+- `type = "both"`, `"increasing"` and `"decreasing"` are filters on the
+  `direction` column, and are removed.
+- `type = "lower"` with `criterion` selects, for each response, the direction
+  whose NSEC is lower at the `criterion` quantile of the realisations (default
+  0.8). It is the one metric-level rule, and it stays an argument of `nsec()`.
+
+`type = "lower"` cannot keep its name. In `nsec()`, `type` selects the `ecnsec`
+definition ([3.1](#31-output-contract-everything-is-a-toxval-tibble), #49), and
+T10 rules out a `direction` argument. The new name is chosen in phase 4, when
+`nsec()` gains these arguments.
+
+The consequence that matters now is that `nsec(fit, group_var = , multi_var = )`
+becomes a valid call. A grouped multivariate fit therefore has to be
+representable in `toxval_pred`, which is T14
+([3.4](#34-the-toxval_pred-intermediate-object)).
+
 ### 3.4 The `toxval_pred` intermediate object
 
 `toxval_pred` holds realisations of the fitted curve as a **list**, one element
-per group or response (a single element when ungrouped), plus metadata:
+per curve, plus a `keys` table identifying each curve, plus metadata:
 
 ```
 toxval_pred:
-  curves    : named list of matrices, each [n_realisation x n_x]
+  curves    : list of matrices, each [n_realisation x n_x], unnamed and
+              aligned to the rows of `keys`
+  keys      : data frame, one row per curve; columns drawn from `group` and
+              `response`, so zero columns when ungrouped (T14)
   x_vec     : numeric [n_x]
-  threshold : named list of numeric [n_realisation], or NULL
-              per-realisation threshold parameter where the model has a
-              genuine one (a NEC); NULL otherwise. Needed for `nec` and
+  threshold : list of numeric [n_realisation] aligned to the rows of `keys`,
+              or NULL. Per-realisation threshold parameter where the model has
+              a genuine one (a NEC); NULL otherwise. Needed for `nec` and
               `n(s)ec`, which are not recoverable from `curves`.
-  control   : numeric [n_realisation] from a control-only fit, or NULL.
-              Realisations of the control response estimated *independently
-              of the dose-response shape*. Subject to the same alignment
-              invariant as `curves`. Needed by `anchor = "control"` (3.8)
-              and by the mismatch warning that guards it.
+  control   : list of numeric [n_realisation] from a control-only fit, aligned
+              to the rows of `keys`, or NULL (T13). Realisations of the control
+              response estimated *independently of the dose-response shape*.
+              Subject to the same alignment invariant as `curves`. Needed by
+              `anchor = "control"` (3.8) and by the mismatch warning that
+              guards it.
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
-              dimension ("none" | "group" | "response"), family, realisation
-              source ("draws" | "bootstrap"), n_realisation, ...
+              family, realisation source ("draws" | "bootstrap"),
+              n_realisation, seed, ...
 ```
+
+**`control` is keyed like `curves`, not a bare vector.** Settled 2026-09-12
+(AP) on #59, and ratified 2026-10-09 (RF) as T13. A grouped fit has one control
+per group, so a single vector cannot hold it. Measured on three synthetic sites decaying at the same relative rate
+from baselines of 10, 6 and 2, where the correct NSEC is identical for all
+three: per-group controls give 0.289, 0.301 and 0.309, while pooling the control
+draws into one vector gives 2.947, 2.376 and 0.216, and 99 per cent of the
+first site's draws never reach the pooled reference at all. The mismatch warning
+in [3.8](#38-the-nsec-reference-the-anchor-argument) also needs the per-group
+basis: against a pooled vector it either always fires or never does.
+
+A consequence for `anchor = "control"`: the control-only fit must be grouped the
+same way as the dose-response fit, since the two `keys` tables have to match.
+Where it is not, that is an error rather than something to pool.
+
+#### The `keys` table  (T14)
+
+Settled 2026-10-09 (RF) on #59. `toxval_pred` identifies each curve by a row of
+`keys`, a data frame with one column per descriptor, drawn from `group` and
+`response` (the descriptor columns of
+[3.1](#31-output-contract-everything-is-a-toxval-tibble)). An ungrouped fit has
+one row and no columns. `curves`, `threshold` and `control` are unnamed lists
+aligned to its rows.
+
+The earlier contract identified a curve by the name of its list element and by
+`meta$dimension`, which could record a group or a response but not both. That
+stopped being enough when T15 made `nsec(fit, group_var = , multi_var = )` a
+valid call. The output contract already allowed the result, since
+[3.1](#31-output-contract-everything-is-a-toxval-tibble) lists `group` and
+`response` as independent descriptor columns; only `toxval_pred` could not
+produce it.
+
+Two alternatives were rejected:
+
+- One descriptor at a time, with a grouped multivariate fit declared out of
+  scope. This was the phase 2 position until #59. It would have to be reversed
+  once `nsec()` absorbed `nsec_multi()`, and by then `bayesnec` would construct
+  `toxval_pred` against the published contract (#39, phase 7), so the reversal
+  would break both packages. In phase 2 the change is confined to one PR.
+- Composite names such as `"A:conc"`. Any separator can occur in a real
+  level: the review of #59 fitted a `drc` model whose `curveid` levels contain
+  a colon.
+
+The rules:
+
+- Rows of `keys` are unique and contain no missing values.
+- `meta$dimension` is deleted. Storing it beside `names(keys)` would record one
+  fact in two places.
+- `meta$group_var` is required when `keys` has a `group` column and must be
+  `NULL` otherwise. The same rule links `meta$multi_var` to a `response`
+  column.
+- For a grouped fit the rows follow `group_levels()`: the declared order of a
+  factor, and otherwise the C-locale order (`sort(method = "radix")`), so the
+  order does not depend on the row order of the data or on the session locale.
+- A row of the result is `bind_cols(keys[i, ], <metric columns>)`. This gives
+  the [3.1](#31-output-contract-everything-is-a-toxval-tibble) row for
+  ungrouped, grouped, multivariate and grouped multivariate fits; the check is
+  recorded in `prompts/phase2-build-spine.md`.
+
+The decision covers the object only. `toxval_predict.brmsfit()` continues to
+refuse a multivariate fit until a later phase adds one curve per response.
+
+The `group` column is a factor whose levels follow the row order, so the order
+`group_levels()` gives survives into the result (settled 2026-10-11, AP). The
+`response` column is a factor for the same reason, its levels following the
+order of the responses in the fit.
 
 #### One realisation mechanism for every fit  (#43)
 
@@ -280,7 +380,8 @@ evaluates the mean curve at an arbitrary parameter matrix, and `coef()` and
 |---|---|---|---|
 | Ungrouped Bayesian | 1 element | draws | n_draws |
 | `by_group` / `group_var` | one per factor level | draws | n_draws |
-| Multivariate (`nsec_multi`) | one per response | draws | n_draws |
+| Multivariate (`multi_var`) | one per response | draws | n_draws |
+| Grouped multivariate (T14) | one per group and response | draws | n_draws |
 | `drc` | one per curve (or 1) | bootstrap | n_boot |
 | `glm` / `gam` (future, #21) | one per group | bootstrap | n_boot |
 
@@ -485,12 +586,25 @@ It also:
 - collapses most of `nsec_multi`'s `type` argument. `type = "increasing"` is
   `filter(direction == "increasing")` on the result, and `type = "both"` is no
   filter. Only `type = "lower"` survives as an argument, because it is a
-  *selection rule* using `criterion` rather than a filter.
+  *selection rule* using `criterion` rather than a filter. It survives under a
+  new name, in `nsec()`, since `nsec_multi()` is folded into `nsec()` (T15,
+  [3.3](#33-single-generic-architecture)).
 
 **A direction with no crossing emits a row with `NA`**, rather than omitting the
 row. Settled 2026-09-04 (RF) on #20: the direction was looked for and not found,
 which is information. This is the §3.1 column rule — present because meaningful,
 `NA` because unavailable.
+
+That settles the case where *no* draw crosses. **The mixed case — some draws
+cross and some do not — is open, and is tracked as #60.** It is a question about
+what the estimate means rather than an `na.rm` argument: non-crossing draws are
+the draws whose crossing lies beyond `max(x_vec)`, so they are the upper tail of
+the posterior, and dropping them biases the estimate downward while censoring
+them at the grid edge makes it a function of where testing stopped. Measured on
+4000 lognormal draws with 12.4 per cent not crossing, `na.rm = TRUE` reports the
+43.8th percentile of the full posterior as the median, and both rules return the
+grid boundary or below it as the upper compatibility limit against a true 4.788.
+It blocks phase 4, because that is where the aggregation moves onto the spine.
 
 ### 3.7 Validation
 
@@ -498,7 +612,9 @@ which is information. This is the §3.1 column rule — present because meaningf
 
 - Predict-level arguments (`x_var`, `group_var`, `x_range`, `resolution`, and
   that the model has a `toxval_predict` method) are validated in
-  `toxval_predict()`.
+  `toxval_predict()`. `multi_var` and `trials_var` join them when
+  `nsec_multi()` is folded into `nsec()` (T15), as arguments of
+  `toxval_predict.brmsfit()`.
 - Metric arguments (`ecx_val`, `type`, `sig_val`, `prob_vals`, `xform`) are
   validated in the metric entry point, so every class gets identical checks.
   - This fixes the current bug where `ecx.bnecfit` never validates the `ecx_val`
@@ -539,6 +655,37 @@ need one:
   check that depends on a class-level fact. The metric function can only apply it
   if `toxval_pred$meta` carries `family` — which is why `family` is in the meta
   list in [3.4](#34-the-toxval_pred-intermediate-object).
+
+#### Group-level effects in a `brmsfit`  (T16)
+
+Settled 2026-10-09 (RF) on #59. `toxval_predict.brmsfit()` predicts with
+`re_formula = NA`, so group-level (random) effects are marginalised and every
+estimate is a population-level estimate. The group-level terms account for the
+variation between groups, but they are not the quantity reported. A user who
+wants one estimate per group fits the group as a population-level effect and
+names it in `group_var`.
+
+A `group_var` that enters the model only through a group-level term is therefore
+an error. Under `re_formula = NA` such a variable has no effect on the
+prediction, so every level receives the same curve. This was checked on 30
+simulated observations of a linear decline at three levels of `z`, whose
+intercepts differ by 2 units: `brm(y ~ x + (1 | z))`, on one chain of 600
+iterations, gave three identical curve matrices. The guard compares the curves
+rather than reading the formula, so that it also covers nonlinear formulas.
+
+#### The predictor of a `drc` fit  (T17)
+
+Settled 2026-10-09 (RF) on #59. `x_var` is optional for a `drc` fit. When it is
+`NULL` it is read from `object$dataList$names$dName`, and when it is supplied it
+must equal that name.
+
+The phase 2 method first required `x_var` and checked only that it named a
+column of `object$data`. That accepted the response:
+`toxval_predict(nsec_drc_1, x_var = "y")` built the grid over the range of `y`
+(0.001 to 0.98) rather than the doses (0.032 to 3.221), and evaluated the curve
+there as though those values were doses, with no error. A matching `x_var`, as
+callers of `nsec.drc()` pass today, continues to work. `toxval_predict.brmsfit()`
+still requires `x_var`, since a `brmsfit` may have several predictors.
 
 ### 3.8 The `nsec` reference: the `anchor` argument
 
@@ -1006,7 +1153,7 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 1 | **Lock a regression net.** Mark every test a later phase changes with `# EXPECTED-CHANGE <reason> #<issue>`, replacing the existing `TODO` markers; unmarked tests are the "must not move" set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan. | - |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`; move `bayesnec` to `Suggests`, or out entirely if the tests no longer need it. | `ecx` on `bnecfit` adopts the #19 answer |
-| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`, then `nsec_multi`), each gaining `draws`, with `posterior` deprecated but working. | per #19/#20 |
+| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. Needs #60 answered first. | per #19/#20, and #60 |
 | 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
 | 6 | **`toxval` to CRAN**, carrying the final API. | — |
 | 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
@@ -1020,7 +1167,8 @@ against the regression net, and reach `bayesnec` as one finished API at phase 7.
 - **Method gaps to keep in mind:** `ecx` has no `drc` method — under
   [3.4](#34-the-toxval_pred-intermediate-object) it becomes nearly free, so it
   should be added and the plan should say whether that is in scope.
-  `nsec_multi` is brms-multivariate only.
+  `nsec_multi` is brms-multivariate only. Under T15 that support is provided by
+  `toxval_predict.brmsfit()`, which refuses a multivariate fit until then.
 - **`n(s)ec` is listed in the `metric` vocabulary but not implemented here.**
   It needs `toxval_pred$threshold` and the shared component index described in
   [3.4](#34-the-toxval_pred-intermediate-object); see #25 and #18. It is flagged now only so the vocabulary does not have to be
