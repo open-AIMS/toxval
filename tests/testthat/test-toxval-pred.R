@@ -425,6 +425,34 @@ test_that("new_toxval_pred errors when the response column is not a factor", {
   )
 })
 
+test_that("new_toxval_pred errors when the levels of keys do not follow its rows", {
+  # `arrange()` and plotting order a factor by its levels, so levels in another
+  # order, or a level with no curve, would disagree with the curves
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(group = factor(c("A", "B"), levels = c("B", "A"))),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(group_var = "site")
+    ),
+    regexp = "Levels of `keys\\$group` must be its values in order of first appearance"
+  )
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(
+        response = factor(
+          c("growth", "survival"),
+          levels = c("growth", "survival", "mortality")
+        )
+      ),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(multi_var = "endpoint")
+    ),
+    regexp = "Levels of `keys\\$response` must be its values in order of first appearance"
+  )
+})
+
 test_that("new_toxval_pred errors when a grouped fit has no group_var", {
   expect_error(
     new_toxval_pred(
