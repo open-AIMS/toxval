@@ -79,8 +79,10 @@
 #'     otherwise.}
 #'   \item{`resolution`}{Whole number, the number of values in `x_vec`.}
 #'   \item{`x_range`}{Numeric of length 2, the range of `x_vec`.}
-#'   \item{`family`}{String naming the response distribution, or `NULL` where
-#'     the fitted object has no family.}
+#'   \item{`family`}{String naming the response distribution, such as the
+#'     `brms` family or the `type` of a `drc` fit, or `NULL` where the fitted
+#'     object has none. It decides whether the response is a proportion,
+#'     bounded at 1.}
 #'   \item{`realisation`}{Either `"draws"` or `"bootstrap"`, the source of the
 #'     realisations.}
 #'   \item{`n_realisation`}{Whole number, the number of realisations.}

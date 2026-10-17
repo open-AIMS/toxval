@@ -116,8 +116,10 @@ fit. Required when \code{keys} has a \code{response} column, and \code{NULL}
 otherwise.}
 \item{\code{resolution}}{Whole number, the number of values in \code{x_vec}.}
 \item{\code{x_range}}{Numeric of length 2, the range of \code{x_vec}.}
-\item{\code{family}}{String naming the response distribution, or \code{NULL} where
-the fitted object has no family.}
+\item{\code{family}}{String naming the response distribution, such as the
+\code{brms} family or the \code{type} of a \code{drc} fit, or \code{NULL} where the fitted
+object has none. It decides whether the response is a proportion,
+bounded at 1.}
 \item{\code{realisation}}{Either \code{"draws"} or \code{"bootstrap"}, the source of the
 realisations.}
 \item{\code{n_realisation}}{Whole number, the number of realisations.}

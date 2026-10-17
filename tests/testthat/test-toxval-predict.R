@@ -259,7 +259,7 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped drc fit", {
   expect_null(result$meta$multi_var)
   expect_equal(result$meta$resolution, 5)
   expect_equal(result$meta$x_range, c(0.032, 3.221), tolerance = 0.001)
-  expect_null(result$meta$family)
+  expect_equal(result$meta$family, "continuous")
   expect_equal(result$meta$realisation, "bootstrap")
   expect_equal(result$meta$n_realisation, 10)
   expect_equal(result$meta$seed, 42)
