@@ -416,7 +416,7 @@ it returns. Separating them keeps each checkable against the regression net, and
   (#25, #18), so the vocabulary does not have to be reopened later.
 - **Model averaging of `drc` fits is not in any phase yet.** `anchor` applies to
   a `drc` model average as it does to a `bayesnec` one, so it is to be scoped
-  with `relative` and the further `type` options raised in the PR #62 review
+  with `relative` and the further `type` options in #63
   (`REFACTOR-claude.md` §5).
 - **`anchor = "control"` is specified but not implemented.** It needs a
   control-only fit, which cannot be recovered from a fitted model, so it is

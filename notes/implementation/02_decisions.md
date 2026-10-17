@@ -315,8 +315,8 @@ below 0.
 
 Daniels, Hommen and Ratte (2025, IEAM 22:734-740) use "absolute" and "relative"
 ECx in the senses toxval uses them, so the names stay. Further options, such as
-bounds supplied by the user and a type reproducing `drc::ED()`, are left to a
-separate issue.
+bounds supplied by the user and a type reproducing `drc::ED()`, are left to
+#63.
 
 ## T19 — `nsec()` refuses `type = "direct"` (#49)
 

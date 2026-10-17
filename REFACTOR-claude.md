@@ -1099,7 +1099,7 @@ absolute ECx is a change relative to the control and a relative ECx is relative
 to the maximum achievable response. They differ from `drc::ED()`, whose
 `type = "absolute"` is toxval's `direct`. Further definitions found in the
 literature (added risk, a standard-deviation span, a hybrid cut-off) and a type
-reproducing `drc::ED(reference = "upper")` are left to a separate issue.
+reproducing `drc::ED(reference = "upper")` are left to #63.
 
 #### Locating the asymptote on a `drc` or `brmsfit` object
 
@@ -1268,7 +1268,7 @@ CMD check pass with `bayesnec` not installed.
   (`drc::maED()`), and `anchor = "component"` applies to such an average as it
   does to a `bayesmanecfit`. No phase builds a model-averaged `toxval_pred` from
   `drc` fits, so the plan does not cover it yet. It is to be scoped with
-  `relative` and the further `type` options raised in the PR #62 review.
+  `relative` and the further `type` options in #63.
 - **`n(s)ec` is listed in the `metric` vocabulary but not implemented here.**
   It needs `toxval_pred$threshold` and the shared component index described in
   [3.4](#34-the-toxval_pred-intermediate-object); see #25 and #18. It is flagged now only so the vocabulary does not have to be
