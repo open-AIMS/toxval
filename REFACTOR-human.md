@@ -46,13 +46,16 @@ theoretical asymptote; `range`, the control down to the lowest response the curv
 predicts; and `direct`, a response value supplied by the user. `range` is new,
 and it is what `relative` means in the current code, so `relative` changes
 meaning and is deprecated into `range`. Decision T9 and `REFACTOR-claude.md`
-§3.10 state it in full.
+§3.10 state it in full. For an increasing response, `absolute` measures towards
+1 for a proportion and as a percentage of the control otherwise, so a 10 per
+cent increase from a control of 20 is 22. These are the published definitions
+(decision T18).
 
 **The `ecnsec` definition (#49).** `ecnsec` is the inverse of the `ecx`
 reference under the same `type`, and `nsec()` accepts the arguments `ecx()`
-accepts, so one `type` selects both. Under `direct`, `ecnsec` is the reference
-on the response scale rather than a percentage. Decision T8 and §3.9 state it in
-full.
+accepts, so one `type` selects both. `nsec()` refuses `type = "direct"`,
+because its `ecnsec` would only repeat the `reference` column (decision T19).
+Decision T8 and §3.9 state it in full.
 
 **Direction (#20).** An estimate is sought in both directions every time and
 `direction` is a column of the result, so `hormesis_def` is removed rather than

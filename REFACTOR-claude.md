@@ -828,8 +828,8 @@ Consequences elsewhere:
 
 **`ecnsec` is the inverse of the `ecx` reference construction under the same
 `type`, it takes `ecx`'s default of `type = "absolute"`, and `nsec()` accepts
-the arguments `ecx()` accepts.** Settled 2026-09-04 (RF); see #49 and decision
-T8.
+the arguments `ecx()` accepts, except `type = "direct"`.** Settled 2026-09-04
+(RF); see #49 and decision T8. The exception is T19, 2026-10-17.
 
 `ecnsec` reports the effect at the NSEC. **The defect being fixed:** it is
 currently computed by three different formulas, one per `nsec` method, which
@@ -845,7 +845,7 @@ back to an effect. One definition serves both directions:
 | `absolute` | `y[1] - y[1] * (p/100)` | `(1 - R / y[1]) * 100` |
 | `relative` | `y[1] - (y[1] - a) * (p/100)` | `(1 - (R - a) / (y[1] - a)) * 100` |
 | `range` | `y[1] - (y[1] - min(y)) * (p/100)` | `(1 - (R - min(y)) / (y[1] - min(y))) * 100` |
-| `direct` | `p`, a response value | `R`, the reference on the response scale |
+| `direct` | `p`, a response value | refused by `nsec()` (T19) |
 
 `R` is the NSEC reference, `y` one realisation's fitted curve, `y[1]` the
 control, `a` the equation's theoretical asymptote and `p` the percentage. The
@@ -876,18 +876,24 @@ is what the `nsec` methods implement.
 The three `apply()` blocks are replaced by one helper taking the realisation
 matrix, the reference and `type`.
 
-#### `type = "direct"` has no interval
+#### The direct type in `nsec()`  (T19)
+
+`nsec()` errors on `type = "direct"`. Settled 2026-10-17 (RF), on the review of
+PR #62.
 
 The `nsec` reference is a scalar across realisations —
 `quantile(control_posterior, sig_val)`, `R/nsec.R:117-121`. `ecnsec` varies
 between realisations only through its denominator, which is per-realisation.
-Under `direct` there is no denominator, so `ecnsec` equals the `reference`
-column and `ecnsec.low` and `ecnsec.high` are `NA`.
+Under `direct` there is no denominator, so `ecnsec` would equal the `reference`
+column in every realisation: on the `ecx4param` fixture at `sig_val = 0.01`, all
+100 per-draw values were 2.097. Reporting it would repeat a column and need
+`NA` bounds to avoid asserting an interval of zero width.
 
-`NA` rather than bounds equal to the estimate: equal bounds assert an interval
-of zero width, where the intent is that no interval is defined. This is the
-§3.1 column rule — present because meaningful for the metric, `NA` because
-unavailable for this `type` — and matches `control` under `type = "direct"`.
+The earlier ruling reported it with `NA` bounds. It was replaced because the
+column adds nothing the `reference` column does not give, and refusing it
+removes a special case from the phase 4 summary. `ecx()` keeps `direct`, where
+the supplied value sets the reference and the ECx varies between
+realisations.
 
 #### Change at default settings
 
@@ -961,7 +967,7 @@ The control is the predicted response at the lowest concentration in the series.
 
 | `type` | decreasing | increasing |
 |---|---|---|
-| `absolute` *(default)* | control → 0 | control → the upper bound (1, or the family's) |
+| `absolute` *(default)* | control → 0 | control → 1 for a proportion; otherwise control → twice the control (T18) |
 | `relative` | control → the equation's theoretical lower asymptote | control → the equation's theoretical upper asymptote |
 | `range` | control → the minimum predicted response over the predictor range | control → the maximum predicted response over the predictor range |
 | `direct` | the supplied response value, no proportional change | as decreasing |
@@ -1050,17 +1056,50 @@ is the defined behaviour for a response that goes negative. It is uncapped today
 (`R/ecx.R:285-287` checks only that it is numeric and single-valued); that must
 stay, and be documented, so it is not later read as a missing guard.
 
-#### The increasing upper bound
+#### The increasing `absolute` reference  (T18)
 
-Where the family has no upper bound, `absolute` assumes 1, on the basis that an
-increasing response reached through `drc` or `brms` is usually percent
-inhibition or another proportion.
+Settled 2026-10-17 (RF), on the review of PR #62, replacing an assumed upper
+bound of 1 for every family.
 
-**Guard: error when the control is at or above the assumed upper bound.** With a
-control of 20 and an assumed bound of 1 the reference is
-`20 + (1 − 20) × 0.10 = 18.1`, below the control — an increasing ECx measured
-against a decreased reference, returned without complaint. One comparison
-catches it, and it never fires on proportion data.
+Every `type` except `direct` sets the reference as `y[1] ∓ (p/100) × S`, where
+`S` is a span: `y[1]` for `absolute` decreasing, the distance to the asymptote
+for `relative`, and the distance to the curve's extreme for `range`. Under
+`absolute` the increasing span depends on the response:
+
+| response | increasing span `S` | name in the literature |
+|---|---|---|
+| on the proportion scale | `1 − y[1]` | extra risk (US EPA 2012), which is Abbott's formula |
+| any other | `y[1]` | relative deviation (EFSA 2022 §2.6.2; BMDS default; OECD 2006 No. 54 ¶306) |
+
+For a control of 20 a 10 per cent increase is 22 under relative deviation. The
+assumed bound of 1 gave `20 + (1 − 20) × 0.10 = 18.1`, below the control. The
+decreasing `absolute` form, `S = y[1]`, is relative deviation as well, so for an
+unbounded response the two directions are mirror images.
+
+A proportion is recognised from `meta$family` (`response_upper_bound()` in
+`R/compute.R`): the `brms` families `bernoulli`, `beta`, `zero_inflated_beta` and
+`zero_one_inflated_beta`, and a `drc` fit whose `type` is `"binomial"`, which
+`drc` predicts on the proportion scale. `toxval_predict.drc()` records the
+`type` as `meta$family` for this purpose. A `brms` binomial or beta-binomial fit
+is predicted by `posterior_epred()` as a count of trials, bounded by the number
+of trials, which a `toxval_pred` does not record until `trials_var` (T15); its
+increasing `absolute` reference is `NA` until then.
+
+A span of zero or less gives `NA`, for the reference and for `ecnsec`, in either
+direction. Under `absolute` that is a control at or below 0, or a proportion
+whose control is at or above 1; under `range`, a curve with no extent in that
+direction. This replaces an error for a control at or above the assumed bound.
+Both directions are computed on every call (T10), so the error would also have
+stopped the decreasing estimate: on the `nec4param` component of
+`manec_example`, whose control draws lie between 2.03 and 2.41, every call would
+have raised it.
+
+The names follow Daniels, Hommen and Ratte (2025, IEAM 22:734-740), for whom an
+absolute ECx is a change relative to the control and a relative ECx is relative
+to the maximum achievable response. They differ from `drc::ED()`, whose
+`type = "absolute"` is toxval's `direct`. Further definitions found in the
+literature (added risk, a standard-deviation span, a hybrid cut-off) and a type
+reproducing `drc::ED(reference = "upper")` are left to a separate issue.
 
 #### Locating the asymptote on a `drc` or `brmsfit` object
 

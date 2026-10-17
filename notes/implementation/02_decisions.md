@@ -2,8 +2,9 @@
 
 Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
 2026-09-04/05 with T8-T12, which settle the definitions gating the refactor, and
-2026-10-09 with T13-T17, from the review of PR #59. A session implements these
-rather than re-opening them.
+2026-10-09 with T13-T17, from the review of PR #59, and 2026-10-17 with T18-T20,
+from the review of PR #62. A session implements these rather than re-opening
+them.
 
 **Scope.** This file records decisions about the **package** — what the code
 does and why. Workflow is not recorded here: branching, remotes and review live
@@ -284,6 +285,60 @@ Settled 2026-10-09 (RF). Stated in full in `REFACTOR-claude.md` §3.7.
 `object$dataList$names$dName` when `NULL`, and a supplied value must equal that
 name. Requiring it, and checking only that it named a column of the data,
 accepted the response as the predictor without an error.
+
+## T18 — the increasing `absolute` reference (#19, #20)
+
+Settled 2026-10-17 (RF), amending T9. Stated in full in `REFACTOR-claude.md`
+§3.10.
+
+Every `type` except `direct` sets the reference as the control minus
+(decreasing) or plus (increasing) a percentage of a span. Under `absolute` the
+increasing span is 1 minus the control for a response on the proportion scale,
+which is extra risk and Abbott's formula, and the control itself for any other
+response, which is relative deviation. A 10 per cent increase from a control of
+20 is then 22. The decreasing form is unchanged. These are the definitions of US
+EPA (2012), EFSA (2022) and OECD (2006) No. 54.
+
+A proportion is recognised from `meta$family`: the `brms` families `bernoulli`,
+`beta`, `zero_inflated_beta` and `zero_one_inflated_beta`, and a `drc` fit whose
+`type` is `"binomial"`. A `brms` binomial or beta-binomial fit is predicted as a
+count of trials, so its increasing reference is `NA` until the number of trials
+is recorded (T15).
+
+A span of zero or less gives `NA` for the reference and for `ecnsec`, in either
+direction. This replaces the error §3.10 specified for a control at or above 1.
+Both directions are computed on every call (T10), so that error would also have
+stopped the decreasing estimate: on the `nec4param` component of
+`manec_example`, whose control draws lie between 2.03 and 2.41, every call would
+have raised it. The same rule returns `NA` under `absolute` for a control at or
+below 0.
+
+Daniels, Hommen and Ratte (2025, IEAM 22:734-740) use "absolute" and "relative"
+ECx in the senses toxval uses them, so the names stay. Further options, such as
+bounds supplied by the user and a type reproducing `drc::ED()`, are left to a
+separate issue.
+
+## T19 — `nsec()` refuses `type = "direct"` (#49)
+
+Settled 2026-10-17 (RF), amending T8. Stated in full in `REFACTOR-claude.md`
+§3.9.
+
+Under `direct` the `ecnsec` would be the NSEC reference itself, which the
+`reference` column already reports. It does not vary between realisations, so it
+has no interval either. `nsec()` therefore errors on `type = "direct"` rather
+than reporting a duplicate column with `NA` bounds. `ecx()` keeps `direct`.
+
+## T20 — the range of `sig_val`
+
+Settled 2026-10-17 (RF).
+
+`sig_val` lies strictly between 0 and 0.5. At 0.5 or above the decreasing
+reference would lie at or above the increasing one. Values above the lower
+probability of the summary interval are valid: Fisher and Fox (2023, Table 3)
+report NSECs at 0.05, 0.10 and 0.20, with a lower bound at the lowest
+concentration (p. 2026). The irregular intervals toxval gives above 0.025 come
+from `nsec_fct()` placing the realisations whose control lies below the
+reference at `max(x_vec)`, which #60 decides.
 
 ---
 
