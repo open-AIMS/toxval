@@ -2,7 +2,6 @@
 % Please edit documentation in R/ecx.R
 \name{ecx}
 \alias{ecx}
-\alias{ecx.bnecfit}
 \alias{ecx.brmsfit}
 \title{Extracts the predicted ECx value as desired from a supported class.}
 \usage{
@@ -10,19 +9,6 @@ ecx(
   object,
   ecx_val = 10,
   resolution = 1000,
-  posterior = FALSE,
-  type = "absolute",
-  hormesis_def = "control",
-  x_range = NA,
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  ...
-)
-
-\method{ecx}{bnecfit}(
-  object,
-  ecx_val = 10,
-  resolution = 100,
   posterior = FALSE,
   type = "absolute",
   hormesis_def = "control",
@@ -130,9 +116,6 @@ metric in that case.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{ecx(bnecfit)}: Method for a \code{bayesnec} fit of class \link[bayesnec:bnecfit]{bayesnec::bnecfit}
-returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.
-
 \item \code{ecx(brmsfit)}: Method for a raw \code{brms} fit of class \link[brms:brmsfit]{brms::brmsfit}
 returned by \code{\link[brms:brm]{brms::brm()}}. Requires \code{x_var}, and supports estimates per
 group via \code{group_var} and \code{by_group}.

@@ -50,28 +50,6 @@ test_that("nsec_fct interpolates crossing correctly", {
   expect_equal(result, 5, tolerance = 0.2)
 })
 
-# tox_fct ------------------------------------------------------------------
-
-test_that("tox_fct returns NA when no crossing found", {
-  x_vec <- seq(0, 10, length.out = 100)
-  # y always above reference
-  y <- rep(5, 100)
-  reference <- 10
-
-  result <- toxval:::tox_fct(y, reference, x_vec)
-  expect_true(is.na(result))
-})
-
-test_that("tox_fct interpolates crossing correctly", {
-  x_vec <- seq(0, 10, length.out = 100)
-  # Simple linear decrease
-  y <- seq(10, 0, length.out = 100)
-  reference <- 5
-
-  result <- toxval:::tox_fct(y, reference, x_vec)
-  expect_equal(result, 5, tolerance = 0.2)
-})
-
 # modify_posterior ---------------------------------------------------------
 
 # EXPECTED-CHANGE hormesis handling reworked with direction #20
@@ -111,44 +89,4 @@ test_that("modify_posterior with hormesis_def = control leaves all values", {
 
   # With control, no NAs should be introduced (current implementation)
   expect_equal(result, p_sample)
-})
-
-# newdata_eval -------------------------------------------------------------
-
-# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) #39
-test_that("newdata_eval returns list with newdata and x_vec", {
-  result <- toxval:::newdata_eval(
-    bayesnec::manec_example,
-    resolution = 50,
-    x_range = NA
-  )
-
-  expect_type(result, "list")
-  expect_true("newdata" %in% names(result))
-  expect_true("x_vec" %in% names(result))
-  expect_length(result$x_vec, 50)
-})
-
-# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) #39
-test_that("newdata_eval respects x_range", {
-  result <- toxval:::newdata_eval(
-    bayesnec::manec_example,
-    resolution = 100,
-    x_range = c(1, 3)
-  )
-
-  expect_equal(min(result$x_vec), 1, tolerance = 0.01)
-  expect_equal(max(result$x_vec), 3, tolerance = 0.01)
-})
-
-# EXPECTED-CHANGE bnecfit handling moves to bayesnec (test will be removed) #39
-test_that("newdata_eval works with bayesnecfit objects", {
-  result <- toxval:::newdata_eval(
-    ecx4param,
-    resolution = 30,
-    x_range = NA
-  )
-
-  expect_type(result, "list")
-  expect_length(result$x_vec, 30)
 })

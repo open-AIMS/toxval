@@ -90,93 +90,6 @@ ecx <- function(
   UseMethod("ecx")
 }
 
-#' @describeIn ecx Method for a `bayesnec` fit of class [bayesnec::bnecfit]
-#'   returned by [bayesnec::bnec()].
-#'
-#' @export
-ecx.bnecfit <- function(
-  object,
-  ecx_val = 10,
-  resolution = 100,
-  posterior = FALSE,
-  type = "absolute",
-  hormesis_def = "control",
-  x_range = NA,
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  ...
-) {
-  newdata_list <- newdata_eval(
-    object,
-    resolution = resolution,
-    x_range = x_range
-  )
-  p_samples <- posterior_epred(
-    object,
-    newdata = newdata_list$newdata,
-    re_formula = NA
-  )
-  x_vec <- newdata_list$x_vec
-
-  if (hormesis_def == "max") {
-    control_posterior <- quantile(apply(p_samples, 1, max), probs = 0.5)
-  } else {
-    control_posterior <- p_samples[, 1]
-  }
-
-  if (type == "relative") {
-    min_posterior <- p_samples[, ncol(p_samples)]
-  } else {
-    min_posterior <- 0
-  }
-
-  dif_valsC <- control_posterior - min_posterior
-
-  n <- seq_len(nrow(p_samples))
-  p_samples <- do_wrapper(
-    n,
-    modify_posterior,
-    object,
-    x_vec,
-    p_samples,
-    hormesis_def,
-    fct = "rbind"
-  )
-
-  reference <- median(control_posterior) - (median(dif_valsC) * (ecx_val / 100))
-  names(reference) <- ecx_val
-
-  tox_out <- do.call(
-    "cbind",
-    lapply(reference, FUN = function(r) {
-      apply(p_samples, 1, tox_fct, r, x_vec)
-    })
-  )
-
-  tox_out <- xform(tox_out)
-
-  tox_estimate <- apply(
-    tox_out,
-    MARGIN = 2,
-    FUN = quantile,
-    probs = prob_vals,
-    na.rm = TRUE
-  )
-
-  attr(tox_estimate, "control_value") <- median(control_posterior)
-  attr(tox_out, "control_value") <- median(control_posterior)
-  attr(tox_estimate, "reference") <- reference
-  attr(tox_out, "reference") <- reference
-  attr(tox_estimate, "resolution") <- resolution
-  attr(tox_out, "resolution") <- resolution
-
-  if (!posterior) {
-    tox_estimate
-  } else {
-    tox_out
-  }
-}
-
 #' @noRd
 ecx_x_relative <- function(y, ecx_val, x_vec, hormesis_def) {
   if (length(which(!is.na(y))) == 0) {
@@ -348,11 +261,12 @@ ecx.brmsfit <- function(
 
       p_samples <- posterior_epred(object, newdata = pred_dat, re_formula = NA)
       # Kept deliberately (toxval #33). This is not dead code, it is an
-      # unimplemented feature: ecx.bnecfit truncates the posterior below the
-      # hormetic peak via modify_posterior() unconditionally, ecx.brmsfit
-      # never does. The block cannot simply be uncommented: the guard is a
-      # bayesnec-ism, `object$model` on a bayesnecfit is the model name, on a
-      # brmsfit it is the Stan code, so grepl("horme", .) is meaningless here.
+      # unimplemented feature: ecx.bnecfit, removed in phase 3 (#39), truncated
+      # the posterior below the hormetic peak via modify_posterior()
+      # unconditionally, ecx.brmsfit never does. The block cannot simply be
+      # uncommented: the guard is a bayesnec-ism, `object$model` on a
+      # bayesnecfit is the model name, on a brmsfit it is the Stan code, so
+      # grepl("horme", .) is meaningless here.
       # The `horme` argument this method already documents and accepts is the
       # intended guard, and is currently unused. Left for the refactor to
       # settle alongside the direction/hormesis decision, not resolved here,
