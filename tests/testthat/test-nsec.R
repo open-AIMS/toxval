@@ -202,7 +202,7 @@ test_that("additional examples brms 2", {
 
 # EXPECTED-CHANGE drc estimate changes (parametric bootstrap) #43; needs a seed
 test_that("nsec works for drc using continuous data", {
-  model_LL4 <- drc::drm(y ~ x, data = bayesnec::nec_data, fct = drc::LL.4())
+  model_LL4 <- drc::drm(y ~ x, data = nec_data, fct = drc::LL.4())
   nsec_val <- as.vector(round(nsec(model_LL4, x_var = "x"), 1))
   expect_equal(nsec_val, c(1.2, 1.0, 1.3))
 })
@@ -247,7 +247,7 @@ test_that("nsec for drc throws an error for an increasing function", {
 
 # EXPECTED-CHANGE drc bootstrap changes estimate; ecnsec redefined #49; needs a seed
 test_that("nsec drc additional example 1", {
-  data <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
+  data <- herbicide[herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
   output_drc <- drc::drm(
     fvfm ~ concentration,
@@ -279,7 +279,7 @@ test_that("nsec drc additional example 1", {
 
 # EXPECTED-CHANGE drc bootstrap changes estimate; ecnsec redefined #49; needs a seed
 test_that("nsec drc additional example 2", {
-  data <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
+  data <- herbicide[herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
   output_drc <- drc::drm(
     fvfm ~ concentration,

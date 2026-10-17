@@ -236,6 +236,25 @@ save(
 )
 strip_stanmodel("tests/testthat/fixtures/bayesnec_ecx4param.rda")
 
+# data from bayesnec -------------------------------------------------------
+
+# Stored so that the drc tests fitted to these data run without bayesnec
+# installed, since bayesnec is not a dependency of toxval (#39). Generated with
+# bayesnec 2.1.3.39.
+nec_data <- bayesnec::nec_data
+save(
+  nec_data,
+  file = "tests/testthat/fixtures/nec_data.rda",
+  compress = "xz"
+)
+
+herbicide <- bayesnec::herbicide
+save(
+  herbicide,
+  file = "tests/testthat/fixtures/herbicide.rda",
+  compress = "xz"
+)
+
 # nsec drc ----------------------------------------------------------------
 
 nsec_drc_1 <- drc::drm(y ~ x, data = bayesnec::nec_data, fct = drc::LL.4())
