@@ -30,7 +30,7 @@ compute_ecx <- function(pred, ecx_val = 10, type = "absolute") {
   chk::chk_s3_class(pred, "toxval_pred")
   chk_type(type)
   chk_ecx_val(ecx_val, type)
-  
+
   rows <- lapply(seq_along(pred$curves), function(i) {
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
@@ -193,11 +193,11 @@ ecnsec_value <- function(curve, reference, type, upper = 1) {
     type,
     absolute = list(
       decreasing = percent_of_span(
-        control - decreasing, 
+        control - decreasing,
         control
       ),
       increasing = percent_of_span(
-        increasing - control, 
+        increasing - control,
         upper - control
       )
     ),
