@@ -8,8 +8,8 @@
 #' is assumed to be the lowest observed concentration.
 #'
 #' Calls to functions [ecx()] and [nsec()] and
-#' [bayesnec::compare_fitted()] do not require the same level of flexibility
-#' in the context of allowing argument `newdata`
+#' `compare_fitted()` in the bayesnec package do not require the same level of
+#' flexibility in the context of allowing argument `newdata`
 #' (from a [brms::posterior_predict()] perspective) to
 #' be supplied manually, as this is and should be handled within the function
 #' itself. The argument `resolution` controls how precisely the
@@ -26,10 +26,10 @@
 #'
 #' @examples
 #' \donttest{
-#' library(bayesnec)
-#'
-#' data(manec_example)
-#' nsec(manec_example)
+#' if (requireNamespace("drc", quietly = TRUE)) {
+#'   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+#'   nsec(fit, x_var = "conc")
+#' }
 #' }
 #'
 #' @export

@@ -21,8 +21,8 @@
 #' is assumed to be the lowest observed concentration.
 #'
 #' Calls to functions [ecx()] and [nsec()] and
-#' [bayesnec::compare_fitted()] do not require the same level of flexibility
-#' in the context of allowing argument `newdata`
+#' `compare_fitted()` in the bayesnec package do not require the same level of
+#' flexibility in the context of allowing argument `newdata`
 #' (from a [brms::posterior_predict()] perspective) to
 #' be supplied manually, as this is and should be handled within the function
 #' itself. The argument `resolution` controls how precisely the
@@ -38,11 +38,20 @@
 #' lower 95% credible interval bounds.
 #'
 #' @examples
-#' \donttest{
-#' library(bayesnec)
-#'
-#' ecx(manec_example, ecx_val = 50)
-#' ecx(manec_example)
+#' # Not run during R CMD check: ecx() has no method for a drc fit, and fitting
+#' # a brmsfit compiles a Stan model.
+#' \dontrun{
+#' if (requireNamespace("drc", quietly = TRUE)) {
+#'   fit <- brms::brm(
+#'     rootl ~ s(conc, k = 5),
+#'     data = drc::ryegrass,
+#'     chains = 2,
+#'     seed = 1,
+#'     control = list(adapt_delta = 0.99)
+#'   )
+#'   ecx(fit, x_var = "conc")
+#'   ecx(fit, x_var = "conc", ecx_val = 50)
+#' }
 #' }
 #'
 #' @export

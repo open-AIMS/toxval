@@ -49,8 +49,8 @@ nsec(
 )
 }
 \arguments{
-\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
-\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
+\item{object}{A fitted model object of a class with a method for the
+function, such as a \link[brms:brmsfit]{brms::brmsfit} returned by \code{\link[brms:brm]{brms::brm()}}.}
 
 \item{sig_val}{Probability value to use as the lower quantile to test
 significance of the predicted posterior values.
@@ -107,8 +107,8 @@ if "control", then NSEC values are calculated relative to the control, which
 is assumed to be the lowest observed concentration.
 
 Calls to functions \code{\link[=ecx]{ecx()}} and \code{\link[=nsec]{nsec()}} and
-\code{\link[bayesnec:compare_fitted]{bayesnec::compare_fitted()}} do not require the same level of flexibility
-in the context of allowing argument \code{newdata}
+\code{compare_fitted()} in the bayesnec package do not require the same level of
+flexibility in the context of allowing argument \code{newdata}
 (from a \code{\link[brms:posterior_predict]{brms::posterior_predict()}} perspective) to
 be supplied manually, as this is and should be handled within the function
 itself. The argument \code{resolution} controls how precisely the
@@ -133,10 +133,10 @@ currently implemented.
 }}
 \examples{
 \donttest{
-library(bayesnec)
-
-data(manec_example)
-nsec(manec_example)
+if (requireNamespace("drc", quietly = TRUE)) {
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+  nsec(fit, x_var = "conc")
+}
 }
 
 }

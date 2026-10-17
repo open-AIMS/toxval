@@ -36,8 +36,8 @@ ecx(
 )
 }
 \arguments{
-\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
-\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
+\item{object}{A fitted model object of a class with a method for the
+function, such as a \link[brms:brmsfit]{brms::brmsfit} returned by \code{\link[brms:brm]{brms::brm()}}.}
 
 \item{ecx_val}{The desired percentage effect value. This must be a value
 between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.}
@@ -101,8 +101,8 @@ if "control", then ECx values are calculated relative to the control, which
 is assumed to be the lowest observed concentration.
 
 Calls to functions \code{\link[=ecx]{ecx()}} and \code{\link[=nsec]{nsec()}} and
-\code{\link[bayesnec:compare_fitted]{bayesnec::compare_fitted()}} do not require the same level of flexibility
-in the context of allowing argument \code{newdata}
+\code{compare_fitted()} in the bayesnec package do not require the same level of
+flexibility in the context of allowing argument \code{newdata}
 (from a \code{\link[brms:posterior_predict]{brms::posterior_predict()}} perspective) to
 be supplied manually, as this is and should be handled within the function
 itself. The argument \code{resolution} controls how precisely the
@@ -122,11 +122,20 @@ group via \code{group_var} and \code{by_group}.
 
 }}
 \examples{
-\donttest{
-library(bayesnec)
-
-ecx(manec_example, ecx_val = 50)
-ecx(manec_example)
+# Not run during R CMD check: ecx() has no method for a drc fit, and fitting
+# a brmsfit compiles a Stan model.
+\dontrun{
+if (requireNamespace("drc", quietly = TRUE)) {
+  fit <- brms::brm(
+    rootl ~ s(conc, k = 5),
+    data = drc::ryegrass,
+    chains = 2,
+    seed = 1,
+    control = list(adapt_delta = 0.99)
+  )
+  ecx(fit, x_var = "conc")
+  ecx(fit, x_var = "conc", ecx_val = 50)
+}
 }
 
 }
