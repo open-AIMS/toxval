@@ -1152,8 +1152,8 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 0 | **Done.** The `ecx` reference and `type` vocabulary (#19, T9), direction (#20, T10), `ecnsec` (#49, T8), frequentist realisations (#43, T11) and the `anchor` default (T12). No code. | — |
 | 1 | **Lock a regression net.** Mark every test a later phase changes with `# EXPECTED-CHANGE <reason> #<issue>`, replacing the existing `TODO` markers; unmarked tests are the "must not move" set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan. | - |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
-| 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`; move `bayesnec` to `Suggests`, or out entirely if the tests no longer need it. | `ecx` on `bnecfit` adopts the #19 answer |
-| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. Needs #60 answered first. | per #19/#20, and #60 |
+| 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`, with their tests. Store what the remaining tests and examples read from `bayesnec` as fixtures, so the suite passes with `bayesnec` not installed, and remove `bayesnec` from `Imports`. See [Phase 3 without `bayesnec`](#phase-3-without-bayesnec). | none in `toxval`. `ecx` and `nsec` on a `bnecfit` are no longer computed here, and `bayesnec` objects receive the #19 answer at phase 7 |
+| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. Needs #60 answered first. Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). | per #19/#20, and #60 |
 | 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
 | 6 | **`toxval` to CRAN**, carrying the final API. | — |
 | 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
@@ -1162,6 +1162,62 @@ Phases 2–4 change *who owns the code* and what it computes; phase 5 changes
 *what it returns*. They stay separate inside `toxval`, where each can be checked
 against the regression net, and reach `bayesnec` as one finished API at phase 7.
 
+#### Phase 3 without `bayesnec`
+
+Phase 3 deletes `ecx.bnecfit()`, `nsec.bnecfit()`, `predict.bayesnecfit()`,
+`predict.bayesmanecfit()` and `newdata_eval()`, and the tests of them. Those
+tests are marked `EXPECTED-CHANGE ... (test will be removed) #39`, or
+`EXPECTED-CHANGE ecx.bnecfit reference becomes per-realisation ... #19`. The
+second group tests a method that no longer exists, so it is deleted rather than
+updated.
+
+What remains must run without `bayesnec`. Counted on `phase-2` at `cb53250`
+(2026-10-17), every test that reads `bnec_model_1`, `manec_example`,
+`nec4param`, `ecx4param` or a `bayesnec_*` fixture tests one of the deleted
+methods, with two exceptions:
+
+- `tests/testthat/setup.R` calls `bayesnec::nec_data`, `bayesnec::manec_example`
+  and `bayesnec::pull_out()` at top level. `setup.R` runs before every test
+  file, so with `bayesnec` absent every file errors, and no per-test skip
+  prevents it. The calls are deleted, or replaced by stored fixtures where a
+  remaining test reads the object.
+- One `drc` test in `test-nsec.R` fits `drc::drm()` to `bayesnec::nec_data`.
+  The data frame is stored as a fixture.
+
+The roxygen examples on the `ecx` and `nsec` topics (`R/ecx.R:42`,
+`R/nsec.R:29`) call `library(bayesnec)` and use `manec_example`. R CMD check runs
+them, so they are rewritten on a `drc` fit, guarded by
+`requireNamespace("drc")` since `drc` is in `Suggests`.
+
+A remaining test that needs only data or a fitted `brmsfit` reads it from
+`tests/testthat/fixtures/`, so it runs in every check, including a check with
+`Suggests` not installed. `skip_if_not_installed("bayesnec")` is reserved for a
+test whose purpose is to compare against `bayesnec`, and such a test is what
+would justify listing `bayesnec` in `Suggests`. CRAN requires a `Suggests`
+package to be used conditionally, so a skip is correct for that test. For the
+others it would report success on a test that did not run.
+
+The `brmsfit` inside a stored `bnec()` fit can be passed to `toxval_predict()`
+without `bayesnec`. On 2026-10-17, `brms::posterior_epred()` on
+`bayesnec_ecx4param$fit` and `bayesnec_nec4param$fit` returned 100 × 3 matrices
+in a session where the `bayesnec` namespace was not loaded; `brms` supplies the
+`step()` the NEC equations use. On the `nec4param` component of `manec_example`,
+`compute_ecx()` and `compute_nsec()` on that route reproduced `ecx.brmsfit()`
+and `nsec.brmsfit()` per draw to within 5e-7 (100 draws, 200-point grid). This
+covers a single `bayesnecfit`. A `bayesmanecfit` cannot be checked this way,
+because `bayesnec` builds the model average, so it is checked at phase 7.
+
+Phase 3 changes no number `toxval` computes on a `brmsfit` or `drc` fit.
+`toxval::ecx()` or `toxval::nsec()` on a `bnecfit` errors, since no method for
+that class remains in `toxval`. `bayesnec` keeps its own `ecx()` and `nsec()`
+until phase 7, so `bayesnec::ecx()` is unaffected. The NEWS entry names
+`bayesnec` as where the `bnecfit` methods live.
+
+Phase 3 is done when `grep -rn "bayesnec::" R/ tests/` returns nothing outside a
+test that calls `skip_if_not_installed("bayesnec")`, `NAMESPACE` has no
+`bnecfit`, `bayesnecfit` or `bayesmanecfit` method, and `devtools::test()` and R
+CMD check pass with `bayesnec` not installed.
+
 ## 5. Notes
 
 - **Method gaps to keep in mind:** `ecx` has no `drc` method — under
@@ -1169,6 +1225,11 @@ against the regression net, and reach `bayesnec` as one finished API at phase 7.
   should be added and the plan should say whether that is in scope.
   `nsec_multi` is brms-multivariate only. Under T15 that support is provided by
   `toxval_predict.brmsfit()`, which refuses a multivariate fit until then.
+- **`anchor` and model averaging of `drc` fits.** `drc` averages models
+  (`drc::maED()`), and `anchor = "component"` applies to such an average as it
+  does to a `bayesmanecfit`. No phase builds a model-averaged `toxval_pred` from
+  `drc` fits, so the plan does not cover it yet. It is to be scoped with
+  `relative` and the further `type` options raised in the PR #62 review.
 - **`n(s)ec` is listed in the `metric` vocabulary but not implemented here.**
   It needs `toxval_pred$threshold` and the shared component index described in
   [3.4](#34-the-toxval_pred-intermediate-object); see #25 and #18. It is flagged now only so the vocabulary does not have to be
