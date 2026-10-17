@@ -9,28 +9,23 @@
 # in the refactor plan.
 
 # parameters --------------------------------------------------------------
+# The argument checks in the nsec() generic run before dispatch, so the error
+# tests in this section do not depend on the class of the fit. They were written
+# against bayesnec fits and moved onto brms_model_1 when the bnecfit method was
+# removed (#39).
 test_that("prob_vals warnings behave as expected", {
   expect_error(
-    nsec(bayesnec::manec_example, prob_vals = 0.9, resolution = 10),
+    nsec(brms_model_1, x_var = "x", prob_vals = 0.9, resolution = 10),
     regexp = "prob_vals must include central, lower and upper quantiles, in that order"
   )
 
   expect_error(
     nsec(
-      bayesnec::manec_example,
+      brms_model_1,
+      x_var = "x",
       prob_vals = c(0.6, 0.9, 0.1),
       resolution = 10
     ),
-    regexp = "prob_vals must include central, lower and upper quantiles, in that order"
-  )
-
-  expect_error(
-    nsec(bayesnec_nec4param, prob_vals = 0.9, resolution = 10),
-    regexp = "prob_vals must include central, lower and upper quantiles, in that order"
-  )
-
-  expect_error(
-    nsec(bayesnec_nec4param, prob_vals = c(0.6, 0.9, 0.1), resolution = 10),
     regexp = "prob_vals must include central, lower and upper quantiles, in that order"
   )
 })
@@ -74,14 +69,14 @@ test_that("sig_val warning message triggered when more then 1 value passed", {
 # EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
 test_that("hormesis_def errors with wrong input value", {
   expect_error(
-    nsec(bayesnec::manec_example, hormesis_def = "other"),
+    nsec(brms_model_1, x_var = "x", hormesis_def = "other"),
     regexp = 'type must be one of "max" or "control" \\(the default\\). Please see \\?ecx for more details'
   )
 })
 
 test_that("xform errors if function not passed ", {
   expect_error(
-    nsec(bayesnec::manec_example, xform = 1),
+    nsec(brms_model_1, x_var = "x", xform = 1),
     regexp = "xform must be a function"
   )
 })
@@ -988,23 +983,24 @@ test_that("drc nsec xform changes output values", {
 
 # nsec input validation ----------------------------------------------------
 
+# Moved onto brms_model_1 from a bayesnec fit, as under parameters above (#39).
 test_that("nsec input validation catches non-numeric sig_val", {
   expect_error(
-    nsec(bayesnec_ecx4param, sig_val = "strict"),
+    nsec(brms_model_1, x_var = "x", sig_val = "strict"),
     "`sig_val` must be numeric"
   )
 })
 
 test_that("nsec input validation catches non-numeric resolution", {
   expect_error(
-    nsec(bayesnec_ecx4param, resolution = "high"),
+    nsec(brms_model_1, x_var = "x", resolution = "high"),
     "`resolution` must be numeric"
   )
 })
 
 test_that("nsec input validation catches non-logical posterior", {
   expect_error(
-    nsec(bayesnec_ecx4param, posterior = "yes"),
+    nsec(brms_model_1, x_var = "x", posterior = "yes"),
     "`posterior` must be logical"
   )
 })

@@ -397,6 +397,15 @@ test_that("xform fails if function not passed", {
   )
 })
 
+# Moved from the bnecfit tests when that method was removed (#39). The check is
+# in the ecx() generic, so the class of the fit does not matter.
+test_that("posterior fails if not logical", {
+  expect_error(
+    ecx(brms_model_1, x_var = "x", posterior = "yes"),
+    "`posterior` must be logical"
+  )
+})
+
 test_that("prob_vals argument changes when new values provided", {
   output <- ecx(brms_model_1, x_var = "x", prob_vals = c(0.45, 0.1, 0.9))
 
