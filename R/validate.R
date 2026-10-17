@@ -29,6 +29,11 @@ chk_ecx_val <- function(ecx_val, type) {
 
 #' `sig_val` sets the decreasing reference and `1 - sig_val` the increasing
 #' one, so it must be below 0.5 for the two to lie either side of the control.
+#' Values above the lower probability of the summary interval are allowed:
+#' Fisher and Fox (2023, Table 3) report NSECs at 0.05, 0.10 and 0.20. The
+#' fraction `sig_val` of realisations whose control lies at or below the
+#' reference then sets the lower bound of the interval, which those authors
+#' report as the lowest concentration (p. 2026).
 #'
 #' @noRd
 chk_sig_val <- function(sig_val) {
