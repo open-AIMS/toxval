@@ -72,6 +72,16 @@ toxval_predict <- function(
   chk::chk_whole_number(resolution)
   chk::chk_gt(resolution, 1)
   chk_x_range(x_range)
+  # Grouping by the predictor would set the grid column to one level per curve,
+  # giving a constant curve for each (#15). Checked here rather than in each
+  # method, since both methods would otherwise return without error.
+  if (!is.null(group_var) && identical(group_var, x_var)) {
+    chk::abort_chk(
+      "`group_var` and `x_var` must name different columns, not both ",
+      chk::cc(x_var),
+      "."
+    )
+  }
 
   UseMethod("toxval_predict")
 }

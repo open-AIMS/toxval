@@ -49,6 +49,13 @@ test_that("toxval_predict errors when group_var is not a string", {
   )
 })
 
+test_that("toxval_predict errors when group_var is the same column as x_var", {
+  expect_error(
+    toxval_predict(brms_model_1, x_var = "x", group_var = "x"),
+    "`group_var` and `x_var` must name different columns, not both 'x'."
+  )
+})
+
 test_that("toxval_predict errors when resolution is not a whole number", {
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", resolution = 2.5),
@@ -305,11 +312,12 @@ test_that("toxval_predict errors when an ungrouped drc fit is given a group_var"
 
 test_that("toxval_predict errors when group_var is not the curveid of a drc fit", {
   # `dose` is a column of the data, so only the comparison with the `curveid`
-  # stops it being recorded as the grouping variable
+  # stops it being recorded as the grouping variable. `x_var` is left to be
+  # read from the fit, since `x_var = "dose"` would stop the call earlier, at
+  # the check that `group_var` and `x_var` differ.
   expect_error(
     toxval_predict(
       daphnids_fit(),
-      x_var = "dose",
       group_var = "dose",
       resolution = 5,
       n_boot = 10
