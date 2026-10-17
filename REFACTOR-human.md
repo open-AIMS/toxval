@@ -46,13 +46,16 @@ theoretical asymptote; `range`, the control down to the lowest response the curv
 predicts; and `direct`, a response value supplied by the user. `range` is new,
 and it is what `relative` means in the current code, so `relative` changes
 meaning and is deprecated into `range`. Decision T9 and `REFACTOR-claude.md`
-§3.10 state it in full.
+§3.10 state it in full. For an increasing response, `absolute` measures towards
+1 for a proportion and as a percentage of the control otherwise, so a 10 per
+cent increase from a control of 20 is 22. These are the published definitions
+(decision T18).
 
 **The `ecnsec` definition (#49).** `ecnsec` is the inverse of the `ecx`
 reference under the same `type`, and `nsec()` accepts the arguments `ecx()`
-accepts, so one `type` selects both. Under `direct`, `ecnsec` is the reference
-on the response scale rather than a percentage. Decision T8 and §3.9 state it in
-full.
+accepts, so one `type` selects both. `nsec()` refuses `type = "direct"`,
+because its `ecnsec` would only repeat the `reference` column (decision T19).
+Decision T8 and §3.9 state it in full.
 
 **Direction (#20).** An estimate is sought in both directions every time and
 `direction` is a column of the result, so `hormesis_def` is removed rather than
@@ -376,15 +379,21 @@ break would force two breaking releases in a row.
    class-agnostic compute functions, the parametric bootstrap. Purely additive.
    Done when it is tested and `ecx()` / `nsec()` still return today's values.
 3. **`toxval` sheds `bayesnec`.** Reverses a dependency pointing the wrong way.
-   Done when `bayesnec` is no longer imported and `ecx` on a `bnecfit` follows
-   the #19 answer.
+   The `bnecfit` methods and their tests are deleted. What the remaining tests
+   and examples read from `bayesnec`, such as `nec_data`, is stored as test
+   fixtures, so the suite runs without `bayesnec` installed. A test is skipped
+   when `bayesnec` is absent only if its purpose is to compare against
+   `bayesnec`. Done when `bayesnec` is no longer imported and the tests pass
+   without it installed. `ecx` and `nsec` on a `bnecfit` are then computed by
+   `bayesnec` alone until phase 7 (`REFACTOR-claude.md` §4, phase 3).
 4. **Move metrics onto the spine one at a time** (`ecx`, then `nsec`), each
    gaining `draws`, with `nsec_multi()` becoming a deprecated wrapper around
    `nsec()`. Needs #60 answered first, since it decides what the aggregation
    reports. Also needs `toxval_predict()` to return one curve per response for a
-   multivariate `brmsfit`, which it refuses until then. Done when `ecx()` and
-   `nsec()` compute from a `toxval_pred` and `nsec_multi()` calls `nsec()`, with
-   `posterior` deprecated but working.
+   multivariate `brmsfit`, which it refuses until then. It also adds
+   `type = "relative"` and the `anchor` argument, which phase 2 left out. Done
+   when `ecx()` and `nsec()` compute from a `toxval_pred` and `nsec_multi()`
+   calls `nsec()`, with `posterior` deprecated but working.
 5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
    update the tests; remove `posterior` and the dead blocks last. Done when every
    metric returns a tibble and the tests assert the new shapes.
@@ -405,6 +414,10 @@ it returns. Separating them keeps each checkable against the regression net, and
   `toxval_predict()` instead.
 - **`n(s)ec` and `nec` are reserved in the vocabulary but not implemented here**
   (#25, #18), so the vocabulary does not have to be reopened later.
+- **Model averaging of `drc` fits is not in any phase yet.** `anchor` applies to
+  a `drc` model average as it does to a `bayesnec` one, so it is to be scoped
+  with `relative` and the further `type` options in #63
+  (`REFACTOR-claude.md` §5).
 - **`anchor = "control"` is specified but not implemented.** It needs a
   control-only fit, which cannot be recovered from a fitted model, so it is
   supplied as an argument — an argument for fitting wrappers (#22).

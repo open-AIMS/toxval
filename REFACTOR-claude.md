@@ -828,8 +828,8 @@ Consequences elsewhere:
 
 **`ecnsec` is the inverse of the `ecx` reference construction under the same
 `type`, it takes `ecx`'s default of `type = "absolute"`, and `nsec()` accepts
-the arguments `ecx()` accepts.** Settled 2026-09-04 (RF); see #49 and decision
-T8.
+the arguments `ecx()` accepts, except `type = "direct"`.** Settled 2026-09-04
+(RF); see #49 and decision T8. The exception is T19, 2026-10-17.
 
 `ecnsec` reports the effect at the NSEC. **The defect being fixed:** it is
 currently computed by three different formulas, one per `nsec` method, which
@@ -845,7 +845,7 @@ back to an effect. One definition serves both directions:
 | `absolute` | `y[1] - y[1] * (p/100)` | `(1 - R / y[1]) * 100` |
 | `relative` | `y[1] - (y[1] - a) * (p/100)` | `(1 - (R - a) / (y[1] - a)) * 100` |
 | `range` | `y[1] - (y[1] - min(y)) * (p/100)` | `(1 - (R - min(y)) / (y[1] - min(y))) * 100` |
-| `direct` | `p`, a response value | `R`, the reference on the response scale |
+| `direct` | `p`, a response value | refused by `nsec()` (T19) |
 
 `R` is the NSEC reference, `y` one realisation's fitted curve, `y[1]` the
 control, `a` the equation's theoretical asymptote and `p` the percentage. The
@@ -876,18 +876,24 @@ is what the `nsec` methods implement.
 The three `apply()` blocks are replaced by one helper taking the realisation
 matrix, the reference and `type`.
 
-#### `type = "direct"` has no interval
+#### The direct type in `nsec()`  (T19)
+
+`nsec()` errors on `type = "direct"`. Settled 2026-10-17 (RF), on the review of
+PR #62.
 
 The `nsec` reference is a scalar across realisations —
 `quantile(control_posterior, sig_val)`, `R/nsec.R:117-121`. `ecnsec` varies
 between realisations only through its denominator, which is per-realisation.
-Under `direct` there is no denominator, so `ecnsec` equals the `reference`
-column and `ecnsec.low` and `ecnsec.high` are `NA`.
+Under `direct` there is no denominator, so `ecnsec` would equal the `reference`
+column in every realisation: on the `ecx4param` fixture at `sig_val = 0.01`, all
+100 per-draw values were 2.097. Reporting it would repeat a column and need
+`NA` bounds to avoid asserting an interval of zero width.
 
-`NA` rather than bounds equal to the estimate: equal bounds assert an interval
-of zero width, where the intent is that no interval is defined. This is the
-§3.1 column rule — present because meaningful for the metric, `NA` because
-unavailable for this `type` — and matches `control` under `type = "direct"`.
+The earlier ruling reported it with `NA` bounds. It was replaced because the
+column adds nothing the `reference` column does not give, and refusing it
+removes a special case from the phase 4 summary. `ecx()` keeps `direct`, where
+the supplied value sets the reference and the ECx varies between
+realisations.
 
 #### Change at default settings
 
@@ -961,7 +967,7 @@ The control is the predicted response at the lowest concentration in the series.
 
 | `type` | decreasing | increasing |
 |---|---|---|
-| `absolute` *(default)* | control → 0 | control → the upper bound (1, or the family's) |
+| `absolute` *(default)* | control → 0 | control → 1 for a proportion; otherwise control → twice the control (T18) |
 | `relative` | control → the equation's theoretical lower asymptote | control → the equation's theoretical upper asymptote |
 | `range` | control → the minimum predicted response over the predictor range | control → the maximum predicted response over the predictor range |
 | `direct` | the supplied response value, no proportional change | as decreasing |
@@ -1050,17 +1056,50 @@ is the defined behaviour for a response that goes negative. It is uncapped today
 (`R/ecx.R:285-287` checks only that it is numeric and single-valued); that must
 stay, and be documented, so it is not later read as a missing guard.
 
-#### The increasing upper bound
+#### The increasing `absolute` reference  (T18)
 
-Where the family has no upper bound, `absolute` assumes 1, on the basis that an
-increasing response reached through `drc` or `brms` is usually percent
-inhibition or another proportion.
+Settled 2026-10-17 (RF), on the review of PR #62, replacing an assumed upper
+bound of 1 for every family.
 
-**Guard: error when the control is at or above the assumed upper bound.** With a
-control of 20 and an assumed bound of 1 the reference is
-`20 + (1 − 20) × 0.10 = 18.1`, below the control — an increasing ECx measured
-against a decreased reference, returned without complaint. One comparison
-catches it, and it never fires on proportion data.
+Every `type` except `direct` sets the reference as `y[1] ∓ (p/100) × S`, where
+`S` is a span: `y[1]` for `absolute` decreasing, the distance to the asymptote
+for `relative`, and the distance to the curve's extreme for `range`. Under
+`absolute` the increasing span depends on the response:
+
+| response | increasing span `S` | name in the literature |
+|---|---|---|
+| on the proportion scale | `1 − y[1]` | extra risk (US EPA 2012), which is Abbott's formula |
+| any other | `y[1]` | relative deviation (EFSA 2022 §2.6.2; BMDS default; OECD 2006 No. 54 ¶306) |
+
+For a control of 20 a 10 per cent increase is 22 under relative deviation. The
+assumed bound of 1 gave `20 + (1 − 20) × 0.10 = 18.1`, below the control. The
+decreasing `absolute` form, `S = y[1]`, is relative deviation as well, so for an
+unbounded response the two directions are mirror images.
+
+A proportion is recognised from `meta$family` (`response_upper_bound()` in
+`R/compute.R`): the `brms` families `bernoulli`, `beta`, `zero_inflated_beta` and
+`zero_one_inflated_beta`, and a `drc` fit whose `type` is `"binomial"`, which
+`drc` predicts on the proportion scale. `toxval_predict.drc()` records the
+`type` as `meta$family` for this purpose. A `brms` binomial or beta-binomial fit
+is predicted by `posterior_epred()` as a count of trials, bounded by the number
+of trials, which a `toxval_pred` does not record until `trials_var` (T15); its
+increasing `absolute` reference is `NA` until then.
+
+A span of zero or less gives `NA`, for the reference and for `ecnsec`, in either
+direction. Under `absolute` that is a control at or below 0, or a proportion
+whose control is at or above 1; under `range`, a curve with no extent in that
+direction. This replaces an error for a control at or above the assumed bound.
+Both directions are computed on every call (T10), so the error would also have
+stopped the decreasing estimate: on the `nec4param` component of
+`manec_example`, whose control draws lie between 2.03 and 2.41, every call would
+have raised it.
+
+The names follow Daniels, Hommen and Ratte (2025, IEAM 22:734-740), for whom an
+absolute ECx is a change relative to the control and a relative ECx is relative
+to the maximum achievable response. They differ from `drc::ED()`, whose
+`type = "absolute"` is toxval's `direct`. Further definitions found in the
+literature (added risk, a standard-deviation span, a hybrid cut-off) and a type
+reproducing `drc::ED(reference = "upper")` are left to #63.
 
 #### Locating the asymptote on a `drc` or `brmsfit` object
 
@@ -1152,8 +1191,8 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 0 | **Done.** The `ecx` reference and `type` vocabulary (#19, T9), direction (#20, T10), `ecnsec` (#49, T8), frequentist realisations (#43, T11) and the `anchor` default (T12). No code. | — |
 | 1 | **Lock a regression net.** Mark every test a later phase changes with `# EXPECTED-CHANGE <reason> #<issue>`, replacing the existing `TODO` markers; unmarked tests are the "must not move" set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan. | - |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
-| 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`; move `bayesnec` to `Suggests`, or out entirely if the tests no longer need it. | `ecx` on `bnecfit` adopts the #19 answer |
-| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. Needs #60 answered first. | per #19/#20, and #60 |
+| 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`, with their tests. Store what the remaining tests and examples read from `bayesnec` as fixtures, so the suite passes with `bayesnec` not installed, and remove `bayesnec` from `Imports`. See [Phase 3 without `bayesnec`](#phase-3-without-bayesnec). | none in `toxval`. `ecx` and `nsec` on a `bnecfit` are no longer computed here, and `bayesnec` objects receive the #19 answer at phase 7 |
+| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. Needs #60 answered first. Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). | per #19/#20, and #60 |
 | 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
 | 6 | **`toxval` to CRAN**, carrying the final API. | — |
 | 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
@@ -1162,6 +1201,62 @@ Phases 2–4 change *who owns the code* and what it computes; phase 5 changes
 *what it returns*. They stay separate inside `toxval`, where each can be checked
 against the regression net, and reach `bayesnec` as one finished API at phase 7.
 
+#### Phase 3 without `bayesnec`
+
+Phase 3 deletes `ecx.bnecfit()`, `nsec.bnecfit()`, `predict.bayesnecfit()`,
+`predict.bayesmanecfit()` and `newdata_eval()`, and the tests of them. Those
+tests are marked `EXPECTED-CHANGE ... (test will be removed) #39`, or
+`EXPECTED-CHANGE ecx.bnecfit reference becomes per-realisation ... #19`. The
+second group tests a method that no longer exists, so it is deleted rather than
+updated.
+
+What remains must run without `bayesnec`. Counted on `phase-2` at `cb53250`
+(2026-10-17), every test that reads `bnec_model_1`, `manec_example`,
+`nec4param`, `ecx4param` or a `bayesnec_*` fixture tests one of the deleted
+methods, with two exceptions:
+
+- `tests/testthat/setup.R` calls `bayesnec::nec_data`, `bayesnec::manec_example`
+  and `bayesnec::pull_out()` at top level. `setup.R` runs before every test
+  file, so with `bayesnec` absent every file errors, and no per-test skip
+  prevents it. The calls are deleted, or replaced by stored fixtures where a
+  remaining test reads the object.
+- One `drc` test in `test-nsec.R` fits `drc::drm()` to `bayesnec::nec_data`.
+  The data frame is stored as a fixture.
+
+The roxygen examples on the `ecx` and `nsec` topics (`R/ecx.R:42`,
+`R/nsec.R:29`) call `library(bayesnec)` and use `manec_example`. R CMD check runs
+them, so they are rewritten on a `drc` fit, guarded by
+`requireNamespace("drc")` since `drc` is in `Suggests`.
+
+A remaining test that needs only data or a fitted `brmsfit` reads it from
+`tests/testthat/fixtures/`, so it runs in every check, including a check with
+`Suggests` not installed. `skip_if_not_installed("bayesnec")` is reserved for a
+test whose purpose is to compare against `bayesnec`, and such a test is what
+would justify listing `bayesnec` in `Suggests`. CRAN requires a `Suggests`
+package to be used conditionally, so a skip is correct for that test. For the
+others it would report success on a test that did not run.
+
+The `brmsfit` inside a stored `bnec()` fit can be passed to `toxval_predict()`
+without `bayesnec`. On 2026-10-17, `brms::posterior_epred()` on
+`bayesnec_ecx4param$fit` and `bayesnec_nec4param$fit` returned 100 × 3 matrices
+in a session where the `bayesnec` namespace was not loaded; `brms` supplies the
+`step()` the NEC equations use. On the `nec4param` component of `manec_example`,
+`compute_ecx()` and `compute_nsec()` on that route reproduced `ecx.brmsfit()`
+and `nsec.brmsfit()` per draw to within 5e-7 (100 draws, 200-point grid). This
+covers a single `bayesnecfit`. A `bayesmanecfit` cannot be checked this way,
+because `bayesnec` builds the model average, so it is checked at phase 7.
+
+Phase 3 changes no number `toxval` computes on a `brmsfit` or `drc` fit.
+`toxval::ecx()` or `toxval::nsec()` on a `bnecfit` errors, since no method for
+that class remains in `toxval`. `bayesnec` keeps its own `ecx()` and `nsec()`
+until phase 7, so `bayesnec::ecx()` is unaffected. The NEWS entry names
+`bayesnec` as where the `bnecfit` methods live.
+
+Phase 3 is done when `grep -rn "bayesnec::" R/ tests/` returns nothing outside a
+test that calls `skip_if_not_installed("bayesnec")`, `NAMESPACE` has no
+`bnecfit`, `bayesnecfit` or `bayesmanecfit` method, and `devtools::test()` and R
+CMD check pass with `bayesnec` not installed.
+
 ## 5. Notes
 
 - **Method gaps to keep in mind:** `ecx` has no `drc` method — under
@@ -1169,6 +1264,11 @@ against the regression net, and reach `bayesnec` as one finished API at phase 7.
   should be added and the plan should say whether that is in scope.
   `nsec_multi` is brms-multivariate only. Under T15 that support is provided by
   `toxval_predict.brmsfit()`, which refuses a multivariate fit until then.
+- **`anchor` and model averaging of `drc` fits.** `drc` averages models
+  (`drc::maED()`), and `anchor = "component"` applies to such an average as it
+  does to a `bayesmanecfit`. No phase builds a model-averaged `toxval_pred` from
+  `drc` fits, so the plan does not cover it yet. It is to be scoped with
+  `relative` and the further `type` options in #63.
 - **`n(s)ec` is listed in the `metric` vocabulary but not implemented here.**
   It needs `toxval_pred$threshold` and the shared component index described in
   [3.4](#34-the-toxval_pred-intermediate-object); see #25 and #18. It is flagged now only so the vocabulary does not have to be
