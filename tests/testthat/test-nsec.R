@@ -11,8 +11,8 @@
 # parameters --------------------------------------------------------------
 # The argument checks in the nsec() generic run before dispatch, so the error
 # tests in this section do not depend on the class of the fit. They were written
-# against bayesnec fits and moved onto brms_model_1 when the bnecfit method was
-# removed (#39).
+# against bayesnec fits and rewritten to use brms_model_1 when the bnecfit method
+# was removed (#39).
 test_that("prob_vals warnings behave as expected", {
   expect_error(
     nsec(brms_model_1, x_var = "x", prob_vals = 0.9, resolution = 10),
@@ -761,7 +761,8 @@ test_that("drc nsec xform changes output values", {
 
 # nsec input validation ----------------------------------------------------
 
-# Moved onto brms_model_1 from a bayesnec fit, as under parameters above (#39).
+# Rewritten to use brms_model_1 in place of a bayesnec fit, as under parameters
+# above (#39).
 test_that("nsec input validation catches non-numeric sig_val", {
   expect_error(
     nsec(brms_model_1, x_var = "x", sig_val = "strict"),
