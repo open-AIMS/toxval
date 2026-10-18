@@ -22,9 +22,12 @@ coverage](https://codecov.io/gh/open-AIMS/toxval/graph/badge.svg)](https://app.c
 estimating ecotoxicological toxicity metrics from concentration–response
 data. It currently supports extraction of effect-based metrics (ECx) and
 no-effect metrics — including the No-Significant-Effect Concentration
-(NSEC) — from fitted frequentist
-([`drc`](https://cran.r-project.org/package=drc)) and Bayesian
-([`bayesnec`](https://open-aims.github.io/bayesnec/)) model objects.
+(NSEC) — from fitted Bayesian
+([`brms`](https://cran.r-project.org/package=brms)) model objects, and
+of the NSEC from fitted frequentist
+([`drc`](https://cran.r-project.org/package=drc)) model objects. Models
+fitted with [`bayesnec`](https://open-aims.github.io/bayesnec/) are
+handled by that package’s own `ecx()` and `nsec()`.
 
 For the theoretical basis of the NSEC, see [Fisher & Fox
 (2023)](https://doi.org/10.1002/etc.5610). For model-averaged N(S)EC
@@ -106,12 +109,13 @@ repository:
 
 ### Expanded model class support ([\#21](https://github.com/open-AIMS/toxval/issues/21))
 
-Currently `toxval` supports `drc` and `bayesnec` model fits. Support
-will be extended to a wider range of commonly used R model classes,
-including `glm`, `glmer`, `gam`, and `gamm`. The refactoring strategy is
-to shift the bulk of computation to operate on a prediction matrix, so
-that adding support for a new model class requires only a thin wrapper
-around that class’s existing prediction method.
+Currently `toxval` supports `brms` and `drc` model fits, and `ecx()` has
+a method for `brms` fits only. Support will be extended to a wider range
+of commonly used R model classes, including `glm`, `glmer`, `gam`, and
+`gamm`. The refactoring strategy is to shift the bulk of computation to
+operate on a prediction matrix, so that adding support for a new model
+class requires only a thin wrapper around that class’s existing
+prediction method.
 
 ### Support for increasing responses ([\#20](https://github.com/open-AIMS/toxval/issues/20))
 
