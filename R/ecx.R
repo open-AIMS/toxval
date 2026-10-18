@@ -38,15 +38,16 @@
 #' lower 95% credible interval bounds.
 #'
 #' @examples
-#' # Not run during R CMD check: ecx() has no method for a drc fit, and fitting
-#' # a brmsfit compiles a Stan model.
-#' \dontrun{
+#' # ecx() has no method for drc fits, so this example fits a brms model.
+#' # Compiling the Stan model takes about a minute.
+#' \donttest{
 #' if (requireNamespace("drc", quietly = TRUE)) {
 #'   fit <- brms::brm(
 #'     rootl ~ s(conc, k = 5),
 #'     data = drc::ryegrass,
 #'     chains = 2,
 #'     seed = 1,
+#'     refresh = 0,
 #'     control = list(adapt_delta = 0.99)
 #'   )
 #'   ecx(fit, x_var = "conc")
