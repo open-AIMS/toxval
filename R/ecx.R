@@ -50,8 +50,8 @@
 #'     refresh = 0,
 #'     control = list(adapt_delta = 0.99)
 #'   )
-#'   ecx(fit, x_var = "conc")
-#'   ecx(fit, x_var = "conc", ecx_val = 50)
+#'   print(ecx(fit, x_var = "conc"))
+#'   print(ecx(fit, x_var = "conc", ecx_val = 50))
 #' }
 #' }
 #'
