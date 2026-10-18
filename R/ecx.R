@@ -276,7 +276,9 @@ ecx.brmsfit <- function(
       # unconditionally, ecx.brmsfit never does. The block cannot simply be
       # uncommented: the guard is a bayesnec-ism, `object$model` on a
       # bayesnecfit is the model name, on a brmsfit it is the Stan code, so
-      # grepl("horme", .) is meaningless here.
+      # grepl("horme", .) is meaningless here. The block also calls
+      # modify_posterior() and do_wrapper(), deleted in phase 3 because nothing
+      # live called them; R/helpers.R at the pre-refactor tag has both.
       # The `horme` argument this method already documents and accepts is the
       # intended guard, and is currently unused. Left for the refactor to
       # settle alongside the direction/hormesis decision, not resolved here,

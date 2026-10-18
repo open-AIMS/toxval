@@ -1,27 +1,6 @@
-# do_wrapper() and modify_posterior() have had no live caller since the
-# bnecfit methods were removed (#39). They are kept because the commented-out
-# hormesis truncation in ecx.brmsfit() and nsec.brmsfit() calls both, and the
-# hormesis rework (#20) decides whether that truncation is restored. Deleting
-# them now would leave those blocks naming functions that do not exist.
-#' @noRd
-do_wrapper <- function(..., fct = "cbind") {
-  do.call(fct, lapply(...))
-}
-
 #' @noRd
 clean_names <- function(x) {
   paste0("Q", gsub("%", "", names(x), fixed = TRUE))
-}
-
-#' @noRd
-modify_posterior <- function(n, object, x_vec, p_samples, hormesis_def) {
-  posterior_sample <- p_samples[n, ]
-  if (hormesis_def == "max") {
-    target <- x_vec[which.max(posterior_sample)]
-    change <- x_vec < target
-    posterior_sample[change] <- NA
-  }
-  posterior_sample
 }
 
 #' @noRd

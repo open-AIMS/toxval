@@ -170,7 +170,9 @@ nsec.brmsfit <- function(
       # left with a single non-NA point and nsec_fct() errors in approxfun()
       # with "need at least two non-NA values to interpolate". Left for the
       # refactor to settle with the rest of the hormesis/direction question
-      # (#20).
+      # (#20). modify_posterior() and do_wrapper(), which the block calls, were
+      # deleted in phase 3 because nothing live called them; R/helpers.R at the
+      # pre-refactor tag has both.
       # n <- seq_len(nrow(p_samples))
       # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
       #                                    p_samples, hormesis_def, fct = "rbind")
