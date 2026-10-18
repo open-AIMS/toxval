@@ -1,3 +1,6 @@
+# The fits come from bayesnec in setup.R, so without it there is nothing to test.
+skip_if_not_installed("bayesnec")
+
 test_that("works for brmsfit pulled from bayesnecfit", {
   if (Sys.getenv("NOT_CRAN") == "") {
     skip_on_cran()
