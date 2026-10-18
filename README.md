@@ -66,8 +66,9 @@ inconsistencies that are not always transparent to users (see [issue
 
 `toxval` addresses these challenges by providing:
 
-- a **consistent interface** for extracting ECx, NOEC, and NSEC values
-  from fitted models;
+- a **consistent interface** for extracting ECx and NSEC values from
+  fitted models, with NOEC to follow
+  ([\#17](https://github.com/open-AIMS/toxval/issues/17));
 - support for **multiple model classes and inference frameworks**;
 - **explicit, transparent definitions** of effect and no-effect that are
   independent of model class; and
@@ -87,13 +88,14 @@ estimated via hypothesis testing, the NSEC:
   and
 - retains the intuitive concept of “no observable effect.”
 
-For threshold-based models (NEC models), `toxval` also supports
-extraction of the NEC parameter directly, and is designed to support
-model-averaged N(S)EC estimates that combine NSEC values from smooth
-models with NEC values from threshold models — providing a more
+For threshold-based models (NEC models), the NEC is a parameter of the
+fitted model. Model-averaged N(S)EC estimates combine NSEC values from
+smooth models with NEC values from threshold models, which is a more
 statistically defensible approach to no-effect estimation (see [Fisher
 et al. 2024](https://doi.org/10.1002/ieam.4809) and the `bayesnec`
-package).
+package). `toxval` does not yet extract the NEC parameter or compute
+model-averaged N(S)EC estimates; both are planned
+([\#18](https://github.com/open-AIMS/toxval/issues/18)).
 
 ## Usage
 
