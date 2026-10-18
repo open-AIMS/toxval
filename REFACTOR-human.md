@@ -226,6 +226,8 @@ toxval_pred:
   threshold : per-realisation threshold parameter (a NEC), or NULL
   control   : realisations of a control-only fit, one set per row of keys, or
               NULL, since a grouped fit has one control per group
+  asymptote : per-realisation asymptotes for `type = "relative"`, one set per
+              row of keys, or NULL (decision T24)
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
               family, realisation source, n_realisation, ...
 ```
@@ -302,8 +304,12 @@ both are reported. `hormesis_def` cannot be repaired in place, because the two
 #1 and #8 close as a consequence, and #20 is answered directly.
 
 Where no draw crosses in a direction, the row is still returned with `NA`
-(decision T10). **Still to pin down:** what to report when *some* draws cross and
-some do not, which is #60. It blocks phase 4.
+(decision T10). Where some draws cross and some do not (#60), a draw whose
+control is already past the reference takes the lowest concentration in the
+data. A draw that does not cross within the tested range is ranked above the
+highest concentration. An interval limit that falls among such draws is
+reported as the highest concentration, with a warning giving the fraction
+(decisions T21 and T25).
 
 ### 3.7 Validation
 
@@ -388,12 +394,17 @@ break would force two breaking releases in a row.
    `bayesnec` alone until phase 7 (`REFACTOR-claude.md` §4, phase 3).
 4. **Move metrics onto the spine one at a time** (`ecx`, then `nsec`), each
    gaining `draws`, with `nsec_multi()` becoming a deprecated wrapper around
-   `nsec()`. Needs #60 answered first, since it decides what the aggregation
-   reports. Also needs `toxval_predict()` to return one curve per response for a
-   multivariate `brmsfit`, which it refuses until then. It also adds
-   `type = "relative"` and the `anchor` argument, which phase 2 left out. Done
-   when `ecx()` and `nsec()` compute from a `toxval_pred` and `nsec_multi()`
-   calls `nsec()`, with `posterior` deprecated but working.
+   `nsec()`. #60, which decides what the aggregation reports, is answered
+   (decision T21). Also needs `toxval_predict()` to return one curve per
+   response for a multivariate `brmsfit`, which it refuses until then. It also
+   adds `type = "relative"` and the `anchor` argument, which phase 2 left out.
+   Done when `ecx()` and `nsec()` compute from a `toxval_pred` and `nsec_multi()`
+   calls `nsec()`, with `posterior` deprecated but working. Its rulings are
+   decisions T21 to T28. Five questions remain open for discussion: whether
+   phases 4 and 5 are done together, the name replacing `type = "lower"`, what
+   `type = "relative"` computes from phase 4, the `resolution` default, and the
+   name of the `meta` element that records the lowest concentration in the data
+   (`02_decisions.md`, Still to decide).
 5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
    update the tests; remove `posterior` and the dead blocks last. Done when every
    metric returns a tibble and the tests assert the new shapes.
@@ -409,7 +420,7 @@ it returns. Separating them keeps each checkable against the regression net, and
 ## 5. Notes
 
 - **Method gaps to keep in mind:** `ecx` has no `drc` method, which becomes
-  nearly free under §3.4 — whether it is in scope needs a decision. `nsec_multi`
+  nearly free under §3.4 and is added in phase 4 (decision T27). `nsec_multi`
   is brms-multivariate only. Under decision T15 that support is provided by
   `toxval_predict()` instead.
 - **`n(s)ec` and `nec` are reserved in the vocabulary but not implemented here**

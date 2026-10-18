@@ -2,9 +2,9 @@
 
 Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
 2026-09-04/05 with T8-T12, which settle the definitions gating the refactor, and
-2026-10-09 with T13-T17, from the review of PR #59, and 2026-10-17 with T18-T20,
-from the review of PR #62. A session implements these rather than re-opening
-them.
+2026-10-09 with T13-T17, from the review of PR #59, 2026-10-17 with T18-T20,
+from the review of PR #62, and 2026-10-18 with T21-T28, the rulings phase 4
+needs. A session implements these rather than re-opening them.
 
 **Scope.** This file records decisions about the **package** — what the code
 does and why. Workflow is not recorded here: branching, remotes and review live
@@ -340,11 +340,152 @@ concentration (p. 2026). The irregular intervals toxval gives above 0.025 come
 from `nsec_fct()` placing the realisations whose control lies below the
 reference at `max(x_vec)`, which #60 decides.
 
+## T21 — realisations with no crossing (#60)
+
+Settled 2026-10-18 (RF), adopting `bayesnec` D17 ruling 1 and the `bayesnec`
+#404 rule, as proposed on #60 on 2026-10-17.
+
+A realisation that does not cross a reference is placed where its crossing
+lies:
+
+- A realisation whose control already lies beyond the reference in the
+  direction sought takes the lowest concentration in the data the model was
+  fitted to. That is the control concentration, which `x_vec[1]` is not when
+  `x_range` is supplied.
+- A realisation with no crossing within the evaluated range keeps its rank
+  above `max(x_vec)` and is not given a value. A quantile that falls among such
+  realisations is reported as `max(x_vec)`, and the call warns with the
+  censored fraction (T25).
+
+The increasing direction mirrors the first rule against the `1 - sig_val`
+reference. In `ecx()` the second rule applies as in `nsec()`. A realisation
+whose `ecx()` reference is `NA`, a span of zero or less (T18), is excluded from
+the summary and counted in the warning, not censored.
+
+`meta` does not record the lowest concentration in the data, so the first rule
+adds an element to it. That is a change to the public `toxval_pred` contract
+(§3.3), and its name is still to decide.
+
+## T22 — `lifecycle` joins `Imports`
+
+Settled 2026-10-18 (RF).
+
+The deprecations in this plan use `lifecycle::deprecate_warn()`, as T9 and
+`REFACTOR-claude.md` §3.5 specify: of `hormesis_def` and `horme` (T28), of
+`nsec_multi()` (T15), and of the old meaning of `relative` (T9). `lifecycle` is
+added to `Imports` in phase 4. `bayesnec` uses a plain `warning()` for its one
+such change (D15 ruling 8), but toxval has several.
+
+## T23 — the scope of `anchor` in phase 4 (T12)
+
+Settled 2026-10-18 (RF). The argument is specified in `REFACTOR-claude.md`
+§3.8.
+
+`nsec()` gains `anchor = c("model", "component", "control")`, defaulting to
+`"model"`. `"model"` and `"component"` give the same values for every class
+toxval supports, since none is model-averaged. `"control"` errors, saying that
+it needs a control-only fit, `control_fit`, which is not yet implemented (#22).
+When the choice first appears on the result depends on whether phases 4 and 5
+are done together, which is still to decide.
+
+## T24 — the source and storage of the asymptote (#63)
+
+Settled 2026-10-18 (RF). `REFACTOR-claude.md` §3.4 and §3.10 refer to it.
+
+- `toxval_predict.brmsfit()` gains `asymptote = NULL`. It takes the names of
+  the non-linear parameters, as `c(decreasing = "bot", increasing = "top")`, or
+  numeric values.
+- `toxval_pred` gains an `asymptote` slot. It is `NULL`, or a list aligned to
+  the rows of `keys`, each element a list of two per-realisation vectors named
+  `decreasing` and `increasing`, `NA` where the equation has no such asymptote.
+- `toxval_predict.drc()` fills it from `fct$lowerAs()` and `fct$upperAs()`,
+  applied per bootstrap row and per curve. Given a parameter matrix,
+  `lowerAs()` returns a wrong value with a warning.
+
+The `drc` limits are not looked up from `fct$name`, as §3.10 first specified.
+`fct$name` is `"::"` for a fit made with `drc::LL.4()`, and custom `names =`
+change the parameter letters.
+
+## T25 — warnings for censored and excluded realisations (#6, #24)
+
+Settled 2026-10-18 (RF).
+
+A call warns once when a reported quantile is censored (T21) or a realisation
+is excluded. The warning gives the fraction for each curve and direction and
+suggests a wider `x_range`. The call returns the estimate rather than failing
+(T3).
+
+## T26 — `meta` for a multivariate fit (T15)
+
+Settled 2026-10-18 (RF).
+
+- `meta$family` becomes a character vector named by response, and stays one
+  string for a univariate fit. `response_upper_bound()` reads it per curve.
+- `meta$multi_var` holds the response names as `posterior_epred()` returns
+  them (for example `spsurvival`), matched to the data columns by name rather
+  than by position.
+- `trials_var` is recorded per curve, and T18's increasing `absolute` reference
+  for a binomial response uses it.
+
+## T27 — `ecx()` for `drc` fits
+
+Settled 2026-10-18 (RF).
+
+`ecx()` accepts a `drc` fit from phase 4. Once `ecx()` calls `toxval_predict()`
+this needs no new code path. It is tested against `drc::ED()` where the
+definitions coincide, within bootstrap error: `direct` against
+`ED(type = "absolute")`, and the new `relative` against `ED(type = "relative")`
+once `relative` is implemented.
+
+## T28 — retired arguments
+
+Settled 2026-10-18 (RF).
+
+`hormesis_def` and `horme` are deprecated (T22) and ignored, since both
+directions are computed (T10), and the tests marked #20 change. `by_group`,
+`group_var = NA`, `x_range = NA` and `curveid` are translated to the new
+arguments without a warning. They are deprecated with the change to the
+`toxval` tibble.
+
 ---
 
 ## Still to decide
 
 Listed so they are not mistaken for oversights.
+
+The first five are open for phase 4, to be discussed with AP (2026-10-18). Each
+has a recommendation, which is not a ruling.
+
+- **Whether phases 4 and 5 are done together.** Kept apart, phase 4 returns
+  today's shapes. The increasing direction, `anchor` and `draws` would be
+  computed but not reported until phase 5. `posterior` would keep working
+  without a warning, and `nsec()` on a `drc` fit would keep refusing an
+  increasing curve. Done together, that interim layer is not written, and each
+  changed test is edited once rather than twice. The check that numbers do not
+  change unintentionally then compares values recorded before the change with
+  the decreasing rows of the new output. Recommended: together, with the
+  `toxval` tibble class built first and additively, as phase 2 built the spine.
+- **The name replacing `type = "lower"` (T15).** Recommended: a logical
+  `lower_only = FALSE`, with `criterion`. One direction is still obtained by
+  filtering the `direction` column, as T15 decided, and
+  `nsec_multi(type = "increasing")` keeps working through the wrapper.
+- **What `type = "relative"` computes from phase 4 (T9).** Recommended: the
+  asymptote-based meaning at once, with a warning that names `range` whenever
+  `relative` is supplied explicitly, and an error where the bound is infinite.
+  This is `bayesnec` D15 ruling 8 (2026-09-06). Each published relative ECx
+  found in the toxval-review literature review (2026-10-17) is measured to a
+  fitted limit, as in Ritz et al. (2015, p. 9, Equation 9). The alternative is
+  to compute the old quantity under `relative` for one more release.
+- **The `resolution` default.** Recommended: 1000 for every entry point, as the
+  spine has. `nsec_multi()` uses 50 today. The grid is evenly spaced in
+  concentration, while dilution series are geometric, so the grid is coarsest
+  where an EC10 or NSEC lies. On a simulated `LL.4()` fit to doses from 0 to
+  100 (1000 bootstrap realisations, against a 10000-point grid), the largest
+  error in a reported quantile was 21 per cent of the interval width at 50, 8
+  at 100, 2 at 200 and 0.3 at 1000. Across eight fits, a call at 1000 took
+  under a second longer than one at 100.
+- **The name of the `meta` element recording the lowest concentration in the
+  data (T21).**
 
 - **#3** — `ecx_val` as a proportion rather than a percentage. Breaking; needs a
   deprecation path. Interacts with #9, and now with the closed `metric`

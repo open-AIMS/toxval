@@ -675,3 +675,179 @@ found by the search are carried into it:
 No file in the repository was changed apart from this log.
 
 ---
+
+## Session: phase3-shed-bayesnec, the phase 4 rulings
+Date: 2026-10-18
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:**
+
+> Below I rule for some of your recommendations, along with a few questions.
+> I've decided not to implement this without disussing with Ayla, so can we
+> instead update the plan so it is clear what has been decided (changing as
+> little as possible so it can be easily read in the PR).
+>
+> 1. No-crossing realisations (#60): Yes I agree, the two top points are self
+>    evident, for the last one: a) let's use the lowest concentration in the
+>    model data. that seems safest in terms of ensuring it is the control. b)
+>    and c) seem reasonable.
+> 2. Return shapes: Does that mean it would be cleaner to do phase 4 and 5
+>    together?
+> 3. draws and the posterior deprecation: As above, would it be better to
+>    implement these together?
+> 4. lifecycle: Yes agree
+> 5. The new name for type = "lower": Do you have a recommendation that would
+>    be cleanest? I do not have an opinion. Note, can we still get the
+>    "decreasing" and "increasing" set?
+> 6. What type = "relative" means during the switch: Can we review the recent
+>    decisions in Bayesnec on this? Also, can we consider the literature review
+>    and what would be most consistent with published convention?
+> 7. The scope of anchor. Yes, I agree - and also, does this mean we should do
+>    phase 5 with phase 4 (as mentioned above?)
+> 8. The asymptote argument and its toxval_pred slot: Yes I agree with your
+>    recommendation.
+> 9. Warnings for censored realisations: Yes agree
+> 10. A resolution default of 1000 everywhere: Why do you recommend 1000? With
+>     the zero crossings this is less important than it used to be and 50 or
+>     100 would be a lot less to compute, yes?
+> 11. How multivariate fits are recorded inside toxval_pred: Yes I agree with
+>     your recommendations
+> 12. Whether ecx() should work on drc fits: Yes I agree with your
+>     recommendation
+> 13. What happens to hormesis_def, horme, by_group and curveid: Yes I agree
+>     with your recommendation
+
+**Claude:** The eight rulings were recorded as T21 to T28 in
+`notes/implementation/02_decisions.md`, and the five open questions under
+"Still to decide" with a recommendation each. `REFACTOR-claude.md` and
+`REFACTOR-human.md` were changed only where a sentence had become wrong: the
+`#60` paragraphs in §3.6, the `asymptote` slot in the §3.4 structure, the `drc`
+asymptote lookup in §3.10 (spec only), the phase 4 row and item, and the note
+on `ecx()` for `drc` fits in §5.
+
+| prompt item | ruling | recorded as |
+|---|---|---|
+| R1, #60 | adopted, with the lowest concentration in the model data | T21 |
+| R4, `lifecycle` | adopted | T22 |
+| R7, `anchor` | adopted | T23 |
+| R8, the asymptote | adopted | T24 |
+| R9, warnings | adopted | T25 |
+| R11, multivariate `meta` | adopted | T26 |
+| R12, `ecx()` for `drc` | adopted | T27 |
+| R13, retired arguments | adopted | T28 |
+| R2, R3, and the timing in R7 | open: whether phases 4 and 5 are done together | Still to decide |
+| R5 | open: the name replacing `type = "lower"` | Still to decide |
+| R6 | open: what `relative` computes from phase 4 | Still to decide |
+| R10 | open: the `resolution` default | Still to decide |
+
+T21 (a) has a consequence that was not in the prompt. `toxval_pred$meta` does
+not record the lowest concentration in the data, so an element has to be added
+to the public contract, and its name was listed as a fifth open question.
+`bayesnec` reads its control the same way (D15 ruling 2, "The control is read
+at the lowest observed predictor value", `bayesnec`
+`notes/implementation/03_decisions.md:247`).
+
+#### Phases 4 and 5 together
+
+R2, R3 and the last point of R7 exist only to keep today's shapes for one more
+phase. Kept apart, phase 4 needs a layer that rebuilds today's vectors and
+attributes, computes the increasing direction, `anchor` and `draws` without
+reporting them, and keeps `nsec()` on a `drc` fit refusing an increasing
+curve. Phase 5 then deletes that layer, and each changed test is edited twice.
+What the separation provides is that the unmarked tests check the numbers. A
+recorded comparison provides the same check without today's shapes, as in
+phase 3 (`values_before.rds`): today's outputs are recorded first and compared
+with the decreasing rows of the new output, each difference listed against its
+ruling. The recommendation was to do the two together, with the `toxval`
+tibble class built first and additively, as phase 2 built the spine, so that no
+single pull request holds everything.
+
+#### The name replacing `type = "lower"`
+
+The recommendation was a logical `lower_only = FALSE`, with `criterion`. There
+is one selection rule, and a logical states it in the call
+(`nsec(fit, lower_only = TRUE)`), where `select = "lower"` does not say lower
+than what, and `select` is also the `dplyr` verb for columns. Both directions
+are still available: each call reports both, and one is selected by filtering
+the `direction` column, as T15 decided. `nsec_multi(type = "increasing")` and
+`"decreasing"` keep working through the deprecated wrapper. Kept apart from
+phase 5 (R2), `nsec()` would report only the decreasing direction until then.
+
+#### The meaning of `relative`
+
+A research agent read `bayesnec`, the toxval-review literature review and
+issues #19 and #63; the key passages were then checked directly.
+
+- `bayesnec` D15 (RF, 2026-09-06, `notes/implementation/03_decisions.md:244-252`
+  on `predev`) adopts T9's four types. Ruling 8: "`type = "relative"` warns
+  when supplied explicitly, naming `range`, because its meaning changes and
+  2.1.3 is released." The code (`R/ecx.R:445-472`) switches to the
+  asymptote-based meaning at once and gives the reason: "the new meaning is a
+  valid request and the majority of callers will want it." `ecx_asymptote()`
+  (`R/ecx.R:492-524`) uses the `bot` draws, or 0 for a family bounded below,
+  and otherwise stops, naming `absolute` and `range`. It was merged to `dev` in
+  bayesnec PR #281 (2026-09-07) and is not yet released.
+- The literature review (`toxval-review/reviews/2026-10-17-ecx-reference-definitions.qmd`)
+  makes no recommendation (line 68). Ritz et al. (2015, p. 9, Equation 9)
+  define the relative ED against the limits of the curve at 0 and infinity,
+  "for most models in drc ... the parameters d and c" (lines 393-400, verified
+  against the source). Daniels, Hommen and Ratte (2025) relate the relative
+  ECx to "the maximum achievable response" (abstract, verbatim). The one form
+  measured to the minimum predicted response, BMDS "Extra", was removed in
+  BMDS 3.2, and its reading was not verified.
+- #63 and #19 record nothing on the transition since T9.
+
+The recommendation was the new meaning at once, as `bayesnec` did, with a
+warning naming `range` whenever `relative` is supplied explicitly, and an error
+where the bound is infinite. Computing the old quantity under `relative` for a
+release would give the name a meaning no published source found uses, and
+would differ from `bayesnec` for that release.
+
+#### The `resolution` default
+
+The linear interpolation between grid points does make the grid error small
+where the grid is fine relative to the curve. `predict_grid()` spaces the grid
+evenly in concentration, while dilution series are geometric, so the grid is
+coarsest where an EC10 or NSEC lies. The phase 2 spine (`toxval_predict()`,
+`compute_ecx()` at 10 and 50, `compute_nsec()` at `sig_val = 0.01`) was run at
+50, 100, 200, 500 and 1000 points and compared with a 10000-point grid, on the
+decreasing direction, one run each. The error is the largest absolute
+difference in any of the median, 2.5% and 97.5% quantiles, as a percentage of
+the 95% interval width at 10000 points.
+
+| fit | realisations | 50 | 100 | 200 | 1000 | time at 100 (s) | time at 1000 (s) |
+|---|---|---|---|---|---|---|---|
+| `drc` `LL.4()`, simulated doses 0 to 100 | 1000 bootstrap | 21 | 8.3 | 2.0 | 0.33 | 0.10 | 0.41 |
+| `drc` `LL.4()`, `drc::ryegrass` | 1000 bootstrap | 7.0 | 3.2 | 0.72 | 0.02 | 0.19 | 0.76 |
+| `nsec_drc_1` | 1000 bootstrap | 1.7 | 0.30 | 0.06 | 0.003 | 0.11 | 0.29 |
+| `brms_model_4`, 7 curves | 1000 draws | 2.8 | 0.37 | 0.13 | 0.006 | 2.30 | 3.24 |
+| `bayesnec_nec4param$fit` | 100 draws | 3.3 | 0.66 | 0.01 | 0.0006 | 0.17 | 0.19 |
+| `bayesnec_ecx4param$fit` | 100 draws | 0.60 | 0.14 | 0.03 | 0.001 | 0.15 | 0.17 |
+| `brms_model_3` | 1000 draws | 0.64 | 0.24 | 0.06 | 0.002 | 0.17 | 0.32 |
+
+The simulated fit used doses 0, 0.1, 0.32, 1, 3.2, 10, 32 and 100, four
+replicates each, a mean of `0.5 + 9.5 / (1 + exp(1.2 * (log(dose) - log(5))))`
+and a normal error with standard deviation 0.6 (`set.seed(7)`). `brms_model_1`
+was also run and is not in the table: its 97.5% quantiles do not cross within
+the range, so its intervals have no width. On
+`brms_model_3` at 50 and 100 points, one realisation's NSEC was displaced by
+27% of the predictor range, because the coarse grid missed a crossing where the
+curve barely reached the reference; at 200 the largest displacement was 0.11%.
+Times include `toxval_predict()` and both compute calls, and are dominated by
+fixed overhead below about 1000 points. Memory does scale with the grid: at
+1000 points a `toxval_pred` holds 32 MB per curve for 4000 draws. The
+recommendation was to keep 1000. A grid spaced on the log scale, or root-finding
+in place of the grid (#40), would let a smaller default suffice.
+
+#### Commits
+
+1. the commit adding this entry, with the changes to `02_decisions.md`,
+   `REFACTOR-claude.md` and `REFACTOR-human.md`
+
+The phase 4 prompt (`agent-prompts/2026-10-18-phase4-metrics-on-spine.md`) was
+not changed. It will need revising after the discussion, substantially if
+phases 4 and 5 are combined.
+
+---

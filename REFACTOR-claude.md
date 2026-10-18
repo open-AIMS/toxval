@@ -283,6 +283,9 @@ toxval_pred:
               Subject to the same alignment invariant as `curves`. Needed by
               `anchor = "control"` (3.8) and by the mismatch warning that
               guards it.
+  asymptote : list aligned to the rows of `keys`, each element a list of
+              numeric [n_realisation] named `decreasing` and `increasing`, or
+              NULL. Needed by `type = "relative"` (3.10, T24).
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
               family, realisation source ("draws" | "bootstrap"),
               n_realisation, seed, ...
@@ -596,15 +599,19 @@ which is information. This is the §3.1 column rule — present because meaningf
 `NA` because unavailable.
 
 That settles the case where *no* draw crosses. **The mixed case — some draws
-cross and some do not — is open, and is tracked as #60.** It is a question about
-what the estimate means rather than an `na.rm` argument: non-crossing draws are
+cross and some do not — is #60, settled 2026-10-18 as T21.** It is a question
+about what the estimate means rather than an `na.rm` argument: non-crossing draws are
 the draws whose crossing lies beyond `max(x_vec)`, so they are the upper tail of
 the posterior, and dropping them biases the estimate downward while censoring
 them at the grid edge makes it a function of where testing stopped. Measured on
 4000 lognormal draws with 12.4 per cent not crossing, `na.rm = TRUE` reports the
 43.8th percentile of the full posterior as the median, and both rules return the
 grid boundary or below it as the upper compatibility limit against a true 4.788.
-It blocks phase 4, because that is where the aggregation moves onto the spine.
+T21 therefore places each realisation where its crossing lies. One whose control
+is already beyond the reference takes the lowest concentration in the data. One
+with no crossing in the evaluated range keeps its rank above `max(x_vec)`, so a
+quantile that falls among such realisations is reported as `max(x_vec)`, with a
+warning giving the fraction (T25).
 
 ### 3.7 Validation
 
@@ -1103,12 +1110,11 @@ reproducing `drc::ED(reference = "upper")` are left to #63.
 
 #### Locating the asymptote on a `drc` or `brmsfit` object
 
-`drc` exposes it. `fit$fct$names` gives the parameter letters and
-`fit$fct$fixed` which are fixed and to what: on `LL.4()` the lower limit `c` is
-free, and on `LL.3()` it is fixed at 0. The letters are positional convention
-rather than labelled roles, so this needs a lookup keyed on `fit$fct$name`
-covering the families in scope (`LL.*`, `W1.*`, `W2.*`, `BC.*`, `LN.*`),
-written once and tested.
+`drc` exposes it. `fit$fct$lowerAs()` and `fit$fct$upperAs()` return the lower
+and upper limits for a parameter vector, and `fit$fct$fixed` says which
+parameters are fixed and to what: on `LL.4()` the lower limit `c` is free, and on
+`LL.3()` it is fixed at 0. A lookup keyed on `fit$fct$name` does not work,
+because `fct$name` is `"::"` for a fit made with `drc::LL.4()` (T24).
 
 `LL.3()` fixing the lower limit at 0 collapses `relative` onto `absolute` for
 exactly the reason a `bot`-free `bayesnec` equation does, so the two engines
@@ -1117,7 +1123,9 @@ agree without special-casing.
 For a user-written `brms` non-linear formula there is no way to know which
 parameter is the asymptote. **Add an argument by which the user names the
 parameter or supplies a value, and refuse `relative` when it is absent**, with a
-message naming the argument.
+message naming the argument. The argument is `asymptote` on
+`toxval_predict.brmsfit()`, and the values are stored in the `asymptote` slot of
+`toxval_pred` (T24).
 
 #### `relative` changes meaning
 
@@ -1192,7 +1200,7 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 1 | **Lock a regression net.** Mark every test a later phase changes with `# EXPECTED-CHANGE <reason> #<issue>`, replacing the existing `TODO` markers; unmarked tests are the "must not move" set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan. | - |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`, with their tests. Store what the remaining tests and examples read from `bayesnec` as fixtures, so the suite passes with `bayesnec` not installed, and remove `bayesnec` from `Imports`. See [Phase 3 without `bayesnec`](#phase-3-without-bayesnec). | none in `toxval`. `ecx` and `nsec` on a `bnecfit` are no longer computed here, and `bayesnec` objects receive the #19 answer at phase 7 |
-| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. Needs #60 answered first. Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). | per #19/#20, and #60 |
+| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. #60 is answered (T21). Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). Its rulings are T21–T28. Five questions are open, among them whether phase 5 is done with it (`02_decisions.md`, Still to decide). | per #19/#20, and #60 |
 | 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
 | 6 | **`toxval` to CRAN**, carrying the final API. | — |
 | 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
@@ -1260,8 +1268,8 @@ CMD check pass with `bayesnec` not installed.
 ## 5. Notes
 
 - **Method gaps to keep in mind:** `ecx` has no `drc` method — under
-  [3.4](#34-the-toxval_pred-intermediate-object) it becomes nearly free, so it
-  should be added and the plan should say whether that is in scope.
+  [3.4](#34-the-toxval_pred-intermediate-object) it becomes nearly free, and it
+  is added in phase 4 (T27).
   `nsec_multi` is brms-multivariate only. Under T15 that support is provided by
   `toxval_predict.brmsfit()`, which refuses a multivariate fit until then.
 - **`anchor` and model averaging of `drc` fits.** `drc` averages models
