@@ -613,3 +613,65 @@ files are in text this session did not change. No code, test or package
 documentation changed, so the suite and R CMD check were not re-run.
 
 ---
+
+## Session: phase3-shed-bayesnec, the phase 4 prompt
+Date: 2026-10-18
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:** if phase 3 is now complete, should we open this as a PR? And can you
+write a prompt to implement stage 4? It would branch of this PR
+
+**Claude:** Phase 3 meets its done condition in `REFACTOR-claude.md` §4. The
+pull request is a stacked one: `phase-3-shed-bayesnec` starts from
+`phase-2-review`, which is draft PR #64 into `open-AIMS:phase-2`, itself on #62.
+A pull request into `phase-2` would list the 12 commits of #62 and #64 until
+those merge, as #64 lists #62's. The recommendation given was to open it as a
+draft into `phase-2` once Becky agrees, with the NEWS bullet from `58c57a1` in
+its body, since fledge on `main` reads only first-parent commits.
+
+The phase 4 prompt was written to
+`C:/Rworking/agent-prompts/2026-10-18-phase4-metrics-on-spine.md`, after reading
+`REFACTOR-claude.md` §3 and §4, `REFACTOR-human.md` §4, issue #60 and the
+spine in `R/`, and after a search of the session logs, `notes/implementation/`,
+the `EXPECTED-CHANGE` markers and the open issues for anything bearing on
+phase 4. The prompt branches `phase-4-metrics-on-spine` from
+`origin/phase-3-shed-bayesnec`.
+
+The search found that phase 4 cannot run unattended as the plan stands. The
+plan leaves open, or does not address, thirteen questions, and the prompt states
+each as a ruling with a recommendation and `Ruling: pending`. A part of the work
+whose rulings are pending is not started:
+
+- R1, the mixed case of #60, which the plan says blocks phase 4;
+- R2, the return shapes while the two directions exist and the tibble does
+  not;
+- R3, whether `draws` and the `posterior` deprecation wait for phase 5;
+- R4, `lifecycle` in `Imports`, which every planned deprecation needs;
+- R5, the name replacing `nsec_multi()`'s `type = "lower"` (T15);
+- R6, the meaning of `type = "relative"` during the change (T9);
+- R7, the scope of `anchor`;
+- R8, the asymptote argument and its `toxval_pred` slot (#63);
+- R9, warnings for censored realisations (#6, #24);
+- R10, a `resolution` default of 1000 throughout;
+- R11, the `meta` contract for a multivariate fit;
+- R12, an `ecx()` route for `drc` fits;
+- R13, the retired arguments.
+
+The prompt's first part records the rulings in `02_decisions.md` and adds
+`EXPECTED-CHANGE` markers to the unmarked tests that phase 4 will change. The
+search listed about twenty, in its own commit before any code. Three defects
+found by the search are carried into it:
+
+- `nsec.brmsfit()` never applies `xform`, checked on 2026-10-18:
+  `nsec(brms_model_1, x_var = "x", xform = function(x) x * 10)` returned 1.05,
+  0.990, 1.05, as without it. The test at `test-nsec.R:717` therefore passes
+  without testing anything.
+- `nsec_multi()` ignores `prob_vals`.
+- `chk_prob_vals()` accepts exactly three values where today's `ecx()` and
+  `nsec()` accept more.
+
+No file in the repository was changed apart from this log.
+
+---
