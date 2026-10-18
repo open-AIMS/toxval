@@ -381,3 +381,201 @@ Open questions, for Becky:
    the site library; and `setup.R` was normalised to LF in its own commit.
 
 ---
+
+## Session: phase3-shed-bayesnec, answers to the open questions
+Date: 2026-10-18
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:**
+
+> Open questions
+>
+> 1. ecx() example: switch to \donttest{} so check runs it
+>
+> 2. tests/local/ (a stop-and-ask point). skip when bayesnec is missing
+>
+> 3. modify_posterior() / do_wrapper(): I'm unclear why we would consider
+>    keeping them?
+>
+> 4. Unused fixtures: Keep for later comparisons
+>
+> 5. Rewritten tests: I'm not sure how to easily review these, I can't see the
+>    branch on GitHub?
+>
+> 6. #54: its disabled test went with the bnecfit method. Some of those tests
+>    apply to the ecx itself, they were not specific to the bnecfit methods.
+>    Can you check they appear where they are actually required? Fix and post
+>    on #54 accordingly.
+>
+> 7. Wording: the DESCRIPTION text and README still say toxval supports
+>    bayesnec objects. I left them because bayesnec support is meant to return
+>    at phase 7. Let's make this current for the existing state. We can add it
+>    back at phase 7.
+>
+> 8. Version: PHASE1_DEPENDENCY_UNTANGLE.md asks for a version bump and tag
+>    with this change. The prompt didn't, so I did neither. Yes do a version
+>    bump.
+
+**Claude:** Items 1, 2, 3 and 7 were implemented in four commits, item 6 was
+checked and answered on #54, item 5 was answered with links, and item 8 was
+not done, for the reasons below.
+
+#### The ecx() example
+
+The example is now in `\donttest{}` rather than `\dontrun{}`, so R CMD check
+with `--as-cran` runs it. `refresh = 0` was added to the `brms::brm()` call; it
+only stops the sampler printing its progress. The comment above it now reads
+"ecx() has no method for drc fits, so this example fits a brms model. Compiling
+the Stan model takes about a minute."
+
+In R CMD check at `cccc5b9`, without bayesnec, the example took 76.6 s
+elapsed (70.8 s user) of the 79 s for the `--run-donttest` examples. It printed
+no sampler warning, and the check gave no timing NOTE. One run was timed, on WSL
+R 4.6.1. The same run showed that only the second `ecx()` result was printed,
+because inside `if () {}` only the last value is returned. Both calls are now
+wrapped in `print()` (`0da5d23`).
+
+#### The local tests
+
+`tests/local/setup.R` fits its two models only when
+`requireNamespace("bayesnec", quietly = TRUE)` is true, and
+`tests/local/test-nsec.R` opens with `skip_if_not_installed("bayesnec")`, which
+skips the whole file. bayesnec was not added to `Suggests`. R CMD check neither
+runs `tests/local/` nor scans it for packages, and `skip_if_not_installed()`
+does not need a declaration. At phase 7 bayesnec imports toxval, and a
+`Suggests` entry would then make each package depend on the other.
+
+The local tests were run with `testthat::test_dir("tests/local", package =
+"toxval", load_package = "source")` on a fresh clone at `cccc5b9`. With bayesnec
+unavailable, the file was reported as one skip ("{bayesnec} is not installed")
+and no test ran. With bayesnec available and `NOT_CRAN=true`, the six tests ran
+and their 10 expectations passed.
+
+#### modify_posterior() and do_wrapper()
+
+The two had been kept because the commented-out hormesis blocks in
+`ecx.brmsfit()` and `nsec.brmsfit()` call them. That is not a reason to keep
+them. Neither block can be uncommented as it stands: the `ecx.brmsfit()` guard
+tests `object$model`, which on a `brmsfit` is the Stan code, and restoring the
+truncation in `nsec.brmsfit()` makes `nsec_fct()` fail in `approxfun()` (#37).
+The design in `REFACTOR-claude.md` §3 has no `modify_posterior()` blanking, and
+both functions remain in `R/helpers.R` at the `pre-refactor` tag.
+
+Both were deleted, with their two tests in `test-helpers.R`:
+
+- modify_posterior with hormesis_def = max sets values before peak to NA
+- modify_posterior with hormesis_def = control leaves all values
+
+The comments on the commented-out blocks in `R/ecx.R` and `R/nsec.R` now say
+that the functions were deleted and where they can be found. The comment in
+`test-crossings.R` that cited `R/helpers.R:12-20` was reworded to the past
+tense. `brms::as_draws_df`, imported but unused since before phase 3, was left.
+
+#### Fixtures
+
+`bnec_model_1`, `bayesnec_ecx4param` and `bayesnec_nec4param` were kept, as
+answered.
+
+#### Review of the rewritten tests
+
+The branch was pushed to the fork on 2026-10-17 and is at
+<https://github.com/beckyfisher/toxval/tree/phase-3-shed-bayesnec>; it is not in
+`open-AIMS/toxval`. The seven rewritten argument-check tests are the whole of
+commit `6ef71ea`
+(<https://github.com/beckyfisher/toxval/commit/6ef71ea4c3386445a37f0a4a5fa649474da8f592>),
+with comment wording changed in `8d43307`. The whole phase is at
+<https://github.com/beckyfisher/toxval/compare/phase-2-review...phase-3-shed-bayesnec>.
+
+#### The deleted tests and the ecx_val issue
+
+Each of the 29 deleted `ecx()` tests and 18 deleted `nsec()` tests was compared
+with the remaining `brmsfit` and `drc` tests, at `cdf878c` against the current
+files. The two disabled tests of #54 check behaviour that is not specific to
+`bnecfit`, and both checks are already tested on `brms_model_1`:
+
+| disabled `bnecfit` test | `brmsfit` test of the same check |
+|---|---|
+| `ecx_val` of 0 or 100 errors for `type = "absolute"` and `"relative"`, and `type = "direct"` accepts 0 | "when type is not direct ecx_val has to between 1 and 99" (`test-ecx.R:493`), which also tests 1, 99, and `direct` with 1000 |
+| more than one `ecx_val` errors | "can only pass a single exc_val argument" (`test-ecx.R:483`) and "check ecx_val must be a numeric scalar" (`test-ecx.R:40`) |
+
+Every other general check in the deleted tests also has a `brmsfit` or `drc`
+test, so no test was added. Some are tested with different values; for example
+the order of ECx in `ecx_val` is tested at 10 and 50 rather than 10, 40 and 70.
+The one exception is `x_range` given as an interval. `ecx.brmsfit()` and
+`nsec.brmsfit()` reject an interval, the suite pins that error, and #10 records
+the intended behaviour.
+
+The `ecx_val` checks are made in `ecx.brmsfit()`, not in the generic, so the
+tests are in the brms-specific section of `test-ecx.R`. #55 puts them in the
+generic; `chk_ecx_val()` in `R/validate.R`, written in phase 2, is the shared
+check, and the plan has `ecx()` use it in phase 4. The tests go to the general
+section then.
+
+The comment posted on #54 gives the table above with links to the lines at
+`cccc5b9` and says the issue can be closed when phase 3 merges: <https://github.com/open-AIMS/toxval/issues/54#issuecomment-6247236580>.
+
+#### DESCRIPTION and README
+
+The `Description` field now says "fitted frequentist (drc) and Bayesian (brms)
+model objects". In `README.Rmd`, the Overview says ECx and NSEC are extracted
+from `brms` fits and the NSEC from `drc` fits, and that bayesnec fits are
+handled by bayesnec's own `ecx()` and `nsec()`. The planned-development section
+says toxval supports `brms` and `drc` fits, with `ecx()` for `brms` fits only.
+`README.md` was rendered with `devtools::build_readme()` (pandoc 3.10). One
+unrelated line, the hard line break after the first copyright line, was set back
+to two trailing spaces, because pandoc 3.10 writes it as a backslash.
+Statements in "Planned Development" about future bayesnec support were left.
+
+The README also says toxval "supports extraction of the NEC parameter directly"
+for threshold models. No toxval function does that now; it was not changed, and
+is reported as a question.
+
+#### Version bump
+
+fledge was installed in neither the WSL nor the Windows R library. With
+approval, fledge 0.1.4 was installed from CRAN into the WSL user library; no
+other package was installed or upgraded. In 0.1.4, `bump_version()` stops unless
+the current branch is the remote's default branch. A dry run of the steps after
+that check, in a scratch clone, found one NEWS-worthy entry in 92 first-parent
+commits. It kept only the first line of the multi-line bullet in `58c57a1`. It
+also wrote a second header comment above the existing one, whose wording comes
+from a later fledge than 0.1.4. Asked how to proceed, Becky chose to bump on
+`main` after phase 3 merges. On `main`, fledge reads only first-parent commits,
+so the NEWS bullet needs to be in the merge commit or the pull request body.
+
+#### Verification
+
+All runs were on fresh clones, with bayesnec made unavailable as in the
+first entry.
+
+| run | bayesnec | files | tests | expectations | failed | skipped | warnings |
+|---|---|---|---|---|---|---|---|
+| `devtools::test()`, `cccc5b9` | not available | 9 | 320 | 709 | 0 | 0 | 0 |
+| `devtools::test()`, `cccc5b9` | available | 9 | 320 | 709 | 0 | 0 | 0 |
+
+The two tests and three expectations fewer than at `173d1f3` (322 and 712) are
+the deleted `modify_posterior()` tests.
+
+`devtools::check()` runs `--as-cran`, so the `\donttest{}` examples run. At
+`cccc5b9` it gave Status OK, 0 errors, 0 warnings and 0 NOTEs, with and without
+bayesnec. At `0da5d23`, which changes only the example, it was run again without
+bayesnec: Status OK, 0 errors, 0 warnings, 0 NOTEs, with both results printed (EC10 0.69, 95 per cent interval 0.55 to 0.90; EC50 3.60, 2.99 to 4.33).
+
+The 25 values recorded before phase 3 (`values_before.rds`, outputs of the kept
+`brmsfit`, `drc` and `nsec_multi` methods and the phase 2 spine) are all
+`identical()` at `cccc5b9`.
+
+#### Commits
+
+1. `719a733` run the ecx example during check
+2. `e373325` skip the local tests without bayesnec
+3. `58d64b3` remove modify_posterior() and do_wrapper()
+4. `cccc5b9` describe brms and drc support in DESCRIPTION and README
+5. `0da5d23` print both results in the ecx example
+6. the commit adding this entry
+
+The branch was pushed to `origin`. No pull request was opened.
+
+---
