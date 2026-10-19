@@ -1340,3 +1340,40 @@ above; `REFACTOR-human.md` §2 gives one sentence.
    `REFACTOR-claude.md` and `REFACTOR-human.md`
 
 ---
+
+## Session: phase3-shed-bayesnec, the phase 4 and 5 prompt
+Date: 2026-10-19
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:** update the phase 4 prompt. Can you clarify, Ayla can also see our new
+plan for the combined phase 4 and 5 migration, yes?
+
+**Claude:** The phase 4 prompt was rewritten for phases 4 and 5 together, as
+`/mnt/c/Rworking/agent-prompts/2026-10-19-phase4-5-spine-and-tibble.md`; the
+version of 2026-10-18 was moved to `agent-prompts/superceded/`. The pending
+rulings R1 to R13 are replaced by a summary of T21 to T33. The parts are: 0,
+the regression net, with the baseline values compared against the decreasing
+rows of the new output (T33); A, the `toxval` tibble class built first and
+additively; B, the summary layer, with `meta$x_control`, T21, T25 and the
+`draws` list column; C, `ecx()` with `proportion` and `reference` (T32), the
+`drc` route (T27) and the `posterior` deprecation; D, `nsec()` with `anchor`
+(T23), both directions for `drc`, and `xform`; E, multivariate fits and the
+`nsec_multi()` wrapper with the T30 filter; F, `relative` (T24, T29); G, removal
+of the old code. The branch is `phase-4-5-spine-and-tibble` from
+`phase-3-shed-bayesnec` at `4e7648a` or later.
+
+Two points no T-entry covers are written into the prompt from the plan's own
+rules, for Becky to confirm:
+
+- `nsec_multi()` returns the `toxval` tibble, filtered as its `type` asks,
+  since every metric function returns one (`REFACTOR-claude.md` §3.1); its
+  deprecation message says the shape has changed.
+- `tibble` joins `Imports`, since the output is a `tbl_df` subclass (#4), and
+  `pillar` only if `tbl_sum()` needs it. Both are installed with `dplyr`.
+
+Ayla can see the decisions and the plan documents in #65, but not the prompt,
+which is outside the repository.
+
+---
