@@ -50,7 +50,9 @@ Decision T9 and `REFACTOR-claude.md`
 §3.10 state it in full. For an increasing response, `absolute` measures towards
 1 for a proportion and as a percentage of the control otherwise, so a 10 per
 cent increase from a control of 20 is 22. These are the published definitions
-(decision T18).
+(decision T18). A count fit whose trials are a total rather than a ceiling, such
+as gene expression, is also treated as a proportion. That is accepted as an edge
+case for now, to be handled with #63 (decision T26).
 
 **The `ecnsec` definition (#49).** `ecnsec` is the inverse of the `ecx`
 reference under the same `type`, and `nsec()` accepts the arguments `ecx()`

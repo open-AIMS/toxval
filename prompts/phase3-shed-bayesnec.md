@@ -1290,3 +1290,53 @@ amends T26's third bullet and T18's recognition rule, and returns one open item
 to phase 4. #63 keeps the general question of user-supplied spans.
 
 ---
+
+## Session: phase3-shed-bayesnec, the #63 trials ruling
+Date: 2026-10-19
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:** can I clarify, what would we get for a properly bounded dataset (ie
+that has at least one replicate with 1) if we use the fold change for all
+families?
+
+**Claude:** Relative deviation (fold change) for every family fails on a
+bounded proportion. Simulated mortality data, `drc::drm(..., fct = LL.3u(),
+type = "binomial")`, concentrations 0, 1, 2, 4, 8, 16, 32, four replicates of
+20, mortality reaching 1, one seed (20261019) run across true control
+mortalities 0.01, 0.05, 0.20 and 0.50. Each increasing ECx was read under extra
+risk, `P0 + x (1 - P0)`, under fold change, `P0 (1 + x)`, and on the same data
+coded as survival with the decreasing `absolute` reference. Extra risk equalled
+`drc::ED()` in every run.
+
+- Control 0.01 (fitted 0.0138): extra risk EC10, EC50, EC90 = 2.18, 5.94,
+  16.2; fold change 0.30, 0.62, 0.81, at 1.5, 2.1 and 2.6 per cent mortality,
+  all below the lowest tested concentration.
+- Control 0.05 (fitted lower limit -0.0009): every fold-change ECx `NA`, since
+  the span is at or below zero (T18).
+- Control 0.20: extra risk 2.00, 6.57, 21.6; fold change 0.98, 2.51, 3.74.
+- With control P0, fold change cannot reach any x above 1/P0 - 1.
+- The survival-coded decreasing reading equalled extra risk in all four runs
+  (Abbott's formula), so fold change on mortality makes the ECx depend on
+  whether deaths or survivors are modelled.
+
+Observed 1s are not a test of a bounded response: a test whose top
+concentration kills 60 per cent is still bounded at 1.
+
+**User:** I think we can leave it as it is for phase 4, and deal with it via
+option 2, at the time that is tackled down the track. This is likely an edge
+case. Can you rule on that?
+
+**Claude:** Recorded in T26: a fit whose trials are a normalising total also
+takes extra risk in phase 4, accepted as an edge case, to be handled by a span
+the user names (#63 option 1 in its second form) when #63 is taken up.
+`REFACTOR-claude.md` §3.10 states it with the #63 figures and the simulation
+above; `REFACTOR-human.md` §2 gives one sentence.
+
+#### Commits
+
+1. the commit adding this entry, with the changes to `02_decisions.md`,
+   `REFACTOR-claude.md` and `REFACTOR-human.md`
+
+---

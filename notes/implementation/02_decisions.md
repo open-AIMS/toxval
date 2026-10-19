@@ -440,6 +440,12 @@ Settled 2026-10-18 (RF).
 - `trials_var` is recorded per curve, and T18's increasing `absolute` reference
   for a binomial response uses it.
 
+A fit whose trials are a normalising total rather than a ceiling on the
+response then also takes extra risk, which puts its increasing `ecnsec` close to
+0 (#63, comment of 2026-10-19). That is accepted for phase 4 as an edge case
+(RF, 2026-10-19). It is to be handled when #63 is taken up, by a span the user
+names (#63 option 1 in its second form). `REFACTOR-claude.md` §3.10 states it.
+
 ## T27 — `ecx()` for `drc` fits
 
 Settled 2026-10-18 (RF).

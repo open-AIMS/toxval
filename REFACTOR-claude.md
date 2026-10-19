@@ -1093,6 +1093,20 @@ is predicted by `posterior_epred()` as a count of trials, bounded by the number
 of trials, which a `toxval_pred` does not record until `trials_var` (T15); its
 increasing `absolute` reference is `NA` until then.
 
+Phase 4 records `trials_var` (T26), so such a fit takes extra risk. Where the
+trials are a normalising total rather than a ceiling, as in a gene expression
+fit whose trials are each gene's total count, extra risk measures the change
+against that total. On the 78-gene beta-binomial fit of the #63 comment of
+2026-10-19 the increasing `ecnsec` was then 0.65 to 2.7 per cent for every gene,
+against 26.8 to 110 per cent as relative deviation. That is accepted for phase
+4 as an edge case (RF, 2026-10-19, T26). It is to be handled when #63 is taken
+up, by a span the user names (#63 option 1 in its second form). Relative
+deviation for every family is not a remedy. On simulated mortality data fitted
+with `drc`'s `LL.3u()` (seven concentrations, four replicates of 20, one seed
+per control level, 2026-10-19), it put the EC50 at 2.1 per cent mortality,
+below the lowest tested concentration, when control mortality was 1 per cent.
+It gave `NA` when the fitted control was at or below zero.
+
 A span of zero or less gives `NA`, for the reference and for `ecnsec`, in either
 direction. Under `absolute` that is a control at or below 0, or a proportion
 whose control is at or above 1; under `range`, a curve with no extent in that
