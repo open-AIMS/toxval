@@ -3,8 +3,8 @@
 Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
 2026-09-04/05 with T8-T12, which settle the definitions gating the refactor, and
 2026-10-09 with T13-T17, from the review of PR #59, 2026-10-17 with T18-T20,
-from the review of PR #62, and 2026-10-18/19 with T21-T30, the rulings phase
-4 needs. A session implements these rather than re-opening them.
+from the review of PR #62, and 2026-10-18/19 with T21-T32, the rulings phases
+4 and 5 need. A session implements these rather than re-opening them.
 
 **Scope.** This file records decisions about the **package** — what the code
 does and why. Workflow is not recorded here: branching, remotes and review live
@@ -363,9 +363,9 @@ whose `ecx()` reference is `NA`, a span of zero or less (T18), is excluded from
 the summary and counted in the warning, not censored.
 
 `meta` does not record the lowest concentration in the data, so the first rule
-adds `meta$control`, named for what that concentration is assumed to be (RF,
-2026-10-19). It is a concentration, unlike the `control` slot (T13), which holds
-response realisations from a control-only fit. Adding it changes the public
+adds `meta$x_control`, the concentration assumed to be the control (RF,
+2026-10-19). The `x_` prefix, as in `x_var` and `x_range`, separates it from the
+`control` slot (T13), which holds response realisations from a control-only fit. Adding it changes the public
 `toxval_pred` contract (§3.3).
 
 ## T22 — `lifecycle` joins `Imports`
@@ -499,14 +499,60 @@ realisations rank above `max(x_vec)` (T21), and enter the quantile there.
 wrapper, which applies the filter itself. The `nsec()` documentation shows the
 filter as an example.
 
+## T31 — `resolution` defaults to 500
+
+Settled 2026-10-19 (RF).
+
+Every entry point defaults to `resolution = 500`. `nsec_multi()` uses 50 today,
+and the other entry points 100 or 1000. The grid is evenly spaced in
+concentration, while dilution series are geometric, so it is coarsest where an
+EC10 or NSEC lies. On a simulated `LL.4()` fit to doses from 0 to 100 (1000
+bootstrap realisations, against a 10000-point grid), the largest error in a
+reported quantile was 21 per cent of the interval width at 50, 8 at 100, 2 at
+200, 0.34 at 400 and 0.33 at 1000. On each of the seven fits tested whose
+interval has a finite width, it was below 0.35 per cent at 400 or 500 points.
+
+Peak memory grows in proportion to the grid: on `nsec_multi_model_2` (two
+responses, 1000 draws) it rose by about 36 bytes per draw, grid point and
+response, 1.1 GB between 1000 and 16000 points (2026-10-19). A fit with 8000
+draws and four responses would then need about 1.2 GB at 1000 points and half
+that at 500, with no gain in accuracy above 500. A grid evenly spaced in log
+concentration is not a remedy: on `drc::ryegrass` it left a 28 per cent error
+at every resolution, because the span from the zero control to the lowest
+tested concentration then has one grid interval.
+
+## T32 — `proportion` replaces `ecx_val` (#3)
+
+Settled 2026-10-19 (RF), for the release that introduces the tibble (phase 5),
+so that users meet one breaking release.
+
+`ecx()` takes the effect size as `proportion`, so the EC10 is
+`proportion = 0.1`. `ecx_val` is accepted for one release behind
+`lifecycle::deprecate_warn()` and divided by 100. Supplying both is an error
+(T3). The same argument cannot change scale in place: `chk_ecx_val()` accepts
+any positive value, so `ecx_val = 0.5` would mean 0.5 or 50 per cent depending
+on the release. `ssdtools` took the same path in 2.0.0, deprecating
+`ssd_hc(percent)` in favour of `proportion` and dividing by 100. `msPAF`'s
+`hc_fun()` already passes one `proportion` argument to both `ssd_hc()` and
+`ecx()`, converting it to `ecx_val = proportion * 100` for the second (`msPAF`
+`R/hc_fun.R:31`).
+
+`ecnsec` becomes a proportion in the same release, so that it stays the inverse
+of the `ecx` reference (T8). The `ecx_val` column of the tibble
+(`REFACTOR-claude.md` §3.1) is renamed `proportion`. `proportion` accepts
+several values from the start, one row each, which answers #9.
+
+`type = "direct"` is excluded. Its value is a response, not a proportion, so the
+argument that takes it is still to decide.
+
 ---
 
 ## Still to decide
 
 Listed so they are not mistaken for oversights.
 
-The first two are open for phase 4, to be discussed with AP (2026-10-18). Each
-has a recommendation, which is not a ruling.
+The first is open for phase 4, to be discussed with AP (2026-10-18). It has a
+recommendation, which is not a ruling.
 
 - **Whether phases 4 and 5 are done together.** Kept apart, phase 4 returns
   today's shapes. The increasing direction, `anchor` and `draws` would be
@@ -517,36 +563,13 @@ has a recommendation, which is not a ruling.
   change unintentionally then compares values recorded before the change with
   the decreasing rows of the new output. Recommended: together, with the
   `toxval` tibble class built first and additively, as phase 2 built the spine.
-- **The `resolution` default.** Recommended: 500 for every entry point.
-  `nsec_multi()` uses 50 today, and the other entry points 100 or 1000. The grid
-  is evenly spaced in concentration, while dilution series are geometric, so it
-  is coarsest where an EC10 or NSEC lies. On a simulated `LL.4()` fit to doses
-  from 0 to 100 (1000 bootstrap realisations, against a 10000-point grid), the
-  largest error in a reported quantile was 21 per cent of the interval width at
-  50, 8 at 100, 2 at 200, 0.34 at 400 and 0.33 at 1000. On each of the seven
-  fits tested whose interval has a finite width, it was below 0.35 per cent at
-  400 or 500 points. Peak memory grows in proportion to the grid: on
-  `nsec_multi_model_2` (two responses, 1000 draws) it rose by about 36 bytes per
-  draw, grid point and response, 1.1 GB between 1000 and 16000 points
-  (2026-10-19). A fit with 8000 draws and four responses would then need about
-  1.2 GB at 1000 points and half that at 500. A grid evenly spaced in log
-  concentration is not a remedy: on `drc::ryegrass` it left a 28 per cent error
-  at every resolution, because the span from the zero control to the lowest
-  tested concentration then has one grid interval.
 
-- **#3** — `ecx_val` as a proportion rather than a percentage. Agreed in
-  principle (RF, 2026-10-19); the path and the name are to decide. Recommended
-  path: a new argument taking a proportion, with `ecx_val` accepted for one
-  release behind `lifecycle::deprecate_warn()` and divided by 100, except under
-  `direct`, where it is a response value. Supplying both is an error (T3). The
-  same argument cannot change scale in place: `chk_ecx_val()` accepts any
-  positive value, so `ecx_val = 0.5` would mean 0.5 or 50 per cent depending on
-  the release. `ecnsec` becomes a proportion in the same release, so that it
-  stays the inverse of the `ecx` reference (T8), and the `ecx_val` column of the
-  tibble (`REFACTOR-claude.md` §3.1) takes the new name. The new argument can
-  accept several values from the start, one row each, which answers #9. The
-  change goes with the tibble, so users meet one breaking release. `msPAF`
-  passes `ecx_val = proportion * 100` (`msPAF` `R/hc_fun.R:31`).
+- **`type = "direct"`** — the argument that takes its response value, which
+  `proportion` cannot (T32). Recommended: `reference`, the output column that
+  already reports that value, as in `ecx(fit, type = "direct", reference = 0.5)`.
+  The `proportion` column is then `NA` on a `direct` row. `nsec()` does not take
+  it, since it refuses `direct` (T19). `response` is not available, because it
+  names the column that identifies each response of a multivariate fit (§3.1).
 - ~~**#4** — always return a tibble.~~ **Decided 2026-08-19**: yes, a `toxval`
   tibble subclass. See `REFACTOR-claude.md` §3.1 and PR #42 / #44.
 - **#22** — whether `toxval` takes on model-fitting wrappers at all. Scope

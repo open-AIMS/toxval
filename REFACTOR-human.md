@@ -92,7 +92,7 @@ Descriptor columns, each listed once against every metric it appears for:
 
 - `group` — one row per level, when grouped
 - `response` — one row per response, for multivariate fits
-- `ecx_val` — `ecx`
+- `ecx_val` — `ecx`; renamed `proportion` in phase 5 (decision T32)
 - `type` — `ecx`, `nsec`
 - `sig_val`, `anchor` — `nsec`, `n(s)ec`
 - `control` — `ecx`, `nsec`
@@ -329,7 +329,7 @@ reported as the highest concentration, with a warning giving the fraction
 
 `REFACTOR-claude.md` §3.7 lists the specific unguarded defects to fold in,
 including `nsec.drc`'s positional `curveid` (#34) and the six differing
-`resolution` defaults.
+`resolution` defaults, which become 500 (decision T31).
 
 Estimates from a `brmsfit` with group-level (random) effects are population-level
 estimates. A `group_var` that appears only in a group-level term, such as `site`
@@ -402,10 +402,11 @@ break would force two breaking releases in a row.
    adds `type = "relative"` and the `anchor` argument, which phase 2 left out.
    Done when `ecx()` and `nsec()` compute from a `toxval_pred` and `nsec_multi()`
    calls `nsec()`, with `posterior` deprecated but working. Its rulings are
-   decisions T21 to T30. Two questions remain open for discussion: whether
-   phases 4 and 5 are done together, and the `resolution` default
-   (`02_decisions.md`, Still to decide).
+   decisions T21 to T31. One question remains open for discussion: whether
+   phases 4 and 5 are done together (`02_decisions.md`, Still to decide).
 5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
+   `ecx_val` becomes `proportion`, so an EC10 is `proportion = 0.1` rather
+   than `ecx_val = 10` (decision T32);
    update the tests; remove `posterior` and the dead blocks last. Done when every
    metric returns a tibble and the tests assert the new shapes.
 6. **`toxval` to CRAN**, carrying the final API. Unblocks #39. Done when

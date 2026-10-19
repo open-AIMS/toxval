@@ -1058,3 +1058,108 @@ For `bayesnec` fits most of this falls to `bayesnec` at phase 7. One of #18 and
    `REFACTOR-claude.md` and `REFACTOR-human.md`
 
 ---
+
+## Session: phase3-shed-bayesnec, the phase 4 rulings, third round
+Date: 2026-10-19
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:**
+
+> I am happy with your new resolution recommendation - mark it as decided
+>
+> FOr meta$control, yes I agree use x_control, mark it as decided
+>
+> For #3 - ok I agree. Yes I think a new slot "proportion". Unless there is a
+> clash, mark that as decided
+>
+> For anchor = "control", the motivation was alignment with the method in
+> Rworking\comparing_tox_ests\refrences\IEAM 2013 - deBruyn and Elphick -
+> Proposing a vigorous hybrid of the LOECs and ECx.pdf and the current case
+> study work. But I recall there was an error. Using the control as the
+> reference, would this still align?
+
+**Claude:** Recorded three rulings and answered the `anchor` question; T23 is
+unchanged until it is ruled on.
+
+#### Rulings recorded
+
+- T31: `resolution` defaults to 500 at every entry point. The evidence that
+  was under "Still to decide" is now in the entry.
+- T21: the `meta` element is `x_control`. The `x_` prefix, as in `x_var` and
+  `x_range`, separates it from the `control` slot (T13).
+- T32: `proportion` replaces `ecx_val` (#3), by the path recommended in the
+  second round, in the phase 5 release. `ssdtools` took the same path in
+  2.0.0, deprecating `ssd_hc(percent)` for `proportion` and dividing by 100
+  (read from the installed `ssdtools` 2.6.0). `msPAF`'s `hc_fun()` already
+  passes one `proportion` argument to `ssd_hc()` and to `ecx()`.
+
+The name clashes in one place. Under `type = "direct"` the value is a
+response, not a proportion, so `ecx(fit, type = "direct", proportion = 30)` for
+a count response would name it wrongly. T32 excludes `direct`, and "Still to
+decide" now asks which argument takes it. Recommended: `reference`, the output
+column that already reports that value. `response` is not available, because
+it names the column that identifies each response of a multivariate fit. No
+other clash was found: no argument or internal function in `R/` is called
+`proportion`; the word appears there only in documentation of a response on
+the proportion scale.
+
+#### `anchor = "control"` and the LECx
+
+de Bruyn and Elphick (2013) give two calculations of the LECx. Method 1 reads
+the fitted curve at an x per cent reduction from the control, with x the
+percent minimum significant difference (PMSD) of Dunnett's test. Method 2,
+for tests without replication, reads it at the 95 per cent confidence band on
+the baseline response. In `comparing_tox_ests` (`compare_nsec_lecx.qmd`) and
+in the CETIS sheets of the cerium case study, both are read relative to the
+modelled control response, b0. The control observations enter method 1 only
+through the PMSD.
+
+The error remembered is the NSEC-cv of the June 2026 version of
+`compare_nsec_lecx.qmd`, withdrawn on 2026-09-29 (`comparing_tox_ests`
+20987a2). It fixed b0 at the observed control mean and set the reference at
+the one-sided bound on that mean, t(n_control - 1) x SD_control /
+sqrt(n_control). That document had said its effect size was identical to the
+LECx effect size. It is not: its standard error omits the treatment term
+1/n_treatment, it uses the control variance in place of the pooled variance,
+and it uses t in place of Dunnett's critical value.
+
+`anchor = "control"` as `REFACTOR-claude.md` §3.8 defines it is the Bayesian
+form of that NSEC-cv: the `sig_val` quantile of an intercept-only fit to the
+controls, defined for a curve constrained through the control estimate. The
+frequentist forms were computed on the fish growth data of
+`compare_nsec_lecx.qmd` (21 observations, seven concentrations with three
+replicates each, the exponential decay fitted by `nls()`, one-sided alpha =
+0.05; script `scratchpad/anchor_control_lecx.R`, not kept):
+
+| threshold | reference | effect (%) | concentration |
+|---|---|---|---|
+| NSEC, `anchor = "model"` (LECx method 2) | 5.67 | 8.6 | 5.37 |
+| `anchor = "control"`, unconstrained curve | 5.75 | 7.2 | 4.87 |
+| `anchor = "control"`, curve through the control mean (NSEC-cv) | 5.75 | 13.4 | 4.84 |
+| LECx method 1 (Dunnett PMSD) | 4.53 | 27.0 | 10.9 |
+
+The NSEC-cv row reproduces the 13.4 per cent the June version reported. A
+control-only reference therefore aligns with neither LECx method, and on these
+data it lies further from method 1 than the NSEC does. The fitted b0 (6.20) is
+1.44 standard errors of the control mean below the observed control mean
+(6.64), so the mismatch warning of §3.8 would fire.
+
+LECx method 2 is already `nsec()` with the default `anchor = "model"`. LECx
+method 1 is `ecx()` at x = PMSD, which reads each realisation at its own
+control less that percentage, as the case study does. It needs the PMSD from a
+Dunnett's test on the data, outside `toxval`. Computing the PMSD inside
+`toxval` would be a new metric, with the requirements set out for the NOEC
+(#17).
+
+Recommended: leave `anchor = "control"` and `control_fit` out of phase 4,
+since alignment with the LECx was their motivation and does not hold. To be
+ruled on.
+
+#### Commits
+
+1. the commit adding this entry, with the changes to `02_decisions.md`,
+   `REFACTOR-claude.md` and `REFACTOR-human.md`
+
+---
