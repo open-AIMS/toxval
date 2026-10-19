@@ -851,3 +851,210 @@ not changed. It will need revising after the discussion, substantially if
 phases 4 and 5 are combined.
 
 ---
+
+## Session: phase3-shed-bayesnec, the phase 4 rulings, second round
+Date: 2026-10-19
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:**
+
+> For this one: "The name for type = "lower" (5): I recommend lower_only =
+> FALSE with criterion. [...]" Thinking on it, we can easily filter for lower
+> just as easily as direction, correct? Show me pseudocode for that? If it is
+> trivial, let's not worry about it.
+>
+> For relative (6): I agree with what you recommend, can we decide that now as
+> well?
+>
+> FOr The resolution default. But on what kind of fit? for a multivariate
+> response with a large posterior I was running out of ram.
+>
+> For The name of the meta element recording the lowest concentration in the
+> data (T21). This should be "control" - it is what we are assuming it is.
+>
+> For #3 What is your recommended depracation path? I agree it would be
+> helpful - should be quite simple?
+>
+> For #22 Not at this stage. Can we link anchor = "control" to an added
+> argument which is the control fit model object?
+>
+> For #17, #18, #25 — NOEC, model-averaged N(S)EC, N(S)EC. What does this
+> require exactly?
+
+**Claude:** Recorded in `02_decisions.md`: T29 (`relative`), T30 (no argument
+for `type = "lower"`), `meta$control` in T21, `control_fit` in T23, `posterior`
+in place of `relative` in T22's list of `lifecycle` deprecations, and #22 "not
+at this stage". The `type = "lower"`, `relative` and `meta` name items left
+"Still to decide"; the `resolution` item was rewritten with a new
+recommendation, and #3 gained a recommended path. `REFACTOR-claude.md` and
+`REFACTOR-human.md` were changed where they named a new argument for
+`type = "lower"`, called `anchor = "control"` unimplemented, deprecated
+`relative` through `lifecycle`, or counted five open questions.
+
+#### The `type = "lower"` filter
+
+The rule in `extract_nsec_multi()` (`R/helpers.R:38-57`) keeps, per response,
+the direction whose NSEC realisations have the lower `criterion` quantile, with
+a tie going to the decreasing direction. On the planned tibble with
+`draws = TRUE` it is:
+
+```r
+nsec(fit, multi_var = "sp", draws = TRUE) |>
+  dplyr::mutate(
+    at_criterion = vapply(draws, \(d) quantile(d$value, 0.8), numeric(1))
+  ) |>
+  dplyr::group_by(response) |>
+  dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
+  dplyr::ungroup()
+```
+
+It was run on `compute_nsec()` output for `brms_model_4` grouped by
+`herbicide`, with `group` in place of `response` and the per-realisation
+vectors in place of `d$value`, and returned one row per herbicide. Being five
+lines, it was recorded as T30: `nsec()` has no argument for it, and the
+deprecated `nsec_multi()` applies it.
+
+#### `relative`
+
+Recorded as T29, as recommended in the first round. The warning is a plain
+`warning()`, as in `bayesnec` D15 ruling 8, because `relative` is not
+deprecated and `lifecycle::deprecate_warn()` would report that it is. This
+amends the mechanism T9 named.
+
+#### The `resolution` default and memory
+
+The fits measured in the first round were univariate or grouped, with at most
+seven curves and 1000 draws, and the measurement was of time, not memory.
+Memory was then measured as the peak resident set size of a fresh R process
+(`VmHWM` in `/proc/self/status`), one call per process, on WSL R 4.6.1. After
+`devtools::load_all()` and loading the fixture the process held 775 MB.
+
+| call | grid points | peak above that (MB) |
+|---|---|---|
+| `nsec_multi()`, `nsec_multi_model_2`, two responses, 1000 draws | 50 | 182 |
+| | 1000 | 173 |
+| | 4000 | 444 |
+| | 16000 | 1265 |
+| `toxval_predict()` with `compute_nsec()` and `compute_ecx()`, `brms_model_3`, 1000 draws | 1000 | 56 |
+| | 4000 | 210 |
+| | 16000 | 498 |
+
+Above about 1000 points the peak grows by about 36 bytes per draw, grid point
+and response for `nsec_multi()`, and 30 bytes per draw and grid point for the
+spine on one curve: four to five times the 8 bytes of each stored prediction.
+Grid points stand in here for draws, since `posterior_epred()` returns draws
+times points times responses. A fit with 8000 draws and four responses would
+need about 1.2 GB at 1000 points. At 50 points, `nsec_multi()`'s default, the
+grid accounts for under 1 MB on this fixture, so a failure at that resolution
+has another cause.
+
+Two alternative grids were tried on the three `drc` fits, swapping
+`predict_grid()` in the loaded namespace, against the even 10000-point grid:
+
+| fit | grid | 100 | 200 | 400 | 1000 |
+|---|---|---|---|---|---|
+| `drc::ryegrass` | even | 3.17 | 0.72 | 0.23 | 0.02 |
+| | log | 28.4 | 28.4 | | 28.4 |
+| | half even, half log | 3.36 | 3.17 | 0.72 | 0.04 |
+| simulated 0 to 100 | even | 8.34 | 2.04 | 0.34 | 0.33 |
+| | log | 0.17 | 0.03 | | 0.00 |
+| | half even, half log | 0.32 | 0.16 | 0.04 | 0.01 |
+| `nsec_drc_1` | even | 0.30 | 0.06 | 0.02 | 0.00 |
+| | log | 1.84 | 0.55 | | 0.02 |
+| | half even, half log | 1.52 | 0.28 | 0.06 | 0.01 |
+
+Values are the largest error in a reported quantile as a percentage of the 95%
+interval width. The log grid was 0 followed by points evenly spaced in log(x)
+from the lowest positive concentration, and was run at 50, 100, 200 and 1000
+points. On `ryegrass` it leaves one grid interval between the zero control and
+the lowest tested concentration, 0.94, where the lower NSEC bound (0.717) lies,
+so its error does not fall with resolution. The half-and-half grid reduces the
+error only on the geometric design.
+
+The recommendation changed from 1000 to 500. On the even grid the simulated fit
+reached 0.34 per cent at 400 points and 0.33 at 1000, so points above about 500
+reduced the error on no fit tested and doubled memory. Root-finding in
+place of the grid (#40) would remove the trade-off.
+
+#### `meta$control`
+
+Recorded in T21 as ruled. `toxval_pred` already has a `control` slot (T13),
+holding response realisations from a control-only fit, and the output has a
+`control` column, the control response. `meta$control` is a concentration. The
+entry states the difference; `x_control` would match `x_var` and `x_range` if
+the overlap is to be avoided.
+
+#### #3, `ecx_val` as a proportion
+
+Recommended path, recorded under "Still to decide": a new argument taking a
+proportion, with `ecx_val` accepted for one release behind
+`lifecycle::deprecate_warn()` and divided by 100, except under `direct`, where
+it is a response value. The argument cannot change scale in place, because
+`chk_ecx_val()` (`R/validate.R:19`) accepts any positive value under
+`absolute`, so `ecx_val = 0.5` would change meaning between releases with no
+error. `ecnsec` becomes a proportion in the same release (T8). The new argument
+can take several values from the start, which answers #9. It goes with the
+tibble, as a breaking release. The code change is small. The work is in the
+tests, the documentation, `ecnsec`, and `msPAF`, which calls
+`ecx(x, ecx_val = proportion * 100, ...)` (`msPAF` `R/hc_fun.R:31`).
+
+#### #22 and `anchor = "control"`
+
+`REFACTOR-claude.md` §3.8 already specifies `nsec(fit, anchor = "control",
+control_fit = ctrl)`, with the control-only fit supplied by the user. The plan
+had tied it to #22 in T23 and under "Still to decide"; both now say it does not
+depend on #22. T23 puts `control_fit` in phase 4 for a `brmsfit`. `drc` cannot
+fit a model of the control alone, so `anchor = "control"` errors on a `drc` fit.
+The control fit must use the same family (§3.8) and be grouped as the
+dose-response fit (T13). The warning when the two control estimates differ by
+more than one standard error (§3.8) comes with it.
+
+#### #17, #18 and #25
+
+#17 (NOEC) needs a fit with concentration as a factor, which `drc` cannot
+provide. `brms` can, and `glm` would need #21. `toxval_pred` would hold
+realisations at the tested concentrations rather than on a grid. The
+definition is to agree first, as #17 says:
+
+- which level is the control;
+- the test against it: a posterior probability against `sig_val` for a
+  Bayesian fit, or Dunnett's or Williams' test for a frequentist one, which
+  may need a new dependency;
+- the multiplicity adjustment;
+- whether the NOEC is the highest concentration with no significant effect or
+  the one below the lowest significant one, which differ on a non-monotone
+  response;
+- what the result reports, since the estimate is a tested concentration with
+  no interval.
+
+#18 and #25 ask for the same estimate, the model-averaged N(S)EC of Fisher et
+al. (2024); #25 is the method, and the comment of 2026-08-19 sets out what
+`toxval_pred` must hold. Three pieces are needed:
+
+1. `nec` for one threshold fit, from the `threshold` slot. That needs an
+   argument naming the NEC parameter of a `brms` non-linear formula, as T24
+   does for the asymptote, and the bootstrap of the NEC parameter of a `drc`
+   NEC model.
+2. A model-averaged `toxval_pred`, built from several fits and their weights,
+   with one component index (`meta$draw_model`) drawn once, so that
+   realisation *i* is the same component draw in every slot. `bayesnec` builds
+   this for a `bayesmanecfit` at phase 7. For `drc` or `brms` fits it is new,
+   with the weights (AIC for `drc`, stacking or pseudo-BMA for `brms`) to
+   agree.
+3. The estimator, which takes the NEC draw from a threshold component and the
+   NSEC draw from a smooth one. Its definition is to agree: how `sig_val` and
+   `anchor` apply to the NSEC part (§3.8 notes that the mixture combines a
+   `"model"`-style and a `"component"`-style quantity), and what `ecnsec`
+   reports.
+
+For `bayesnec` fits most of this falls to `bayesnec` at phase 7. One of #18 and
+#25 could be closed as a duplicate.
+
+#### Commits
+
+1. the commit adding this entry, with the changes to `02_decisions.md`,
+   `REFACTOR-claude.md` and `REFACTOR-human.md`
+
+---

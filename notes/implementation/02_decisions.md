@@ -3,8 +3,8 @@
 Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
 2026-09-04/05 with T8-T12, which settle the definitions gating the refactor, and
 2026-10-09 with T13-T17, from the review of PR #59, 2026-10-17 with T18-T20,
-from the review of PR #62, and 2026-10-18 with T21-T28, the rulings phase 4
-needs. A session implements these rather than re-opening them.
+from the review of PR #62, and 2026-10-18/19 with T21-T30, the rulings phase
+4 needs. A session implements these rather than re-opening them.
 
 **Scope.** This file records decisions about the **package** — what the code
 does and why. Workflow is not recorded here: branching, remotes and review live
@@ -363,8 +363,10 @@ whose `ecx()` reference is `NA`, a span of zero or less (T18), is excluded from
 the summary and counted in the warning, not censored.
 
 `meta` does not record the lowest concentration in the data, so the first rule
-adds an element to it. That is a change to the public `toxval_pred` contract
-(§3.3), and its name is still to decide.
+adds `meta$control`, named for what that concentration is assumed to be (RF,
+2026-10-19). It is a concentration, unlike the `control` slot (T13), which holds
+response realisations from a control-only fit. Adding it changes the public
+`toxval_pred` contract (§3.3).
 
 ## T22 — `lifecycle` joins `Imports`
 
@@ -372,9 +374,9 @@ Settled 2026-10-18 (RF).
 
 The deprecations in this plan use `lifecycle::deprecate_warn()`, as T9 and
 `REFACTOR-claude.md` §3.5 specify: of `hormesis_def` and `horme` (T28), of
-`nsec_multi()` (T15), and of the old meaning of `relative` (T9). `lifecycle` is
-added to `Imports` in phase 4. `bayesnec` uses a plain `warning()` for its one
-such change (D15 ruling 8), but toxval has several.
+`nsec_multi()` (T15), and of `posterior` (§3.5). `lifecycle` is added to
+`Imports` in phase 4. The change of meaning of `relative` is not a deprecation,
+and has a plain warning (T29).
 
 ## T23 — the scope of `anchor` in phase 4 (T12)
 
@@ -383,8 +385,12 @@ Settled 2026-10-18 (RF). The argument is specified in `REFACTOR-claude.md`
 
 `nsec()` gains `anchor = c("model", "component", "control")`, defaulting to
 `"model"`. `"model"` and `"component"` give the same values for every class
-toxval supports, since none is model-averaged. `"control"` errors, saying that
-it needs a control-only fit, `control_fit`, which is not yet implemented (#22).
+toxval supports, since none is model-averaged. `"control"` takes
+`control_fit`, a model the user fits to the control observations alone, and
+errors without it (§3.8; amended 2026-10-19, RF). It does not wait for #22,
+because toxval does not fit the control model. Phase 4 accepts a `brmsfit` as
+`control_fit`. `drc` cannot fit a model of the control alone, so `"control"`
+errors on a `drc` fit.
 When the choice first appears on the result depends on whether phases 4 and 5
 are done together, which is still to decide.
 
@@ -447,13 +453,59 @@ directions are computed (T10), and the tests marked #20 change. `by_group`,
 arguments without a warning. They are deprecated with the change to the
 `toxval` tibble.
 
+## T29 — `relative` takes its new meaning in phase 4 (T9)
+
+Settled 2026-10-19 (RF), amending the last point of T9 and adopting `bayesnec`
+D15 ruling 8 (2026-09-06).
+
+From phase 4, `type = "relative"` measures from the control to the asymptote
+(T24), and the old quantity is `type = "range"`. A call that supplies `relative`
+explicitly warns that its meaning has changed and names `range`. Where the bound
+is infinite, an equation without an asymptote fitted with a family that has no
+bound, the call errors and names `absolute` and `range` (T9).
+
+The warning is a plain `warning()`, not `lifecycle::deprecate_warn()`, because
+`relative` is not deprecated and a lifecycle message would say it is. Each
+published relative ECx found in the toxval-review literature review
+(2026-10-17) is measured to a fitted limit, as in Ritz et al. (2015, p. 9,
+Equation 9). Keeping the old quantity under `relative` for one more release
+would also make toxval and `bayesnec` disagree for that release.
+
+## T30 — no argument replaces `type = "lower"` (T15)
+
+Settled 2026-10-19 (RF), amending T15.
+
+`nsec()` takes no argument for `nsec_multi()`'s `type = "lower"`. The rule keeps,
+for each response, the direction whose NSEC is lower at the `criterion`
+quantile of its realisations. That is a filter on the result returned with
+`draws = TRUE`:
+
+```r
+nsec(fit, multi_var = "sp", draws = TRUE) |>
+  dplyr::mutate(
+    at_criterion = vapply(draws, \(d) quantile(d$value, 0.8), numeric(1))
+  ) |>
+  dplyr::group_by(response) |>
+  dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
+  dplyr::ungroup()
+```
+
+The same filter ran as written on `compute_nsec()` output for `brms_model_4`,
+with its seven herbicide groups in place of responses (2026-10-19). A tie keeps
+the decreasing row, which comes first, as `nsec_multi()` does today. Censored
+realisations rank above `max(x_vec)` (T21), and enter the quantile there.
+
+`nsec_multi(type = "lower", criterion = )` keeps working through the deprecated
+wrapper, which applies the filter itself. The `nsec()` documentation shows the
+filter as an example.
+
 ---
 
 ## Still to decide
 
 Listed so they are not mistaken for oversights.
 
-The first five are open for phase 4, to be discussed with AP (2026-10-18). Each
+The first two are open for phase 4, to be discussed with AP (2026-10-18). Each
 has a recommendation, which is not a ruling.
 
 - **Whether phases 4 and 5 are done together.** Kept apart, phase 4 returns
@@ -465,38 +517,43 @@ has a recommendation, which is not a ruling.
   change unintentionally then compares values recorded before the change with
   the decreasing rows of the new output. Recommended: together, with the
   `toxval` tibble class built first and additively, as phase 2 built the spine.
-- **The name replacing `type = "lower"` (T15).** Recommended: a logical
-  `lower_only = FALSE`, with `criterion`. One direction is still obtained by
-  filtering the `direction` column, as T15 decided, and
-  `nsec_multi(type = "increasing")` keeps working through the wrapper.
-- **What `type = "relative"` computes from phase 4 (T9).** Recommended: the
-  asymptote-based meaning at once, with a warning that names `range` whenever
-  `relative` is supplied explicitly, and an error where the bound is infinite.
-  This is `bayesnec` D15 ruling 8 (2026-09-06). Each published relative ECx
-  found in the toxval-review literature review (2026-10-17) is measured to a
-  fitted limit, as in Ritz et al. (2015, p. 9, Equation 9). The alternative is
-  to compute the old quantity under `relative` for one more release.
-- **The `resolution` default.** Recommended: 1000 for every entry point, as the
-  spine has. `nsec_multi()` uses 50 today. The grid is evenly spaced in
-  concentration, while dilution series are geometric, so the grid is coarsest
-  where an EC10 or NSEC lies. On a simulated `LL.4()` fit to doses from 0 to
-  100 (1000 bootstrap realisations, against a 10000-point grid), the largest
-  error in a reported quantile was 21 per cent of the interval width at 50, 8
-  at 100, 2 at 200 and 0.3 at 1000. Across eight fits, a call at 1000 took
-  under a second longer than one at 100.
-- **The name of the `meta` element recording the lowest concentration in the
-  data (T21).**
+- **The `resolution` default.** Recommended: 500 for every entry point.
+  `nsec_multi()` uses 50 today, and the other entry points 100 or 1000. The grid
+  is evenly spaced in concentration, while dilution series are geometric, so it
+  is coarsest where an EC10 or NSEC lies. On a simulated `LL.4()` fit to doses
+  from 0 to 100 (1000 bootstrap realisations, against a 10000-point grid), the
+  largest error in a reported quantile was 21 per cent of the interval width at
+  50, 8 at 100, 2 at 200, 0.34 at 400 and 0.33 at 1000. On each of the seven
+  fits tested whose interval has a finite width, it was below 0.35 per cent at
+  400 or 500 points. Peak memory grows in proportion to the grid: on
+  `nsec_multi_model_2` (two responses, 1000 draws) it rose by about 36 bytes per
+  draw, grid point and response, 1.1 GB between 1000 and 16000 points
+  (2026-10-19). A fit with 8000 draws and four responses would then need about
+  1.2 GB at 1000 points and half that at 500. A grid evenly spaced in log
+  concentration is not a remedy: on `drc::ryegrass` it left a 28 per cent error
+  at every resolution, because the span from the zero control to the lowest
+  tested concentration then has one grid interval.
 
-- **#3** — `ecx_val` as a proportion rather than a percentage. Breaking; needs a
-  deprecation path. Interacts with #9, and now with the closed `metric`
-  vocabulary and its separate `ecx_val` column (`REFACTOR-claude.md` §3.1).
+- **#3** — `ecx_val` as a proportion rather than a percentage. Agreed in
+  principle (RF, 2026-10-19); the path and the name are to decide. Recommended
+  path: a new argument taking a proportion, with `ecx_val` accepted for one
+  release behind `lifecycle::deprecate_warn()` and divided by 100, except under
+  `direct`, where it is a response value. Supplying both is an error (T3). The
+  same argument cannot change scale in place: `chk_ecx_val()` accepts any
+  positive value, so `ecx_val = 0.5` would mean 0.5 or 50 per cent depending on
+  the release. `ecnsec` becomes a proportion in the same release, so that it
+  stays the inverse of the `ecx` reference (T8), and the `ecx_val` column of the
+  tibble (`REFACTOR-claude.md` §3.1) takes the new name. The new argument can
+  accept several values from the start, one row each, which answers #9. The
+  change goes with the tibble, so users meet one breaking release. `msPAF`
+  passes `ecx_val = proportion * 100` (`msPAF` `R/hc_fun.R:31`).
 - ~~**#4** — always return a tibble.~~ **Decided 2026-08-19**: yes, a `toxval`
   tibble subclass. See `REFACTOR-claude.md` §3.1 and PR #42 / #44.
 - **#22** — whether `toxval` takes on model-fitting wrappers at all. Scope
-  question for the author; it changes what the package *is*. **Now has a forcing
-  case**: `anchor = "control"` (`REFACTOR-claude.md` §3.8) needs a control-only
-  fit, which cannot be recovered from an already-fitted object. It needs only
-  `brms`, so it does not threaten the untangle.
+  question for the author; it changes what the package *is*. Not at this stage
+  (RF, 2026-10-19). `anchor = "control"` does not depend on it, since the user
+  supplies the control-only fit as `control_fit` (T23). The helper over
+  `brms::brm(y ~ 1, ...)` in `REFACTOR-claude.md` §3.8 waits for it.
 - **#17, #18, #25** — NOEC, model-averaged N(S)EC, N(S)EC. Each needs its
   definition agreed before any code.
 - **bayesnec #39** — root-finding in place of the grid, now **toxval #40**. The

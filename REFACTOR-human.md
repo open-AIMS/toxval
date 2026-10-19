@@ -45,7 +45,8 @@ control down to zero; `relative`, the control down to the equation's own
 theoretical asymptote; `range`, the control down to the lowest response the curve
 predicts; and `direct`, a response value supplied by the user. `range` is new,
 and it is what `relative` means in the current code, so `relative` changes
-meaning and is deprecated into `range`. Decision T9 and `REFACTOR-claude.md`
+meaning, and a call that supplies it warns and names `range` (decision T29).
+Decision T9 and `REFACTOR-claude.md`
 §3.10 state it in full. For an increasing response, `absolute` measures towards
 1 for a proportion and as a percentage of the control otherwise, so a 10 per
 cent increase from a control of 20 is 22. These are the published definitions
@@ -184,8 +185,8 @@ non-generic functions that compute on a `toxval_pred`.
 
 `nsec_multi()` is folded into `nsec()` and deprecated, so one function serves
 ungrouped, grouped and multivariate fits (decision T15, `REFACTOR-claude.md`
-§3.3). Its `type = "lower"` option stays, under a new name chosen in phase 4,
-because `type` already has another meaning in `nsec()`.
+§3.3). Its `type = "lower"` option becomes a filter on the result, so `nsec()`
+needs no argument for it (decision T30).
 
 Metric functions accept **either a fitted model or a pre-built `toxval_pred`**
 (one `inherits()` check at the top), which enables predict-once / compute-many
@@ -350,7 +351,8 @@ nsec(fit, anchor = c("model", "component", "control"))
 posterior, so every pooled value is measured against the same response level.
 `"component"` uses each component model's own control, which is the strict
 Bayesian model average and reproduces what `bayesnec` returns today. `"control"`
-uses a separate control-only fit, specified here but not implemented.
+uses a separate control-only fit, which the user supplies as `control_fit`,
+from phase 4 for a `brms` fit (decision T23).
 
 `anchor` is a column on the result, so the choice travels with the estimate. The
 measurements behind the default, and the cost of choosing it, are in
@@ -400,10 +402,8 @@ break would force two breaking releases in a row.
    adds `type = "relative"` and the `anchor` argument, which phase 2 left out.
    Done when `ecx()` and `nsec()` compute from a `toxval_pred` and `nsec_multi()`
    calls `nsec()`, with `posterior` deprecated but working. Its rulings are
-   decisions T21 to T28. Five questions remain open for discussion: whether
-   phases 4 and 5 are done together, the name replacing `type = "lower"`, what
-   `type = "relative"` computes from phase 4, the `resolution` default, and the
-   name of the `meta` element that records the lowest concentration in the data
+   decisions T21 to T30. Two questions remain open for discussion: whether
+   phases 4 and 5 are done together, and the `resolution` default
    (`02_decisions.md`, Still to decide).
 5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
    update the tests; remove `posterior` and the dead blocks last. Done when every
@@ -429,9 +429,9 @@ it returns. Separating them keeps each checkable against the regression net, and
   a `drc` model average as it does to a `bayesnec` one, so it is to be scoped
   with `relative` and the further `type` options in #63
   (`REFACTOR-claude.md` §5).
-- **`anchor = "control"` is specified but not implemented.** It needs a
-  control-only fit, which cannot be recovered from a fitted model, so it is
-  supplied as an argument — an argument for fitting wrappers (#22).
+- **`anchor = "control"` needs a control-only fit**, which cannot be recovered
+  from a fitted model, so the user supplies it as `control_fit` (decision T23).
+  Fitting wrappers (#22) are not planned at this stage.
 - **Model-averaged results are not reproducible today** (`bayesnec` #216): the
   component resampling is unseeded. Not fixed by this plan, and it blocks
   regression-testing model-averaged output by equality.
