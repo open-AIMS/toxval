@@ -1231,3 +1231,62 @@ yet merged to its `main`).
    `REFACTOR-claude.md` and `REFACTOR-human.md`
 
 ---
+
+## Session: phase3-shed-bayesnec, the #63 comment on trials fits
+Date: 2026-10-19
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:** ne final thing, can you asses how this comment here changes the plan?
+https://github.com/open-AIMS/toxval/issues/63
+
+**Claude:** Assessed the comment of 2026-10-19 08:32 on #63 (extra risk on a
+`brms` beta-binomial fit whose trials are a normalising total). The plan was not
+changed; a ruling is needed.
+
+#### Effect on T18 and T26
+
+T18 classes a response as a proportion from `meta$family` alone. For a `brms`
+binomial or beta-binomial fit, `response_upper_bound()` (`R/compute.R`) returns
+`NA` today, because the trials are not recorded. T26 records `trials_var` per
+curve in phase 4 and lets T18's increasing `absolute` reference use it. Phases
+4 and 5 are one release (T33), so that release would be the first to report an
+increasing `ecnsec` for the 78-gene fit of the comment, and it would report
+extra risk: 0.65 to 2.7 per cent for every gene, against 26.8 to 110 per cent
+as relative deviation (the comment's table).
+
+The increasing ECx is affected in the same way, since `ecx` and `ecnsec` share
+the span (T8). From the comment's control-to-trials ratios (0.0097 to 0.038),
+an increasing EC10 under extra risk is reached where the expected count is
+1 + 0.1 (n / y0 - 1) times the control: 11.2 times at 0.0097, 5.9 at 0.020 and
+3.5 at 0.038, against 1.1 times under relative deviation. Most such crossings
+would lie beyond the tested range and be censored (T21). Not affected: the
+NSEC, whose reference does not depend on `type`; the decreasing direction,
+whose `absolute` span is the control for every family; `range`, `relative` and
+`direct`.
+
+#### Options
+
+1. A predict-level argument stating whether the trials bound the response,
+   recorded in `meta` beside `trials_var` and read by `response_upper_bound()`.
+   `FALSE` makes the fit a count with no upper bound, so `absolute` gives
+   relative deviation under T18 as it stands. The default stays an upper bound,
+   as the comment proposes. `type` stays a string, and #63 option 1 is not
+   needed for this case. Suggested name `trials_bound`, to be chosen.
+2. The comment's proposal, #63 option 1 in its second form
+   (`type = list(increasing = "control")`). It brings the change of the `type`
+   contract, and its naming, into phase 4, which #63 says to stop and ask about,
+   and the `type` column of the result would have to represent a list.
+3. Keep the increasing `absolute` reference `NA` for trials fits until #63 is
+   settled. It also leaves a binomial count of organisms, such as mortality,
+   with no increasing reference for that release, which is the case T18 was
+   written for.
+
+Recommended: option 1. The comment's diagnosis is that the family does not show
+whether the trials are a ceiling, which is a property of the response rather
+than a choice of ECx definition, so it is recorded where `trials_var` is. It
+amends T26's third bullet and T18's recognition rule, and returns one open item
+to phase 4. #63 keeps the general question of user-supplied spans.
+
+---
