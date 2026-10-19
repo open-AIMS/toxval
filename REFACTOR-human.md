@@ -92,7 +92,8 @@ Descriptor columns, each listed once against every metric it appears for:
 
 - `group` — one row per level, when grouped
 - `response` — one row per response, for multivariate fits
-- `ecx_val` — `ecx`; renamed `proportion` in phase 5 (decision T32)
+- `ecx_val` — `ecx`; renamed `proportion` in phase 5, with the `direct` value
+  given as `reference` (decision T32)
 - `type` — `ecx`, `nsec`
 - `sig_val`, `anchor` — `nsec`, `n(s)ec`
 - `control` — `ecx`, `nsec`
@@ -351,8 +352,9 @@ nsec(fit, anchor = c("model", "component", "control"))
 posterior, so every pooled value is measured against the same response level.
 `"component"` uses each component model's own control, which is the strict
 Bayesian model average and reproduces what `bayesnec` returns today. `"control"`
-uses a separate control-only fit, which the user supplies as `control_fit`,
-from phase 4 for a `brms` fit (decision T23).
+would use a separate control-only fit supplied by the user. It is left out of
+phase 4 and will probably be replaced, because it does not reproduce the LECx of
+de Bruyn and Elphick (2013), which it was meant to match (decision T23).
 
 `anchor` is a column on the result, so the choice travels with the estimate. The
 measurements behind the default, and the cost of choosing it, are in
@@ -402,11 +404,12 @@ break would force two breaking releases in a row.
    adds `type = "relative"` and the `anchor` argument, which phase 2 left out.
    Done when `ecx()` and `nsec()` compute from a `toxval_pred` and `nsec_multi()`
    calls `nsec()`, with `posterior` deprecated but working. Its rulings are
-   decisions T21 to T31. One question remains open for discussion: whether
-   phases 4 and 5 are done together (`02_decisions.md`, Still to decide).
+   decisions T21 to T33. It is done together with phase 5, so no interim
+   version returns today's shapes from the spine (decision T33).
 5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
    `ecx_val` becomes `proportion`, so an EC10 is `proportion = 0.1` rather
-   than `ecx_val = 10` (decision T32);
+   than `ecx_val = 10`, and `type = "direct"` takes its response value as
+   `reference` (decision T32);
    update the tests; remove `posterior` and the dead blocks last. Done when every
    metric returns a tibble and the tests assert the new shapes.
 6. **`toxval` to CRAN**, carrying the final API. Unblocks #39. Done when
@@ -415,8 +418,9 @@ break would force two breaking releases in a row.
    `nsec`, add the `toxval_predict` methods, adapt to the tibble. Then CRAN.
 
 Phases 2 to 4 change who owns the code and what it computes; phase 5 changes what
-it returns. Separating them keeps each checkable against the regression net, and
-`bayesnec` sees one finished API at phase 7.
+it returns. Phases 2 and 3 are kept separate, so each can be checked against the
+regression net. Phases 4 and 5 are done together (decision T33). `bayesnec` sees
+one finished API at phase 7.
 
 ## 5. Notes
 
@@ -430,9 +434,9 @@ it returns. Separating them keeps each checkable against the regression net, and
   a `drc` model average as it does to a `bayesnec` one, so it is to be scoped
   with `relative` and the further `type` options in #63
   (`REFACTOR-claude.md` §5).
-- **`anchor = "control"` needs a control-only fit**, which cannot be recovered
-  from a fitted model, so the user supplies it as `control_fit` (decision T23).
-  Fitting wrappers (#22) are not planned at this stage.
+- **`anchor = "control"` is left out of phase 4** (decision T23). It would need
+  a control-only fit supplied by the user, and it does not reproduce the LECx it
+  was meant to match. Fitting wrappers (#22) are not planned at this stage.
 - **Model-averaged results are not reproducible today** (`bayesnec` #216): the
   component resampling is unseeded. Not fixed by this plan, and it blocks
   regression-testing model-averaged output by equality.

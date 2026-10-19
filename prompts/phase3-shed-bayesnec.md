@@ -1163,3 +1163,71 @@ ruled on.
    `REFACTOR-claude.md` and `REFACTOR-human.md`
 
 ---
+
+## Session: phase3-shed-bayesnec, the phase 4 rulings, fourth round
+Date: 2026-10-19
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:**
+
+> I think phase 4 and 5 should be done together, and I think Ayla will agree.
+> Let's mark that decided. She can review the PR and indicate if she is happy
+> with that, as we don't meet until the end of the week and we really need to
+> move this forward at a faster rate than that.
+>
+> I agree with the problem regarding proportion and type="direct".Can you check
+> drc's equivalent? can we use that? If there is something useful there,
+> consult with me, otherwise call the argument reference as you suggested and
+> change that and update as required.
+>
+> I agree leave anchor = "control" and control_fit out of phase 4. Can you
+> update the issue with a comment detailing that it should probably be
+> replaced, given the correction in the other repo.
+
+**Claude:** Recorded the three rulings and posted the comment on #63.
+
+#### Phase sequencing
+
+T33: done together, subject to AP's review of the pull request that records
+it. The text that was under "Still to decide" is now the entry. The phase
+rows and the paragraphs after them in both plan documents now say phases 2 and
+3 stay separate and phases 4 and 5 are done together.
+
+#### `type = "direct"` and `drc`
+
+`drc::ED()` (drc 3.0.1, `args(drc:::ED.drc)` and its help page) was checked.
+Its `type = "absolute"` is toxval's `direct`, and it takes the response value
+through `respLev`, the same argument that holds the percentage under
+`type = "relative"`. That is the conflation T32 removes, so there is nothing to
+adopt. `drc::ED()` has its own `reference` argument, `c("control", "upper")`,
+which selects where the span starts; the name means something different there.
+toxval's `type` names already differ from `drc`'s (`drc`'s `absolute` is
+toxval's `direct`), so matching `drc` names was not a goal. The argument is
+`reference`, as recommended. T32 records it: required under `direct`, refused
+under any other `type`; `proportion` refused under `direct` (T3); the
+`proportion` column `NA` on a `direct` row; `ecx_val` under `direct` taken as
+`reference`, undivided, in the deprecation release. §3.1 and §3.10 of
+`REFACTOR-claude.md`, and §3.1 and phase 5 of `REFACTOR-human.md`, refer to it.
+
+#### `anchor = "control"`
+
+T23 now gives `anchor = c("model", "component")` for phase 4 and records why
+`"control"` and `control_fit` are left out, with the fish growth figures of the
+third round. §3.8 and §5 of both plan documents, and the #22 entry, say the
+same. The §3.8 design is kept as the record of what was proposed.
+
+Comment posted on #63 (2026-10-19,
+https://github.com/open-AIMS/toxval/issues/63#issuecomment-6264494441). It
+states that `"control"` is left out of phase 4 and should probably be replaced
+by a route to LECx method 1, with the table of the third round, and links the
+`comparing_tox_ests` correction (20987a2, on its `ce-case-study` branch, not
+yet merged to its `main`).
+
+#### Commits
+
+1. the commit adding this entry, with the changes to `02_decisions.md`,
+   `REFACTOR-claude.md` and `REFACTOR-human.md`
+
+---

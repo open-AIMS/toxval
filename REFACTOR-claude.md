@@ -71,7 +71,8 @@ against every metric it appears for:
 
 - `group` — `ecx`, `nsec`, `n(s)ec`; one row per level, when grouped
 - `response` — `ecx`, `nsec`, `n(s)ec`; one row per response, for multivariate fits
-- `ecx_val` — `ecx`; renamed `proportion` in phase 5 (#3, T32)
+- `ecx_val` — `ecx`; renamed `proportion` in phase 5, and `NA` under `direct`,
+  whose value is supplied as `reference` (#3, T32)
 - `type` — `ecx`, `nsec`
 - `sig_val`, `anchor` — `nsec`, `n(s)ec`
 - `control` — `ecx`, `nsec`
@@ -762,8 +763,11 @@ default and should be documented, not glossed.
 
 #### `anchor = "control"`
 
-Implemented in phase 4 for a `brmsfit` supplied as `control_fit` (T23). A
-`drc` fit errors, because `drc` cannot fit a model of the control alone.
+Left out of phase 4, and probably to be replaced (T23, #63). It was meant to
+align the NSEC with LECx method 1 of de Bruyn and Elphick (2013), and does not:
+it is the NSEC-cv withdrawn from `comparing_tox_ests` on 2026-09-29. LECx method
+1 is `ecx()` at the PMSD of Dunnett's test, and method 2 is the NSEC under
+`"model"`. The design below is kept as the record of what was proposed.
 
 The threshold comes from a model fitted to the **control observations alone** —
 an intercept-only fit — rather than from the dose-response model's estimate of
@@ -974,7 +978,7 @@ The control is the predicted response at the lowest concentration in the series.
 | `absolute` *(default)* | control → 0 | control → 1 for a proportion; otherwise control → twice the control (T18) |
 | `relative` | control → the equation's theoretical lower asymptote | control → the equation's theoretical upper asymptote |
 | `range` | control → the minimum predicted response over the predictor range | control → the maximum predicted response over the predictor range |
-| `direct` | the supplied response value, no proportional change | as decreasing |
+| `direct` | the response value supplied as `reference` (T32), no proportional change | as decreasing |
 
 `range` is new. `direct` is unchanged. `absolute` is unchanged for decreasing
 responses.
@@ -1198,14 +1202,16 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 1 | **Lock a regression net.** Mark every test a later phase changes with `# EXPECTED-CHANGE <reason> #<issue>`, replacing the existing `TODO` markers; unmarked tests are the "must not move" set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan. | - |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`, with their tests. Store what the remaining tests and examples read from `bayesnec` as fixtures, so the suite passes with `bayesnec` not installed, and remove `bayesnec` from `Imports`. See [Phase 3 without `bayesnec`](#phase-3-without-bayesnec). | none in `toxval`. `ecx` and `nsec` on a `bnecfit` are no longer computed here, and `bayesnec` objects receive the #19 answer at phase 7 |
-| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. #60 is answered (T21). Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). Its rulings are T21–T31. One question is open: whether phase 5 is done with it (`02_decisions.md`, Still to decide). | per #19/#20, and #60 |
-| 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. `ecx_val` becomes `proportion` (#3, T32). Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
+| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. #60 is answered (T21). Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). Its rulings are T21–T33. It is done with phase 5 (T33). | per #19/#20, and #60 |
+| 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. `ecx_val` becomes `proportion` (#3, T32). Done with phase 4 (T33). Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
 | 6 | **`toxval` to CRAN**, carrying the final API. | — |
 | 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
 
 Phases 2–4 change *who owns the code* and what it computes; phase 5 changes
-*what it returns*. They stay separate inside `toxval`, where each can be checked
-against the regression net, and reach `bayesnec` as one finished API at phase 7.
+*what it returns*. Phases 2 and 3 stay separate inside `toxval`, where each can
+be checked against the regression net. Phases 4 and 5 are done together, so no
+interim layer returns today's shapes from the spine (T33). All of them reach
+`bayesnec` as one finished API at phase 7.
 
 #### Phase 3 without `bayesnec`
 
@@ -1293,7 +1299,8 @@ CMD check pass with `bayesnec` not installed.
 - **`anchor = "control"` cannot be computed from a fitted object alone.** It
   needs a control-only fit, which is why it takes `control_fit` rather than
   deriving one ([3.8](#38-the-nsec-reference-the-anchor-argument)). That is a
-  genuine argument for fitting wrappers (#22) as a convenience layer.
+  genuine argument for fitting wrappers (#22) as a convenience layer. It is
+  left out of phase 4, and probably to be replaced (T23).
 
   It does **not** threaten #39. An intercept-only fit needs `brms`, which
   `toxval` imports directly and keeps after the untangle; `bayesnec`'s

@@ -3,7 +3,7 @@
 Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
 2026-09-04/05 with T8-T12, which settle the definitions gating the refactor, and
 2026-10-09 with T13-T17, from the review of PR #59, 2026-10-17 with T18-T20,
-from the review of PR #62, and 2026-10-18/19 with T21-T32, the rulings phases
+from the review of PR #62, and 2026-10-18/19 with T21-T33, the rulings phases
 4 and 5 need. A session implements these rather than re-opening them.
 
 **Scope.** This file records decisions about the **package** — what the code
@@ -383,16 +383,23 @@ and has a plain warning (T29).
 Settled 2026-10-18 (RF). The argument is specified in `REFACTOR-claude.md`
 §3.8.
 
-`nsec()` gains `anchor = c("model", "component", "control")`, defaulting to
-`"model"`. `"model"` and `"component"` give the same values for every class
-toxval supports, since none is model-averaged. `"control"` takes
-`control_fit`, a model the user fits to the control observations alone, and
-errors without it (§3.8; amended 2026-10-19, RF). It does not wait for #22,
-because toxval does not fit the control model. Phase 4 accepts a `brmsfit` as
-`control_fit`. `drc` cannot fit a model of the control alone, so `"control"`
-errors on a `drc` fit.
-When the choice first appears on the result depends on whether phases 4 and 5
-are done together, which is still to decide.
+`nsec()` gains `anchor = c("model", "component")`, defaulting to `"model"`.
+`"model"` and `"component"` give the same values for every class toxval
+supports, since none is model-averaged. The `anchor` column appears on the
+result from phase 4, which is done with phase 5 (T33).
+
+`"control"` and its `control_fit` argument are left out of phase 4 (RF,
+2026-10-19, amending this entry as first settled). `"control"` was meant to
+align the NSEC with the LECx of de Bruyn and Elphick (2013), and it does not. A
+reference from a control-only fit is the NSEC-cv withdrawn from
+`comparing_tox_ests` on 2026-09-29 (`compare_nsec_lecx.qmd`, "Changes from the
+June 2026 version"). On the fish growth data of that document, with the
+exponential decay fitted by `nls()` and a one-sided alpha of 0.05, the NSEC-cv
+was 4.84 with an effect of 13.4 per cent. The NSEC under `"model"`, which is
+LECx method 2, was 5.37 with 8.6 per cent, and LECx method 1 was 10.9 with 27.0
+per cent (2026-10-19). LECx method 1 is `ecx()` at the percent minimum
+significant difference (PMSD) of Dunnett's test. `"control"` should probably be
+replaced by a route to LECx method 1 rather than implemented later (#63).
 
 ## T24 — the source and storage of the asymptote (#63)
 
@@ -542,8 +549,36 @@ of the `ecx` reference (T8). The `ecx_val` column of the tibble
 (`REFACTOR-claude.md` §3.1) is renamed `proportion`. `proportion` accepts
 several values from the start, one row each, which answers #9.
 
-`type = "direct"` is excluded. Its value is a response, not a proportion, so the
-argument that takes it is still to decide.
+Under `type = "direct"` the value is a response, not a proportion, and it is
+supplied as `reference` (RF, 2026-10-19), the output column that already
+reports it: `ecx(fit, type = "direct", reference = 0.5)`. `reference` is
+required under `direct` and refused under any other `type`, and `proportion` is
+refused under `direct` (T3). The `proportion` column is `NA` on a `direct` row.
+In the deprecation release, `ecx_val` under `direct` is taken as `reference`,
+not divided by 100. `nsec()` does not take `reference`, since it refuses
+`direct` (T19). `response` was not used, because it names the column that
+identifies each response of a multivariate fit (`REFACTOR-claude.md` §3.1).
+
+`drc::ED()` offers no alternative. Its `type = "absolute"` is toxval's `direct`,
+and it takes the response value through `respLev`, the same argument that holds
+the percentage under `type = "relative"`. Its own `reference` argument selects
+whether the control or the upper limit is the reference ("control" or "upper",
+`drc` 3.0.1), so the name has a different meaning there.
+
+## T33 — phases 4 and 5 are done together
+
+Settled 2026-10-19 (RF), subject to AP's review of the pull request that records
+it.
+
+Phase 4 rebuilds the metrics on the spine and phase 5 changes what they return.
+One branch does both. Kept apart, phase 4 would return today's shapes. The
+increasing direction, `anchor` and `draws` would be computed but not reported
+until phase 5. `posterior` would keep working without a warning, and `nsec()` on
+a `drc` fit would keep refusing an increasing curve. Done together, that interim
+layer is not written, and each changed test is edited once rather than twice.
+The `toxval` tibble class is built first and additively, as phase 2 built the
+spine. The check that numbers do not change unintentionally compares values
+recorded before the change with the decreasing rows of the new output.
 
 ---
 
@@ -551,32 +586,13 @@ argument that takes it is still to decide.
 
 Listed so they are not mistaken for oversights.
 
-The first is open for phase 4, to be discussed with AP (2026-10-18). It has a
-recommendation, which is not a ruling.
-
-- **Whether phases 4 and 5 are done together.** Kept apart, phase 4 returns
-  today's shapes. The increasing direction, `anchor` and `draws` would be
-  computed but not reported until phase 5. `posterior` would keep working
-  without a warning, and `nsec()` on a `drc` fit would keep refusing an
-  increasing curve. Done together, that interim layer is not written, and each
-  changed test is edited once rather than twice. The check that numbers do not
-  change unintentionally then compares values recorded before the change with
-  the decreasing rows of the new output. Recommended: together, with the
-  `toxval` tibble class built first and additively, as phase 2 built the spine.
-
-- **`type = "direct"`** — the argument that takes its response value, which
-  `proportion` cannot (T32). Recommended: `reference`, the output column that
-  already reports that value, as in `ecx(fit, type = "direct", reference = 0.5)`.
-  The `proportion` column is then `NA` on a `direct` row. `nsec()` does not take
-  it, since it refuses `direct` (T19). `response` is not available, because it
-  names the column that identifies each response of a multivariate fit (§3.1).
 - ~~**#4** — always return a tibble.~~ **Decided 2026-08-19**: yes, a `toxval`
   tibble subclass. See `REFACTOR-claude.md` §3.1 and PR #42 / #44.
 - **#22** — whether `toxval` takes on model-fitting wrappers at all. Scope
   question for the author; it changes what the package *is*. Not at this stage
-  (RF, 2026-10-19). `anchor = "control"` does not depend on it, since the user
-  supplies the control-only fit as `control_fit` (T23). The helper over
-  `brms::brm(y ~ 1, ...)` in `REFACTOR-claude.md` §3.8 waits for it.
+  (RF, 2026-10-19). `anchor = "control"`, the case for a helper over
+  `brms::brm(y ~ 1, ...)` (`REFACTOR-claude.md` §3.8), is left out of phase 4
+  (T23).
 - **#17, #18, #25** — NOEC, model-averaged N(S)EC, N(S)EC. Each needs its
   definition agreed before any code.
 - **bayesnec #39** — root-finding in place of the grid, now **toxval #40**. The
