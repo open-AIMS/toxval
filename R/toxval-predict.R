@@ -72,6 +72,16 @@ toxval_predict <- function(
   chk::chk_whole_number(resolution)
   chk::chk_gt(resolution, 1)
   chk_x_range(x_range)
+  # Grouping by the predictor would set the grid column to one level per curve,
+  # giving a constant curve for each (#15). Checked here rather than in each
+  # method, since both methods would otherwise return without error.
+  if (!is.null(group_var) && identical(group_var, x_var)) {
+    chk::abort_chk(
+      "`group_var` and `x_var` must name different columns, not both ",
+      chk::cc(x_var),
+      "."
+    )
+  }
 
   UseMethod("toxval_predict")
 }
@@ -220,6 +230,9 @@ toxval_predict.drc <- function(
       curves = curve_set$curves,
       group_var = group_var,
       realisation = "bootstrap",
+      # `type` names the response distribution of a `drc` fit, and
+      # `"binomial"` marks a response on the proportion scale (T18)
+      family = object$type,
       seed = seed
     )
   )
@@ -238,7 +251,8 @@ toxval_predict.drc <- function(
 #' @param curves The list of realisation matrices.
 #' @param group_var Name of the grouping variable, or `NULL`.
 #' @param realisation Either `"draws"` or `"bootstrap"`.
-#' @param family The response distribution, or `NULL` where there is none.
+#' @param family The response distribution: the `brms` family, the `type` of a
+#'   `drc` fit, or `NULL` where there is none.
 #' @param seed The bootstrap seed, or `NULL`.
 #'
 #' @return A named list satisfying the `meta` contract of [toxval_pred].

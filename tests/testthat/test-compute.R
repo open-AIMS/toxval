@@ -5,20 +5,22 @@ compute_pred <- function(
   x_vec,
   keys = data.frame(row.names = 1L),
   group_var = NULL,
-  multi_var = NULL
+  multi_var = NULL,
+  family = "gaussian",
+  source_class = "brmsfit"
 ) {
   new_toxval_pred(
     curves = curves,
     keys = keys,
     x_vec = x_vec,
     meta = list(
-      source_class = "brmsfit",
+      source_class = source_class,
       x_var = "x",
       group_var = group_var,
       multi_var = multi_var,
       resolution = length(x_vec),
       x_range = range(x_vec),
-      family = "gaussian",
+      family = family,
       realisation = "draws",
       n_realisation = nrow(curves[[1]]),
       seed = NULL
@@ -65,10 +67,10 @@ test_that("compute_ecx returns NA for a direction with no crossing", {
   expect_identical(result$draws[[2]], c(NA_real_, NA_real_))
 })
 
-test_that("compute_ecx finds an increasing crossing against the absolute upper bound of 1", {
+test_that("compute_ecx takes the increasing absolute reference towards 1 for a proportion", {
   x_vec <- 0:10
   y <- 0.1 + 0.08 * x_vec
-  pred <- compute_pred(list(rbind(y, y)), x_vec)
+  pred <- compute_pred(list(rbind(y, y)), x_vec, family = "beta")
 
   result <- toxval:::compute_ecx(pred, ecx_val = 50)
 
@@ -77,14 +79,57 @@ test_that("compute_ecx finds an increasing crossing against the absolute upper b
   expect_identical(result$draws[[1]], c(NA_real_, NA_real_))
 })
 
-test_that("compute_ecx returns an NA increasing reference when the control is at or above 1", {
+test_that("compute_ecx takes the increasing absolute reference as a percentage of the control for an unbounded response", {
+  # relative deviation, the mirror of the decreasing form (T18)
   x_vec <- 0:10
-  pred <- compute_pred(list(rbind(1 + 0.1 * x_vec, 0.5 + 0.1 * x_vec)), x_vec)
+  pred <- compute_pred(list(rbind(20 + x_vec, 10 + x_vec)), x_vec)
 
   result <- toxval:::compute_ecx(pred, ecx_val = 10)
 
-  expect_equal(result$reference[[2]], c(NA, 0.55))
-  expect_equal(result$draws[[2]], c(NA, 0.5))
+  expect_equal(result$reference[[2]], c(22, 11))
+  expect_equal(result$draws[[2]], c(2, 1))
+})
+
+test_that("compute_ecx treats a binomial drc fit as a proportion", {
+  x_vec <- 0:10
+  y <- 0.1 + 0.08 * x_vec
+  pred <- compute_pred(
+    list(rbind(y, y)),
+    x_vec,
+    family = "binomial",
+    source_class = "drc"
+  )
+
+  result <- toxval:::compute_ecx(pred, ecx_val = 50)
+
+  expect_equal(result$reference[[2]], c(0.55, 0.55))
+})
+
+test_that("compute_ecx returns an NA increasing absolute reference for a binomial brmsfit", {
+  # the bound is the number of trials, which is not recorded until trials_var
+  x_vec <- 0:10
+  y <- 2 + x_vec
+  pred <- compute_pred(list(rbind(y, y)), x_vec, family = "binomial")
+
+  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+
+  expect_identical(result$reference[[2]], c(NA_real_, NA_real_))
+  expect_equal(result$reference[[1]], c(1.8, 1.8))
+})
+
+test_that("compute_ecx returns an NA absolute reference where the control is at or below 0", {
+  # a span of zero or less gives no percentage, in either direction
+  x_vec <- 0:10
+  pred <- compute_pred(
+    list(rbind(-1 - 0.1 * x_vec, 0 - 0.1 * x_vec, 2 - 0.1 * x_vec)),
+    x_vec
+  )
+
+  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+
+  expect_equal(result$reference[[1]], c(NA, NA, 1.8))
+  expect_equal(result$reference[[2]], c(NA, NA, 2.2))
+  expect_equal(result$draws[[1]], c(NA, NA, 2))
 })
 
 test_that("compute_ecx accepts an absolute ecx_val above 100 for a response that goes negative", {
@@ -120,6 +165,8 @@ test_that("compute_ecx measures the range reference up to the maximum of the cur
 
   expect_equal(result$reference[[2]], c(3, 3))
   expect_equal(result$draws[[2]], c(2, 2))
+  # the curve never falls below its control, so there is no span downwards
+  expect_identical(result$reference[[1]], c(NA_real_, NA_real_))
   expect_identical(result$draws[[1]], c(NA_real_, NA_real_))
 })
 
@@ -272,11 +319,12 @@ test_that("compute_nsec computes the absolute ecnsec against 0 when decreasing",
   expect_equal(result$ecnsec[[1]], c(-5.556, 5, 13.636), tolerance = 0.001)
 })
 
-test_that("compute_nsec computes the absolute ecnsec against 1 when increasing", {
+test_that("compute_nsec computes the absolute ecnsec against 1 when increasing for a proportion", {
   x_vec <- 0:10
   pred <- compute_pred(
     list(rbind(0.1 + 0.05 * x_vec, 0.2 + 0.05 * x_vec, 0.3 + 0.05 * x_vec)),
-    x_vec
+    x_vec,
+    family = "beta"
   )
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
@@ -284,8 +332,7 @@ test_that("compute_nsec computes the absolute ecnsec against 1 when increasing",
   expect_equal(result$ecnsec[[2]], c(16.667, 6.25, -7.143), tolerance = 0.001)
 })
 
-# TODO Becky to review decision of setting to NA instead of Inf or NaN
-test_that("compute_nsec returns an NA ecnsec when the control is at or above 1 when increasing", {
+test_that("compute_nsec computes the absolute ecnsec against the control when increasing for an unbounded response", {
   x_vec <- 0:10
   pred <- compute_pred(
     list(rbind(9 - x_vec, 10 - x_vec, 11 - x_vec)),
@@ -294,15 +341,17 @@ test_that("compute_nsec returns an NA ecnsec when the control is at or above 1 w
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_identical(result$ecnsec[[2]], c(NA_real_, NA_real_, NA_real_))
+  expect_equal(result$ecnsec[[2]], c(16.667, 5, -4.545), tolerance = 0.001)
 })
 
-# TODO Becky to review decision of setting to NA instead of Inf or NaN
-test_that("compute_nsec returns an NA ecnsec only for the draws whose control is at or above 1 when increasing", {
+# A span of zero or less gives no percentage, so `ecnsec` is NA rather than
+# Inf or NaN (RF, PR #62 review)
+test_that("compute_nsec returns an NA ecnsec only for the draws of a proportion whose control is at or above 1 when increasing", {
   x_vec <- 0:10
   pred <- compute_pred(
     list(rbind(0.5 + 0.1 * x_vec, 1 + 0.1 * x_vec, 2 + 0.1 * x_vec)),
-    x_vec
+    x_vec,
+    family = "beta"
   )
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
@@ -311,7 +360,7 @@ test_that("compute_nsec returns an NA ecnsec only for the draws whose control is
   expect_equal(result$ecnsec[[2]], c(200, NA, NA))
 })
 
-# TODO Becky to review decision of setting to NA instead of Inf or NaN
+# A span of zero or less gives no percentage (RF, PR #62 review)
 test_that("compute_nsec returns an NA ecnsec when the control is at or below 0 when decreasing", {
   x_vec <- 0:10
   pred <- compute_pred(
@@ -337,7 +386,7 @@ test_that("compute_nsec computes the range ecnsec against the minimum of the cur
   expect_equal(result$ecnsec[[1]], c(-5, 5, 15))
 })
 
-# TODO Becky to review decision of setting to NA instead of Inf or NaN
+# A span of zero or less gives no percentage (RF, PR #62 review)
 test_that("compute_nsec returns an NA range ecnsec when the curve has no span in that direction", {
   x_vec <- 0:10
   pred <- compute_pred(
@@ -351,17 +400,15 @@ test_that("compute_nsec returns an NA range ecnsec when the curve has no span in
   expect_identical(result$ecnsec[[2]], c(NA_real_, NA_real_, NA_real_))
 })
 
-test_that("compute_nsec returns the reference as the ecnsec under direct", {
+test_that("compute_nsec errors on the direct type", {
+  # its ecnsec would be the reference itself, already reported (T19)
   x_vec <- 0:10
-  pred <- compute_pred(
-    list(rbind(9 - x_vec, 10 - x_vec, 11 - x_vec)),
-    x_vec
+  pred <- compute_pred(list(rbind(9 - x_vec, 10 - x_vec)), x_vec)
+
+  expect_error(
+    toxval:::compute_nsec(pred, type = "direct"),
+    "`type` must not be 'direct' for an NSEC"
   )
-
-  result <- toxval:::compute_nsec(pred, sig_val = 0.25, type = "direct")
-
-  expect_equal(result$ecnsec[[1]], c(9.5, 9.5, 9.5))
-  expect_equal(result$ecnsec[[2]], c(10.5, 10.5, 10.5))
 })
 
 test_that("compute_nsec takes a separate reference for each group", {
@@ -381,7 +428,8 @@ test_that("compute_nsec takes a separate reference for each group", {
   expect_equal(result$draws[[3]], c(NA, 0.5, 1.5))
 })
 
-# TODO Becky to review that sig_val can't be above 0.5
+# 0.5 and above would put the decreasing reference at or above the increasing
+# one (RF, PR #62 review)
 test_that("compute_nsec errors when sig_val is not below 0.5", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - x_vec)), x_vec)

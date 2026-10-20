@@ -7,12 +7,15 @@
 #'
 #' | `type` | decreasing | increasing |
 #' |---|---|---|
-#' | `absolute` | control to 0 | control to 1 |
+#' | `absolute` | control to 0 | control to 1 for a proportion, otherwise control to twice the control |
 #' | `range` | control to the minimum of the curve | control to the maximum of the curve |
 #' | `direct` | `ecx_val`, a response value | as decreasing |
 #'
-#' Under `absolute` the increasing reference is `NA` for a realisation whose
-#' control is at or above 1, since the percentage has no span to be taken of.
+#' The increasing `absolute` forms are extra risk for a proportion and relative
+#' deviation for any other response (T18): a 10 per cent increase from a control
+#' of 20 is 22. The reference is `NA` for a realisation whose span, the distance
+#' from the control to the bound, is zero or less, such as a control at or below
+#' 0 under `absolute`, since the percentage then has nothing to be taken of.
 #'
 #' Values are not summarised. A realisation with no crossing in a direction is
 #' `NA`.
@@ -30,12 +33,14 @@ compute_ecx <- function(pred, ecx_val = 10, type = "absolute") {
   chk::chk_s3_class(pred, "toxval_pred")
   chk_type(type)
   chk_ecx_val(ecx_val, type)
-  
+
+  upper <- response_upper_bound(pred$meta)
+
   rows <- lapply(seq_along(pred$curves), function(i) {
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
-    reference <- ecx_reference(curve, ecx_val, type)
+    reference <- ecx_reference(curve, ecx_val, type, upper)
     draws <- lapply(directions(), function(direction) {
       crossings_by_row(curve, pred$x_vec, reference[[direction]], direction)
     })
@@ -62,16 +67,20 @@ compute_ecx <- function(pred, ecx_val = 10, type = "absolute") {
 #' computed per curve. It is one value across realisations, so the NSEC
 #' realisations vary only through the curve. `ecnsec` is the effect at the
 #' reference, the inverse of the `compute_ecx()` reference under the same
-#' `type`; under `direct` it is the reference itself.
+#' `type`.
 #'
 #' Values are not summarised. A realisation with no crossing in a direction is
-#' `NA`.
+#' `NA`. By construction of the quantile, a fraction `sig_val` of the
+#' realisations have a control at or below the decreasing reference, and on a
+#' decreasing curve none of them crosses it. How those realisations enter the
+#' summary is #60.
 #'
 #' @param pred A `toxval_pred`.
 #' @param sig_val The quantile of the control realisations that sets the
 #'   decreasing reference.
-#' @param type One of `"absolute"`, `"range"` or `"direct"`, selecting the
-#'   `ecnsec` definition.
+#' @param type One of `"absolute"` or `"range"`, selecting the `ecnsec`
+#'   definition. `"direct"` is refused (T19): its `ecnsec` would be the
+#'   reference itself, which the `reference` column already reports.
 #'
 #' @return A tibble with one row per curve and direction: the columns of
 #'   `keys`, `direction`, `sig_val`, `type`, `reference`, and the list columns
@@ -82,6 +91,13 @@ compute_nsec <- function(pred, sig_val = 0.01, type = "absolute") {
   chk::chk_s3_class(pred, "toxval_pred")
   chk_sig_val(sig_val)
   chk_type(type)
+  if (type == "direct") {
+    chk::abort_chk(
+      "`type` must not be 'direct' for an NSEC; the response value at the ",
+      "NSEC is reported as `reference`."
+    )
+  }
+  upper <- response_upper_bound(pred$meta)
 
   rows <- lapply(seq_along(pred$curves), function(i) {
     # row names would carry through to every per-realisation vector
@@ -95,7 +111,7 @@ compute_nsec <- function(pred, sig_val = 0.01, type = "absolute") {
       reference_by_row <- rep(reference[[direction]], nrow(curve))
       crossings_by_row(curve, pred$x_vec, reference_by_row, direction)
     })
-    ecnsec <- ecnsec_value(curve, reference, type)
+    ecnsec <- ecnsec_value(curve, reference, type, upper)
 
     dplyr::bind_cols(
       keys_by_direction(pred$keys, i),
@@ -142,91 +158,121 @@ crossings_by_row <- function(curve, x_vec, reference, direction) {
   )
 }
 
+#' The upper bound of the response, which sets the increasing `absolute` span
+#'
+#' A curve predicted on the proportion scale is bounded at 1, and its
+#' increasing `absolute` reference is extra risk, which is Abbott's formula. Any
+#' other response has no upper bound, and its increasing reference is relative
+#' deviation from the control, the mirror of the decreasing form (T18).
+#'
+#' @param meta The `meta` of a `toxval_pred`.
+#'
+#' @return 1 for a proportion, `Inf` for a response with no upper bound, or `NA`
+#'   where the bound is not recorded.
+#'
+#' @noRd
+response_upper_bound <- function(meta) {
+  family <- meta$family
+  if (is.null(family)) {
+    return(Inf)
+  }
+  # `drc` fits a binomial response on the proportion scale, and names it by
+  # `type` rather than by a `brms` family
+  if (identical(meta$source_class, "drc")) {
+    return(if (family == "binomial") 1 else Inf)
+  }
+  switch(
+    family,
+    bernoulli = ,
+    beta = ,
+    zero_inflated_beta = ,
+    zero_one_inflated_beta = 1,
+    # `posterior_epred()` returns these as a count of trials, bounded by the
+    # number of trials, which a toxval_pred does not record until `trials_var`
+    # (T15). `NA` keeps the reference from being taken against the wrong bound.
+    binomial = ,
+    beta_binomial = ,
+    zero_inflated_binomial = NA_real_,
+    Inf
+  )
+}
+
+#' The span a percentage effect is taken of, for every realisation of a curve
+#'
+#' The reference is the control minus (decreasing) or plus (increasing) a
+#' percentage of this span. `ecx_reference()` and `ecnsec_value()` both take the
+#' span from here, so `ecnsec` stays the inverse of the `ecx` reference (T8). A
+#' span of zero or less gives no percentage, so it is returned as `NA`: under
+#' `absolute` that is a control at or below 0, or at or above 1 for a
+#' proportion; under `range` it is a curve with no extent in that direction.
+#'
+#' @param upper The upper bound from `response_upper_bound()`.
+#'
+#' @return A list of two numeric vectors, `decreasing` and `increasing`, one
+#'   value per realisation.
+#'
+#' @noRd
+reference_span <- function(curve, type, upper) {
+  control <- curve[, 1]
+  increasing_absolute <- if (is.na(upper)) {
+    rep(NA_real_, length(control))
+  } else if (is.finite(upper)) {
+    upper - control
+  } else {
+    control
+  }
+  span <- switch(
+    type,
+    absolute = list(
+      decreasing = control,
+      increasing = increasing_absolute
+    ),
+    range = list(
+      decreasing = control - apply(curve, 1, min),
+      increasing = apply(curve, 1, max) - control
+    )
+  )
+  lapply(span, function(x) {
+    x[!is.na(x) & x <= 0] <- NA_real_
+    x
+  })
+}
+
 #' The ECx reference for every realisation of a curve, in each direction
 #'
 #' @noRd
-ecx_reference <- function(curve, ecx_val, type, upper = 1) {
-  control <- curve[, 1]
+ecx_reference <- function(curve, ecx_val, type, upper) {
   n <- nrow(curve)
-  p <- ecx_val / 100
-
-  reference <- switch(
-    type,
-    absolute = list(
-      decreasing = control - control * p,
-      increasing = ifelse(
-        control < upper,
-        control + (upper - control) * p,
-        NA_real_
-      )
-    ),
-    range = list(
-      decreasing = control - (control - apply(curve, 1, min)) * p,
-      increasing = control + (apply(curve, 1, max) - control) * p
-    ),
-    direct = list(
+  if (type == "direct") {
+    return(list(
       decreasing = rep(ecx_val, n),
       increasing = rep(ecx_val, n)
-    )
+    ))
+  }
+  control <- curve[, 1]
+  p <- ecx_val / 100
+  span <- reference_span(curve, type, upper)
+  list(
+    decreasing = control - span$decreasing * p,
+    increasing = control + span$increasing * p
   )
-  reference
 }
 
 #' The effect at the NSEC reference for every realisation of a curve, in each
 #' direction
 #'
-#' The inverse of `ecx_reference()`: the percentage of the span between the
-#' control and the bound that the reference lies at. Under `direct` it is the
-#' reference itself.
+#' The inverse of `ecx_reference()`: the percentage of the span that the
+#' reference lies from the control.
 #'
 #' @param reference The NSEC reference, a numeric vector named `decreasing`
 #'   and `increasing`.
 #'
 #' @noRd
-ecnsec_value <- function(curve, reference, type, upper = 1) {
+ecnsec_value <- function(curve, reference, type, upper) {
   control <- curve[, 1]
-  n <- nrow(curve)
-  decreasing <- reference[["decreasing"]]
-  increasing <- reference[["increasing"]]
-
-  ecnsec <- switch(
-    type,
-    absolute = list(
-      decreasing = percent_of_span(
-        control - decreasing, 
-        control
-      ),
-      increasing = percent_of_span(
-        increasing - control, 
-        upper - control
-      )
-    ),
-    range = list(
-      decreasing = percent_of_span(
-        control - decreasing,
-        control - apply(curve, 1, min)
-      ),
-      increasing = percent_of_span(
-        increasing - control,
-        apply(curve, 1, max) - control
-      )
-    ),
-    direct = list(
-      decreasing = rep(decreasing, n),
-      increasing = rep(increasing, n)
-    )
+  span <- reference_span(curve, type, upper)
+  list(
+    decreasing = (control - reference[["decreasing"]]) / span$decreasing * 100,
+    increasing = (reference[["increasing"]] - control) / span$increasing * 100
   )
-  ecnsec
-}
-
-#' A shift as a percentage of a span, or `NA` where the span is not positive
-#'
-#' A zero span would divide by zero and a negative one would flip the sign, so
-#' neither gives a percentage.
-#'
-#' @noRd
-percent_of_span <- function(shift, span) {
-  percent <- shift / span * 100
-  percent[!(span > 0)] <- NA_real_
-  percent
 }
