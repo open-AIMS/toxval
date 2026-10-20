@@ -2,8 +2,8 @@
 "_PACKAGE"
 
 ## usethis namespace: start
-#' @importFrom stats quantile median predict model.frame
-#' @importFrom brms as_draws_df posterior_epred posterior_summary posterior_predict
+#' @importFrom stats quantile predict
+#' @importFrom brms as_draws_df posterior_epred
 ## usethis namespace: end
 
 ## mockable bindings: start

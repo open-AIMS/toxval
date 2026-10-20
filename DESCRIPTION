@@ -13,7 +13,7 @@ Authors@R: c(
     person("Poisson Consulting Ltd.", role = "cph")
   )
 Description: Extracts NSEC or ECx estimates from supported
-    fitted frequentist (drc) and Bayesian (bayesnec) model objects (see
+    fitted frequentist (drc) and Bayesian (brms) model objects (see
     Fisher and Fox (2023) <doi:10.1002/etc.5610>).
 License: GPL (>= 2)
 URL: https://open-aims.github.io/toxval/
@@ -21,18 +21,19 @@ BugReports: https://github.com/open-aims/toxval/issues
 Depends:
     R (>= 4.1)
 Imports:
-    bayesnec,
     brms,
-    chk (>= 0.7.0),
+    chk (>= 0.11.0),
     dplyr,
     modelbased,
-    tidyr
+    tidyr,
+    withr
 Suggests:
     BH,
     covr,
     drc,
+    RcppEigen,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.1.7)
 Biarch: true
 Config/roxygen2/version: 8.0.0.9000
 Config/testthat/edition: 3

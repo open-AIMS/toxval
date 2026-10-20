@@ -8,8 +8,8 @@
 #' is assumed to be the lowest observed concentration.
 #'
 #' Calls to functions [ecx()] and [nsec()] and
-#' [bayesnec::compare_fitted()] do not require the same level of flexibility
-#' in the context of allowing argument `newdata`
+#' `compare_fitted()` in the bayesnec package do not require the same level of
+#' flexibility in the context of allowing argument `newdata`
 #' (from a [brms::posterior_predict()] perspective) to
 #' be supplied manually, as this is and should be handled within the function
 #' itself. The argument `resolution` controls how precisely the
@@ -26,10 +26,10 @@
 #'
 #' @examples
 #' \donttest{
-#' library(bayesnec)
-#'
-#' data(manec_example)
-#' nsec(manec_example)
+#' if (requireNamespace("drc", quietly = TRUE)) {
+#'   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+#'   nsec(fit, x_var = "conc")
+#' }
 #' }
 #'
 #' @export
@@ -73,91 +73,6 @@ nsec <- function(
   }
 
   UseMethod("nsec")
-}
-
-#' @describeIn nsec Method for a `bayesnec` fit of class [bayesnec::bnecfit]
-#'   returned by [bayesnec::bnec()].
-#'
-#' @param type One of "relative" or "absolute" (the default). For "relative"
-#'   the NSEC reference is taken relative to the minimum predicted response; for
-#'   "absolute" it is taken relative to zero.
-#'
-#' @export
-nsec.bnecfit <- function(
-  object,
-  sig_val = 0.01,
-  resolution = 100,
-  x_range = NA,
-  hormesis_def = "control",
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  posterior = FALSE,
-  type = "absolute",
-  ...
-) {
-  newdata_list <- newdata_eval(
-    object,
-    resolution = resolution,
-    x_range = x_range
-  )
-  p_samples <- posterior_epred(
-    object,
-    newdata = newdata_list$newdata,
-    re_formula = NA
-  )
-  x_vec <- newdata_list$x_vec
-
-  control_posterior <- p_samples[, 1]
-  if (type == "relative") {
-    min_posterior <- p_samples[, ncol(p_samples)]
-  } else {
-    min_posterior <- 0
-  }
-
-  if (hormesis_def == "max") {
-    reference <- quantile(apply(p_samples, 1, max), probs = sig_val)
-  } else {
-    reference <- quantile(control_posterior, sig_val)
-  }
-  n <- seq_len(nrow(p_samples))
-  p_samples <- do_wrapper(
-    n,
-    modify_posterior,
-    object,
-    x_vec,
-    p_samples,
-    hormesis_def,
-    fct = "rbind"
-  )
-
-  nsec_out <- apply(p_samples, 1, nsec_fct, reference, x_vec)
-
-  dif_valsC <- control_posterior - min_posterior
-  dif_valsR <- reference - min_posterior
-
-  ecnsecP <- (1 - (dif_valsR / dif_valsC)) * 100
-  ecnsec <- quantile(ecnsecP, probs = prob_vals, na.rm = TRUE)
-
-  if (inherits(xform, "function")) {
-    nsec_out <- xform(nsec_out)
-  }
-  nsec_estimate <- quantile(unlist(nsec_out), probs = prob_vals)
-  names(nsec_estimate) <- clean_names(nsec_estimate)
-  attr(nsec_estimate, "resolution") <- resolution
-  attr(nsec_out, "resolution") <- resolution
-  attr(nsec_estimate, "sig_val") <- sig_val
-  attr(nsec_out, "sig_val") <- sig_val
-  attr(nsec_estimate, "toxicity_estimate") <- "nsec"
-  attr(nsec_out, "toxicity_estimate") <- "nsec"
-  attr(nsec_estimate, "ecnsec_relativeP") <- ecnsec
-  attr(nsec_out, "ecnsec_relativeP") <- ecnsecP
-  attr(nsec_estimate, "reference") <- reference
-  attr(nsec_out, "reference") <- reference
-  if (!posterior) {
-    nsec_estimate
-  } else {
-    nsec_out
-  }
 }
 
 #' @describeIn nsec Method for a raw `brms` fit of class [brms::brmsfit]
@@ -237,24 +152,27 @@ nsec.brmsfit <- function(
     if (horme) {
       # MARGIN = 1, not 2. p_samples is draws x x-values, so MARGIN = 1 is the
       # maximum of each draw -- one hormetic peak per draw -- and its sig_val
-      # quantile is a genuine posterior quantile of that peak. This matches
-      # nsec.bnecfit(), which is the reference implementation. MARGIN = 2 took
-      # the pointwise upper envelope of the posterior band across draws and then
-      # quantiled that over x values, which is not a posterior quantity: it put
-      # `reference` above the entire response surface, so nsec_fct() found no
-      # zero crossing and fell through to its max(x_vec) fallback, returning the
-      # top of the x range as the NSEC.
+      # quantile is a genuine posterior quantile of that peak. This matched
+      # nsec.bnecfit(), the reference implementation until its removal in
+      # phase 3 (#39). MARGIN = 2 took the pointwise upper envelope of the
+      # posterior band across draws and then quantiled that over x values,
+      # which is not a posterior quantity: it put `reference` above the entire
+      # response surface, so nsec_fct() found no zero crossing and fell through
+      # to its max(x_vec) fallback, returning the top of the x range as the
+      # NSEC.
       if (hormesis_def == "max") {
         reference <- quantile(apply(p_samples, 1, max), probs = sig_val)
       }
-      # The modify_posterior truncation that nsec.bnecfit() runs live stays
+      # The modify_posterior truncation that nsec.bnecfit() ran live stays
       # commented out here (toxval #37). It cannot be restored as a follow-on to
       # the margin fix: even with the margin and the bnecfit ordering (reference
       # first, then truncate), draws whose peak falls at the last x value are
       # left with a single non-NA point and nsec_fct() errors in approxfun()
       # with "need at least two non-NA values to interpolate". Left for the
       # refactor to settle with the rest of the hormesis/direction question
-      # (#20).
+      # (#20). modify_posterior() and do_wrapper(), which the block calls, were
+      # deleted in phase 3 because nothing live called them; R/helpers.R at the
+      # pre-refactor tag has both.
       # n <- seq_len(nrow(p_samples))
       # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
       #                                    p_samples, hormesis_def, fct = "rbind")

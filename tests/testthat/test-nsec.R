@@ -9,48 +9,25 @@
 # in the refactor plan.
 
 # parameters --------------------------------------------------------------
+# The argument checks in the nsec() generic run before dispatch, so the error
+# tests in this section do not depend on the class of the fit. They were written
+# against bayesnec fits and rewritten to use brms_model_1 when the bnecfit method
+# was removed (#39).
 test_that("prob_vals warnings behave as expected", {
   expect_error(
-    nsec(bayesnec::manec_example, prob_vals = 0.9, resolution = 10),
+    nsec(brms_model_1, x_var = "x", prob_vals = 0.9, resolution = 10),
     regexp = "prob_vals must include central, lower and upper quantiles, in that order"
   )
 
   expect_error(
     nsec(
-      bayesnec::manec_example,
+      brms_model_1,
+      x_var = "x",
       prob_vals = c(0.6, 0.9, 0.1),
       resolution = 10
     ),
     regexp = "prob_vals must include central, lower and upper quantiles, in that order"
   )
-
-  expect_error(
-    nsec(bayesnec_nec4param, prob_vals = 0.9, resolution = 10),
-    regexp = "prob_vals must include central, lower and upper quantiles, in that order"
-  )
-
-  expect_error(
-    nsec(bayesnec_nec4param, prob_vals = c(0.6, 0.9, 0.1), resolution = 10),
-    regexp = "prob_vals must include central, lower and upper quantiles, in that order"
-  )
-})
-
-test_that("prob_vals when passed changes the levels", {
-  output <- nsec(
-    bayesnec::manec_example,
-    prob_vals = c(0.6, 0.1, 0.9),
-    resolution = 10
-  )
-  expect_length(output, 3)
-  expect_equal(names(output), c("Q60", "Q10", "Q90"))
-
-  output <- nsec(
-    bayesnec_nec4param,
-    prob_vals = c(0.4, 0.2, 0.85),
-    resolution = 10
-  )
-  expect_length(output, 3)
-  expect_equal(names(output), c("Q40", "Q20", "Q85"))
 })
 
 test_that("prob_vals with more than 3 values returns that many quantiles", {
@@ -64,120 +41,18 @@ test_that("prob_vals with more than 3 values returns that many quantiles", {
   expect_equal(names(output), c("Q40", "Q10", "Q60", "Q70", "Q5"))
 })
 
-test_that("sig_val warning message triggered when more then 1 value passed", {
-  expect_error(
-    nsec(bayesnec::manec_example, sig_val = c(0.01, 0.05)),
-    regexp = "You may only pass one sig_val"
-  )
-})
-
 # EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
 test_that("hormesis_def errors with wrong input value", {
   expect_error(
-    nsec(bayesnec::manec_example, hormesis_def = "other"),
+    nsec(brms_model_1, x_var = "x", hormesis_def = "other"),
     regexp = 'type must be one of "max" or "control" \\(the default\\). Please see \\?ecx for more details'
   )
 })
 
 test_that("xform errors if function not passed ", {
   expect_error(
-    nsec(bayesnec::manec_example, xform = 1),
+    nsec(brms_model_1, x_var = "x", xform = 1),
     regexp = "xform must be a function"
-  )
-})
-
-test_that("xform passes correctly", {
-  nsec1 <- nsec(bayesnec_ecx4param, resolution = 10)
-  nsec2 <- nsec(bayesnec_ecx4param, xform = exp, resolution = 10)
-  expect_gt(nsec2[1], nsec1[2])
-})
-
-test_that("when posterior is true you get the posterior as output", {
-  output <- nsec(bayesnec_ecx4param, posterior = TRUE, resolution = 10)
-  expect_length(output, 100)
-})
-
-test_that("sig_val passes correctly", {
-  output_1 <- nsec(bayesnec_ecx4param, sig_val = 0.05, resolution = 10)
-  expect_equal(
-    attributes(output_1)$reference,
-    c("5%" = 2.156923),
-    tolerance = 0.01
-  )
-  expect_equal(
-    as.numeric(output_1),
-    c(0.8047611, 0.2947924, 3.2205197),
-    tolerance = 0.01
-  )
-
-  output_2 <- nsec(bayesnec_ecx4param, sig_val = 0.20, resolution = 10)
-  expect_equal(
-    attributes(output_2)$reference,
-    c("20%" = 2.212801),
-    tolerance = 0.01
-  )
-  expect_equal(
-    as.numeric(output_2),
-    c(0.7530804, 0.1929446, 3.2205197),
-    tolerance = 0.01
-  )
-})
-
-test_that("nsec returns expected object types and resolution is passing correctly", {
-  nsec_summary <- nsec(bayesnec::manec_example, sig_val = 0.01, resolution = 50)
-  nsec_summary2 <- nsec(
-    bayesnec::manec_example,
-    sig_val = 0.01,
-    resolution = 50,
-    xform = exp
-  )
-  nsec_posterior <- nsec(
-    bayesnec::manec_example,
-    sig_val = 0.01,
-    posterior = TRUE,
-    resolution = 50
-  )
-
-  nsecn_summary <- nsec(bayesnec_nec4param, sig_val = 0.01, resolution = 50)
-  nsecn_summary2 <- nsec(
-    bayesnec_nec4param,
-    sig_val = 0.01,
-    resolution = 50,
-    xform = exp
-  )
-  nsecn_posterior <- nsec(
-    bayesnec_nec4param,
-    sig_val = 0.01,
-    posterior = TRUE,
-    resolution = 50
-  )
-
-  expect_equal(length(nsec_summary), 3)
-  expect_gt(length(nsec_posterior), 3)
-  expect_equal(length(nsecn_summary), 3)
-  expect_gt(length(nsecn_posterior), 3)
-  expect_equal(attributes(nsec_summary)$resolution, 50)
-  expect_equal(attributes(nsec_posterior)$resolution, 50)
-  expect_equal(attributes(nsecn_summary)$resolution, 50)
-  expect_equal(attributes(nsecn_posterior)$resolution, 50)
-})
-
-test_that("x_range can be passed various values for bnecfit models", {
-  output_1 <- nsec(bayesnec_ecx4param, x_range = c(100))
-  expect_equal(as.numeric(output_1), c(100, 100, 100), tolerance = 0.01)
-
-  output_2 <- nsec(bayesnec_ecx4param, x_range = c(0.5, 100))
-  expect_equal(
-    as.numeric(output_2),
-    c(0.7515119, 0.5584780, 0.9257176),
-    tolerance = 0.01
-  )
-
-  output_3 <- nsec(bayesnec_ecx4param, x_range = c(0.5, 5, 100))
-  expect_equal(
-    as.numeric(output_3),
-    c(0.7515119, 0.5584780, 0.9257176),
-    tolerance = 0.01
   )
 })
 
@@ -204,18 +79,6 @@ test_that("x_range can be passed various values for brms models", {
 })
 
 # different model types ---------------------------------------------------
-
-test_that("works for bayesnecfit", {
-  nsec1 <- nsec(bayesnec_ecx4param, resolution = 10)
-  expect_equal(length(nsec1), 3)
-  expect_equal(names(nsec1), c("Q50", "Q2.5", "Q97.5"))
-})
-
-test_that("works for bayesmanecfit", {
-  nsec1 <- nsec(bayesnec::manec_example, resolution = 10)
-  expect_equal(length(nsec1), 3)
-  expect_equal(names(nsec1), c("Q50", "Q2.5", "Q97.5"))
-})
 
 # EXPECTED-CHANGE ecnsec reference redefined, ecnsec values change (nsec estimate unchanged) #49
 test_that("additional examples brms 1", {
@@ -339,7 +202,7 @@ test_that("additional examples brms 2", {
 
 # EXPECTED-CHANGE drc estimate changes (parametric bootstrap) #43; needs a seed
 test_that("nsec works for drc using continuous data", {
-  model_LL4 <- drc::drm(y ~ x, data = bayesnec::nec_data, fct = drc::LL.4())
+  model_LL4 <- drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::LL.4())
   nsec_val <- as.vector(round(nsec(model_LL4, x_var = "x"), 1))
   expect_equal(nsec_val, c(1.2, 1.0, 1.3))
 })
@@ -384,7 +247,7 @@ test_that("nsec for drc throws an error for an increasing function", {
 
 # EXPECTED-CHANGE drc bootstrap changes estimate; ecnsec redefined #49; needs a seed
 test_that("nsec drc additional example 1", {
-  data <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
+  data <- bayesnec_herbicide[bayesnec_herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
   output_drc <- drc::drm(
     fvfm ~ concentration,
@@ -416,7 +279,7 @@ test_that("nsec drc additional example 1", {
 
 # EXPECTED-CHANGE drc bootstrap changes estimate; ecnsec redefined #49; needs a seed
 test_that("nsec drc additional example 2", {
-  data <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
+  data <- bayesnec_herbicide[bayesnec_herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
   output_drc <- drc::drm(
     fvfm ~ concentration,
@@ -802,96 +665,6 @@ test_that("curveid paramer must be in the data", {
   )
 })
 
-# nsec.bnecfit — additional tests ------------------------------------------
-
-test_that("bnecfit nsec returns correct structure", {
-  output <- nsec(bayesnec_ecx4param, resolution = 50)
-
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(names(output), c("Q50", "Q2.5", "Q97.5"))
-  expect_equal(attr(output, "sig_val"), 0.01)
-  expect_equal(attr(output, "toxicity_estimate"), "nsec")
-  expect_equal(attr(output, "resolution"), 50)
-})
-
-test_that("bnecfit nsec posterior returns full distribution", {
-  output <- nsec(bayesnec_ecx4param, posterior = TRUE, resolution = 50)
-
-  expect_type(output, "double")
-  # Posterior length = number of MCMC draws (not resolution)
-  expect_gt(length(output), 3)
-  expect_equal(attr(output, "resolution"), 50)
-  expect_equal(attr(output, "sig_val"), 0.01)
-  expect_equal(attr(output, "toxicity_estimate"), "nsec")
-  # ecnsec_relativeP should also be the full posterior
-  expect_length(attr(output, "ecnsec_relativeP"), length(output))
-})
-
-test_that("bnecfit nsec sig_val affects reference level and output", {
-  output_strict <- nsec(bayesnec_ecx4param, sig_val = 0.01, resolution = 50)
-  output_loose <- nsec(bayesnec_ecx4param, sig_val = 0.10, resolution = 50)
-
-  # Stricter sig_val (lower quantile) gives lower reference
-  expect_lt(
-    attr(output_strict, "reference")[[1]],
-    attr(output_loose, "reference")[[1]]
-  )
-})
-
-test_that("bnecfit nsec xform is applied to posterior before summarising", {
-  output_1 <- nsec(bayesnec_ecx4param, resolution = 50)
-  output_2 <- nsec(bayesnec_ecx4param, resolution = 50, xform = exp)
-
-  # xform should produce different (larger) values
-  expect_gt(as.numeric(output_2[1]), as.numeric(output_1[1]))
-})
-
-# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
-test_that("bnecfit nsec hormesis_def = max uses maximum as reference", {
-  output_control <- nsec(
-    bayesnec_ecx4param,
-    resolution = 50,
-    hormesis_def = "control"
-  )
-  output_max <- nsec(bayesnec_ecx4param, resolution = 50, hormesis_def = "max")
-
-  # For ecx4param the max should be >= control (first column)
-  expect_gte(
-    attr(output_max, "reference")[[1]],
-    attr(output_control, "reference")[[1]]
-  )
-})
-
-# nsec.bayesmanecfit — additional tests ------------------------------------
-
-test_that("bayesmanecfit nsec posterior = TRUE returns full draws", {
-  output <- nsec(bayesnec::manec_example, posterior = TRUE, resolution = 50)
-
-  expect_type(output, "double")
-  # More than just 3 summary values
-  expect_gt(length(output), 3)
-  expect_equal(attr(output, "resolution"), 50)
-  expect_equal(attr(output, "sig_val"), 0.01)
-  expect_equal(attr(output, "toxicity_estimate"), "nsec")
-})
-
-test_that("bayesmanecfit nsec resolution changes precision", {
-  output_low <- nsec(bayesnec::manec_example, resolution = 10)
-  output_high <- nsec(bayesnec::manec_example, resolution = 100)
-
-  expect_equal(attr(output_low, "resolution"), 10)
-  expect_equal(attr(output_high, "resolution"), 100)
-})
-
-test_that("bayesmanecfit nsec xform changes output", {
-  output_1 <- nsec(bayesnec::manec_example, resolution = 50)
-  output_2 <- nsec(bayesnec::manec_example, resolution = 50, xform = exp)
-
-  # xform applied to posterior before summarising — expect larger values
-  expect_gt(as.numeric(output_2[1]), as.numeric(output_1[1]))
-})
-
 # nsec.brmsfit — additional tests ------------------------------------------
 
 test_that("brmsfit nsec by_group = TRUE posterior = TRUE returns correct structure", {
@@ -988,35 +761,32 @@ test_that("drc nsec xform changes output values", {
 
 # nsec input validation ----------------------------------------------------
 
+# Rewritten to use brms_model_1 in place of a bayesnec fit, as under parameters
+# above (#39).
 test_that("nsec input validation catches non-numeric sig_val", {
   expect_error(
-    nsec(bayesnec_ecx4param, sig_val = "strict"),
+    nsec(brms_model_1, x_var = "x", sig_val = "strict"),
     "`sig_val` must be numeric"
   )
 })
 
 test_that("nsec input validation catches non-numeric resolution", {
   expect_error(
-    nsec(bayesnec_ecx4param, resolution = "high"),
+    nsec(brms_model_1, x_var = "x", resolution = "high"),
     "`resolution` must be numeric"
   )
 })
 
 test_that("nsec input validation catches non-logical posterior", {
   expect_error(
-    nsec(bayesnec_ecx4param, posterior = "yes"),
+    nsec(brms_model_1, x_var = "x", posterior = "yes"),
     "`posterior` must be logical"
   )
 })
 
 # nsec default resolution per method type ------------------------------------
 # Man page generic shows resolution = 100, but brmsfit and drc methods default
-# to resolution = 1000. These tests document the actual per-method defaults.
-
-test_that("bnecfit default resolution is 100", {
-  output <- nsec(bayesnec_ecx4param)
-  expect_equal(attr(output, "resolution"), 100)
-})
+# to resolution = 1000. This test documents the brmsfit default.
 
 test_that("brmsfit default resolution is 1000", {
   output <- nsec(brms_model_1, x_var = "x")

@@ -21,8 +21,8 @@ nsec_multi(
 )
 }
 \arguments{
-\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
-\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
+\item{object}{A fitted model object of a class with a method for the
+function, such as a \link[brms:brmsfit]{brms::brmsfit} returned by \code{\link[brms:brm]{brms::brm()}}.}
 
 \item{sig_val}{Probability value to use as the lower quantile to test
 significance of the predicted posterior values.

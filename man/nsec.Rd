@@ -2,7 +2,6 @@
 % Please edit documentation in R/nsec.R
 \name{nsec}
 \alias{nsec}
-\alias{nsec.bnecfit}
 \alias{nsec.brmsfit}
 \alias{nsec.drc}
 \title{Extracts the predicted NSEC value as desired from a supported class.}
@@ -16,19 +15,6 @@ nsec(
   xform = identity,
   prob_vals = c(0.5, 0.025, 0.975),
   posterior = FALSE,
-  ...
-)
-
-\method{nsec}{bnecfit}(
-  object,
-  sig_val = 0.01,
-  resolution = 100,
-  x_range = NA,
-  hormesis_def = "control",
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  posterior = FALSE,
-  type = "absolute",
   ...
 )
 
@@ -63,8 +49,8 @@ nsec(
 )
 }
 \arguments{
-\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
-\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
+\item{object}{A fitted model object of a class with a method for the
+function, such as a \link[brms:brmsfit]{brms::brmsfit} returned by \code{\link[brms:brm]{brms::brm()}}.}
 
 \item{sig_val}{Probability value to use as the lower quantile to test
 significance of the predicted posterior values.
@@ -92,10 +78,6 @@ posterior sample of calculated values should be returned instead of
 just the median and 95 credible intervals.}
 
 \item{...}{Additional arguments passed to class-specific methods.}
-
-\item{type}{One of "relative" or "absolute" (the default). For "relative"
-the NSEC reference is taken relative to the minimum predicted response; for
-"absolute" it is taken relative to zero.}
 
 \item{x_var}{A character indicating the name of the predictor (x) data in
 \code{object}.}
@@ -125,8 +107,8 @@ if "control", then NSEC values are calculated relative to the control, which
 is assumed to be the lowest observed concentration.
 
 Calls to functions \code{\link[=ecx]{ecx()}} and \code{\link[=nsec]{nsec()}} and
-\code{\link[bayesnec:compare_fitted]{bayesnec::compare_fitted()}} do not require the same level of flexibility
-in the context of allowing argument \code{newdata}
+\code{compare_fitted()} in the bayesnec package do not require the same level of
+flexibility in the context of allowing argument \code{newdata}
 (from a \code{\link[brms:posterior_predict]{brms::posterior_predict()}} perspective) to
 be supplied manually, as this is and should be handled within the function
 itself. The argument \code{resolution} controls how precisely the
@@ -140,9 +122,6 @@ metric in that case.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{nsec(bnecfit)}: Method for a \code{bayesnec} fit of class \link[bayesnec:bnecfit]{bayesnec::bnecfit}
-returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.
-
 \item \code{nsec(brmsfit)}: Method for a raw \code{brms} fit of class \link[brms:brmsfit]{brms::brmsfit}
 returned by \code{\link[brms:brm]{brms::brm()}}. Requires \code{x_var}, and supports estimates per
 group via \code{group_var} and \code{by_group}.
@@ -154,10 +133,10 @@ currently implemented.
 }}
 \examples{
 \donttest{
-library(bayesnec)
-
-data(manec_example)
-nsec(manec_example)
+if (requireNamespace("drc", quietly = TRUE)) {
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+  nsec(fit, x_var = "conc")
+}
 }
 
 }

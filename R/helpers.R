@@ -1,41 +1,6 @@
 #' @noRd
-do_wrapper <- function(..., fct = "cbind") {
-  do.call(fct, lapply(...))
-}
-
-#' @noRd
 clean_names <- function(x) {
   paste0("Q", gsub("%", "", names(x), fixed = TRUE))
-}
-
-#' @noRd
-modify_posterior <- function(n, object, x_vec, p_samples, hormesis_def) {
-  posterior_sample <- p_samples[n, ]
-  if (hormesis_def == "max") {
-    target <- x_vec[which.max(posterior_sample)]
-    change <- x_vec < target
-    posterior_sample[change] <- NA
-  }
-  posterior_sample
-}
-
-#' @noRd
-newdata_eval <- function(object, resolution, x_range) {
-  # Just need one model to extract and generate data
-  # since all models are considered to have the exact same raw data.
-  if (inherits(object, "bayesmanecfit")) {
-    model_set <- names(object$mod_fits)
-    object <- suppressMessages(bayesnec::pull_out(object, model = model_set[1]))
-  }
-  data <- model.frame(object$bayesnecformula, object$fit$data)
-  bnec_pop_vars <- attr(data, "bnec_pop")
-  newdata <- bayesnec::bnec_newdata(
-    object,
-    resolution = resolution,
-    x_range = x_range
-  )
-  x_vec <- newdata[[bnec_pop_vars[["x_var"]]]]
-  list(newdata = newdata, x_vec = x_vec)
 }
 
 #' @noRd
@@ -123,19 +88,6 @@ nsec_fct <- function(y, reference, x_vec) {
   val <- min(modelbased::zero_crossings(y - reference))
   if (is.na(val)) {
     return(max(x_vec))
-  } else {
-    floor_x <- x_vec[floor(val)]
-    ceiling_x <- x_vec[ceiling(val)]
-    prop_x <- (val - floor(val)) * (ceiling_x - floor_x)
-    return(floor_x + prop_x)
-  }
-}
-
-#' @noRd
-tox_fct <- function(y, reference, x_vec) {
-  val <- min(modelbased::zero_crossings(y - reference))
-  if (is.na(val)) {
-    return(NA)
   } else {
     floor_x <- x_vec[floor(val)]
     ceiling_x <- x_vec[ceiling(val)]

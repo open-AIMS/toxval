@@ -164,6 +164,30 @@ save(
 )
 strip_stanmodel("tests/testthat/fixtures/brms_model_5.rda")
 
+# z enters only through a group-level term
+# compared to the population level of brms_model_2
+data <- data.frame(
+  x = c(1.05, 1.0, 0.95, 0.9, 0.8),
+  y = c(0.1, 0.5, 0.6, 0.75, 0.8),
+  z = c(1, 1, 1, 2, 2)
+)
+
+brms_model_6 <-
+  brms::brm(
+    y ~ log(x) + (1 | z),
+    data = data,
+    chains = 2,
+    iter = 2000,
+    thin = 2,
+    seed = 101
+  )
+save(
+  brms_model_6,
+  file = "tests/testthat/fixtures/brms_model_6.rda",
+  compress = "xz"
+)
+strip_stanmodel("tests/testthat/fixtures/brms_model_6.rda")
+
 # bnecfit -----------------------------------------------------------------
 
 data <- data.frame(
@@ -211,6 +235,28 @@ save(
   compress = "xz"
 )
 strip_stanmodel("tests/testthat/fixtures/bayesnec_ecx4param.rda")
+
+# data from bayesnec -------------------------------------------------------
+
+# Stored so that the drc tests fitted to these data run without bayesnec
+# installed, since bayesnec is not a dependency of toxval (#39). Generated with
+# bayesnec 2.1.3.39.
+# The bayesnec_ prefix keeps them from masking the bayesnec datasets of the
+# same name, since devtools::load_all() loads every fixture into the package
+# environment through helper-fixtures.R.
+bayesnec_nec_data <- bayesnec::nec_data
+save(
+  bayesnec_nec_data,
+  file = "tests/testthat/fixtures/bayesnec_nec_data.rda",
+  compress = "xz"
+)
+
+bayesnec_herbicide <- bayesnec::herbicide
+save(
+  bayesnec_herbicide,
+  file = "tests/testthat/fixtures/bayesnec_herbicide.rda",
+  compress = "xz"
+)
 
 # nsec drc ----------------------------------------------------------------
 
