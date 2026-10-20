@@ -7,8 +7,8 @@
 #' @name toxval_params
 #' @keywords internal
 #'
-#' @param object An object of class [bayesnec::bayesnecfit] or
-#' [bayesnec::bayesmanecfit] returned by [bayesnec::bnec()].
+#' @param object A fitted model object of a class with a method for the
+#' function, such as a [brms::brmsfit] returned by [brms::brm()].
 #' @param sig_val Probability value to use as the lower quantile to test
 #' significance of the predicted posterior values.
 #' against the lowest observed concentration (assumed to be the control), to

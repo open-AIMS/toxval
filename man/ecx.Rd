@@ -2,7 +2,6 @@
 % Please edit documentation in R/ecx.R
 \name{ecx}
 \alias{ecx}
-\alias{ecx.bnecfit}
 \alias{ecx.brmsfit}
 \title{Extracts the predicted ECx value as desired from a supported class.}
 \usage{
@@ -10,19 +9,6 @@ ecx(
   object,
   ecx_val = 10,
   resolution = 1000,
-  posterior = FALSE,
-  type = "absolute",
-  hormesis_def = "control",
-  x_range = NA,
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  ...
-)
-
-\method{ecx}{bnecfit}(
-  object,
-  ecx_val = 10,
-  resolution = 100,
   posterior = FALSE,
   type = "absolute",
   hormesis_def = "control",
@@ -50,8 +36,8 @@ ecx(
 )
 }
 \arguments{
-\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
-\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
+\item{object}{A fitted model object of a class with a method for the
+function, such as a \link[brms:brmsfit]{brms::brmsfit} returned by \code{\link[brms:brm]{brms::brm()}}.}
 
 \item{ecx_val}{The desired percentage effect value. This must be a value
 between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.}
@@ -115,8 +101,8 @@ if "control", then ECx values are calculated relative to the control, which
 is assumed to be the lowest observed concentration.
 
 Calls to functions \code{\link[=ecx]{ecx()}} and \code{\link[=nsec]{nsec()}} and
-\code{\link[bayesnec:compare_fitted]{bayesnec::compare_fitted()}} do not require the same level of flexibility
-in the context of allowing argument \code{newdata}
+\code{compare_fitted()} in the bayesnec package do not require the same level of
+flexibility in the context of allowing argument \code{newdata}
 (from a \code{\link[brms:posterior_predict]{brms::posterior_predict()}} perspective) to
 be supplied manually, as this is and should be handled within the function
 itself. The argument \code{resolution} controls how precisely the
@@ -130,20 +116,27 @@ metric in that case.
 }
 \section{Methods (by class)}{
 \itemize{
-\item \code{ecx(bnecfit)}: Method for a \code{bayesnec} fit of class \link[bayesnec:bnecfit]{bayesnec::bnecfit}
-returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.
-
 \item \code{ecx(brmsfit)}: Method for a raw \code{brms} fit of class \link[brms:brmsfit]{brms::brmsfit}
 returned by \code{\link[brms:brm]{brms::brm()}}. Requires \code{x_var}, and supports estimates per
 group via \code{group_var} and \code{by_group}.
 
 }}
 \examples{
+# ecx() has no method for drc fits, so this example fits a brms model.
+# Compiling the Stan model takes about a minute.
 \donttest{
-library(bayesnec)
-
-ecx(manec_example, ecx_val = 50)
-ecx(manec_example)
+if (requireNamespace("drc", quietly = TRUE)) {
+  fit <- brms::brm(
+    rootl ~ s(conc, k = 5),
+    data = drc::ryegrass,
+    chains = 2,
+    seed = 1,
+    refresh = 0,
+    control = list(adapt_delta = 0.99)
+  )
+  print(ecx(fit, x_var = "conc"))
+  print(ecx(fit, x_var = "conc", ecx_val = 50))
+}
 }
 
 }

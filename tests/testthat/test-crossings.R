@@ -196,8 +196,8 @@ test_that("find_crossings when reference is NA", {
 })
 
 # Settled 2026-09-08 (RF) on #59: an NA is not bridged. modify_posterior()
-# (R/helpers.R:12-20) only ever writes a leading block of NAs, so once T10
-# removes it an interior NA is a prediction failure, and interpolating across it
+# (deleted in phase 3) only ever wrote a leading block of NAs, so without it
+# an interior NA is a prediction failure, and interpolating across it
 # invents a value. On y = 10 * exp(-x) over 0:5 with x = 2 dropped and
 # reference = 1.5, bridging returns 2.369 against a true crossing of 1.897, an
 # error of 24.9 per cent where the same grid with no gap gives 2.0 per cent.

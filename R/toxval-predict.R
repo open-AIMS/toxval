@@ -53,8 +53,8 @@
 #' @examples
 #' \donttest{
 #' if (requireNamespace("drc", quietly = TRUE)) {
-#'   fit <- drc::drm(y ~ x, data = bayesnec::nec_data, fct = drc::LL.4())
-#'   toxval_predict(fit, x_var = "x", resolution = 50, n_boot = 100, seed = 42)
+#'   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+#'   toxval_predict(fit, x_var = "conc", resolution = 50, n_boot = 100, seed = 42)
 #' }
 #' }
 #'

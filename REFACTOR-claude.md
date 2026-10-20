@@ -71,7 +71,8 @@ against every metric it appears for:
 
 - `group` — `ecx`, `nsec`, `n(s)ec`; one row per level, when grouped
 - `response` — `ecx`, `nsec`, `n(s)ec`; one row per response, for multivariate fits
-- `ecx_val` — `ecx`
+- `ecx_val` — `ecx`; renamed `proportion` in phase 5, and `NA` under `direct`,
+  whose value is supplied as `reference` (#3, T32)
 - `type` — `ecx`, `nsec`
 - `sig_val`, `anchor` — `nsec`, `n(s)ec`
 - `control` — `ecx`, `nsec`
@@ -249,12 +250,9 @@ that only `nsec_multi()` takes is either handled elsewhere or kept:
   `direction` column, and are removed.
 - `type = "lower"` with `criterion` selects, for each response, the direction
   whose NSEC is lower at the `criterion` quantile of the realisations (default
-  0.8). It is the one metric-level rule, and it stays an argument of `nsec()`.
-
-`type = "lower"` cannot keep its name. In `nsec()`, `type` selects the `ecnsec`
-definition ([3.1](#31-output-contract-everything-is-a-toxval-tibble), #49), and
-T10 rules out a `direction` argument. The new name is chosen in phase 4, when
-`nsec()` gains these arguments.
+  0.8). It is the one metric-level rule. It is a filter on the result returned
+  with `draws = TRUE`, so `nsec()` takes no argument for it, and `nsec_multi()`
+  applies it inside the wrapper (T30).
 
 The consequence that matters now is that `nsec(fit, group_var = , multi_var = )`
 becomes a valid call. A grouped multivariate fit therefore has to be
@@ -283,9 +281,13 @@ toxval_pred:
               Subject to the same alignment invariant as `curves`. Needed by
               `anchor = "control"` (3.8) and by the mismatch warning that
               guards it.
+  asymptote : list aligned to the rows of `keys`, each element a list of
+              numeric [n_realisation] named `decreasing` and `increasing`, or
+              NULL. Needed by `type = "relative"` (3.10, T24).
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
               family, realisation source ("draws" | "bootstrap"),
-              n_realisation, seed, ...
+              n_realisation, seed, x_control (the lowest concentration
+              in the data, T21), ...
 ```
 
 **`control` is keyed like `curves`, not a bare vector.** Settled 2026-09-12
@@ -585,9 +587,8 @@ It also:
 - lets univariate `gam` fits in on the same terms as everything else;
 - collapses most of `nsec_multi`'s `type` argument. `type = "increasing"` is
   `filter(direction == "increasing")` on the result, and `type = "both"` is no
-  filter. Only `type = "lower"` survives as an argument, because it is a
-  *selection rule* using `criterion` rather than a filter. It survives under a
-  new name, in `nsec()`, since `nsec_multi()` is folded into `nsec()` (T15,
+  filter. `type = "lower"` is a *selection rule* using `criterion`, and it is
+  a filter on the realisations once `draws = TRUE` returns them (T30,
   [3.3](#33-single-generic-architecture)).
 
 **A direction with no crossing emits a row with `NA`**, rather than omitting the
@@ -596,15 +597,19 @@ which is information. This is the §3.1 column rule — present because meaningf
 `NA` because unavailable.
 
 That settles the case where *no* draw crosses. **The mixed case — some draws
-cross and some do not — is open, and is tracked as #60.** It is a question about
-what the estimate means rather than an `na.rm` argument: non-crossing draws are
+cross and some do not — is #60, settled 2026-10-18 as T21.** It is a question
+about what the estimate means rather than an `na.rm` argument: non-crossing draws are
 the draws whose crossing lies beyond `max(x_vec)`, so they are the upper tail of
 the posterior, and dropping them biases the estimate downward while censoring
 them at the grid edge makes it a function of where testing stopped. Measured on
 4000 lognormal draws with 12.4 per cent not crossing, `na.rm = TRUE` reports the
 43.8th percentile of the full posterior as the median, and both rules return the
 grid boundary or below it as the upper compatibility limit against a true 4.788.
-It blocks phase 4, because that is where the aggregation moves onto the spine.
+T21 therefore places each realisation where its crossing lies. One whose control
+is already beyond the reference takes the lowest concentration in the data. One
+with no crossing in the evaluated range keeps its rank above `max(x_vec)`, so a
+quantile that falls among such realisations is reported as `max(x_vec)`, with a
+warning giving the fraction (T25).
 
 ### 3.7 Validation
 
@@ -641,7 +646,7 @@ Specific defects to fold into this pass, each currently unguarded:
 - `nsec.drc()` calls `xform(nsec_out)` and discards the result, so `xform` is
   never applied in the single-curve case. Pinned as an `if (FALSE)` test.
 - `resolution` defaults differ across every entry point (1000, 100, 100, 1000,
-  1000, 50). Standardising them changes numbers.
+  1000, 50). Standardising them changes numbers. They become 500 (T31).
 
 #### Where class-specific guards go
 
@@ -758,8 +763,11 @@ default and should be documented, not glossed.
 
 #### `anchor = "control"`
 
-Not implemented by this refactor; the argument is specified now so that adding
-it later is a new branch rather than a change to the compute path.
+Left out of phase 4, and probably to be replaced (T23, #63). It was meant to
+align the NSEC with LECx method 1 of de Bruyn and Elphick (2013), and does not:
+it is the NSEC-cv withdrawn from `comparing_tox_ests` on 2026-09-29. LECx method
+1 is `ecx()` at the PMSD of Dunnett's test, and method 2 is the NSEC under
+`"model"`. The design below is kept as the record of what was proposed.
 
 The threshold comes from a model fitted to the **control observations alone** —
 an intercept-only fit — rather than from the dose-response model's estimate of
@@ -970,7 +978,7 @@ The control is the predicted response at the lowest concentration in the series.
 | `absolute` *(default)* | control → 0 | control → 1 for a proportion; otherwise control → twice the control (T18) |
 | `relative` | control → the equation's theoretical lower asymptote | control → the equation's theoretical upper asymptote |
 | `range` | control → the minimum predicted response over the predictor range | control → the maximum predicted response over the predictor range |
-| `direct` | the supplied response value, no proportional change | as decreasing |
+| `direct` | the response value supplied as `reference` (T32), no proportional change | as decreasing |
 
 `range` is new. `direct` is unchanged. `absolute` is unchanged for decreasing
 responses.
@@ -1085,6 +1093,20 @@ is predicted by `posterior_epred()` as a count of trials, bounded by the number
 of trials, which a `toxval_pred` does not record until `trials_var` (T15); its
 increasing `absolute` reference is `NA` until then.
 
+Phase 4 records `trials_var` (T26), so such a fit takes extra risk. Where the
+trials are a normalising total rather than a ceiling, as in a gene expression
+fit whose trials are each gene's total count, extra risk measures the change
+against that total. On the 78-gene beta-binomial fit of the #63 comment of
+2026-10-19 the increasing `ecnsec` was then 0.65 to 2.7 per cent for every gene,
+against 26.8 to 110 per cent as relative deviation. That is accepted for phase
+4 as an edge case (RF, 2026-10-19, T26). It is to be handled when #63 is taken
+up, by a span the user names (#63 option 1 in its second form). Relative
+deviation for every family is not a remedy. On simulated mortality data fitted
+with `drc`'s `LL.3u()` (seven concentrations, four replicates of 20, one seed
+per control level, 2026-10-19), it put the EC50 at 2.1 per cent mortality,
+below the lowest tested concentration, when control mortality was 1 per cent.
+It gave `NA` when the fitted control was at or below zero.
+
 A span of zero or less gives `NA`, for the reference and for `ecnsec`, in either
 direction. Under `absolute` that is a control at or below 0, or a proportion
 whose control is at or above 1; under `range`, a curve with no extent in that
@@ -1103,12 +1125,11 @@ reproducing `drc::ED(reference = "upper")` are left to #63.
 
 #### Locating the asymptote on a `drc` or `brmsfit` object
 
-`drc` exposes it. `fit$fct$names` gives the parameter letters and
-`fit$fct$fixed` which are fixed and to what: on `LL.4()` the lower limit `c` is
-free, and on `LL.3()` it is fixed at 0. The letters are positional convention
-rather than labelled roles, so this needs a lookup keyed on `fit$fct$name`
-covering the families in scope (`LL.*`, `W1.*`, `W2.*`, `BC.*`, `LN.*`),
-written once and tested.
+`drc` exposes it. `fit$fct$lowerAs()` and `fit$fct$upperAs()` return the lower
+and upper limits for a parameter vector, and `fit$fct$fixed` says which
+parameters are fixed and to what: on `LL.4()` the lower limit `c` is free, and on
+`LL.3()` it is fixed at 0. A lookup keyed on `fit$fct$name` does not work,
+because `fct$name` is `"::"` for a fit made with `drc::LL.4()` (T24).
 
 `LL.3()` fixing the lower limit at 0 collapses `relative` onto `absolute` for
 exactly the reason a `bot`-free `bayesnec` equation does, so the two engines
@@ -1117,14 +1138,17 @@ agree without special-casing.
 For a user-written `brms` non-linear formula there is no way to know which
 parameter is the asymptote. **Add an argument by which the user names the
 parameter or supplies a value, and refuse `relative` when it is absent**, with a
-message naming the argument.
+message naming the argument. The argument is `asymptote` on
+`toxval_predict.brmsfit()`, and the values are stored in the `asymptote` slot of
+`toxval_pred` (T24).
 
 #### `relative` changes meaning
 
 `ecx_x_relative()` (`R/ecx.R:181-206`) currently computes `max(y)` → `min(y)`.
-That behaviour maps onto the new **`range`**, not the new `relative`. Deprecate
-via `lifecycle::deprecate_warn()` pointing at `range`, and state in the message
-that it is not an exact equivalent: the old form takes `max(y)` as the top of
+That behaviour maps onto the new **`range`**, not the new `relative`. From
+phase 4 `relative` takes the new meaning, and a call that supplies it warns,
+with a plain `warning()` naming `range` (T29). The message states that `range`
+is not an exact equivalent: the old form takes `max(y)` as the top of
 the span and `range` takes the control, which differ for a non-monotonic curve.
 NEWS item required; 1.0.0 is released.
 
@@ -1192,14 +1216,16 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 1 | **Lock a regression net.** Mark every test a later phase changes with `# EXPECTED-CHANGE <reason> #<issue>`, replacing the existing `TODO` markers; unmarked tests are the "must not move" set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan. | - |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`, with their tests. Store what the remaining tests and examples read from `bayesnec` as fixtures, so the suite passes with `bayesnec` not installed, and remove `bayesnec` from `Imports`. See [Phase 3 without `bayesnec`](#phase-3-without-bayesnec). | none in `toxval`. `ecx` and `nsec` on a `bnecfit` are no longer computed here, and `bayesnec` objects receive the #19 answer at phase 7 |
-| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. Needs #60 answered first. Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). | per #19/#20, and #60 |
-| 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
+| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. #60 is answered (T21). Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). Its rulings are T21–T33. It is done with phase 5 (T33). | per #19/#20, and #60 |
+| 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. `ecx_val` becomes `proportion` (#3, T32). Done with phase 4 (T33). Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
 | 6 | **`toxval` to CRAN**, carrying the final API. | — |
 | 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
 
 Phases 2–4 change *who owns the code* and what it computes; phase 5 changes
-*what it returns*. They stay separate inside `toxval`, where each can be checked
-against the regression net, and reach `bayesnec` as one finished API at phase 7.
+*what it returns*. Phases 2 and 3 stay separate inside `toxval`, where each can
+be checked against the regression net. Phases 4 and 5 are done together, so no
+interim layer returns today's shapes from the spine (T33). All of them reach
+`bayesnec` as one finished API at phase 7.
 
 #### Phase 3 without `bayesnec`
 
@@ -1260,8 +1286,8 @@ CMD check pass with `bayesnec` not installed.
 ## 5. Notes
 
 - **Method gaps to keep in mind:** `ecx` has no `drc` method — under
-  [3.4](#34-the-toxval_pred-intermediate-object) it becomes nearly free, so it
-  should be added and the plan should say whether that is in scope.
+  [3.4](#34-the-toxval_pred-intermediate-object) it becomes nearly free, and it
+  is added in phase 4 (T27).
   `nsec_multi` is brms-multivariate only. Under T15 that support is provided by
   `toxval_predict.brmsfit()`, which refuses a multivariate fit until then.
 - **`anchor` and model averaging of `drc` fits.** `drc` averages models
@@ -1287,7 +1313,8 @@ CMD check pass with `bayesnec` not installed.
 - **`anchor = "control"` cannot be computed from a fitted object alone.** It
   needs a control-only fit, which is why it takes `control_fit` rather than
   deriving one ([3.8](#38-the-nsec-reference-the-anchor-argument)). That is a
-  genuine argument for fitting wrappers (#22) as a convenience layer.
+  genuine argument for fitting wrappers (#22) as a convenience layer. It is
+  left out of phase 4, and probably to be replaced (T23).
 
   It does **not** threaten #39. An intercept-only fit needs `brms`, which
   `toxval` imports directly and keeps after the untangle; `bayesnec`'s

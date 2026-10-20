@@ -45,11 +45,14 @@ control down to zero; `relative`, the control down to the equation's own
 theoretical asymptote; `range`, the control down to the lowest response the curve
 predicts; and `direct`, a response value supplied by the user. `range` is new,
 and it is what `relative` means in the current code, so `relative` changes
-meaning and is deprecated into `range`. Decision T9 and `REFACTOR-claude.md`
+meaning, and a call that supplies it warns and names `range` (decision T29).
+Decision T9 and `REFACTOR-claude.md`
 §3.10 state it in full. For an increasing response, `absolute` measures towards
 1 for a proportion and as a percentage of the control otherwise, so a 10 per
 cent increase from a control of 20 is 22. These are the published definitions
-(decision T18).
+(decision T18). A count fit whose trials are a total rather than a ceiling, such
+as gene expression, is also treated as a proportion. That is accepted as an edge
+case for now, to be handled with #63 (decision T26).
 
 **The `ecnsec` definition (#49).** `ecnsec` is the inverse of the `ecx`
 reference under the same `type`, and `nsec()` accepts the arguments `ecx()`
@@ -91,7 +94,8 @@ Descriptor columns, each listed once against every metric it appears for:
 
 - `group` — one row per level, when grouped
 - `response` — one row per response, for multivariate fits
-- `ecx_val` — `ecx`
+- `ecx_val` — `ecx`; renamed `proportion` in phase 5, with the `direct` value
+  given as `reference` (decision T32)
 - `type` — `ecx`, `nsec`
 - `sig_val`, `anchor` — `nsec`, `n(s)ec`
 - `control` — `ecx`, `nsec`
@@ -184,8 +188,8 @@ non-generic functions that compute on a `toxval_pred`.
 
 `nsec_multi()` is folded into `nsec()` and deprecated, so one function serves
 ungrouped, grouped and multivariate fits (decision T15, `REFACTOR-claude.md`
-§3.3). Its `type = "lower"` option stays, under a new name chosen in phase 4,
-because `type` already has another meaning in `nsec()`.
+§3.3). Its `type = "lower"` option becomes a filter on the result, so `nsec()`
+needs no argument for it (decision T30).
 
 Metric functions accept **either a fitted model or a pre-built `toxval_pred`**
 (one `inherits()` check at the top), which enables predict-once / compute-many
@@ -226,6 +230,8 @@ toxval_pred:
   threshold : per-realisation threshold parameter (a NEC), or NULL
   control   : realisations of a control-only fit, one set per row of keys, or
               NULL, since a grouped fit has one control per group
+  asymptote : per-realisation asymptotes for `type = "relative"`, one set per
+              row of keys, or NULL (decision T24)
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
               family, realisation source, n_realisation, ...
 ```
@@ -302,8 +308,12 @@ both are reported. `hormesis_def` cannot be repaired in place, because the two
 #1 and #8 close as a consequence, and #20 is answered directly.
 
 Where no draw crosses in a direction, the row is still returned with `NA`
-(decision T10). **Still to pin down:** what to report when *some* draws cross and
-some do not, which is #60. It blocks phase 4.
+(decision T10). Where some draws cross and some do not (#60), a draw whose
+control is already past the reference takes the lowest concentration in the
+data. A draw that does not cross within the tested range is ranked above the
+highest concentration. An interval limit that falls among such draws is
+reported as the highest concentration, with a warning giving the fraction
+(decisions T21 and T25).
 
 ### 3.7 Validation
 
@@ -322,7 +332,7 @@ some do not, which is #60. It blocks phase 4.
 
 `REFACTOR-claude.md` §3.7 lists the specific unguarded defects to fold in,
 including `nsec.drc`'s positional `curveid` (#34) and the six differing
-`resolution` defaults.
+`resolution` defaults, which become 500 (decision T31).
 
 Estimates from a `brmsfit` with group-level (random) effects are population-level
 estimates. A `group_var` that appears only in a group-level term, such as `site`
@@ -344,7 +354,9 @@ nsec(fit, anchor = c("model", "component", "control"))
 posterior, so every pooled value is measured against the same response level.
 `"component"` uses each component model's own control, which is the strict
 Bayesian model average and reproduces what `bayesnec` returns today. `"control"`
-uses a separate control-only fit, specified here but not implemented.
+would use a separate control-only fit supplied by the user. It is left out of
+phase 4 and will probably be replaced, because it does not reproduce the LECx of
+de Bruyn and Elphick (2013), which it was meant to match (decision T23).
 
 `anchor` is a column on the result, so the choice travels with the estimate. The
 measurements behind the default, and the cost of choosing it, are in
@@ -388,13 +400,18 @@ break would force two breaking releases in a row.
    `bayesnec` alone until phase 7 (`REFACTOR-claude.md` §4, phase 3).
 4. **Move metrics onto the spine one at a time** (`ecx`, then `nsec`), each
    gaining `draws`, with `nsec_multi()` becoming a deprecated wrapper around
-   `nsec()`. Needs #60 answered first, since it decides what the aggregation
-   reports. Also needs `toxval_predict()` to return one curve per response for a
-   multivariate `brmsfit`, which it refuses until then. It also adds
-   `type = "relative"` and the `anchor` argument, which phase 2 left out. Done
-   when `ecx()` and `nsec()` compute from a `toxval_pred` and `nsec_multi()`
-   calls `nsec()`, with `posterior` deprecated but working.
+   `nsec()`. #60, which decides what the aggregation reports, is answered
+   (decision T21). Also needs `toxval_predict()` to return one curve per
+   response for a multivariate `brmsfit`, which it refuses until then. It also
+   adds `type = "relative"` and the `anchor` argument, which phase 2 left out.
+   Done when `ecx()` and `nsec()` compute from a `toxval_pred` and `nsec_multi()`
+   calls `nsec()`, with `posterior` deprecated but working. Its rulings are
+   decisions T21 to T33. It is done together with phase 5, so no interim
+   version returns today's shapes from the spine (decision T33).
 5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
+   `ecx_val` becomes `proportion`, so an EC10 is `proportion = 0.1` rather
+   than `ecx_val = 10`, and `type = "direct"` takes its response value as
+   `reference` (decision T32);
    update the tests; remove `posterior` and the dead blocks last. Done when every
    metric returns a tibble and the tests assert the new shapes.
 6. **`toxval` to CRAN**, carrying the final API. Unblocks #39. Done when
@@ -403,13 +420,14 @@ break would force two breaking releases in a row.
    `nsec`, add the `toxval_predict` methods, adapt to the tibble. Then CRAN.
 
 Phases 2 to 4 change who owns the code and what it computes; phase 5 changes what
-it returns. Separating them keeps each checkable against the regression net, and
-`bayesnec` sees one finished API at phase 7.
+it returns. Phases 2 and 3 are kept separate, so each can be checked against the
+regression net. Phases 4 and 5 are done together (decision T33). `bayesnec` sees
+one finished API at phase 7.
 
 ## 5. Notes
 
 - **Method gaps to keep in mind:** `ecx` has no `drc` method, which becomes
-  nearly free under §3.4 — whether it is in scope needs a decision. `nsec_multi`
+  nearly free under §3.4 and is added in phase 4 (decision T27). `nsec_multi`
   is brms-multivariate only. Under decision T15 that support is provided by
   `toxval_predict()` instead.
 - **`n(s)ec` and `nec` are reserved in the vocabulary but not implemented here**
@@ -418,9 +436,9 @@ it returns. Separating them keeps each checkable against the regression net, and
   a `drc` model average as it does to a `bayesnec` one, so it is to be scoped
   with `relative` and the further `type` options in #63
   (`REFACTOR-claude.md` §5).
-- **`anchor = "control"` is specified but not implemented.** It needs a
-  control-only fit, which cannot be recovered from a fitted model, so it is
-  supplied as an argument — an argument for fitting wrappers (#22).
+- **`anchor = "control"` is left out of phase 4** (decision T23). It would need
+  a control-only fit supplied by the user, and it does not reproduce the LECx it
+  was meant to match. Fitting wrappers (#22) are not planned at this stage.
 - **Model-averaged results are not reproducible today** (`bayesnec` #216): the
   component resampling is unseeded. Not fixed by this plan, and it blocks
   regression-testing model-averaged output by equality.
