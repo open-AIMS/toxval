@@ -20,7 +20,10 @@
 #'
 #' `xform` is applied to the realisations before they are summarised. The
 #' `control` and `reference` columns are the central quantile of the
-#' realisations; `control` is `NA` under `type = "direct"`, which does not use
+#' realisations not excluded from that row, the same realisations as the
+#' estimate (T34). Each direction excludes its own, so `control` can differ
+#' between the two rows of one curve, and it is `NA` where every realisation is
+#' excluded. `control` is also `NA` under `type = "direct"`, which does not use
 #' it.
 #'
 #' @param rows The output of `compute_ecx()` or `compute_nsec()`.
@@ -50,7 +53,7 @@ summarise_metric <- function(
   chk_prob_vals(prob_vals)
   chk::chk_function(xform)
   chk::chk_flag(draws)
-
+  
   x_control <- pred$meta$x_control
   x_max <- max(pred$x_vec)
   key_cols <- names(pred$keys)
@@ -88,6 +91,7 @@ summarise_metric <- function(
 #'
 #' @noRd
 summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
+  
   values <- row$draws[[1]]
   control <- row$control[[1]]
   # one value per realisation for an ECx, one for the curve for an NSEC
@@ -123,7 +127,7 @@ summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
   if (identical(row$type, "direct")) {
     control_central <- NA_real_
   } else {
-    control_central <- central(control, prob_vals)
+    control_central <- central(control[!excluded], prob_vals)
   }
   descriptors <- dplyr::tibble(
     control = control_central,

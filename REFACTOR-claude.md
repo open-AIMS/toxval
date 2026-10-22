@@ -625,7 +625,9 @@ T21 therefore places each realisation where its crossing lies. One whose control
 is already beyond the reference takes the lowest concentration in the data. One
 with no crossing in the evaluated range keeps its rank above `max(x_vec)`, so a
 quantile that falls among such realisations is reported as `max(x_vec)`, with a
-warning giving the fraction (T25).
+warning giving the fraction (T25). The `control` and `reference` columns of a
+row are summarised over the same realisations as its estimate, those not
+excluded (T34).
 
 ### 3.7 Validation
 

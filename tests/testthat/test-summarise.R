@@ -59,7 +59,7 @@ test_that("summarise_metric returns the nsec columns, with the ecnsec summary", 
 test_that("summarise_metric puts the key columns after direction", {
   x_vec <- 0:10
   curve <- rbind(10 - x_vec, 10 - 2 * x_vec)
-  
+
   pred <- compute_pred(
     list(curve, curve, curve, curve),
     x_vec,
@@ -119,7 +119,7 @@ test_that("summarise_metric reports the central control and reference", {
   expect_equal(result$reference[1], median(c(9, 7.2)))
 })
 
-test_that("summarise_metric returns NA where no realisation crosses (T10)", {
+test_that("summarise_metric returns NA where no realisation crosses", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
 
@@ -254,6 +254,38 @@ test_that("summarise_metric names the group in the warning", {
     ),
     regexp = "group B, decreasing: 50.0% censored"
   )
+})
+
+test_that("summarise_metric summarises control over the realisations not excluded", {
+  x_vec <- 0:10
+  # under `range` the first realisation has no increasing span and the second
+  # no decreasing span, so each row excludes a different realisation
+  pred <- compute_pred(list(rbind(10 - x_vec, 8 + x_vec)), x_vec)
+
+  result <- suppressWarnings(summarise_metric(
+    compute_ecx(pred, type = "range"),
+    pred,
+    "ecx"
+  ))
+
+  expect_identical(result$direction, c("decreasing", "increasing"))
+  expect_equal(result$control, c(10, 8))
+})
+
+test_that("summarise_metric gives NA control where every realisation is excluded", {
+  x_vec <- 0:10
+  # under `range` a decreasing curve has no increasing span
+  pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
+
+  result <- suppressWarnings(summarise_metric(
+    compute_ecx(pred, type = "range"),
+    pred,
+    "ecx"
+  ))
+
+  expect_identical(result$control[2], NA_real_)
+  expect_identical(result$reference[2], NA_real_)
+  expect_identical(result$estimate[2], NA_real_)
 })
 
 test_that("summarise_metric sets control to NA under direct", {
@@ -399,6 +431,17 @@ test_that("summarise_metric matches today's decreasing EC10 on brms_model_1, les
     c(estimate = 0.832247, conf.low = 0.8197345, conf.high = 1.05),
     tolerance = 1e-6
   )
+})
+
+test_that("summarise_metric reports an absolute reference of 0.9 times the control on brms_model_1 (T34)", {
+  pred <- toxval_predict(brms_model_1, x_var = "x", resolution = 500)
+
+  # 8 of 1000 controls are negative and excluded from the row
+  result <- suppressWarnings(
+    summarise_metric(compute_ecx(pred), pred, "ecx")
+  )
+
+  expect_equal(result$reference[1], 0.9 * result$control[1])
 })
 
 test_that("summarise_metric warns for the censored increasing EC10 on brms_model_1", {
