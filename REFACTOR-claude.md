@@ -92,7 +92,8 @@ takes four values; see §3.10 for the vocabulary.
 
 Optional column:
 
-- `draws` — a list column of realisations, attached when `draws = TRUE`.
+- `draws` — a list column of realisations, attached when `draws = TRUE`: one
+  tibble per row with `.draw`, `value.draw` and, for `nsec`, `ecnsec.draw`.
   See [3.5](#35-draws).
 
 #### `metric` is a closed vocabulary
@@ -412,7 +413,7 @@ platform does natively.
 **Invariant: realisation *i* is the same underlying draw in every slot of a
 `toxval_pred`.** Row *i* of every matrix in `curves`, and element *i* of
 `threshold`, come from the same posterior draw (or the same bootstrap
-replicate). This is what makes the `draws` list columns in
+replicate). This is what makes the `draws` list column in
 [3.5](#35-draws) honest, and it is cheap to assert in the validator.
 
 For a single fit it holds trivially. For a **model-averaged** fit it has to be
@@ -477,15 +478,30 @@ Long form is one pipe stage, not an API:
 ```r
 ecx(fit, draws = TRUE) |> tidyr::unnest(draws)
 #> # A tibble: 4,000 x 6
-#>   metric direction  ecx_val estimate .draw  value
-#>   <chr>  <chr>        <dbl>    <dbl> <int>  <dbl>
-#> 1 ecx    decreasing      10    0.832     1  0.841
-#> 2 ecx    decreasing      10    0.832     2  0.795
-#> 3 ecx    decreasing      10    0.832     3  0.826
+#>   metric direction  ecx_val estimate .draw value.draw
+#>   <chr>  <chr>        <dbl>    <dbl> <int>      <dbl>
+#> 1 ecx    decreasing      10    0.832     1      0.841
+#> 2 ecx    decreasing      10    0.832     2      0.795
+#> 3 ecx    decreasing      10    0.832     3      0.826
 #> # i 3,997 more rows
 ```
 
 `.draw` follows the `posterior` / `tidybayes` convention deliberately.
+
+#### The contents of a `draws` cell
+
+Settled 2026-10-21 (AP). Each cell is a tibble with one row per realisation:
+`.draw`, the realisation index; `value.draw`, the metric for that realisation;
+and, for `nsec`, `ecnsec.draw`, the effect at the NSEC for the same
+realisation. A realisation with no crossing in the evaluated range is `Inf`,
+so it ranks above `max(x_vec)` (T21), and an excluded one is `NA`.
+
+The `.draw` suffix marks the three as a group and keeps them distinct from the
+summary columns. An inner column named `ecnsec` would share its name with the
+summary `ecnsec` column, and `tidyr::unnest(result, draws)` errors on the
+duplicate. One tibble rather than two list columns keeps the NSEC and
+`ecnsec` of each realisation on one row after a single `unnest()`; the two
+always have the same number of realisations, one per row of the curve matrix.
 
 #### Why a list column rather than `*_draws()` functions
 
@@ -505,14 +521,14 @@ column:
   site rather than something a flag does invisibly.
 - **Paired quantities.** `nsec` produces two per-realisation quantities — the
   NSEC realisations and the `ecnsec` realisations — from the same draws. As two
-  list columns on the same row they are aligned by construction. In long form
-  they need a `quantity` column and a self-join to re-pair.
+  columns of the same `draws` tibble they are aligned by construction. In long
+  form they need a `quantity` column and a self-join to re-pair.
 
 Against that, `*_draws()` would double the exported surface (`ecx_draws`,
 `nsec_draws`, `nsec_multi_draws`, later `nec_draws`, `noec_draws`) and duplicate
 the documentation and tests, to save one `unnest()`.
 
-**Pairing is guaranteed, not assumed.** Two list columns on the same row imply
+**Pairing is guaranteed, not assumed.** Two columns of one `draws` tibble imply
 realisation *i* of one corresponds to realisation *i* of the other, and the
 `toxval_pred` alignment invariant in
 [3.4](#34-the-toxval_pred-intermediate-object) makes that true by construction —
