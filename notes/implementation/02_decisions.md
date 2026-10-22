@@ -496,7 +496,7 @@ quantile of its realisations. That is a filter on the result returned with
 ```r
 nsec(fit, multi_var = "sp", draws = TRUE) |>
   dplyr::mutate(
-    at_criterion = vapply(draws, \(d) quantile(d$value, 0.8), numeric(1))
+    at_criterion = vapply(draws, \(d) quantile(d$value.draw, 0.8), numeric(1))
   ) |>
   dplyr::group_by(response) |>
   dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
