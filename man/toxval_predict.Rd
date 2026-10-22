@@ -11,7 +11,7 @@ toxval_predict(
   object,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
   ...
 )
@@ -20,7 +20,7 @@ toxval_predict(
   object,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
   ...
 )
@@ -29,7 +29,7 @@ toxval_predict(
   object,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
   ...
 )
@@ -38,7 +38,7 @@ toxval_predict(
   object,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
   n_boot = 1000,
   seed = NULL,
