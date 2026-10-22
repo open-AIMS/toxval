@@ -100,14 +100,3 @@ test_that("chk_prob_vals errors on a value outside 0 to 1", {
     "`prob_vals` must have values between 0 and 1"
   )
 })
-
-# chk_xform --------------------------------------------------------------------
-
-test_that("chk_xform accepts a function", {
-  expect_silent(toxval:::chk_xform(log))
-  expect_silent(toxval:::chk_xform(function(x) 10^x))
-})
-
-test_that("chk_xform errors when xform is not a function", {
-  expect_error(toxval:::chk_xform(1), "`xform` must be a function.")
-})

@@ -59,9 +59,3 @@ chk_prob_vals <- function(prob_vals) {
   }
   invisible(prob_vals)
 }
-
-#' @noRd
-chk_xform <- function(xform) {
-  chk::chk_function(xform, x_name = "`xform`")
-  invisible(xform)
-}
