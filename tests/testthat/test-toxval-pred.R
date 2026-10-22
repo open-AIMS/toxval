@@ -11,6 +11,7 @@ pred_meta <- function(...) {
     multi_var = NULL,
     resolution = 4,
     x_range = c(0, 3),
+    x_control = 0,
     family = "gaussian",
     realisation = "draws",
     n_realisation = 2,
@@ -198,6 +199,32 @@ test_that("new_toxval_pred errors when x_range is reversed", {
       meta = pred_meta(x_range = c(3, 0))
     ),
     regexp = "`meta\\$x_range` must be sorted"
+  )
+})
+
+test_that("new_toxval_pred errors when x_control is absent", {
+  meta <- pred_meta()
+  meta$x_control <- NULL
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = meta
+    ),
+    regexp = "Names of `meta` must include 'x_control'"
+  )
+})
+
+test_that("new_toxval_pred errors when x_control is not finite", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(x_control = Inf)
+    ),
+    regexp = "`meta\\$x_control` must be finite"
   )
 })
 

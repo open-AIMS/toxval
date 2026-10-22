@@ -278,6 +278,9 @@ build_meta <- function(
     multi_var = NULL,
     resolution = length(x_vec),
     x_range = range(x_vec),
+    # the lowest concentration in the data, not of the grid, which starts
+    # elsewhere when `x_range` is supplied (T21)
+    x_control = min(object$data[[x_var]]),
     family = family,
     realisation = realisation,
     n_realisation = nrow(curves[[1]]),

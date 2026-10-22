@@ -421,6 +421,26 @@ test_that("toxval_predict takes the grid range from the data when x_range is NUL
   expect_equal(range(result$x_vec), range(nsec_drc_1$data$x))
 })
 
+test_that("toxval_predict records the lowest concentration in the data as x_control", {
+  result <- toxval_predict(brms_model_1, x_var = "x", resolution = 4)
+
+  expect_identical(result$meta$x_control, min(brms_model_1$data$x))
+})
+
+test_that("toxval_predict takes x_control from the data, not from x_range", {
+  result <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    x_range = c(1, 3),
+    resolution = 4,
+    n_boot = 5,
+    seed = 42
+  )
+
+  expect_identical(result$meta$x_control, min(nsec_drc_1$data$x))
+  expect_lt(result$meta$x_control, result$x_vec[1])
+})
+
 test_that("toxval_predict errors when the predictor takes a single value", {
   # every observation at one concentration, so there is no range to build a
   # grid from

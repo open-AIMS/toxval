@@ -79,6 +79,10 @@
 #'     otherwise.}
 #'   \item{`resolution`}{Whole number, the number of values in `x_vec`.}
 #'   \item{`x_range`}{Numeric of length 2, the range of `x_vec`.}
+#'   \item{`x_control`}{Number, the lowest predictor value in the data the
+#'     model was fitted to, taken to be the control. It differs from the first
+#'     value of `x_vec` when `x_range` is supplied. A realisation whose control
+#'     response already lies beyond the reference is placed here.}
 #'   \item{`family`}{String naming the response distribution, such as the
 #'     `brms` family or the `type` of a `drc` fit, or `NULL` where the fitted
 #'     object has none. It decides whether the response is a proportion,
@@ -118,6 +122,7 @@
 #'     multi_var = NULL,
 #'     resolution = 4,
 #'     x_range = c(0, 3),
+#'     x_control = 0,
 #'     family = "gaussian",
 #'     realisation = "draws",
 #'     n_realisation = 2,
@@ -186,6 +191,7 @@ meta_required <- function() {
     "multi_var",
     "resolution",
     "x_range",
+    "x_control",
     "family",
     "realisation",
     "n_realisation",
@@ -219,6 +225,11 @@ chk_meta <- function(meta) {
   chk::chk_length(meta$x_range, 2L, x_name = "`meta$x_range`")
   chk::chk_not_any_na(meta$x_range, x_name = "`meta$x_range`")
   chk::chk_sorted(meta$x_range, x_name = "`meta$x_range`")
+
+  chk::chk_number(meta$x_control, x_name = "`meta$x_control`")
+  if (!is.finite(meta$x_control)) {
+    chk::abort_chk("`meta$x_control` must be finite.")
+  }
 
   chk::chk_null_or(meta$family, vld = chk::vld_string, x_name = "`meta$family`")
 
@@ -455,6 +466,7 @@ element_name <- function(arg, i) {
 #'     multi_var = NULL,
 #'     resolution = 4,
 #'     x_range = c(0, 3),
+#'     x_control = 0,
 #'     family = "gaussian",
 #'     realisation = "draws",
 #'     n_realisation = 2,

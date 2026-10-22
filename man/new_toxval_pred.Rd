@@ -116,6 +116,10 @@ fit. Required when \code{keys} has a \code{response} column, and \code{NULL}
 otherwise.}
 \item{\code{resolution}}{Whole number, the number of values in \code{x_vec}.}
 \item{\code{x_range}}{Numeric of length 2, the range of \code{x_vec}.}
+\item{\code{x_control}}{Number, the lowest predictor value in the data the
+model was fitted to, taken to be the control. It differs from the first
+value of \code{x_vec} when \code{x_range} is supplied. A realisation whose control
+response already lies beyond the reference is placed here.}
 \item{\code{family}}{String naming the response distribution, such as the
 \code{brms} family or the \code{type} of a \code{drc} fit, or \code{NULL} where the fitted
 object has none. It decides whether the response is a proportion,
@@ -140,6 +144,7 @@ new_toxval_pred(
     multi_var = NULL,
     resolution = 4,
     x_range = c(0, 3),
+    x_control = 0,
     family = "gaussian",
     realisation = "draws",
     n_realisation = 2,
