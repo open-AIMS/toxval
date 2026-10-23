@@ -374,8 +374,25 @@ built by steps 2 to 9 was identical to `bayesnec::posterior_epred(manec_example,
 `bnec_newdata()` on a `bayesmanecfit` calls `pull_out()` on the first equation
 (`bnec_newdata.R:63-68`), which recomputes that equation's summaries. With a
 500-point grid it took 1.12 s on `manec_example`, against 0.007 s on a
-`bayesnecfit`. Task 3 measures it on a full model set with 4000 draws, and
-stops to ask if it exceeds 30 s.
+`bayesnecfit`. Since only the first equation is pulled out, its run time is set
+by that equation's draws rather than by the number of equations, so a set of
+two equations measures it.
+
+Task 3 measured it on a set of `nec4param` and `ecx4param` fitted to
+`nec_data` with four chains of 1000 retained draws, 4000 per equation
+(`seed = 4000`, `bayesnec` 2.1.3.39). The 30 s at which the task was to stop
+was not approached:
+
+| resolution | `bnec_newdata()` | `posterior_epred()`, both equations |
+|---|---|---|
+| 200 | 3.0 s | 0.7 s |
+| 500 | 3.2 s | 0.9 s |
+| 1000 | 4.9 s | 1.6 s |
+
+`toxval_predict()` at the default 500 took 5.8 s, and `ecx()` 3.7 s on a second
+call. The fit held a `w_draw_index` (seed 815105072, weights 0.846 and 0.154),
+so the stored index was used, giving 3385 and 615 realisations. The matrix was
+identical to `bayesnec::posterior_epred()` over the same grid.
 
 #### The choice of index
 

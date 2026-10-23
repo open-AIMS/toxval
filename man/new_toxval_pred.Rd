@@ -153,7 +153,20 @@ to be predicted on the proportion scale, at one trial, as
 realisations.}
 \item{\code{n_realisation}}{Whole number, the number of realisations.}
 \item{\code{seed}}{Whole number, the seed used to generate bootstrap
-realisations, or \code{NULL}.}
+realisations or to choose the realisations of a model average, or
+\code{NULL}.}
+}
+
+The following elements are optional, and are checked when they are present.
+A model average records them.
+
+\describe{
+\item{\code{model_weights}}{Named numeric, the weight of each model in a model
+average, each between 0 and 1 and summing to 1. A model whose weight
+gives it no realisation is still listed.}
+\item{\code{draw_model}}{Character, one value per realisation, naming the model
+the realisation came from. Each value is a name in \code{model_weights} when
+that is present.}
 }
 }
 

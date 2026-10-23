@@ -46,7 +46,8 @@
 #' curve.
 #'
 #' @param object A fitted model object. Methods are provided for
-#'   [brms::brmsfit], `drc` and `bayesnecfit` fits.
+#'   [brms::brmsfit] and `drc` fits, and for the `bayesnecfit` and
+#'   `bayesmanecfit` fits of `bayesnec`.
 #' @param x_var A string naming the predictor variable in `object`, or `NULL`
 #'   where the class of `object` records which of its variables is the
 #'   predictor. Each method states whether it accepts `NULL`.
@@ -336,6 +337,73 @@ toxval_predict.bayesnecfit <- function(
   )
 }
 
+#' @describeIn toxval_predict Method for a model average fitted by
+#'   `bayesnec::bnec()`, of class `bayesmanecfit`, which requires `bayesnec` to
+#'   be installed. Each model in the set is predicted as for a `bayesnecfit`.
+#'   The realisations are the draws `bayesnec` keeps from each model in
+#'   proportion to its weight, the same draws its own estimates and plots use.
+#'   The model each realisation came from is recorded in `meta$draw_model`, the
+#'   weights in `meta$model_weights`, and the seed the draws were chosen with in
+#'   `meta$seed`. The random number state of the session is left unchanged.
+#'
+#' @export
+toxval_predict.bayesmanecfit <- function(
+  object,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  ...
+) {
+  check_bayesnec_installed(object)
+  mod_fits <- object$mod_fits
+  for (component in mod_fits) {
+    chk_bayesnec_supported(component)
+  }
+  chk_one_family(mod_fits)
+  chk_no_group_var(group_var, object)
+
+  model_set <- names(mod_fits)
+  weights <- stats::setNames(object$mod_stats[model_set, "wi"], model_set)
+  # every model is fitted to the same data with the same crf() term
+  data <- mod_fits[[1]]$fit$data
+  x_var <- bnec_x_var(mod_fits[[1]]$bayesnecformula, data, x_var)
+  newdata <- bnec_grid(object, resolution, x_range)
+  x_vec <- newdata[[x_var]]
+
+  per_model <- lapply(mod_fits, function(component) {
+    posterior_epred(component$fit, newdata = newdata, re_formula = NA)
+  })
+  n <- min(vapply(per_model, nrow, integer(1)))
+  index <- bnec_draw_index(object, model_set, weights, n)
+  curve <- do.call(
+    rbind,
+    lapply(model_set, function(m) {
+      per_model[[m]][index$rows[[m]], , drop = FALSE]
+    })
+  )
+  chk_defined_grid(list(curve), x_vec)
+
+  new_toxval_pred(
+    curves = list(curve),
+    keys = group_keys(),
+    x_vec = x_vec,
+    meta = build_meta(
+      object = object,
+      x_vec = x_vec,
+      x_var = x_var,
+      curves = list(curve),
+      realisation = "draws",
+      family = mod_fits[[1]]$fit$family$family,
+      seed = index$seed,
+      data = data,
+      # a model with no realisation in the average stays in `model_weights`
+      draw_model = rep(model_set, lengths(index$rows)),
+      model_weights = weights
+    )
+  )
+}
+
 #' @describeIn toxval_predict Method for any other `bayesnec` fit, which
 #'   errors. Group fits, joint refits and hurdle pairs each hold more than one
 #'   curve, over concentrations that can differ between curves, which a
@@ -379,6 +447,8 @@ toxval_predict.bnecfit <- function(
 #' @param seed The bootstrap seed, or `NULL`.
 #' @param data The data the model was fitted to. A `bnecfit` holds them in its
 #'   `brmsfit`, as `object$fit$data`, rather than as `object$data`.
+#' @param ... Optional elements of `meta`, such as `draw_model` and
+#'   `model_weights`, appended to the required ones.
 #'
 #' @return A named list satisfying the `meta` contract of [toxval_pred].
 #'
@@ -393,9 +463,10 @@ build_meta <- function(
   realisation,
   family = NULL,
   seed = NULL,
-  data = object$data
+  data = object$data,
+  ...
 ) {
-  list(
+  required <- list(
     source_class = class(object)[1],
     x_var = x_var,
     group_var = group_var,
@@ -409,6 +480,7 @@ build_meta <- function(
     n_realisation = nrow(curves[[1]]),
     seed = seed
   )
+  c(required, list(...))
 }
 
 #' The responses of a brmsfit, read from its formula

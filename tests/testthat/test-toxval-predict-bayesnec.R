@@ -159,8 +159,8 @@ test_that("toxval_predict refuses the bayesnec classes without a method", {
     expect_error(
       toxval_predict(fit),
       paste0(
-        "`object` must be a 'bayesnecfit' to be predicted by ",
-        "`toxval_predict()`, not a '",
+        "`object` must be a 'bayesnecfit' or 'bayesmanecfit' to be predicted ",
+        "by `toxval_predict()`, not a '",
         cls,
         "'."
       ),
@@ -203,4 +203,166 @@ test_that("ecx() on a bayesnecfit returns a toxval tibble", {
     expect_s3_class(result, "toxval")
     expect_identical(nrow(result), 2L, info = nm)
   }
+})
+
+# the model average --------------------------------------------------------
+
+# bayesnec's own averaged prediction of a model set, over its own grid
+bnec_average <- function(fit, resolution = 50) {
+  brms::posterior_epred(
+    fit,
+    newdata = bayesnec::bnec_newdata(fit, resolution = resolution)
+  )
+}
+
+test_that("toxval_predict on a bayesmanecfit gives the curves bayesnec averages", {
+  # manec_example holds no stored index, so bayesnec rebuilds it from seed 216
+  pred <- toxval_predict(bayesnec_manec_example, resolution = 50)
+
+  expect_identical(
+    unname(pred$curves[[1]]),
+    unname(bnec_average(bayesnec_manec_example))
+  )
+})
+
+test_that("toxval_predict on a bayesmanecfit records the model of each realisation", {
+  fit <- bayesnec_manec_example
+  pred <- toxval_predict(fit, resolution = 50)
+  model_set <- names(fit$mod_fits)
+  weights <- fit$mod_stats[model_set, "wi"]
+
+  # each model keeps round(n * weight) of the n = 100 draws, bound in the
+  # order of mod_fits
+  expect_identical(
+    pred$meta$draw_model,
+    rep(model_set, round(100 * weights))
+  )
+  expect_identical(
+    as.vector(table(factor(pred$meta$draw_model, levels = model_set))),
+    as.integer(round(100 * weights))
+  )
+  expect_equal(pred$meta$model_weights, stats::setNames(weights, model_set))
+  expect_equal(pred$meta$seed, 216)
+  expect_identical(pred$meta$source_class, "bayesmanecfit")
+  expect_identical(pred$meta$family, "gaussian")
+  expect_identical(pred$meta$n_realisation, 100L)
+  expect_identical(
+    pred$meta$x_control,
+    min(fit$mod_fits[[1]]$fit$data$x)
+  )
+})
+
+test_that("toxval_predict on a bayesmanecfit leaves the random number state unchanged", {
+  # a non-default normal kind shows that the kinds are restored, not only the
+  # seed
+  withr::local_seed(42, .rng_normal_kind = "Box-Muller")
+  seed_before <- get(".Random.seed", envir = globalenv())
+  kind_before <- RNGkind()
+
+  first <- toxval_predict(bayesnec_manec_example, resolution = 50)
+
+  expect_identical(get(".Random.seed", envir = globalenv()), seed_before)
+  expect_identical(RNGkind(), kind_before)
+  expect_identical(
+    toxval_predict(bayesnec_manec_example, resolution = 50),
+    first
+  )
+})
+
+test_that("toxval_predict on a bayesmanecfit uses a stored index made for the same draws", {
+  fit <- bayesnec_manec_example
+  fit$w_draw_index <- list(nec4param = 1:80, ecx4param = 81:100)
+  fit$w_draw_seed <- 7L
+  fit$sample_size <- 100
+
+  pred <- toxval_predict(fit, resolution = 50)
+
+  expect_identical(unname(pred$curves[[1]]), unname(bnec_average(fit)))
+  expect_identical(
+    pred$meta$draw_model,
+    rep(c("nec4param", "ecx4param"), c(80, 20))
+  )
+  expect_identical(pred$meta$seed, 7L)
+})
+
+test_that("toxval_predict on a bayesmanecfit rebuilds an index made for other draws", {
+  fit <- bayesnec_manec_example
+  fit$w_draw_index <- list(nec4param = 1:80, ecx4param = 81:100)
+  fit$w_draw_seed <- 7L
+  # the stored index was made for 99 draws, not the 100 each model holds
+  fit$sample_size <- 99
+
+  pred <- toxval_predict(fit, resolution = 50)
+
+  expect_identical(unname(pred$curves[[1]]), unname(bnec_average(fit)))
+  expect_identical(
+    as.vector(table(factor(
+      pred$meta$draw_model,
+      levels = names(fit$mod_fits)
+    ))),
+    c(83L, 17L)
+  )
+  expect_identical(pred$meta$seed, 7L)
+})
+
+test_that("toxval_predict on a bayesmanecfit keeps the weight of a model given no draws", {
+  fit <- bayesnec_manec_example
+  fit$mod_stats[c("nec4param", "ecx4param"), "wi"] <- c(0.999, 0.001)
+
+  pred <- toxval_predict(fit, resolution = 50)
+
+  # round(100 * 0.001) is 0, so ecx4param gives no realisation
+  expect_identical(pred$meta$draw_model, rep("nec4param", 100))
+  expect_equal(
+    pred$meta$model_weights,
+    c(nec4param = 0.999, ecx4param = 0.001)
+  )
+  expect_identical(unname(pred$curves[[1]]), unname(bnec_average(fit)))
+})
+
+test_that("toxval_predict refuses a bayesmanecfit whose models differ in family", {
+  fit <- bayesnec_manec_example
+  fit$mod_fits$ecx4param$fit$family$family <- "beta"
+
+  expect_error(
+    toxval_predict(fit),
+    "Every model in `object` must have the same family, not 'gaussian' and 'beta'.",
+    fixed = TRUE
+  )
+})
+
+test_that("toxval_predict refuses a bayesmanecfit with a two-part family", {
+  fit <- bayesnec_manec_example
+  fit$mod_fits$ecx4param$fit$family$family <- "hurdle_gamma"
+
+  expect_error(
+    toxval_predict(fit),
+    "`object` must not be fitted with the family 'hurdle_gamma'",
+    fixed = TRUE
+  )
+})
+
+test_that("toxval_predict on a bayesmanecfit errors when group_var is supplied", {
+  expect_error(
+    toxval_predict(bayesnec_manec_example, group_var = "g"),
+    "`group_var` must be NULL for a 'bayesmanecfit', which has one curve",
+    fixed = TRUE
+  )
+})
+
+test_that("toxval_predict on a bayesmanecfit errors when bayesnec is not installed", {
+  local_mocked_bindings(bayesnec_available = function() FALSE)
+
+  expect_error(
+    toxval_predict(bayesnec_manec_example),
+    "`bayesnec` must be installed to compute on a 'bayesmanecfit'.",
+    fixed = TRUE
+  )
+})
+
+test_that("ecx() on a bayesmanecfit returns a toxval tibble", {
+  result <- ecx(bayesnec_manec_example, resolution = 50)
+
+  expect_s3_class(result, "toxval")
+  expect_identical(nrow(result), 2L)
 })

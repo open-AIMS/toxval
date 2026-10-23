@@ -6,6 +6,7 @@
 \alias{toxval_predict.brmsfit}
 \alias{toxval_predict.drc}
 \alias{toxval_predict.bayesnecfit}
+\alias{toxval_predict.bayesmanecfit}
 \alias{toxval_predict.bnecfit}
 \title{Generate realisations of a fitted curve over a predictor grid}
 \usage{
@@ -61,6 +62,15 @@ toxval_predict(
   ...
 )
 
+\method{toxval_predict}{bayesmanecfit}(
+  object,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  ...
+)
+
 \method{toxval_predict}{bnecfit}(
   object,
   x_var = NULL,
@@ -72,7 +82,8 @@ toxval_predict(
 }
 \arguments{
 \item{object}{A fitted model object. Methods are provided for
-\link[brms:brmsfit]{brms::brmsfit}, \code{drc} and \code{bayesnecfit} fits.}
+\link[brms:brmsfit]{brms::brmsfit} and \code{drc} fits, and for the \code{bayesnecfit} and
+\code{bayesmanecfit} fits of \code{bayesnec}.}
 
 \item{...}{Additional arguments passed to methods. These and every argument
 after \code{...} must be named in full; an argument the method does not use is
@@ -183,6 +194,15 @@ term when \code{NULL}, and a supplied \code{x_var} must match it. \code{group_va
 \code{NULL}, since a \code{bnec()} fit has one curve. A predictor transformed inside
 \code{crf()}, such as \code{crf(log(x), ...)}, is reported in units of the variable
 itself, \code{x}, so \code{xform = exp} must not be supplied for it.
+
+\item \code{toxval_predict(bayesmanecfit)}: Method for a model average fitted by
+\code{bayesnec::bnec()}, of class \code{bayesmanecfit}, which requires \code{bayesnec} to
+be installed. Each model in the set is predicted as for a \code{bayesnecfit}.
+The realisations are the draws \code{bayesnec} keeps from each model in
+proportion to its weight, the same draws its own estimates and plots use.
+The model each realisation came from is recorded in \code{meta$draw_model}, the
+weights in \code{meta$model_weights}, and the seed the draws were chosen with in
+\code{meta$seed}. The random number state of the session is left unchanged.
 
 \item \code{toxval_predict(bnecfit)}: Method for any other \code{bayesnec} fit, which
 errors. Group fits, joint refits and hurdle pairs each hold more than one

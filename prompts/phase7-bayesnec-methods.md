@@ -306,3 +306,100 @@ family was rejected, because the fixture would then differ from what a user
 holds.
 
 ---
+
+**User:** push that commit and start task 3, the model-averaged method
+
+**Claude:** Pushed `9402879` to origin. PR #66 was unchanged at `6bdd99c`.
+Then task 3.
+
+Code:
+
+- `toxval_predict.bayesmanecfit()` in `R/toxval-predict.R`. It checks each
+  component with `chk_bayesnec_supported()` and requires one family across the
+  set (`chk_one_family()`). It reads `x_var` and the data from the first
+  component and builds the grid with `bnec_grid(object, ...)`. Each equation
+  is predicted with `posterior_epred(component$fit, newdata, re_formula = NA)`.
+  `n` is the smallest number of draws, and the rows at the index are bound in
+  the order of `mod_fits`.
+- `bnec_draw_index()` in `R/toxval-predict-bayesnec.R` reproduces
+  `bayesnec:::pull_draw_index()` and `weighted_draw_index()` as installed
+  (2.1.3.39). The stored `w_draw_index` is used when
+  `sample_size == n` and every model is named in it. Otherwise the index is
+  rebuilt from `w_draw_seed`, or from 216:
+
+  ```r
+  rows <- withr::with_seed(
+    seed,
+    lapply(model_set, function(m) {
+      sample(seq_len(n), as.integer(round(n * weights[[m]])))
+    }),
+    .rng_sample_kind = "Rejection"
+  )
+  ```
+
+  `withr::with_seed(.rng_sample_kind = "Rejection")` sets the same kinds as
+  `bayesnec`'s `set.seed(seed, sample.kind = "Rejection")`, and restores the
+  caller's seed and kinds on exit. A hand-written restore was rejected, because
+  assigning `.Random.seed` in the global environment from package code is
+  flagged by R CMD check.
+- `meta$draw_model` is `rep(model_set, lengths(index))`, and
+  `meta$model_weights` holds the `mod_stats$wi` values named by model.
+  `meta$seed` is the seed of the index (216 on `manec_example`, which stores
+  none). `build_meta()` gains `...` for these optional elements.
+- `chk_meta()` checks them when present, in the new `chk_model_weights()` and
+  `chk_draw_model()`. `draw_model` must be character, have no `NA`, have
+  length `n_realisation`, and name only models in `model_weights`.
+  `model_weights` must be numeric with no `NA`, have unique non-empty names,
+  lie in [0, 1] and sum to 1 by `all.equal()`. They are documented as optional
+  in the Metadata section of `?new_toxval_pred`. The `seed` entry now also
+  covers the index of a model average.
+- `bnec_supported_classes()` now includes `bayesmanecfit`.
+
+Tests: 12 new in `test-toxval-predict-bayesnec.R` and 7 new in
+`test-toxval-pred.R`, all passing.
+
+- On `bayesnec_manec_example`, the matrix is identical to
+  `brms::posterior_epred(<bayesmanecfit>, newdata = bnec_newdata(fit, 50))`,
+  which is `bayesnec`'s own method. `draw_model` gives 83 `nec4param` then 17
+  `ecx4param`, equal to `round(100 * wi)`; `model_weights` equals `wi`; and
+  `seed` is 216.
+- Under `withr::local_seed(42, .rng_normal_kind = "Box-Muller")`,
+  `.Random.seed` and `RNGkind()` are identical before and after the call, and
+  two calls give identical objects.
+- A copy given `w_draw_index = list(nec4param = 1:80, ecx4param = 81:100)`,
+  `w_draw_seed = 7L` and `sample_size = 100` uses that index (80/20, seed 7).
+  With `sample_size = 99` the index is rebuilt from seed 7 (83/17). Both are
+  identical to `bayesnec`'s matrix for the same copy.
+- Weights of 0.999 and 0.001 give 100 `nec4param` realisations, with
+  `ecx4param` kept in `model_weights`; this too is identical to `bayesnec`.
+- Refused: components of differing families, a two-part family in one
+  component, and a `group_var`. The error with `bayesnec` mocked as absent,
+  and `ecx()` returning a `toxval` tibble, are also tested.
+- The `meta` checks: valid elements are accepted; errors are tested for the
+  wrong length, an `NA`, an unknown model, weights summing to 0.9, unnamed
+  weights, and a weight outside [0, 1].
+
+Checks: full `devtools::test()` passes 772 expectations, with the same 21
+stale `ecx_val` failures as at `6bdd99c`. `devtools::check(args =
+"--no-tests")` gives 0 errors and 0 warnings, and the same two notes about the
+local `.claude` and `superceded` directories.
+
+Measurement (BAYESNEC-claude.md §3.2). A set of `nec4param` and `ecx4param`
+was fitted to `nec_data` with `chains = 4, iter = 2000, warmup = 1000,
+seed = 4000`, giving 4000 draws per equation, in 217 s. Two equations suffice,
+because `bnec_newdata()` pulls out only the first. Timings:
+
+| resolution | `bnec_newdata()` | `posterior_epred()`, both equations |
+|---|---|---|
+| 200 | 3.0 s | 0.7 s |
+| 500 | 3.2 s | 0.9 s |
+| 1000 | 4.9 s | 1.6 s |
+
+`toxval_predict()` at 500 took 5.8 s, and `ecx()` 3.7 s on a later call. The
+30 s stopping point was not approached. The fit stored a `w_draw_index` (seed
+815105072, weights 0.846 and 0.154), so this run also exercised the stored
+path on a real object: 3385 and 615 realisations, identical to
+`bayesnec::posterior_epred()`. The fit is in the session scratchpad only and
+is not a fixture.
+
+---

@@ -5,7 +5,7 @@
 #'
 #' @noRd
 bnec_supported_classes <- function() {
-  "bayesnecfit"
+  c("bayesnecfit", "bayesmanecfit")
 }
 
 #' Whether `bayesnec` is installed
@@ -173,4 +173,77 @@ bnec_grid <- function(object, resolution, x_range) {
     resolution = resolution,
     x_range = if (is.null(x_range)) NA else x_range
   )
+}
+
+#' Check that every model of a model set has one family
+#'
+#' `bnec()` fits a model set with one family, so a set that fails this is
+#' malformed. The family decides whether the averaged curve is a proportion.
+#'
+#' @param mod_fits The `mod_fits` of a `bayesmanecfit`.
+#'
+#' @return `mod_fits`, invisibly.
+#'
+#' @noRd
+chk_one_family <- function(mod_fits) {
+  families <- unique(vapply(
+    mod_fits,
+    function(component) component$fit$family$family,
+    character(1)
+  ))
+  if (length(families) > 1) {
+    chk::abort_chk(
+      "Every model in `object` must have the same family, not ",
+      chk::cc(families, conj = " and "),
+      "."
+    )
+  }
+  invisible(mod_fits)
+}
+
+#' The draws a model average keeps from each model
+#'
+#' Reproduces `bayesnec`'s own choice, so that the realisations are the draws
+#' its estimates and plots use: the index stored on the object when it was made
+#' for the same number of draws, and otherwise a rebuild from the stored seed,
+#' or from 216 where none is stored (`bayesnec` #216). Each model keeps
+#' `round(n * weight)` of the `n` draws, sampled without replacement. An index
+#' drawn here from a seed argument, as the `drc` bootstrap is, was rejected,
+#' because it would give a second averaged posterior of the same object
+#' (BAYESNEC-claude.md §3.2). A comparison test with
+#' `bayesnec::posterior_epred()` fails if `bayesnec` changes the rule.
+#'
+#' @param object A `bayesmanecfit`.
+#' @param model_set The names of the models, in the order of `object$mod_fits`.
+#' @param weights The model weights, named by model.
+#' @param n The smallest number of draws among the models.
+#'
+#' @return A list with `rows`, a list of row numbers named by model, and
+#'   `seed`, the seed the index was drawn with, or `NULL` where it is not
+#'   recorded.
+#'
+#' @noRd
+bnec_draw_index <- function(object, model_set, weights, n) {
+  stored <- object$w_draw_index
+  if (
+    !is.null(stored) &&
+      isTRUE(object$sample_size == n) &&
+      all(model_set %in% names(stored))
+  ) {
+    return(list(rows = stored[model_set], seed = object$w_draw_seed))
+  }
+  seed <- object$w_draw_seed
+  if (is.null(seed)) {
+    seed <- 216L
+  }
+  # `with_seed()` restores the caller's seed and generator kinds on exit, as
+  # `bayesnec` does around the same draw
+  rows <- withr::with_seed(
+    seed,
+    lapply(model_set, function(m) {
+      sample(seq_len(n), as.integer(round(n * weights[[m]])))
+    }),
+    .rng_sample_kind = "Rejection"
+  )
+  list(rows = stats::setNames(rows, model_set), seed = seed)
 }
