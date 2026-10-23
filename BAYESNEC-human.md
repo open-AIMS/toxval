@@ -16,8 +16,8 @@ read.
 
 `toxval` will contain the `toxval_predict()` methods for fits made with
 `bayesnec`. `ecx()` and `nsec()` will then accept a `bnec()` fit again, as they
-did before phase 3. This was decided by RF on 2026-10-23 and will be recorded
-as decision T35.
+did before phase 3. RF and AP agreed this on 2026-10-23. It is proposed in
+#68 and will be recorded as decision T35.
 
 The reason is that a `toxval_pred` needs facts that `toxval` defines and
 `bayesnec` has no use for. Examples are the `keys` table that names each curve,

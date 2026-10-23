@@ -135,3 +135,71 @@ The branch was rebased from `9a3b846` onto `6bdd99c`; it had only the two plan
 commits, so the rebase was clean.
 
 ---
+
+**User:** yes go ahead and start with task 1
+
+**Claude:** Task 1 (fixtures) done. Three blocks added to `data-raw/DATASET.R`
+under "toxval_predict methods for bayesnec fits", each saved with
+`compress = "xz"` and passed through `strip_stanmodel()`. Only those blocks
+were run, from a runner holding `strip_stanmodel()` and the new section
+(4 min 42 s, R 4.6.1, WSL, `bayesnec` 2.1.3.39, `rstan` backend).
+
+```r
+bayesnec_manec_example <- bayesnec::manec_example
+
+set.seed(2160)
+binom_data <- data.frame(
+  x = rep(c(0, 0.25, 0.5, 1, 1.5, 2, 2.5, 3), each = 3),
+  n = 20L
+)
+binom_p <- 0.9 * exp(-1.5 * pmax(binom_data$x - 1, 0))
+binom_data$y <- stats::rbinom(nrow(binom_data), binom_data$n, binom_p)
+bayesnec_binomial <- bayesnec::bnec(
+  y | trials(n) ~ crf(x, model = "nec3param"),
+  data = binom_data, family = binomial, seed = 2161,
+  chains = 2, iter = 2000, thin = 2
+)
+
+bayesnec_logx <- bayesnec::bnec(
+  y ~ crf(log(x), model = "ecx4param"),
+  data = bayesnec::nec_data, seed = 2162,
+  chains = 2, iter = 2000, thin = 2
+)
+```
+
+`manec_example` is stored whole rather than read from `bayesnec` in the tests,
+because it holds no `w_draw_index` and so exercises the seeded rebuild. The
+binomial data are simulated from `nec3param` itself (top 0.9, nec 1,
+exp(beta) 1.5), which has no `bot` parameter. The `crf(log(x))` fit keeps raw
+`x` in the `brmsfit` data, which the predictor-scale tests need; a log column
+made before fitting would not exercise that.
+
+Checks on the stored, stripped objects:
+
+- All three load through `helper-fixtures.R`.
+- `bayesnec_binomial`: binomial, identity link, 400 draws. Rhat at most 1.02.
+  Bulk ESS was 249 for `top`, 152 for `beta` and 83 for `nec`, which raised
+  brms's low-ESS warning. Estimates: top 0.886 (0.834–0.929), beta 0.601
+  (0.250–0.934; true log(1.5) = 0.405), nec 1.126 (0.881–1.324). The
+  `bnec_newdata()` grid holds `x` and `n`. Curves lie in 0.006–0.938.
+- `bayesnec_logx`: beta, identity link, 400 draws, Rhat at most 1.01, bulk ESS
+  at least 313. The grid runs over raw `x`, 0.032–3.22, the data range.
+- On both single fits, `brms::posterior_epred(fit$fit, newdata, re_formula = NA)`
+  over a 50-point `bnec_newdata()` grid was identical to `bayesnec`'s
+  `posterior_epred()`.
+- `bayesnec_manec_example`: weights 0.8274 and 0.1726 for `nec4param` and
+  `ecx4param`; `sample_size` 100; no `w_draw_index`. The seed-216 rebuild was
+  identical to `bayesnec::posterior_epred()`, with a split of 83 and 17.
+- Sizes: 567, 220 and 299 KB, 1.06 MB in all. The fixtures total 6.39 MB.
+  RF's ruling puts no limit on this during development.
+- `devtools::test()` gave the same baseline as before the fixtures: 684
+  expectations pass and 21 tests fail, all in `test-compute.R`,
+  `test-validate.R` and `test-summarise.R` (the stale `ecx_val` calls).
+
+Coordination with session toxval-58, which opened open-AIMS/toxval#68 for T35.
+It reported that RF and AP agreed the decision on 2026-10-23. The T35 lines of
+both plan documents now say so and cite #68. The three sub-rulings stay
+attributed to RF alone. Task 0's #39 comment is now one sentence and a link to
+#68.
+
+---

@@ -20,8 +20,8 @@ ruling AP is recording on PR #66.
 
 ## 1. The decision (T35)
 
-`toxval` contains the `toxval_predict()` methods for `bayesnec` fits. Settled
-2026-10-23 (RF).
+`toxval` contains the `toxval_predict()` methods for `bayesnec` fits. Agreed
+by RF and AP on 2026-10-23, and proposed in #68.
 
 ### 1.1 Reason
 
@@ -568,9 +568,10 @@ from commit messages and is not edited by hand.
   §1.4.
 - Amend every `toxval` passage in §1.2.
 - Draft a decision comment for #39 in
-  `notes/drafts/issue-39-toxval-methods-comment.md`, following CLAUDE.md §14:
-  the decision, the reason and the superseded split, with a link to this
-  document. RF posts it.
+  `notes/drafts/issue-39-toxval-methods-comment.md`, following CLAUDE.md §14.
+  #68 holds the decision, its reason and the superseded split, so the comment
+  is the decision in one sentence and a link to #68. RF posts it.
+- Cite #68 in T35.
 
 The refactor documents are also edited on PR #66 (AP, T34; `REFACTOR-claude.md`
 in `4b90146`). Task 0 is therefore done after #66 merges into `phase-2`, as the
