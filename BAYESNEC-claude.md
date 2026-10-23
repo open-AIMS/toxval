@@ -11,7 +11,7 @@ both documents. Each decision is stated in full here and once only.
 Facts about `bayesnec` are cited as `file:line` on `origin/predev` at
 `116ea91b` (2026-10-20, version 2.1.3.42) unless marked `[master]`, which is the
 CRAN release 2.1.3.1 at `6f6bd25d`. `toxval` facts are cited on
-`phase-7-bayesnec-methods` at `9a3b846`, the head of PR #66. Measurements were
+`phase-7-bayesnec-methods` at `6bdd99c`, the head of PR #66. Measurements were
 run on 2026-10-23 in R 4.6.1 under WSL with `bayesnec` 2.1.3.39 installed.
 
 Decision numbers T35 onwards are provisional until they are written into
@@ -155,13 +155,13 @@ toxval_predict.bayesnecfit <- function(
   object,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
   ...
 )
 ```
 
-`resolution` follows the generic's default, which becomes 500 under T31.
+`resolution` follows the generic's default of 500 (T31, `6bdd99c`).
 
 #### Body
 
@@ -173,6 +173,7 @@ x_var <- bnec_x_var(object$bayesnecformula, object$fit$data, x_var)
 newdata <- bnec_grid(object, resolution, x_range)
 x_vec <- newdata[[x_var]]
 curve <- posterior_epred(object$fit, newdata = newdata, re_formula = NA)
+chk_defined_grid(list(curve), x_vec)
 
 new_toxval_pred(
   curves = list(curve),
@@ -235,7 +236,7 @@ variables, so group-level effects must be marginalised: `re_formula = NA`, as
 every `bayesnec` curve prediction does (`expand_classes.R:281-291`) and as T16
 specifies for `brmsfit`.
 
-`build_meta()` (`R/toxval-predict.R:261-289`) reads `min(object$data[[x_var]])`
+`build_meta()` (`R/toxval-predict.R:263-291`) reads `min(object$data[[x_var]])`
 for `x_control`. A `bnecfit` has no `$data`; its data are `object$fit$data`.
 `build_meta()` therefore gains `data = object$data`, used for `x_control`, and
 `...`, a set of optional elements appended to the list (§3.4). The `brmsfit`
@@ -354,7 +355,8 @@ total can differ from `n` by rounding. The CRAN release used an unseeded
    `withr::with_preserve_seed()`, so the caller's `.Random.seed` and
    `RNGkind()` are unchanged.
 9. The curve matrix is the equations' rows at the index, bound in `model_set`
-   order. `meta$draw_model` is `rep(model_set, lengths(index))`.
+   order, and is passed to `chk_defined_grid()` as in §3.1.
+   `meta$draw_model` is `rep(model_set, lengths(index))`.
 10. `meta$model_weights` is `stats::setNames(wi, model_set)`, and `meta$seed` is
     the seed the index was built from.
 
@@ -570,8 +572,11 @@ from commit messages and is not edited by hand.
   the decision, the reason and the superseded split, with a link to this
   document. RF posts it.
 
-The refactor documents are also edited on PR #66 (AP, T34). Edit only the
-passages listed, after rebasing on the head of #66.
+The refactor documents are also edited on PR #66 (AP, T34; `REFACTOR-claude.md`
+in `4b90146`). Task 0 is therefore done after #66 merges into `phase-2`, as the
+last task before the pull request opens. By then the next free decision number
+is known, and the passages in §1.2 no longer change under the edit. Edit only
+the passages listed.
 
 Done when no passage in §1.2 still places the methods in `bayesnec`, except as
 history.
@@ -592,8 +597,13 @@ the `bayesnec` version in a comment, as the existing `bayesnec_` data fixtures
 do.
 
 The fixtures already total 5.4 MB, against the 5 MB CRAN suggests for a
-package tarball. `manec_example` was 1.09 MB as an unstripped `xz` file. Stop and
-ask if the three together exceed 1 MB after stripping.
+package tarball. `manec_example` was 1.09 MB as an unstripped `xz` file. RF
+ruled on 2026-10-23 that fixture size does not limit this work, because the
+tests are needed during development and CRAN submission is not near. Size is
+settled when phase 6 prepares the package for CRAN. A fit needed only by
+`tests/local/` can then be kept out of the built package, as `bayesnec` does
+with `^tests/local$` in its `.Rbuildignore`. Record the size of each new fixture
+in the pull request.
 
 Done when the fixtures load through `helper-fixtures.R`.
 
@@ -603,7 +613,7 @@ Done when the fixtures load through `helper-fixtures.R`.
   `check_bayesnec_installed()`, `bayesnec_available()`, `bnec_x_var()`,
   `bnec_grid()`, `chk_bayesnec_supported()`, as §3.1.
 - `build_meta()` gains `data` and optional elements (§3.1).
-- `bayesnec` in `Suggests`, after RF approves (`BAYESNEC-human.md` §6).
+- `bayesnec` in `Suggests`, approved by RF on 2026-10-23.
 
 Tests, on `bnec_model_1` (`nechorme`, beta), `bayesnec_nec4param`,
 `bayesnec_ecx4param` (both gaussian), `bayesnec_binomial` and `bayesnec_logx`:
@@ -626,9 +636,14 @@ Tests, on `bnec_model_1` (`nechorme`, beta), `bayesnec_nec4param`,
    `bayesnec`.
 9. The result passes through `compute_ecx()`, `compute_nsec()` and
    `summarise_metric()` and returns a `toxval` tibble.
+10. `ecx()` on each fixture returns a `toxval` tibble. `ecx()` calls
+    `toxval_predict()` from `6bdd99c`, so this needs no change to `ecx()`.
 
 Done when the tests pass, the file is skipped cleanly with `bayesnec` absent,
-and R CMD check passes.
+and no other test fails that passes at the head of PR #66. At `6bdd99c`, 21
+tests fail in `test-compute.R`, `test-validate.R` and `test-summarise.R`,
+because they still call the `ecx_val` argument that T32 renamed `proportion`.
+AP is updating them on #66. R CMD check is required to pass once they are.
 
 ### The model-averaged method (task 3)
 
@@ -680,7 +695,8 @@ Done when `type = "relative"` and both anchors are tested on the model set.
 
 ### End-to-end tests and documentation (task 5)
 
-Waits for `ecx()` and `nsec()` to call `toxval_predict()` (phases 4 and 5).
+Waits for `nsec()` to call `toxval_predict()`, which AP is doing next on #66,
+and for task 4. `ecx()` has called it since `6bdd99c`.
 
 - `tests/testthat/`: `ecx()` and `nsec()` on every fixture return a `toxval`
   tibble with `# Model:` naming the class.
@@ -703,28 +719,41 @@ Done when R CMD check passes with `bayesnec` installed, and with it absent and
 ## 5. Branch and dependencies
 
 `phase-7-bayesnec-methods` was branched from `upstream/phase-4-5-spine-and-tibble`
-at `9a3b846` and tracks it. As PR #66 changes, rebase with
-`git rebase upstream/phase-4-5-spine-and-tibble`. Once #66 merges into
-`phase-2`, rebase onto `upstream/phase-2` and open the pull request from
+at `9a3b846`, rebased onto `6bdd99c` on 2026-10-23, and tracks it. AP adds
+commits to #66 rather than rewriting them, so while #66 is open the branch is
+rebased with `git rebase upstream/phase-4-5-spine-and-tibble`.
+
+PR #65 was squash-merged into `phase-2`, and #66 is expected to be as well. A
+plain rebase onto `upstream/phase-2` would then replay #66's commits over their
+own squashed copy. Rebase with
+`git rebase --onto upstream/phase-2 <last #66 commit>` instead, which replays
+only this branch's commits. Then do task 0 and open the pull request from
 `beckyfisher:phase-7-bayesnec-methods` into `open-AIMS:phase-2`, ready for
 review rather than as a draft.
+
+This branch's code is in new files, so a rebase can conflict only in
+`DESCRIPTION`, `NAMESPACE` and `man/`, which `devtools::document()` regenerates,
+and in the refactor documents that task 0 edits.
 
 | needed | by task | from | state on 2026-10-23 |
 |---|---|---|---|
 | `toxval_predict()`, `new_toxval_pred()`, `group_keys()`, `build_meta()` | 2, 3 | phase 2 | merged into `phase-2` |
 | `compute_ecx()`, `compute_nsec()`, `summarise_metric()`, `new_toxval()` | 2, 3 | phases 2, 4 | on PR #66 |
-| `resolution` default of 500 (T31) | 2, 3 | phase 4 | not started |
+| `resolution` default of 500 (T31), `chk_defined_grid()` | 2, 3 | phase 4 | on PR #66 (`6bdd99c`) |
 | trials per curve (T26) | 2 | phase 4 | not started |
 | `asymptote` slot (T24), `type = "relative"` | 4 | phase 4 | not started |
 | `anchor` (T23) | 4 | phase 4 | not started |
-| `ecx()` and `nsec()` on the spine; `proportion` (T32) | 5 | phases 4, 5 | not started |
+| `ecx()` on the spine; `proportion` (T32) | 2, 5 | phase 4 | on PR #66 (`6bdd99c`) |
+| `nsec()` on the spine | 5 | phase 5 | AP's next step on #66 |
 
-Tasks 2 and 3 need only code that is merged or on PR #66. Tasks 4 and 5 need
-phase 4 work that has not started. Phase 6, CRAN publication, is not a
-prerequisite of any task.
+Tasks 1 to 3 need only code that is merged or on PR #66. Task 2's response
+bound uses `source_class` until T26 lands (§3.4). Task 4 needs phase 4 work that
+has not started, and task 5 needs task 4 and `nsec()`. Phase 6, CRAN
+publication, is not a prerequisite of any task.
 
-## 6. Points for review
+## 6. Decisions and points for review
 
-Listed in `BAYESNEC-human.md` §6. The arguments are in §3.1 (`Suggests`), §3.2
-(the draw index and the component anchor), §3.3 (scope), §3.4 (`threshold`)
-and §2.1 (the predictor scale).
+RF approved three of these on 2026-10-23: `bayesnec` in `Suggests` (§3.1), the
+difference under `anchor = "component"` (§3.2), and fixture size (task 1, §4).
+The rest are listed in `BAYESNEC-human.md` §6. The arguments are in §3.2 (the
+draw index), §3.3 (scope), §3.4 (`threshold`) and §2.1 (the predictor scale).

@@ -225,23 +225,25 @@ decide. Its plan currently relocates them to `toxval` and imports `toxval`
 
 ## 4. Order of work
 
-There are six tasks. Tasks 0 to 3 can start now. Task 4 waits for phase 4 to add
-`type = "relative"` and `anchor`. Task 5 waits for `ecx()` and `nsec()` to call
-`toxval_predict()`. `BAYESNEC-claude.md` §4 gives files, tests and stopping
-points for each.
+There are six tasks. Tasks 1 to 3 can start now. Task 0 is done last, after PR
+#66 merges. Task 4 waits for phase 4 to add `type = "relative"` and `anchor`.
+Task 5 waits for `nsec()` to call `toxval_predict()`; `ecx()` already does.
+`BAYESNEC-claude.md` §4 gives files, tests and stopping points for each.
 
 0. Task 0 records the decision. It adds T35 to
    `notes/implementation/02_decisions.md`, rewrites phases 6 and 7 of the
    refactor plan, and drafts a decision comment for #39. It is needed so that
-   the plan of record and the issue agree with this document. It is done when no
-   passage listed in `BAYESNEC-claude.md` §1 still places the methods in
-   `bayesnec`.
+   the plan of record and the issue agree with this document. It waits for
+   PR #66 to merge, because #66 edits the same refactor documents and adds T34.
+   It is done when no passage listed in `BAYESNEC-claude.md` §1 still places the
+   methods in `bayesnec`.
 1. Task 1 stores the test fits. It adds `manec_example`, a binomial fit and a
    fit with `crf(log(x))` to `tests/testthat/fixtures/`, with the code that made
    them in `data-raw/`. The tests need a model-averaged fit, a binomial response
    predicted as a proportion, and a predictor transformed inside `crf()`, and no
-   stored fit has these. It is done when the fixtures load and
-   `data-raw/DATASET.R` records the `bayesnec` version.
+   stored fit has these. Their size is not limited during development. It is
+   done when the fixtures load and `data-raw/DATASET.R` records the `bayesnec`
+   version.
 2. Task 2 adds the single-fit method, `toxval_predict.bayesnecfit()`, with the
    check that `bayesnec` is installed and the refusal of the other classes. It
    is done when its curves are identical to `bayesnec`'s on every fixture and
@@ -255,27 +257,37 @@ points for each.
    and both anchors are tested on `manec_example`.
 5. Task 5 tests `ecx()` and `nsec()` on every fixture and compares them with
    `bayesnec` in `tests/local/`. It also updates the examples, the README and
-   `DESCRIPTION`. It waits for phases 4 and 5. It is done when R CMD check
-   passes with and without `bayesnec` installed.
+   `DESCRIPTION`. It waits for task 4 and for `nsec()` to call
+   `toxval_predict()`. It is done when R CMD check passes with and without
+   `bayesnec` installed.
 
 The four classes of section 3.3 follow in later pull requests.
 
 ## 5. Branch
 
-The work is on `phase-7-bayesnec-methods`, branched from the head of PR #66
-(`9a3b846`). PR #66 is a draft and will change, so the branch is rebased on it
-as it does. The pull request is opened against `phase-2` once PR #66 has merged
+The work is on `phase-7-bayesnec-methods`, branched from the head of PR #66 and
+rebased onto its latest commit (`6bdd99c`) on 2026-10-23. PR #66 is a draft and
+will change, so the branch is rebased on it as it does. The new code is in new
+files, so these rebases can conflict only in files that are regenerated. The
+pull request is opened against `phase-2` once PR #66 has merged
 (`BAYESNEC-claude.md` §5).
 
-## 6. Points for review
+## 6. Decisions and points for review
 
-These are proposed rather than decided, and each is argued in the section named.
+RF decided three of these on 2026-10-23.
 
-- Adding `bayesnec` to `Suggests` (section 3.1). The repository rule is to ask
-  before adding a dependency.
-- Using `bayesnec`'s own draw index for a model-averaged fit (section 3.2).
-- Accepting the difference from `bayesnec` under `anchor = "component"`
+- `bayesnec` is added to `Suggests` (section 3.1).
+- The difference from `bayesnec` under `anchor = "component"` is accepted
   (section 3.2).
+- Fixture size does not limit this work, because the tests are needed during
+  development and CRAN submission is not near. When the package is prepared for
+  CRAN, a fit needed only by the tests in `tests/local/` can be kept out of the
+  built package, as `bayesnec` does (`BAYESNEC-claude.md` §4, task 1).
+
+The rest are proposed rather than decided, and each is argued in the section
+named.
+
+- Using `bayesnec`'s own draw index for a model-averaged fit (section 3.2).
 - Limiting the first pull request to two classes (section 3.3).
 - Leaving `threshold` empty until #25 (section 3.4).
 - Reporting a predictor transformed inside `crf()` on its recorded scale

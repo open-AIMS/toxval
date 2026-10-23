@@ -84,3 +84,54 @@ asymptotes and the component anchor, after phase 4. Task 5 adds end-to-end
 tests, comparison with `bayesnec`, and the documentation, after phases 4 and 5.
 
 ---
+
+**User:** I am happy with your decisions, with respect to 3 - I'm not too
+worried about that, we are a long way form getting this on cran, w can sort that
+out later (make some local only, as for bayesnec) and the tests are very
+valuable for development. In terms of adding the baysenec predict methods, can
+we safely proceed from the current state?
+
+**Claude:** Rulings recorded in both plan documents (§6 and task 1):
+`bayesnec` goes in `Suggests`; the sampling difference under
+`anchor = "component"` is accepted; fixture size does not limit this work, and
+when phase 6 prepares for CRAN a fit needed only by `tests/local/` can be kept
+out of the built package, as `bayesnec` does with `^tests/local$` in its
+`.Rbuildignore`. The stop-and-ask at 1 MB was removed.
+
+State checked before answering. AP pushed three commits to PR #66 on
+2026-10-22 (head `6bdd99c`). `ecx()` is no longer an S3 generic and calls
+`toxval_predict()`, with `proportion` (T32) and deprecated `ecx_val`. The
+generic's `resolution` default is 500 (T31). A new `chk_defined_grid()` follows
+curve prediction in the `brmsfit` and `drc` methods. `build_meta()`,
+`new_toxval_pred()`, `chk_meta()` and `group_keys()` are unchanged apart from
+line offsets. `nsec()` is still the old generic; AP's comment on #66 says it is
+next. `asymptote`, `anchor` and `type = "relative"` are not yet present.
+
+`devtools::test()` at `6bdd99c` (R 4.6.1, WSL): 684 expectations pass and 21
+tests fail, 13 in `test-compute.R`, 5 in `test-validate.R` and 3 in
+`test-summarise.R`. All of them call the `ecx_val` argument that T32 renamed;
+AP's comment says the code works and these tests are being updated.
+`test-ecx.R` and `test-toxval-predict.R` pass.
+
+Answer: tasks 1 to 3 can proceed now. Their code is in new files and depends
+only on internals that #66 has not changed. Plan changes made to fit the new
+state:
+
+- The method signature takes `resolution = 500`, and both methods call
+  `chk_defined_grid()` on their curve matrices, as the `brmsfit` and `drc`
+  methods now do.
+- Task 2 gains a test that `ecx()` on each fixture returns a `toxval` tibble,
+  since `ecx()` already dispatches through `toxval_predict()`.
+- Task 2's done criterion compares the suite against the 21-test baseline at
+  `6bdd99c` until AP's test updates land.
+- Task 0 moves to last, after #66 merges, because #66 edits the same refactor
+  documents and adds T34, so the next decision number is not yet fixed.
+- After #66 is squash-merged into `phase-2` (as #65 was), the branch is rebased
+  with `git rebase --onto upstream/phase-2 <last #66 commit>`, so that #66's
+  commits are not replayed over their squashed copy.
+- Task 5 now waits for `nsec()` on the spine and for task 4 only.
+
+The branch was rebased from `9a3b846` onto `6bdd99c`; it had only the two plan
+commits, so the rebase was clean.
+
+---
