@@ -67,6 +67,21 @@ test_that("x_range can be passed various values", {
   expect_equal(output_2$estimate, c(1.3688852, 0.6452353), tolerance = 0.001)
 })
 
+test_that("nsec type = range changes ecnsec but not the NSEC", {
+  absolute <- nsec(brms_model_3, x_var = "x")
+  range <- nsec(brms_model_3, x_var = "x", type = "range")
+  
+  expect_equal(range$type, c("range", "range"))
+  expect_equal(range$estimate, absolute$estimate)
+  expect_equal(range$reference, absolute$reference)
+  expect_equal(range$ecnsec[[1]], 0.037344, tolerance = 0.001)
+  expect_equal(range$ecnsec.low[[1]], 0.006111, tolerance = 0.001)
+  expect_equal(range$ecnsec.high[[1]], 0.062751, tolerance = 0.001)
+  
+  ecnsec_cols <- c("ecnsec", "ecnsec.low", "ecnsec.high")
+  expect_false(isTRUE(all.equal(range[ecnsec_cols], absolute[ecnsec_cols])))
+})
+
 # different model types ---------------------------------------------------
 
 # EXPECTED-CHANGE ecnsec reference redefined, ecnsec values change (nsec estimate unchanged) #49 - DONE
@@ -210,6 +225,36 @@ test_that("nsec drc additional example 2", {
   expect_snapshot({
     print(output, width = Inf)
   })
+})
+
+test_that("nsec accepts a toxval_pred", {
+  output <- toxval_predict(brms_model_3, x_var = "x")
+  
+  expect_snapshot(print(nsec(output), width = Inf))
+})
+
+test_that("nsec gives NA when no realisation has a finite control", {
+  x_vec <- 0:10
+  y <- 10 - x_vec
+  y[1] <- NaN
+  pred <- compute_pred(list(rbind(y, y)), x_vec)
+  
+  expect_warning(output <- nsec(pred), "decreasing: 100.0% excluded")
+  expect_equal(output$reference, c(NA_real_, NA_real_))
+  expect_equal(output$estimate, c(NA_real_, NA_real_))
+})
+
+test_that("a toxval_pred with no family has no upper bound on the response", {
+  x_vec <- 0:10
+  # This can't occur through the methods created inside the package but if 
+  # externals build a toxval_pred this helps to check that behaviour
+  pred <- compute_pred(list(rbind(10 + x_vec, 10 + x_vec)), x_vec, family = NULL)
+  
+  output <- ecx(pred)
+  
+  # relative deviation: a 10 per cent increase from a control of 10 is 11
+  expect_equal(output$reference[[2]], 11)
+  expect_equal(output$estimate[[2]], 1)
 })
 
 # brms --------------------------------------------------------------------
@@ -547,5 +592,51 @@ test_that("nsec input validation catches non-logical draws", {
       nsec(brms_model_1, x_var = "x", posterior = "yes")
     ),
     "`posterior` must be a flag \\(TRUE or FALSE\\)"
+  )
+})
+
+
+test_that("nsec errors when a toxval_pred is given predict-level arguments", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
+  
+  expect_error(
+    nsec(pred, resolution = 100, x_range = c(0, 5)),
+    "so `resolution`, `x_range` must not be supplied"
+  )
+})
+
+test_that("curveid must not be supplied with group_var", {
+  expect_error(
+    nsec(nsec_drc_1, curveid = "time", group_var = "time"),
+    "`curveid` must not be supplied with `group_var`"
+  )
+})
+
+test_that("anchor is model or component and is recorded in the result", {
+  model <- nsec(brms_model_3, x_var = "x")
+  component <- nsec(brms_model_3, x_var = "x", anchor = "component")
+  
+  expect_equal(model$anchor, c("model", "model"))
+  expect_equal(component$anchor, c("component", "component"))
+  # the two coincide for a fit that is not model-averaged
+  expect_equal(component$estimate, model$estimate)
+  
+  expect_error(
+    nsec(brms_model_3, x_var = "x", anchor = "control"),
+    "`anchor` must match 'component' or 'model', not 'control'"
+  )
+})
+
+test_that("nsec gives NA ecnsec when no realisation has a span", {
+  x_vec <- 0:10
+  # rising curves have no decreasing span under range
+  pred <- compute_pred(list(rbind(10 + x_vec, 11 + x_vec)), x_vec)
+  
+  output <- suppressWarnings(nsec(pred, type = "range"))
+  
+  expect_equal(
+    unlist(output[1, c("ecnsec", "ecnsec.low", "ecnsec.high")], use.names = FALSE),
+    c(NA_real_, NA_real_, NA_real_)
   )
 })

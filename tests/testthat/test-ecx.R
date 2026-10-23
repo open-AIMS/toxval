@@ -488,6 +488,23 @@ test_that("when by_group = TRUE, group_var is provided and draws = TRUE, you get
   expect_true("draws" %in% colnames(output))
 })
 
+test_that("ecx passes other brms errors through unchanged", {
+  local_mocked_bindings(
+    posterior_epred = function(...) {
+      stop(structure(
+        class = c("brms_error", "error", "condition"),
+        list(message = "some other brms problem", call = NULL)
+      ))
+    }
+  )
+  
+  expect_error(
+    ecx(brms_model_1, x_var = "x"),
+    "some other brms problem",
+    class = "brms_error"
+  )
+})
+
 # more realistic examples -------------------------------------------------
 
 test_that("brms additional example 1", {
@@ -517,4 +534,92 @@ test_that("brmsfit type = range gives smaller ECx than type = absolute", {
   e_abs <- suppressWarnings(ecx(brms_model_3, x_var = "x", type = "absolute", ecx_val = 50))
 
   expect_lt(e_rel$estimate[[1]], e_abs$estimate[[1]])
+})
+
+# Argument tests non model specific ---------------------------------------
+
+test_that("ecx and nsec error when a toxval_pred is given predict-level arguments", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
+  
+  expect_error(
+    ecx(pred, x_var = "x"),
+    "`object` is a `toxval_pred`, whose grid is already built, so `x_var` must not be supplied"
+  )
+})
+
+test_that("proportion must not be supplied under type = direct", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
+  
+  expect_error(
+    ecx(pred, type = "direct", proportion = 0.1, reference = 5),
+    "`proportion` must not be supplied when `type` is 'direct'"
+  )
+})
+
+test_that("reference must not be supplied unless type is direct", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
+  
+  expect_error(
+    ecx(pred, reference = 5),
+    "`reference` must be NULL unless `type` is 'direct'"
+  )
+})
+
+test_that("ecx_val must not be supplied with proportion or reference", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
+  
+  expect_error(
+    ecx(pred, ecx_val = 10, proportion = 0.1),
+    "`ecx_val` must not be supplied with `proportion` or `reference`"
+  )
+  expect_error(
+    ecx(pred, type = "direct", ecx_val = 5, reference = 5),
+    "`ecx_val` must not be supplied with `proportion` or `reference`"
+  )
+})
+
+test_that("horme is deprecated and ignored by ecx", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
+  
+  lifecycle::expect_deprecated(output <- ecx(pred, horme = TRUE))
+  expect_identical(output, ecx(pred))
+})
+
+test_that("proportion must not be empty", {
+  expect_error(
+    ecx(brms_model_3, x_var = "x", proportion = numeric(0)),
+    "`proportion` must have at least one value"
+  )
+})
+
+test_that("proportion must be finite", {
+  expect_error(
+    ecx(brms_model_3, x_var = "x", proportion = Inf),
+    "`proportion` must be finite"
+  )
+})
+
+# Comparison to drc::ED() -------------------------------------------------
+
+test_that("ecx direct matches drc::ED absolute", {
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+  
+  output <- ecx(fit, type = "direct", reference = 5, seed = 1)
+  expected <- drc::ED(fit, 5, type = "absolute", display = FALSE)
+  
+  expect_equal(output$estimate[[1]], expected[[1]], tolerance = 0.01)
+})
+
+test_that("ecx absolute matches drc::ED for a curve with a lower limit of 0", {
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.3())
+  
+  output <- ecx(fit, proportion = 0.5, seed = 1)
+  expected <- drc::ED(fit, 50, display = FALSE)
+  
+  expect_equal(output$estimate[[1]], expected[[1]], tolerance = 0.01)
 })
