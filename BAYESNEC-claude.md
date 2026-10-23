@@ -570,6 +570,79 @@ user who attaches both packages and would not change which function runs.
 The remedy is in `bayesnec`: keep, rename or retire its functions, or call
 `toxval`'s. That is not decided here.
 
+### 3.7 Robustness across bayesnec structures
+
+After task 3, both methods were run on one fit of every structure a user can
+build on `bayesnec` `predev` at `116ea91b` (2.1.3.42), and on the five
+structures that CR_workflows fits. Two read-only surveys listed the structures:
+one of the `bayesnec` source and one of CR_workflows, whose only `bnec()` call
+is `pkg/R/fit_bayesnec.R:85`. `bayesnec` was loaded from an export of
+`116ea91b` with `pkgload::load_all()`, without installing it.
+
+Each fit was predicted at `resolution = 50`. The curve matrix was compared with
+`identical()` against `bayesnec`'s own method:
+`brms::posterior_epred(<fit>, newdata = bnec_newdata(fit, 50), re_formula = NA)`.
+`re_formula = NA` is passed because `bayesnec`'s `posterior_epred()` methods
+set neither `newdata` nor `re_formula`, while its own curve predictions in
+`expand_nec()` use `re_formula = NA`. Every equation of a model set was also
+pulled out with `pull_out()` and compared as a `bayesnecfit`, as were the
+per-level fits of a group fit and the two parts of a hurdle pair. `ecx()`, and
+`summarise_metric(compute_nsec())`, were then run on each prediction. Fits used
+two chains of 500 retained draws unless stated otherwise. The CR_workflows sets were
+refitted with that repository's formulas, identity-link families and simulated
+datasets (`pkg/data/*.rda`), with the same short sampler.
+
+| structure | fits |
+|---|---|
+| families | `gaussian`, `beta`, `gamma`, `binomial` and `beta_binomial` with `trials()`, `poisson`, `poisson` with `rate()`, `negbinomial`, `bernoulli`, `zero_inflated_poisson` |
+| formula terms | `crf(log(x))`, `crf(sqrt(x))`, `weights()`, `cens()`, `pgl(g)` on beta, `ogl(g)` on beta and on gaussian, `(top \| g)` on gamma, `disp(~x)`, `disp("power")`, `log(y)` as response, beta with a logit link |
+| model sets | every equation on `nec_data` (17 kept); `amend(drop = )` to three; `+` of two fits; four chains with `thin = 3` |
+| CR_workflows | `decline` sets on gamma, binomial, negbinomial and beta, and an `all` set on gamma, each with a control at concentration 0 |
+| classes | the per-level fits of a `bnec_group()` fit; the gamma growth and Bernoulli survival parts of a `bnec_hurdle()` fit |
+
+The results:
+
+- All 128 predicted objects, 33 fits and 95 components, were identical to
+  `bayesnec`'s matrix. The predicted objects comprise the 24 single fits,
+  the 9 model sets, the 89 equations pulled out of those sets, the 4 group
+  levels and the 2 hurdle parts.
+- `ecx()` and the NSEC computation ran without error on every one.
+- The refusals gave their messages on real objects. The objects were a
+  `hurdle_gamma` fit, a `bayesnecgroupfit`, a `bayesnechurdlefit`, a
+  `bayesnecjointfit`, and a `bayesnecjointlevel` built with
+  `bayesnec:::joint_level_fit()`.
+- With `thin = 3`, four chains and 500 post-warmup iterations, each equation
+  held 668 draws while `sample_size` recorded 667. The stored index was
+  therefore bypassed by both packages and rebuilt from `w_draw_seed`, giving
+  668 realisations. The `decline` sets on binomial and beta gave 1001 and 999
+  realisations, from rounding each equation's share. Both packages do the same.
+- In a session using `RNGkind("L'Ecuyer-CMRG")`, the rebuilt index again
+  matched `bayesnec`. It differed from the index rebuilt under the default
+  generator, because `weighted_draw_index()` fixes the seed and the sample
+  kind but not the generator.
+
+`zero_inflated_poisson` and `zero_inflated_negbinomial` are accepted. `bayesnec`
+leaves them out of its two-part registry (`data-raw/sysdata.R:60-74`): `brms`
+fits them as a mixture with a constant zero-inflation probability, so their
+expected value is one curve.
+
+Four structures could not be fitted, and so are not covered:
+
+- the zero-truncated count part of `bnec_hurdle()`, which needs `brms` 2.23.2
+  (2.23.0 is installed), so its refusal is tested on an altered copy only;
+- `disp(~z)` with a covariate other than `x`, for which `bnec()` itself fails
+  after sampling (`bayesnec` #443);
+- `+` on fits with different numbers of draws, which `bayesnec` refuses ("Each
+  object in the list must have the same dimensions");
+- `pull_out()` with two equations, which 2.1.3.42 refuses ("Argument model can
+  only take one value").
+
+One case gives a wrong upper bound, found from the code rather than from a
+fit. With a `trials()` expression rather than a column, such as `trials(n * 2)`,
+`bnec_newdata()` sets `n` to 1 and the curve is predicted for two trials.
+`response_upper_bound()` then gives 1 for a curve that reaches 2. A bare
+`trials()` column, the form in every example found, is unaffected.
+
 ## 4. Tasks
 
 The exported methods go in `R/toxval-predict.R` after the `drc` method,

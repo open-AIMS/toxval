@@ -403,3 +403,70 @@ path on a real object: 3385 and 615 realisations, identical to
 is not a fixture.
 
 ---
+
+**User:** There are a bunch of different models in the bayesnec dev/predev
+branch, and used as examples in the CR workflows repo. Can you confirm if the
+predict method is robust to all the possible baysenc model structures
+
+**Claude:** The check was run rather than argued. Two read-only Explore surveys
+listed the structures. The first covered `bayesnec` `predev`: formula terms,
+families, equations, classes, model-set operations, and where `bayesnec`'s
+`posterior_epred()` differs from `brms`'s. The second covered every `bnec()`
+fit in CR_workflows; the repository has one call site,
+`pkg/R/fit_bayesnec.R:85`, and no saved fits.
+
+`bayesnec` `predev` at `116ea91b` (2.1.3.42, against 2.1.3.39 installed) was
+exported with `git archive` to the session scratchpad and loaded with
+`pkgload::load_all()`. Nothing was installed, and the bayesnec checkout was
+not touched. About 40 fits were made, most with `chains = 2, iter = 1000,
+warmup = 500`. A comparison script ran `toxval_predict(resolution = 50)` on
+each fit, on every equation pulled out of each model set, on the per-level
+fits of a group fit, and on the parts of a hurdle pair. It compared each
+curve matrix with `identical()` against
+`brms::posterior_epred(<fit>, newdata = bayesnec::bnec_newdata(fit, 50),
+re_formula = NA)`, which dispatches to `bayesnec`'s own method, and then ran
+`ecx()` and `summarise_metric(compute_nsec())`. `re_formula = NA` is needed
+because `bayesnec`'s methods set neither `newdata` nor `re_formula`, while its
+internal curve predictions use `re_formula = NA`.
+
+Results:
+
+- 128 predicted objects (33 fits and 95 components) were all identical to
+  `bayesnec`. They cover:
+  - every family except the two-part ones;
+  - `trials()`, `rate()`, `weights()` and `cens()`;
+  - `crf(log(x))` and `crf(sqrt(x))`;
+  - `pgl()`, `ogl()` and `(top | g)`;
+  - `disp(~x)` and `disp("power")`;
+  - a `log(y)` response and a logit link;
+  - the every-equation set (17 kept) and the CR_workflows `decline` and `all`
+    sets on gamma, binomial, negbinomial and beta with a zero control;
+  - `amend(drop = )` and `+`.
+- No `ecx()` or NSEC computation errored.
+- The refusals worked on real objects: `hurdle_gamma`, `bayesnecgroupfit`,
+  `bayesnechurdlefit`, `bayesnecjointfit`, and a `bayesnecjointlevel` from
+  `bayesnec:::joint_level_fit()`.
+- `thin = 3` with four chains gave `sample_size` 667 against 668 draws, so the
+  stored index was bypassed by both packages. This confirms the survey's
+  reading of `extract_simdat()`. `bayesnec`'s stored summaries were computed
+  on the 667-draw index, while its `posterior_epred()` uses the rebuilt one,
+  so the two describe different draws. This is a `bayesnec` issue.
+- Under `RNGkind("L'Ecuyer-CMRG")` the rebuilt index matched `bayesnec`, but
+  differed from the default-generator index: the generator kind is not
+  pinned in `weighted_draw_index()`.
+- `zero_inflated_poisson` and `zero_inflated_negbinomial` are accepted, since
+  `bayesnec`'s two-part registry excludes them on purpose (constant `zi`;
+  `data-raw/sysdata.R:60-74`).
+- Not covered, because the structure could not be built:
+  - the truncated count part of `bnec_hurdle()`, which needs brms 2.23.2;
+  - `disp(~z)`, for which `bnec()` fails (#443);
+  - `+` with unequal draws, which `bayesnec` refuses;
+  - `pull_out()` of two equations, which 2.1.3.42 refuses.
+- From the code: a `trials(n * 2)` expression would be predicted for two trials
+  while `response_upper_bound()` gives 1. Not fixed.
+
+Recorded as BAYESNEC-claude.md §3.7. The fits and scripts are in the session
+scratchpad only (`fit-common.R`, `fit-families.R`, `fit-allset.R`,
+`fit-cr.R`, `fit-features.R`, `fit-ops.R`, `compare-fits.R`).
+
+---
