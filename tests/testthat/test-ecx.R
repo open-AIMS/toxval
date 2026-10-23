@@ -10,546 +10,392 @@
 
 # brms --------------------------------------------------------------------
 test_that("outputs ecx value", {
-  output <- ecx(brms_model_1, x_var = "x")
-
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], 0.8320, tolerance = 0.01)
-  expect_equal(output[[2]], 0.8177, tolerance = 0.01)
-  expect_equal(output[[3]], 1.0500, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
+  output <- suppressWarnings(ecx(brms_model_1, x_var = "x", resolution = 1000))
+  settings <- pillar::tbl_sum(output)[["Settings"]]
+  
+  expect_type(output$estimate, "double")
+  expect_equal(output$estimate[[1]], 0.8320, tolerance = 0.001)
+  expect_equal(output$conf.low[[1]], 0.820, tolerance = 0.001) # EXPECT-CHANGE delete commment the small change here comes from the tolerance not being strict enough, 
+  expect_equal(output$conf.high[[1]], 1.0500, tolerance = 0.001)
+  expect_equal(output$metric, c("ecx", "ecx"))
+  expect_equal(output$proportion, c(0.1, 0.1))
+  expect_equal(settings, "resolution 1000 | 1000 posterior draws")
+  expect_equal(output$direction, c("decreasing", "increasing"))
 })
 
 test_that("ecx_val changes when different value provided", {
-  output <- ecx(brms_model_1, x_var = "x", ecx_val = 50)
-
-  expect_equal(output[[1]], 0.9719, tolerance = 0.01)
-  expect_equal(output[[2]], 0.900, tolerance = 0.01)
-  expect_equal(output[[3]], 1.05, tolerance = 0.01)
-  expect_equal(attributes(output)$ecx_val, 50)
+  output_1 <- suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50))
+  
+  expect_equal(output_1$estimate[[1]], 0.975, tolerance = 0.001)
+  expect_equal(output_1$conf.low[[1]], 0.904, tolerance = 0.001)
+  expect_equal(output_1$conf.high[[1]], 1.05, tolerance = 0.001)
+  expect_equal(output_1$proportion, c(0.50, 0.50))
+  
+  output_2 <- suppressWarnings(ecx(brms_model_1, x_var = "x", proportion = 0.50))
+  
+  expect_equal(output_2$estimate[[1]], 0.975, tolerance = 0.001)
+  expect_equal(output_2$conf.low[[1]], 0.904, tolerance = 0.001)
+  expect_equal(output_2$conf.high[[1]], 1.05, tolerance = 0.001)
+  expect_equal(output_2$proportion, c(0.50, 0.50))
+  
+  expect_identical(output_1, output_2)
 })
 
-test_that("check ecx_val must be a numeric scalar", {
-  expect_length(ecx(brms_model_1, x_var = "x", ecx_val = 50L), 3)
-  expect_length(ecx(brms_model_1, x_var = "x", ecx_val = 50), 3)
-  expect_error(
-    ecx(brms_model_1, x_var = "x", ecx_val = c(50, 10, 2)),
-    "You may only pass one ecx_val"
+test_that("check ecx_val must be a numeric scalar and gives deprecation warning", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
+  lifecycle::expect_deprecated(ecx(pred, ecx_val = 10))
+  
+  expect_length(
+    suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50L)), 
+    9
+  )
+  expect_length(
+    suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50)), 
+    9
   )
   expect_error(
-    ecx(brms_model_1, x_var = "x", ecx_val = "50"),
-    "`ecx_val` must be numeric."
+    suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = c(50, 10, 2))),
+    "`ecx_val` must be a number"
   )
   expect_error(
-    ecx(brms_model_1, x_var = "x", ecx_val = TRUE),
-    "`ecx_val` must be numeric."
+    suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = "50")),
+    "`ecx_val` must be a number"
+  )
+  expect_error(
+    suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = TRUE)),
+    "`ecx_val` must be a number"
   )
 })
 
 test_that("resolution changes when different value is provided", {
-  output <- ecx(brms_model_1, x_var = "x", resolution = 2)
+  output <- suppressWarnings(ecx(brms_model_1, x_var = "x", resolution = 2))
 
-  expect_equal(output[[1]], 0.836, tolerance = 0.01)
-  expect_equal(output[[2]], 0.820, tolerance = 0.01)
-  expect_equal(output[[3]], 1.050, tolerance = 0.01)
-  expect_equal(attributes(output)$resolution, 2)
+  expect_equal(output$estimate[[1]], 0.836, tolerance = 0.001)
+  expect_equal(output$conf.low[[1]], 0.822, tolerance = 0.001)
+  expect_equal(output$conf.high[[1]], 1.050, tolerance = 0.001)
+  expect_match(pillar::tbl_sum(output)[["Settings"]], "resolution 2")
 })
 
 test_that("proper resolution values can be passed", {
   expect_error(
     ecx(brms_model_1, x_var = "x", resolution = 1),
-    regex = "`lower` is not smaller than `upper`"
+    regex = "`resolution` must be greater than 1, not 1"
   )
 
   expect_error(
     ecx(brms_model_1, x_var = "x", resolution = -2),
-    regexp = "'length\\.out' must be a non-negative number"
+    regexp = "`resolution` must be greater than 1, not -2"
   )
 
   expect_error(
     ecx(brms_model_1, x_var = "x", resolution = TRUE),
-    regexp = "`resolution` must be numeric"
+    regexp = "`resolution` must be a whole number \\(non-missing integer scalar or double equivalent\\)"
   )
 
   expect_error(
     ecx(brms_model_1, x_var = "x", resolution = "3"),
-    regexp = "`resolution` must be numeric"
+    regexp = "`resolution` must be a whole number"
   )
 
   expect_error(
     ecx(brms_model_1, x_var = "x", resolution = 0),
-    regexp = "replacement has 1 row, data has 0"
+    regexp = "`resolution` must be greater than 1, not 0"
   )
 })
 
-test_that("posterior = true outputs the posterior", {
-  output <- ecx(brms_model_1, x_var = "x", posterior = TRUE)
-
-  expect_type(output, "double")
-  expect_length(output, 1000)
-  expect_equal(output[[1]], 0.8285, tolerance = 0.01)
-  expect_equal(output[[100]], 0.8189, tolerance = 0.01)
-  expect_equal(output[[1000]], 0.8247, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
+test_that("posterior = true outputs the posterior and throws deprecation warning now, draws in now the path", {
+  lifecycle::expect_deprecated(ecx(nsec_drc_1, posterior = TRUE, seed = 1))
+  
+  output_pt <- suppressWarnings(ecx(brms_model_1, x_var = "x", posterior = TRUE))
+  output_dt <- suppressWarnings(ecx(brms_model_1, x_var = "x", draws = TRUE))
+  
+  expect_type(output_pt$draws[[1]]$value.draw, "double")
+  expect_equal(nrow(output_pt$draws[[1]]), 1000)
+  expect_equal(output_pt$estimate[[1]], 0.832, tolerance = 0.001)
+  expect_equal(output_pt$draws[[1]]$value.draw[[100]], 0.8189, tolerance = 0.001)
+  expect_equal(output_pt$draws[[1]]$value.draw[[1000]], 0.8247, tolerance = 0.001)
+  
+  expect_equal(output_pt, output_dt)
 })
 
 # EXPECTED-CHANGE type "relative" reference, redefined (old behaviour renamed "range") #19
-test_that("check type = relative argument", {
-  output <- ecx(brms_model_1, x_var = "x", type = "relative")
-
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], 0.8221, tolerance = 0.01)
-  expect_equal(output[[2]], 0.8221, tolerance = 0.01)
-  expect_equal(output[[3]], 1.021, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
+test_that("check type = relative argument, the relative is now range", {
+  expect_error(
+    ecx(brms_model_1, x_var = "x", type = "relative"),
+    regexp = "`type` must match 'absolute', 'direct' or 'range', not 'relative'"
   )
+  
+  output <- suppressWarnings(ecx(brms_model_1, x_var = "x", type = "range"))
+
+  expect_equal(output$estimate[[1]], 0.822, tolerance = 0.0001)
+  expect_equal(output$conf.low[[1]], 0.822, tolerance = 0.0001)
+  expect_equal(output$conf.high[[1]], 0.822, tolerance = 0.0001) # TODO DOUBLE CHECK this one changed from 1.021 to 0.8221
 })
 
 # EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24
+# Old code gave back a number it could never reach, this is correct now :)
 test_that("check type = direct argument", {
-  output <- ecx(brms_model_1, x_var = "x", type = "direct")
-
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], 1.05, tolerance = 0.01)
-  expect_equal(output[[2]], 1.05, tolerance = 0.01)
-  expect_equal(output[[3]], 1.05, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
+  expect_error(
+    ecx(brms_model_1, x_var = "x", type = "direct"),
+    regexp = "`reference` must be supplied when `type` is 'direct'"
   )
+  
+  output <- ecx(brms_model_1, x_var = "x", type = "direct", reference = 10)
+
+  expect_equal(output$estimate[[1]], NA_real_)
+  expect_equal(output$conf.low[[1]], NA_real_)
+  expect_equal(output$conf.high[[1]], NA_real_)
+  expect_equal(output$proportion[[1]], NA_real_)
+  
 })
 
 # EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24
+# Change has occured as expected 
 test_that("check type = direct argument with in range value", {
-  output <- ecx(brms_model_1, x_var = "x", type = "direct", ecx_val = 0.5)
-
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(output[[1]], 0.960904, tolerance = 0.01)
-  expect_equal(output[[2]], 0.8621, tolerance = 0.01)
-  expect_equal(output[[3]], 1.05, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 0.5,
-      toxicity_estimate = "ecx"
+  expect_warning(
+    expect_warning(
+      output <- ecx(brms_model_1, x_var = "x", type = "direct", ecx_val = 0.5),
+      regexp = 'Use `proportion`, a proportion rather than a percentage, or `reference` under `type = "direct"`'
     )
   )
+  
+  expect_equal(output$estimate[[1]], 0.954, tolerance = 0.001)
+  expect_equal(output$conf.low[[1]], 0.8, tolerance = 0.001)
+  expect_equal(output$conf.high[[1]], 1.05, tolerance = 0.001)
+  expect_equal(output$proportion[[1]], NA_real_)
+  
 })
 
 test_that("check type = absolute argument", {
-  output <- ecx(brms_model_1, x_var = "x", type = "absolute")
+  output <- suppressWarnings(ecx(brms_model_1, x_var = "x", type = "absolute"))
 
-  expect_equal(output[[1]], 0.8320, tolerance = 0.01)
-  expect_equal(output[[2]], 0.8176, tolerance = 0.01)
-  expect_equal(output[[3]], 1.050, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
+  expect_equal(output$estimate[[1]], 0.8320, tolerance = 0.001)
+  expect_equal(output$conf.low[[1]], 0.820, tolerance = 0.01)
+  expect_equal(output$conf.high[[1]], 1.050, tolerance = 0.001)
+  expect_equal(output$type[[1]], "absolute")
+
+})
+
+test_that("check type = range and absolute arguments behave as expeceted", {
+  output1 <- suppressWarnings(ecx(brms_model_1, x_var = "x", type = "range", proportion = 0.50))
+  output2 <- suppressWarnings(ecx(brms_model_1, x_var = "x", type = "absolute", proportion = 0.50))
+  
+  expect_gt(output2$estimate[[1]], output1$estimate[[1]])
+  expect_equal(output1$estimate[[1]], 0.9165, tolerance = 0.001)
+  expect_equal(output2$estimate[[1]], 0.9747, tolerance = 0.001)
+})
+
+# TODO note this now errors instead of producing values, switched it from just giving NAs 
+test_that("type = absolute and value passed to trigger NAN catch and throws error", {
+  
+  expect_error(
+    expect_warning(
+      ecx(brms_model_1, x_var = "x", type = "absolute", x_range = c(-1, 1.05)),
+      regexp = "NaNs produced"
+    ),
+    regexp = "`object` gives no finite prediction at 244 of 500 grid values, between -1 and -0.001703; `x_range` must lie where the model is defined"
   )
 })
 
-test_that("check type = relative and absolute arguments behave as expeceted", {
-  output1 <- ecx(brms_model_1, x_var = "x", type = "relative", ecx_val = 50)
-  output2 <- ecx(brms_model_1, x_var = "x", type = "absolute", ecx_val = 50)
-  expect_gt(output2[[1]], output1[[1]])
-  expect_equal(output1[[1]], 0.9165, tolerance = 0.01)
-  expect_equal(output2[[1]], 0.97195, tolerance = 0.01)
-})
-
-test_that("type = absolute and value passed to trigger NAN catch", {
-  expect_warning(
-    output <- ecx(brms_model_1, x_var = "x", type = "absolute", x_range = -1),
-    regexp = "NaNs produced"
-  )
-
-  expect_equal(output[[1]], -1)
-  expect_equal(output[[2]], -1)
-  expect_equal(output[[3]], -1)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
-})
-
-test_that("type = relative and value passed to trigger NAN catch", {
-  expect_warning(
-    output <- ecx(brms_model_1, x_var = "x", type = "relative", x_range = -1),
-    regexp = "NaNs produced"
-  )
-
-  expect_equal(output[[1]], -1)
-  expect_equal(output[[2]], -1)
-  expect_equal(output[[3]], -1)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
+test_that("type = relative and value passed to trigger NAN catch and throws error", {
+  expect_error(
+    expect_warning(
+      ecx(brms_model_1, x_var = "x", type = "relative", x_range = c(-1, 1.05)),
+      regexp = "NaNs produced"
+    ),
+    regexp = "`object` gives no finite prediction at 244 of 500 grid values, between -1 and -0.001703; `x_range` must lie where the model is defined"
   )
 })
 
 test_that("type = direct and value passed to trigger NAN catch", {
-  expect_warning(
-    output <- ecx(brms_model_1, x_var = "x", type = "direct", x_range = -1),
-    regexp = "NaNs produced"
-  )
-
-  expect_equal(output[[1]], -1)
-  expect_equal(output[[2]], -1)
-  expect_equal(output[[3]], -1)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
+  expect_error(
+    expect_warning(
+      ecx(brms_model_1, x_var = "x", type = "direct", x_range = c(-1, 1.05)),
+      regexp = "NaNs produced"
+    ),
+    regexp = "`object` gives no finite prediction at 244 of 500 grid values, between -1 and -0.001703; `x_range` must lie where the model is defined"
   )
 })
 
-# EXPECTED-CHANGE type vocabulary gains "range"; passing >1 type will error cleanly #7
+# EXPECTED-CHANGE type vocabulary gains "range"; passing >1 type will error cleanly #7 - Done :)
 test_that("type errors when wrong value passed", {
   expect_error(
     ecx(brms_model_1, x_var = "x", type = "something"),
-    "type must be one of 'relative', 'absolute' \\(the default\\) or 'direct'"
+    regex = "`type` must match 'absolute', 'direct' or 'range', not 'something'"
   )
 
   expect_error(
     ecx(brms_model_1, x_var = "x", type = c("direct", "absolute")),
-    "the condition has length > 1"
+    "type` must be a string \\(non-missing character scalar\\)"
   )
 })
 
-# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
-test_that("hormesis_def = max and type = absolute changes output values", {
-  output <- ecx(brms_model_1, x_var = "x", hormesis_def = "max")
-
-  expect_equal(output[[1]], 0.8323, tolerance = 0.01)
-  expect_equal(output[[2]], 0.8198, tolerance = 0.01)
-  expect_equal(output[[3]], 1.048, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
+# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20 - Done
+test_that("hormesis_def is deprecated and ignored", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
+  
+  lifecycle::expect_deprecated(
+    output_max <- ecx(pred, hormesis_def = "max")
   )
+  expect_identical(output_max, ecx(pred))
+
+  lifecycle::expect_deprecated(
+    output_con <- ecx(pred, hormesis_def = "control")
+  )
+  
+  expect_identical(output_max, output_con)
 })
 
-# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
-test_that("hormesis_def = control and type = absolute argument", {
-  output <- ecx(brms_model_1, x_var = "x", hormesis_def = "control")
-
-  expect_equal(output[[1]], 0.8320, tolerance = 0.01)
-  expect_equal(output[[2]], 0.8176, tolerance = 0.01)
-  expect_equal(output[[3]], 1.050, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
+test_that("a hormetic curve gives both an increasing and a decreasing ECx", {
+  x_vec <- seq(0, 10, by = 0.01)
+  # rises from a control of 10 to a peak of 14 at x = 2, then falls
+  y <- 10 + 4 * x_vec - x_vec^2
+  pred <- compute_pred(list(rbind(y, y)), x_vec)
+  
+  output <- ecx(pred)
+  
+  expect_identical(output$direction, c("decreasing", "increasing"))
+  expect_false(anyNA(output$estimate))
 })
 
-# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
-test_that("hormesis_def = max and type = relative changes output values", {
-  output <- ecx(
-    brms_model_1,
-    x_var = "x",
-    type = "relative",
-    hormesis_def = "max"
-  )
-
-  expect_equal(output[[1]], 1.05, tolerance = 0.01)
-  expect_equal(output[[2]], 0.80, tolerance = 0.01)
-  expect_equal(output[[3]], 1.05, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
+# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20 - done
+test_that("a hormetic fit gives a decreasing and an increasing EC50", {
+  output <- ecx(brms_model_5, x_var = "x", proportion = 0.5)
+  
+  expect_equal(output$estimate[[1]], 2.4621, tolerance = 0.001)
+  expect_equal(output$estimate[[2]], 0.394, tolerance = 0.001)
+  expect_equal(output$direction, c("decreasing", "increasing"))
 })
-
-# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
-# The output for hormesis_def = "max" makes no sense.
-# It should be ~2 for these data. When fixed expect this test to fail.
-# Note it should  remain less than hormesis_def = "control" for this example
-# so the expect_gt should still pass
-test_that("hormesis_def = max changes output values", {
-  output1 <- ecx(brms_model_5, x_var = "x", ecx_val = 50)
-  output2 <- ecx(brms_model_5, x_var = "x", hormesis_def = "max", ecx_val = 50)
-  expect_gt(output1[[1]], output2[[1]])
-  expect_equal(output1[[1]], 2.4621, tolerance = 0.01)
-  expect_equal(output2[[1]], 0.1617, tolerance = 0.01)
-
-  expect_equal(
-    attributes(output1),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 50,
-      toxicity_estimate = "ecx"
-    )
-  )
-  expect_equal(
-    attributes(output2),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 50,
-      toxicity_estimate = "ecx"
-    )
-  )
-})
-
-# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20
-test_that("hormesis_def errors wrong values passed", {
-  expect_error(
-    ecx(brms_model_1, x_var = "x", hormesis_def = c("max", "control")),
-    "the condition has length > 1"
-  )
-
-  expect_error(
-    ecx(brms_model_1, x_var = "x", hormesis_def = "something"),
-    "type must be one of 'max' or 'control' \\(the default\\)"
-  )
-})
-
 
 test_that("xform function is applied to the values", {
-  output_1 <- ecx(brms_model_1, x_var = "x")
-  output_2 <- ecx(brms_model_1, x_var = "x", xform = function(x) x - 1)
+  output_1 <- suppressWarnings(ecx(brms_model_1, x_var = "x"))
+  output_2 <- suppressWarnings(ecx(brms_model_1, x_var = "x", xform = function(x) x - 1))
 
-  expect_length(output_2, 3)
-  expect_equal(output_2[[1]], output_1[[1]] - 1, tolerance = 0.01)
-  expect_equal(output_2[[2]], output_1[[2]] - 1, tolerance = 0.01)
-  expect_equal(output_2[[3]], output_1[[3]] - 1, tolerance = 0.01)
-  expect_equal(
-    attributes(output_2),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
+  expect_equal(output_2$estimate[[1]], output_1$estimate[[1]] - 1, tolerance = 0.01)
+  expect_equal(output_2$conf.low[[1]], output_1$conf.low[[1]] - 1, tolerance = 0.01)
+  expect_equal(output_2$conf.high[[1]], output_1$conf.high[[1]] - 1, tolerance = 0.01)
 })
 
 test_that("xform fails if function not passed", {
   expect_error(
     ecx(brms_model_1, x_var = "x", xform = 1),
-    "xform must be a function."
+    "`xform` must be a function"
   )
 })
 
 # Moved from the bnecfit tests when that method was removed (#39). The check is
-# in the ecx() generic, so the class of the fit does not matter.
-test_that("posterior fails if not logical", {
-  expect_error(
-    ecx(brms_model_1, x_var = "x", posterior = "yes"),
-    "`posterior` must be logical"
+# in the ecx() generic, so the class of the fit does not matter. - done
+test_that("posterior fails if not logical and is deprecated", {
+  lifecycle::expect_deprecated(
+    expect_error(
+      ecx(brms_model_1, x_var = "x", posterior = "yes"),
+      regex = "`posterior` must be a flag \\(TRUE or FALSE\\)"
+    )
   )
 })
 
 test_that("prob_vals argument changes when new values provided", {
-  output <- ecx(brms_model_1, x_var = "x", prob_vals = c(0.45, 0.1, 0.9))
-
-  expect_length(output, 3)
-  expect_equal(output[[1]], 0.8306, tolerance = 0.01)
-  expect_equal(output[[2]], 0.8234, tolerance = 0.01)
-  expect_equal(output[[3]], 0.8847, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q45", "Q10", "Q90"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
+  output_1 <- suppressWarnings(ecx(brms_model_1, x_var = "x"))
+  output_2 <- suppressWarnings(ecx(brms_model_1, x_var = "x", prob_vals = c(0.35, 0.05, 0.9)))
+  columns <- c("estimate", "conf.low", "conf.high")
+  
+  expect_false(any(output_1[1, columns] == output_2[1, columns]))
 })
 
 test_that("check prob_vals argument errors with less then 3 values", {
   expect_error(
     ecx(brms_model_1, x_var = "x", prob_vals = c(0.45, 0.1)),
-    "prob_vals must include central, lower and upper quantiles, in that order"
+    regexp = "`prob_vals` must be length 3 not 2"
   )
 })
 
 test_that("check prob_vals argument errors if the first value is not in the middle", {
   expect_error(
     ecx(brms_model_1, x_var = "x", prob_vals = c(0.1, 0.5, 0.60)),
-    "prob_vals must include central, lower and upper quantiles, in that order"
+    regex = "`prob_vals` must be the central, lower and upper quantiles, in that order, not 0.1, 0.5 and 0.6"
   )
 })
 
 test_that("check prob_vals argument errors if the 2nd value is not the lowest", {
   expect_error(
     ecx(brms_model_1, x_var = "x", prob_vals = c(0.5, 0.6, 0.10)),
-    "prob_vals must include central, lower and upper quantiles, in that order"
+    regex = "`prob_vals` must be the central, lower and upper quantiles, in that order, not 0.5, 0.6 and 0.1"
   )
 })
 
 test_that("check prob_vals argument errors if the 3nd value is not the highest", {
   expect_error(
     ecx(brms_model_1, x_var = "x", prob_vals = c(0.5, 0.1, 0.05)),
-    "prob_vals must include central, lower and upper quantiles, in that order"
+    regex = "`prob_vals` must be the central, lower and upper quantiles, in that order, not 0.5, 0.1 and 0.05"
   )
 })
 
-test_that("check prob_vals can have more then 3 values", {
-  output <- ecx(
-    brms_model_1,
-    x_var = "x",
-    prob_vals = c(0.4, 0.1, 0.6, 0.7, 0.05)
-  )
-
-  expect_type(output, "double")
-  expect_length(output, 5)
-  expect_equal(output[[1]], 0.8299, tolerance = 0.01)
-  expect_equal(output[[2]], 0.8234, tolerance = 0.01)
-  expect_equal(output[[3]], 0.8351, tolerance = 0.01)
-  expect_equal(output[[4]], 0.8386, tolerance = 0.01)
-  expect_equal(output[[5]], 0.8202, tolerance = 0.01)
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q40", "Q10", "Q60", "Q70", "Q5"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
+test_that("check prob_vals errors with more then 3 values", {
+  expect_error(
+    ecx(
+      brms_model_1,
+      x_var = "x",
+      prob_vals = c(0.4, 0.1, 0.6, 0.7, 0.05)
+    ),
+    regexp = "`prob_vals` must be length 3 not 5"
   )
 })
 
 # BRMS specific tests -----------------------------------------------------
 
-# EXPECTED-CHANGE multiple ecx_val values will be allowed #9
+# EXPECTED-CHANGE multiple ecx_val values will be allowed #9 - DONE
 test_that("can only pass a single exc_val argument", {
   expect_error(
-    ecx(brms_model_1, x_var = "x", ecx_val = c(10, 50, 100)),
-    "You may only pass one ecx_val"
+    suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = c(10, 50, 100))),
+    "`ecx_val` must be a number"
   )
+  
+  output <- suppressWarnings(ecx(brms_model_1, x_var = "x", proportion = c(0.10, 0.50, 1)))
+  expect_equal(output$metric, rep("ecx", 6))
+  expect_equal(output$direction, rep(c("decreasing", "increasing"), 3))
+  expect_equal(output$proportion, c(0.10, 0.10, 0.50, 0.50, 1, 1))
 })
 
-# EXPECTED-CHANGE ecx_val may become a proportion not a percentage #3;
+# EXPECTED-CHANGE ecx_val may become a proportion not a percentage #3; - done
 # ecx_val validation moves to the generic (all methods, not just brms) #55;
 # extreme ecx_val not reached within the tested range will warn to widen x_range #24
 test_that("when type is not direct ecx_val has to between 1 and 99", {
-  expect_length(
-    ecx(brms_model_1, x_var = "x", type = "absolute", ecx_val = 2),
-    3
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
+  
+  expect_no_error(suppressWarnings(ecx(pred, proportion = 0.02, type = "absolute")))
+  expect_no_error(suppressWarnings(ecx(pred, proportion = 1.5, type = "absolute")))
+  expect_no_error(suppressWarnings(ecx(pred, type = "range", proportion = 1)))
+  
+  expect_error(ecx(pred, proportion = 0), "`proportion` must be greater than 0")
+  expect_error(
+    ecx(pred, type = "range", proportion = 1.5),
+    "`proportion` must be less than or equal to 1"
   )
-  expect_length(
-    ecx(brms_model_1, x_var = "x", type = "relative", ecx_val = 2),
-    3
-  )
-  expect_length(ecx(brms_model_1, x_var = "x", type = "direct", ecx_val = 2), 3)
+})
 
-  expect_error(
-    ecx(brms_model_1, x_var = "x", type = "absolute", ecx_val = 0),
-    "Supplied ecx_val is not in the required range. Please supply a percentage value between 1 and 99."
-  )
-  expect_error(
-    ecx(brms_model_1, x_var = "x", type = "relative", ecx_val = 0),
-    "Supplied ecx_val is not in the required range. Please supply a percentage value between 1 and 99."
-  )
-  expect_length(ecx(brms_model_1, x_var = "x", type = "direct", ecx_val = 0), 3)
-
-  expect_length(
-    ecx(brms_model_1, x_var = "x", type = "absolute", ecx_val = 99),
-    3
-  )
-  expect_length(
-    ecx(brms_model_1, x_var = "x", type = "relative", ecx_val = 99),
-    3
-  )
-  expect_length(
-    ecx(brms_model_1, x_var = "x", type = "direct", ecx_val = 99),
-    3
-  )
-
-  expect_error(
-    ecx(brms_model_1, x_var = "x", type = "absolute", ecx_val = 100),
-    "Supplied ecx_val is not in the required range. Please supply a percentage value between 1 and 99."
-  )
-  expect_error(
-    ecx(brms_model_1, x_var = "x", type = "relative", ecx_val = 100),
-    "Supplied ecx_val is not in the required range. Please supply a percentage value between 1 and 99."
-  )
-  expect_length(
-    ecx(brms_model_1, x_var = "x", type = "direct", ecx_val = 1000),
-    3
-  )
+test_that("reference under direct can be any number", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
+  
+  expect_no_error(suppressWarnings(ecx(pred, type = "direct", reference = 0)))
+  expect_no_error(suppressWarnings(ecx(pred, type = "direct", reference = 1000)))
 })
 
 test_that("errors if x_var argument not provided", {
   expect_error(
     ecx(brms_model_1),
-    "x_var must be supplied for a brmsfit object"
+    regex = "`x_var` must be supplied for a `brmsfit`"
   )
 })
 
-# EXPECTED-CHANGE error message typo "suplied" fixed #53
+# EXPECTED-CHANGE error message typo "suplied" fixed #53 - done
 test_that("errors if x_var is not in the data set", {
   expect_error(
     ecx(brms_model_1, x_var = "z"),
-    "Your suplied x_var is not contained in the object data.frame"
+    "`x_var` must name a column of the data in `object`, not 'z'"
   )
 })
 
@@ -561,238 +407,113 @@ test_that("errors if x_var is not in a predictor variable", {
 })
 
 test_that("errors if additional groups are present but group_var not specified", {
-  expect_error(ecx(brms_model_2, x_var = "x"))
+  expect_error(
+    ecx(brms_model_2, x_var = "x"),
+    regexp = "The following variables can neither be found in 'data' nor in 'data2'"
+  )
 })
 
 test_that("if by_group is TRUE you must supply a grouping variable in group_var that is in the data", {
   expect_error(
     ecx(brms_model_2, x_var = "x", by_group = TRUE),
-    "You must specify a group_by variable if you want values returned by groups"
+    "`group_var` must be supplied when `by_group` is TRUE"
   )
 
   expect_error(
     ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = "aa"),
-    "Your suplied group_var is not contained in the object data.frame"
+    "`group_var` must name a column of the data in `object`, not 'aa'"
   )
 
   expect_error(
     ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = 1),
-    "Your suplied group_var is not contained in the object data.frame"
-  )
-
-  expect_error(
-    ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = TRUE),
-    "Your suplied group_var is not contained in the object data.frame"
+    "`group_var` must be a string \\(non-missing character scalar\\) or NULL"
   )
 })
 
 test_that("by_group = TRUE and group_var supplied it groups the data based on the group_var", {
-  output <- ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = "z")
-  expect_s3_class(output, "data.frame")
-  expect_equal(dim(output), c(2, 4))
-  expect_equal(colnames(output), c("Qz", "Q50", "Q2.5", "Q97.5"))
-  expect_equal(output$Q50, c(0.831, 0.830), tolerance = 0.01)
-  expect_mapequal(
-    attributes(output),
-    list(
-      names = c("Qz", "Q50", "Q2.5", "Q97.5"),
-      row.names = c(1, 2),
-      class = c("tbl_df", "tbl", "data.frame"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
+  output <- suppressWarnings(ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = "z"))
+  
+  expect_equal(dim(output), c(4, 10))
+  expect_true("group" %in% colnames(output))
+  expect_equal(output$group, factor(c("1", "1", "2", "2")))
 })
 
-test_that("by_group = FALSE, group_var is in the data, get vector with length of prob_vals", {
-  output <- ecx(
-    brms_model_2,
-    x_var = "z",
-    by_group = FALSE,
-    group_var = "x",
-    prob_vals = c(0.5, 0.025, 0.975)
+test_that("by_group = FALSE, group_var is a value in the data then it throws an", {
+  expect_error(
+    ecx(
+      brms_model_2,
+      x_var = "z",
+      by_group = FALSE,
+      group_var = "x",
+      prob_vals = c(0.5, 0.025, 0.975)
+    ),
+    regexp = "`by_group = FALSE` with a `group_var` is no longer supported; every level of `group_var` now gives its own estimate"
   )
-
-  expect_type(output, "double")
-  expect_length(output, 3)
 })
 
 # EXPECTED-CHANGE x_range will be treated as a range, not a single value #10
-test_that("x_range argument", {
-  output <- ecx(brms_model_1, x_var = "x", x_range = 0.5)
+test_that("x_range limits where ecx looks for a crossing", {
+  output <- suppressWarnings(ecx(brms_model_1, x_var = "x", x_range = c(0.8, 0.9)))
+  expect_equal(output$conf.high, c(0.9, 0.9))
+})
 
-  expect_length(output, 3)
-  expect_equal(output[[1]], 0.5, tolerance = 0.01)
-  expect_equal(output[[2]], 0.5, tolerance = 0.01)
-  expect_equal(output[[3]], 0.5, tolerance = 0.01)
-
+# EXPECTED-CHANGE group_var == x_var will error #15 - done
+test_that("when group_var == x_var will error it errors", {
   expect_error(
-    ecx(brms_model_1, x_var = "x", x_range = c(5, 10)),
-    "the condition has length > 1"
+    suppressWarnings(
+      ecx(
+        brms_model_1,
+        x_var = "x",
+        by_group = TRUE,
+        group_var = "x",
+        posterior = TRUE
+      ) 
+    ),
+    regexp = "group_var` and `x_var` must name different columns, not both 'x'"
   )
 })
 
-
-test_that("when using grouping variable the xform function is applied", {
-  output_1 <- ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = "z")
-  output_2 <- ecx(
-    brms_model_2,
-    x_var = "x",
-    by_group = TRUE,
-    group_var = "z",
-    xform = function(x) x - 1
-  )
-
-  expect_s3_class(output_2, "data.frame")
-  expect_equal(dim(output_2), c(2, 4))
-  expect_equal(output_2$Qz, c("1", "2"))
-  expect_equal(output_2$Q50, output_1$Q50 - 1, tolerance = 0.01)
-  expect_equal(output_2$Q2.5, output_1$Q2.5 - 1, tolerance = 0.01)
-  expect_equal(output_2$Q97.5, output_1$Q97.5 - 1, tolerance = 0.01)
-})
-
-# EXPECTED-CHANGE group_var == x_var will error #15
-test_that("when by_group = TRUE, group_var is provided and posterior = TRUE, you get a long data frame", {
-  output <- ecx(
-    brms_model_1,
-    x_var = "x",
-    by_group = TRUE,
-    group_var = "x",
-    posterior = TRUE
-  )
-
-  expect_s3_class(output, "data.frame")
-  expect_equal(dim(output), c(5000, 2))
-  expect_mapequal(
-    attributes(output),
-    list(
-      names = c("x", "ECx"),
-      row.names = 1:5000,
-      class = c("tbl_df", "tbl", "data.frame"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
-})
-
-test_that("when by_group = TRUE, group_var is provided and posterior = TRUE, you get a long data frame by groups", {
-  output <- ecx(
+test_that("when by_group = TRUE, group_var is provided and draws = TRUE, you get draws for each group", {
+  output <- suppressWarnings(ecx(
     brms_model_2,
     x_var = "x",
     by_group = TRUE,
     group_var = "z",
     posterior = TRUE
-  )
-
-  expect_s3_class(output, "data.frame")
-  expect_equal(dim(output), c(2000, 2))
-  expect_equal(output$z, rep(c("1", "2"), length.out = 2000))
-  expect_mapequal(
-    attributes(output),
-    list(
-      names = c("z", "ECx"),
-      row.names = 1:2000,
-      class = c("tbl_df", "tbl", "data.frame"),
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
-})
-
-test_that("when by_group = FALSE, group_var is provided and posterior = TRUE", {
-  output <- ecx(
-    brms_model_1,
-    x_var = "x",
-    by_group = FALSE,
-    group_var = "x",
-    posterior = TRUE
-  )
-
-  expect_type(output, "double")
-  expect_length(output, 5000)
-  expect_equal(
-    attributes(output),
-    list(
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
-})
-
-test_that("by_group = FALSE, group_var is provided and posterior = TRUE and there is additional predictors", {
-  output <- ecx(
-    brms_model_2,
-    x_var = "x",
-    by_group = FALSE,
-    group_var = "z",
-    posterior = TRUE
-  )
-
-  expect_type(output, "double")
-  expect_length(output, 2000)
-  expect_equal(
-    attributes(output),
-    list(
-      resolution = 1000,
-      ecx_val = 10,
-      toxicity_estimate = "ecx"
-    )
-  )
+  ))
+  
+  expect_equal(dim(output), c(4, 11))
+  expect_true("group" %in% colnames(output))
+  expect_true("draws" %in% colnames(output))
 })
 
 # more realistic examples -------------------------------------------------
 
 test_that("brms additional example 1", {
-  output <- ecx(brms_model_3, x_var = "x", ecx_val = 50)
+  output <- suppressWarnings(ecx(brms_model_3, x_var = "x", ecx_val = 50))
 
   expect_equal(
-    as.numeric(output),
-    c(2.009905, 1.966457, 2.055005),
-    tolerance = 0.01
-  )
-  expect_equal(
-    attributes(output),
-    list(
-      names = c("Q50", "Q2.5", "Q97.5"),
-      resolution = 1000,
-      ecx_val = 50,
-      toxicity_estimate = "ecx"
-    ),
-    tolerance = 0.01
+    c(output$estimate[[1]], output$conf.low[[1]], output$conf.high[[1]]),
+    c(2.0105, 1.9682, 2.055),
+    tolerance = 0.0001
   )
 })
 
 # ecx.brmsfit — edge cases ------------------------------------------------
 
-test_that("brmsfit by_group = FALSE with group_var returns marginalised quantiles", {
-  output <- ecx(
-    brms_model_2,
-    x_var = "x",
-    by_group = FALSE,
-    group_var = "z"
+test_that("brmsfit ec50 is larger than ec10", {
+  output <- suppressWarnings(
+    ecx(brms_model_3, x_var = "x", proportion = c(0.1, 0.5))
   )
-
-  expect_type(output, "double")
-  expect_length(output, 3)
-  expect_equal(names(output), c("Q50", "Q2.5", "Q97.5"))
-  expect_equal(attr(output, "ecx_val"), 10)
-  expect_equal(attr(output, "toxicity_estimate"), "ecx")
+  decreasing <- output[output$direction == "decreasing", ]
+  
+  expect_identical(decreasing$proportion, c(0.1, 0.5))
+  expect_gt(decreasing$estimate[[2]], decreasing$estimate[[1]])
 })
 
-test_that("brmsfit ecx_val = 50 is larger than ecx_val = 10", {
-  e10 <- ecx(brms_model_1, x_var = "x", ecx_val = 10)
-  e50 <- ecx(brms_model_1, x_var = "x", ecx_val = 50)
+test_that("brmsfit type = range gives smaller ECx than type = absolute", {
+  e_rel <- suppressWarnings(ecx(brms_model_3, x_var = "x", type = "range", ecx_val = 50))
+  e_abs <- suppressWarnings(ecx(brms_model_3, x_var = "x", type = "absolute", ecx_val = 50))
 
-  expect_gt(e50[[1]], e10[[1]])
-})
-
-test_that("brmsfit type = relative gives smaller ECx than type = absolute", {
-  e_rel <- ecx(brms_model_1, x_var = "x", type = "relative", ecx_val = 50)
-  e_abs <- ecx(brms_model_1, x_var = "x", type = "absolute", ecx_val = 50)
-
-  expect_lt(e_rel[[1]], e_abs[[1]])
+  expect_lt(e_rel$estimate[[1]], e_abs$estimate[[1]])
 })

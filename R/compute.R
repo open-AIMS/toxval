@@ -9,30 +9,53 @@
 #' |---|---|---|
 #' | `absolute` | control to 0 | control to 1 for a proportion, otherwise control to twice the control |
 #' | `range` | control to the minimum of the curve | control to the maximum of the curve |
-#' | `direct` | `ecx_val`, a response value | as decreasing |
+#' | `direct` | `reference`, a response value | as decreasing |
 #'
 #' The increasing `absolute` forms are extra risk for a proportion and relative
 #' deviation for any other response (T18): a 10 per cent increase from a control
 #' of 20 is 22. The reference is `NA` for a realisation whose span, the distance
 #' from the control to the bound, is zero or less, such as a control at or below
-#' 0 under `absolute`, since the percentage then has nothing to be taken of.
+#' 0 under `absolute`, since the proportion then has nothing to be taken of.
 #'
 #' Values are not summarised. A realisation with no crossing in a direction is
 #' `NA`.
 #'
 #' @param pred A `toxval_pred`.
-#' @param ecx_val The percentage effect, or the response value under `direct`.
+#' @param proportion The effect as a proportion of the span, one or more
+#'   values. Not used under `direct`.
 #' @param type One of `"absolute"`, `"range"` or `"direct"`.
+#' @param reference The response value under `direct`, and `NULL` otherwise
+#'   (T32).
 #'
-#' @return A tibble with one row per curve and direction: the columns of
-#'   `keys`, `direction`, `ecx_val`, `type`, and the list columns `control`,
-#'   `reference` and `draws`, each holding one value per realisation.
+#' @return A tibble with one row per curve, proportion and direction: the
+#'   columns of `keys`, `direction`, `proportion` (`NA` under `direct`), `type`,
+#'   and the list columns `control`, `reference` and `draws`, each holding one
+#'   value per realisation.
 #'
 #' @noRd
-compute_ecx <- function(pred, ecx_val = 10, type = "absolute") {
+compute_ecx <- function(
+  pred,
+  proportion = 0.1,
+  type = "absolute",
+  reference = NULL
+) {
   chk::chk_s3_class(pred, "toxval_pred")
   chk_type(type)
-  chk_ecx_val(ecx_val, type)
+  if (type == "direct") {
+    if (is.null(reference)) {
+      chk::abort_chk("`reference` must be supplied when `type` is 'direct'.")
+    }
+    chk::chk_number(reference)
+    proportion <- NA_real_
+  } else {
+    if (!is.null(reference)) {
+      chk::abort_chk(
+        "`reference` must be NULL unless `type` is 'direct'; the reference ",
+        "is computed from `proportion`."
+      )
+    }
+    chk_proportion(proportion, type)
+  }
 
   upper <- response_upper_bound(pred$meta)
 
@@ -40,22 +63,25 @@ compute_ecx <- function(pred, ecx_val = 10, type = "absolute") {
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
-    reference <- ecx_reference(curve, ecx_val, type, upper)
-    draws <- lapply(directions(), function(direction) {
-      crossings_by_row(curve, pred$x_vec, reference[[direction]], direction)
-    })
+    by_proportion <- lapply(proportion, function(p) {
+      references <- ecx_reference(curve, p, type, upper, reference)
+      draws <- lapply(directions(), function(direction) {
+        crossings_by_row(curve, pred$x_vec, references[[direction]], direction)
+      })
 
-    dplyr::bind_cols(
-      keys_by_direction(pred$keys, i),
-      dplyr::tibble(
-        direction = directions(),
-        ecx_val = ecx_val,
-        type = type,
-        control = list(control, control),
-        reference = unname(reference[directions()]),
-        draws = unname(draws)
+      dplyr::bind_cols(
+        keys_by_direction(pred$keys, i),
+        dplyr::tibble(
+          direction = directions(),
+          proportion = p,
+          type = type,
+          control = list(control, control),
+          reference = unname(references[directions()]),
+          draws = unname(draws)
+        )
       )
-    )
+    })
+    dplyr::bind_rows(by_proportion)
   })
   dplyr::bind_rows(rows)
 }
@@ -240,21 +266,23 @@ reference_span <- function(curve, type, upper) {
 
 #' The ECx reference for every realisation of a curve, in each direction
 #'
+#' @param proportion A single proportion of the span.
+#' @param reference The response value under `direct`.
+#'
 #' @noRd
-ecx_reference <- function(curve, ecx_val, type, upper) {
+ecx_reference <- function(curve, proportion, type, upper, reference = NULL) {
   n <- nrow(curve)
   if (type == "direct") {
     return(list(
-      decreasing = rep(ecx_val, n),
-      increasing = rep(ecx_val, n)
+      decreasing = rep(reference, n),
+      increasing = rep(reference, n)
     ))
   }
   control <- curve[, 1]
-  p <- ecx_val / 100
   span <- reference_span(curve, type, upper)
   list(
-    decreasing = control - span$decreasing * p,
-    increasing = control + span$increasing * p
+    decreasing = control - span$decreasing * proportion,
+    increasing = control + span$increasing * proportion
   )
 }
 

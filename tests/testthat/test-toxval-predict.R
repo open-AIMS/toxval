@@ -859,3 +859,26 @@ test_that("toxval_predict handles a single bootstrap replicate", {
     tolerance = 1e-6
   )
 })
+
+test_that("toxval_predict errors when x_range runs outside where the model is defined", {
+  # brms_model_1 is y ~ log(x), which has no value at x <= 0
+  expect_error(
+    suppressWarnings(
+      toxval_predict(brms_model_1, x_var = "x", x_range = c(-1, 1.05))
+    ),
+    "`x_range` must lie where the model is defined"
+  )
+})
+
+test_that("chk_defined_grid allows a non-finite value in some realisations", {
+  curve <- rbind(c(10, NaN, 8), c(10, 9, 8))
+  expect_silent(chk_defined_grid(list(curve), c(0, 1, 2)))
+})
+
+test_that("chk_defined_grid errors at a grid value with no finite realisation", {
+  curve <- rbind(c(NaN, 9, 8), c(NaN, 9, 8))
+  expect_error(
+    chk_defined_grid(list(curve), c(0, 1, 2)),
+    "no finite prediction at 1 of 3 grid values, between 0 and 0"
+  )
+})

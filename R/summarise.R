@@ -53,7 +53,7 @@ summarise_metric <- function(
   chk_prob_vals(prob_vals)
   chk::chk_function(xform)
   chk::chk_flag(draws)
-  
+
   x_control <- pred$meta$x_control
   x_max <- max(pred$x_vec)
   key_cols <- names(pred$keys)
@@ -66,7 +66,7 @@ summarise_metric <- function(
   identifiers <- dplyr::tibble(metric = metric, direction = rows$direction)
   keys <- rows[key_cols]
   estimates <- dplyr::bind_rows(lapply(summaries, function(s) s$estimates))
-  arguments <- rows[intersect(c("ecx_val", "sig_val", "type"), names(rows))]
+  arguments <- rows[intersect(c("proportion", "sig_val", "type"), names(rows))]
   descriptors <- dplyr::bind_rows(lapply(summaries, function(s) s$descriptors))
 
   out <- dplyr::bind_cols(identifiers, keys, estimates, arguments, descriptors)
@@ -91,7 +91,6 @@ summarise_metric <- function(
 #'
 #' @noRd
 summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
-  
   values <- row$draws[[1]]
   control <- row$control[[1]]
   # one value per realisation for an ECx, one for the curve for an NSEC

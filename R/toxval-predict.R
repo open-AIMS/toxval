@@ -63,7 +63,7 @@ toxval_predict <- function(
   object,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
   ...
 ) {
@@ -93,7 +93,7 @@ toxval_predict.default <- function(
   object,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
   ...
 ) {
@@ -118,7 +118,7 @@ toxval_predict.brmsfit <- function(
   object,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
   ...
 ) {
@@ -142,6 +142,7 @@ toxval_predict.brmsfit <- function(
 
   x_vec <- predict_grid(x_range, data[[x_var]], resolution)
   curve_set <- brms_curves(object, x_vec, x_var, group_var)
+  chk_defined_grid(curve_set$curves, x_vec)
 
   # check effects are population-level
   curves <- curve_set$curves
@@ -189,7 +190,7 @@ toxval_predict.drc <- function(
   object,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
   n_boot = 1000,
   seed = NULL,
@@ -218,6 +219,7 @@ toxval_predict.drc <- function(
 
   x_vec <- predict_grid(x_range, data[[x_var]], resolution)
   curve_set <- drc_curves(object, x_vec, group_var, n_boot, seed)
+  chk_defined_grid(curve_set$curves, x_vec)
 
   new_toxval_pred(
     curves = curve_set$curves,
@@ -555,6 +557,41 @@ predict_grid <- function(x_range, x, resolution) {
     }
   }
   seq(x_range[1], x_range[2], length.out = resolution)
+}
+
+#' Check that the model is defined over the whole grid
+#'
+#' A grid value at which no realisation of a curve has a finite prediction lies
+#' outside where the model is defined, such as `x <= 0` for a formula with
+#' `log(x)`. That is a mismatch between `x_range` and the model, so it errors
+#' (T3) rather than returning `NA` estimates. A non-finite value in only some
+#' realisations is left for `find_crossings()`, which skips it.
+#'
+#' @param curves The list of realisation matrices.
+#' @param x_vec The predictor grid.
+#'
+#' @return `curves`, invisibly.
+#'
+#' @noRd
+chk_defined_grid <- function(curves, x_vec) {
+  undefined <- rep(FALSE, length(x_vec))
+  for (curve in curves) {
+    undefined <- undefined | colSums(is.finite(curve)) == 0
+  }
+  if (any(undefined)) {
+    chk::abort_chk(
+      "`object` gives no finite prediction at ",
+      sum(undefined),
+      " of ",
+      length(x_vec),
+      " grid values, between ",
+      format(min(x_vec[undefined]), digits = 4),
+      " and ",
+      format(max(x_vec[undefined]), digits = 4),
+      "; `x_range` must lie where the model is defined."
+    )
+  }
+  invisible(curves)
 }
 
 #' @noRd
