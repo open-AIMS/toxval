@@ -614,7 +614,12 @@ The results:
 - With `thin = 3`, four chains and 500 post-warmup iterations, each equation
   held 668 draws while `sample_size` recorded 667. The stored index was
   therefore bypassed by both packages and rebuilt from `w_draw_seed`, giving
-  668 realisations. The `decline` sets on binomial and beta gave 1001 and 999
+  668 realisations. `bayesnec`'s stored summaries, its `ecx()` and its `nsec()`
+  pass the stored `sample_size` and so keep the stored index of 667 draws. On
+  such a set `toxval`'s metrics and `bayesnec::ecx()` are therefore computed on
+  different draws. The fault is `bayesnec` #477. `bayesnec_manec_example` holds
+  100 draws per equation and records 100, so the task 5 comparison on it is
+  unaffected. The `decline` sets on binomial and beta gave 1001 and 999
   realisations, from rounding each equation's share. Both packages do the same.
 - In a session using `RNGkind("L'Ecuyer-CMRG")`, the rebuilt index again
   matched `bayesnec`. It differed from the index rebuilt under the default
@@ -642,6 +647,12 @@ fit. With a `trials()` expression rather than a column, such as `trials(n * 2)`,
 `bnec_newdata()` sets `n` to 1 and the curve is predicted for two trials.
 `response_upper_bound()` then gives 1 for a curve that reaches 2. A bare
 `trials()` column, the form in every example found, is unaffected.
+
+The scripts are in `tests/local/bayesnec-robustness/`, and its `README.md`
+gives their order and settings. `compare-fits.R` makes the comparison and
+`check-edges.R` the checks on the joint level, the log predictor, the thinned
+set and the generator. The fits are written to the user cache rather than the
+repository, because they take about 3.3 GB.
 
 ## 4. Tasks
 
@@ -815,6 +826,10 @@ and for task 4. `ecx()` has called it since `6bdd99c`.
   - `nsec(anchor = "component")` against `bayesnec::nsec()` on
     `manec_example` at `sig_val = 0.01`: the difference in each quantile is
     reported in the pull request, not asserted (§3.2).
+  - the fits of `tests/local/bayesnec-robustness/` (§3.7), where structures
+    beyond the fixtures are wanted. A model set whose `sample_size` differs
+    from its draws (`bayesnec` #477) is left out of the per-realisation
+    comparison with `bayesnec::ecx()`.
 - The README section on `bayesnec` fits and the masking paragraph (§3.6).
 - The `Description` field of `DESCRIPTION` names `bayesnec`.
 - An example on `?toxval_predict` using `manec_example`, inside `\donttest{}`

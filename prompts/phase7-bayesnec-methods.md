@@ -470,3 +470,79 @@ scratchpad only (`fit-common.R`, `fit-families.R`, `fit-allset.R`,
 `fit-cr.R`, `fit-features.R`, `fit-ops.R`, `compare-fits.R`).
 
 ---
+
+**User:** push both commits, open the bayesnec issue about the draw count, and
+move the scripts into the repo
+
+**Claude:** `49fe974` and `65e2d69` were pushed to `origin`.
+
+Before writing the issue, the `thin = 3` set was measured again on the predev
+export. Its two equations, `nec4param` (weight 0.83) and `ecx4param` (0.17),
+hold 668 draws each, while `sample_size` is 667. The stored index keeps 553
+and 114 rows drawn from rows 1 to 667. `posterior_epred()` rebuilds 554 and
+114 rows from rows 1 to 668. The two indices share 518 and 106 rows.
+
+- `bayesnec`'s `posterior_epred()` is identical to the rows taken under the
+  rebuilt index.
+- The stored plot data, `w_pred_vals$data` at 1000 grid values, are identical
+  to the summary under the stored index. They differ from the summary of
+  `posterior_epred()` on the same grid by up to 0.0038.
+- `bayesnec::ecx(posterior = TRUE)` returns 667 draws.
+
+So `bayesnec`'s stored summaries, `ecx()`, `nsec()` and
+`extrapolated_manec_ne()` take `object$sample_size` and keep the stored index.
+`posterior_epred()`, `posterior_predict()` and the two asymptote helpers count
+the draws themselves and rebuild a different index.
+
+The count comes from `extract_simdat()`:
+`ceiling((iter - warmup) / thin * chains)`. Stan keeps
+`ceiling((iter - warmup) / thin)` draws per chain. The two counts differ when
+the fractional part of `(iter - warmup) / thin` is greater than 0 and at most
+`(chains - 1) / chains`. At the `bnec()` defaults, the counts were computed
+rather than fitted: 2668 kept against 2667 recorded for `thin = 3`, and 728
+both ways for `thin = 11`. The code involved is unchanged on the current
+`predev`, `a710fc5a`.
+
+No existing issue covered this; #327 and #216 are related but different. The
+fault was opened as open-AIMS/bayesnec#477, written to CLAUDE.md §14. The fold
+holds the files and lines, two possible corrections, and the open question
+about objects already saved. Counting the draws from the fit is preferred,
+because the stored count and the counted one cannot then disagree.
+`bayesnec_manec_example` records 100 of its 100 draws, so it is unaffected.
+
+The harness went to `tests/local/bayesnec-robustness/`:
+
+- `common.R`, the shared set-up, with three changes from the scratchpad
+  copy:
+  - the scripts run from the repository root and check that they do;
+  - `BAYESNEC_SOURCE` names a source tree to `load_all()`, falling back to
+    the installed `bayesnec`;
+  - the fits go to `TOXVAL_ROBUSTNESS_DIR`, by default
+    `tools::R_user_dir("toxval", "cache")`. Inside the repository, R CMD
+    build would copy their 3.3 GB into the tarball.
+- `fit-families.R`, `fit-allset.R`, `fit-features.R`, `fit-cr.R` and
+  `fit-ops.R`, the fits. `fit-cr.R` reads `CR_WORKFLOWS`, by default
+  `../CR_workflows`.
+- `compare-fits.R`, the comparison, which now writes its table to the fit
+  folder.
+- `check-edges.R`, new. It gathers the checks that had been run inline:
+  - the refusal of a `bayesnecjointlevel`;
+  - `crf(log(x))` with `x_range = c(0, 3)`;
+  - the #477 measurement;
+  - the L'Ecuyer-CMRG generator, run last because it changes the generator.
+- `README.md`: the order of the scripts, their settings, and provenance (R
+  4.6.1, brms 2.23.0, rstan 2.32.7, predev `116ea91b`).
+
+The scripts were formatted with air. Every script was rerun from the
+repository against the saved fits, and each fit script skipped all of them.
+The comparison table was `identical()` to the recorded one: 137 rows, 128
+identical to `bayesnec` and 9 refusals, with no ECx or NSEC error. The edge
+checks reproduced every recorded result.
+
+`BAYESNEC-claude.md` §3.7 now names the script folder. Its `thin` bullet adds
+that `bayesnec`'s `ecx()` and `nsec()` keep the stored index, cites #477, and
+records that the fixture is unaffected. Task 5 lists the harness fits as a
+further source, and leaves a set whose `sample_size` differs from its draws
+out of the per-realisation comparison.
+
+---
