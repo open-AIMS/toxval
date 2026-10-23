@@ -20,35 +20,28 @@ test_that("chk_type errors when type is not a string", {
   )
 })
 
-# chk_ecx_val ------------------------------------------------------------------
+# chk_proportion ------------------------------------------------------------------
 
-test_that("chk_ecx_val accepts a value above 100 under absolute", {
-  expect_silent(toxval:::chk_ecx_val(150, "absolute"))
+test_that("chk_proportion accepts a value above 100 under absolute", {
+  expect_silent(toxval:::chk_proportion(1.50, "absolute"))
 })
 
-test_that("chk_ecx_val errors on a value above 100 under range", {
+test_that("chk_proportion errors on a value above 100 under range", {
   expect_error(
-    toxval:::chk_ecx_val(101, "range"),
-    "`ecx_val` must be less than or equal to 100, not 101."
+    toxval:::chk_proportion(1.01, "range"),
+    "`proportion` must be less than or equal to 1, not 1.01."
   )
 })
 
-test_that("chk_ecx_val errors on a value of 0 or below under absolute", {
+test_that("chk_proportion errors on a value of 0 or below under absolute", {
   expect_error(
-    toxval:::chk_ecx_val(0, "absolute"),
-    "`ecx_val` must be greater than 0, not 0."
+    toxval:::chk_proportion(0, "absolute"),
+    "`proportion` must be greater than 0, not 0."
   )
 })
 
-test_that("chk_ecx_val accepts a negative response value under direct", {
-  expect_silent(toxval:::chk_ecx_val(-2.5, "direct"))
-})
-
-test_that("chk_ecx_val errors when ecx_val is not a single number", {
-  expect_error(
-    toxval:::chk_ecx_val(c(10, 50), "absolute"),
-    "`ecx_val` must be a number"
-  )
+test_that("chk_proportion accepts several values", {
+  expect_silent(toxval:::chk_proportion(c(0.10, 0.50), "absolute"))
 })
 
 # chk_sig_val ------------------------------------------------------------------

@@ -9,10 +9,10 @@ test_that("compute_ecx returns one row per direction for an ungrouped fit", {
   expect_s3_class(result, "tbl_df")
   expect_named(
     result,
-    c("direction", "ecx_val", "type", "control", "reference", "draws")
+    c("direction", "proportion", "type", "control", "reference", "draws")
   )
   expect_identical(result$direction, c("decreasing", "increasing"))
-  expect_identical(result$ecx_val, c(10, 10))
+  expect_identical(result$proportion, c(0.10, 0.10))
   expect_identical(result$type, c("absolute", "absolute"))
 })
 
@@ -20,7 +20,7 @@ test_that("compute_ecx builds the absolute reference from each realisation's con
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 8 - x_vec)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_equal(result$control[[1]], c(10, 8))
   expect_equal(result$reference[[1]], c(9, 7.2))
@@ -31,7 +31,7 @@ test_that("compute_ecx returns NA for a direction with no crossing", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_equal(result$draws[[1]], c(1, 0.5))
   expect_identical(result$draws[[2]], c(NA_real_, NA_real_))
@@ -42,7 +42,7 @@ test_that("compute_ecx takes the increasing absolute reference towards 1 for a p
   y <- 0.1 + 0.08 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec, family = "beta")
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 50)
+  result <- toxval:::compute_ecx(pred, proportion = 0.50)
 
   expect_equal(result$reference[[2]], c(0.55, 0.55))
   expect_equal(result$draws[[2]], c(5.625, 5.625))
@@ -54,7 +54,7 @@ test_that("compute_ecx takes the increasing absolute reference as a percentage o
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(20 + x_vec, 10 + x_vec)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_equal(result$reference[[2]], c(22, 11))
   expect_equal(result$draws[[2]], c(2, 1))
@@ -70,7 +70,7 @@ test_that("compute_ecx treats a binomial drc fit as a proportion", {
     source_class = "drc"
   )
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 50)
+  result <- toxval:::compute_ecx(pred, proportion = 0.50)
 
   expect_equal(result$reference[[2]], c(0.55, 0.55))
 })
@@ -81,7 +81,7 @@ test_that("compute_ecx returns an NA increasing absolute reference for a binomia
   y <- 2 + x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec, family = "binomial")
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_identical(result$reference[[2]], c(NA_real_, NA_real_))
   expect_equal(result$reference[[1]], c(1.8, 1.8))
@@ -95,19 +95,19 @@ test_that("compute_ecx returns an NA absolute reference where the control is at 
     x_vec
   )
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_equal(result$reference[[1]], c(NA, NA, 1.8))
   expect_equal(result$reference[[2]], c(NA, NA, 2.2))
   expect_equal(result$draws[[1]], c(NA, NA, 2))
 })
 
-test_that("compute_ecx accepts an absolute ecx_val above 100 for a response that goes negative", {
+test_that("compute_ecx accepts an absolute proportion above 100 for a response that goes negative", {
   x_vec <- 0:10
   y <- 10 - 2 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 150)
+  result <- toxval:::compute_ecx(pred, proportion = 1.50)
 
   expect_equal(result$reference[[1]], c(-5, -5))
   expect_equal(result$draws[[1]], c(7.5, 7.5))
@@ -118,8 +118,8 @@ test_that("compute_ecx measures the range reference down to the minimum of the c
   y <- 10 - 0.5 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec)
 
-  range <- toxval:::compute_ecx(pred, ecx_val = 10, type = "range")
-  absolute <- toxval:::compute_ecx(pred, ecx_val = 10, type = "absolute")
+  range <- toxval:::compute_ecx(pred, proportion = 0.10, type = "range")
+  absolute <- toxval:::compute_ecx(pred, proportion = 0.10, type = "absolute")
 
   expect_equal(range$reference[[1]], c(9.5, 9.5))
   expect_equal(range$draws[[1]], c(1, 1))
@@ -131,7 +131,7 @@ test_that("compute_ecx measures the range reference up to the maximum of the cur
   y <- 2 + 0.5 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 20, type = "range")
+  result <- toxval:::compute_ecx(pred, proportion = 0.20, type = "range")
 
   expect_equal(result$reference[[2]], c(3, 3))
   expect_equal(result$draws[[2]], c(2, 2))
@@ -140,12 +140,12 @@ test_that("compute_ecx measures the range reference up to the maximum of the cur
   expect_identical(result$draws[[1]], c(NA_real_, NA_real_))
 })
 
-test_that("compute_ecx uses ecx_val as the reference in both directions under direct", {
+test_that("compute_ecx uses proportion as the reference in both directions under direct", {
   x_vec <- 0:4
   y <- c(6, 8, 10, 8, 6)
   pred <- compute_pred(list(rbind(y, y)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 7, type = "direct")
+  result <- toxval:::compute_ecx(pred, reference = 7, type = "direct")
 
   expect_equal(result$reference[[1]], c(7, 7))
   expect_equal(result$reference[[2]], c(7, 7))
@@ -162,7 +162,7 @@ test_that("compute_ecx returns rows for each group in the order of keys", {
     group_var = "site"
   )
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_identical(result$group, factor(c("B", "B", "A", "A"), c("B", "A")))
   expect_identical(result$direction, rep(c("decreasing", "increasing"), 2))

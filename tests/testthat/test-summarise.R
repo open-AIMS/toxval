@@ -20,7 +20,7 @@ test_that("summarise_metric returns a toxval tibble with the ecx columns", {
       "estimate",
       "conf.low",
       "conf.high",
-      "ecx_val",
+      "proportion",
       "type",
       "control",
       "reference"
@@ -165,7 +165,7 @@ test_that("summarise_metric places a realisation already past the reference at x
   )
 
   result <- summarise_metric(
-    compute_ecx(pred, ecx_val = 5, type = "direct"),
+    compute_ecx(pred, reference = 5, type = "direct"),
     pred,
     "ecx",
     prob_vals = all_quantiles
@@ -293,7 +293,7 @@ test_that("summarise_metric sets control to NA under direct", {
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
 
   result <- summarise_metric(
-    compute_ecx(pred, ecx_val = 5, type = "direct"),
+    compute_ecx(pred, reference = 5, type = "direct"),
     pred,
     "ecx"
   )

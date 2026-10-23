@@ -382,6 +382,7 @@ test_that("reference under direct can be any number", {
   
   expect_no_error(suppressWarnings(ecx(pred, type = "direct", reference = 0)))
   expect_no_error(suppressWarnings(ecx(pred, type = "direct", reference = 1000)))
+  expect_no_error(suppressWarnings(ecx(pred, type = "direct", reference = -0.25)))
 })
 
 test_that("errors if x_var argument not provided", {
