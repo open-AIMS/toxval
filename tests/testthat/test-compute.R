@@ -225,6 +225,7 @@ test_that("compute_nsec returns one row per direction for an ungrouped fit", {
       "direction",
       "sig_val",
       "type",
+      "anchor",
       "reference",
       "control",
       "draws",
@@ -286,7 +287,7 @@ test_that("compute_nsec computes the absolute ecnsec against 0 when decreasing",
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_equal(result$ecnsec[[1]], c(-5.556, 5, 13.636), tolerance = 0.001)
+  expect_equal(result$ecnsec[[1]], c(-0.0556, 0.05, 0.13636), tolerance = 0.001)
 })
 
 test_that("compute_nsec computes the absolute ecnsec against 1 when increasing for a proportion", {
@@ -299,7 +300,7 @@ test_that("compute_nsec computes the absolute ecnsec against 1 when increasing f
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_equal(result$ecnsec[[2]], c(16.667, 6.25, -7.143), tolerance = 0.001)
+  expect_equal(result$ecnsec[[2]], c(0.16667, 0.0625, -0.07143), tolerance = 0.001)
 })
 
 test_that("compute_nsec computes the absolute ecnsec against the control when increasing for an unbounded response", {
@@ -311,7 +312,7 @@ test_that("compute_nsec computes the absolute ecnsec against the control when in
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_equal(result$ecnsec[[2]], c(16.667, 5, -4.545), tolerance = 0.001)
+  expect_equal(result$ecnsec[[2]], c(0.16667, 0.05, -0.04545), tolerance = 0.001)
 })
 
 # A span of zero or less gives no percentage, so `ecnsec` is NA rather than
@@ -327,7 +328,7 @@ test_that("compute_nsec returns an NA ecnsec only for the draws of a proportion 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
   expect_equal(result$reference[2], 1.5)
-  expect_equal(result$ecnsec[[2]], c(200, NA, NA))
+  expect_equal(result$ecnsec[[2]], c(2, NA, NA))
 })
 
 # A span of zero or less gives no percentage (RF, PR #62 review)
@@ -341,7 +342,7 @@ test_that("compute_nsec returns an NA ecnsec when the control is at or below 0 w
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
   expect_equal(result$reference[1], -0.5)
-  expect_equal(result$ecnsec[[1]], c(NA, NA, 125))
+  expect_equal(result$ecnsec[[1]], c(NA, NA, 1.25))
 })
 
 test_that("compute_nsec computes the range ecnsec against the minimum of the curve", {
@@ -353,7 +354,7 @@ test_that("compute_nsec computes the range ecnsec against the minimum of the cur
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25, type = "range")
 
-  expect_equal(result$ecnsec[[1]], c(-5, 5, 15))
+  expect_equal(result$ecnsec[[1]], c(-0.05, 0.05, 0.15))
 })
 
 # A span of zero or less gives no percentage (RF, PR #62 review)

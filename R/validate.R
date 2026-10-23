@@ -33,6 +33,15 @@ chk_proportion <- function(proportion, type) {
   invisible(proportion)
 }
 
+#' `"model"` and `"component"` only; `"control"` is left out of phase 4 (T23).
+#'
+#' @noRd
+chk_anchor <- function(anchor) {
+  chk::chk_string(anchor, x_name = "`anchor`")
+  chk::chk_subset(anchor, c("model", "component"), x_name = "`anchor`")
+  invisible(anchor)
+}
+
 #' `sig_val` sets the decreasing reference and `1 - sig_val` the increasing
 #' one, so it must be below 0.5 for the two to lie either side of the control.
 #' Values above the lower probability of the summary interval are allowed:

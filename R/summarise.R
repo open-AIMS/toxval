@@ -9,7 +9,9 @@
 #'
 #' - one whose control already lies beyond the reference in the direction
 #'   sought takes `meta$x_control`, the lowest concentration in the data;
-#' - one whose reference is `NA`, a span of zero or less (T18), is excluded;
+#' - one whose reference is `NA`, a span of zero or less (T18), or whose
+#'   control is not finite, such as a bootstrap draw outside the parameter
+#'   space, is excluded;
 #' - any other has no crossing within the evaluated range. It ranks above
 #'   `max(x_vec)` and is given no value, so a quantile that falls among such
 #'   realisations is reported as `max(x_vec)`.
@@ -66,7 +68,10 @@ summarise_metric <- function(
   identifiers <- dplyr::tibble(metric = metric, direction = rows$direction)
   keys <- rows[key_cols]
   estimates <- dplyr::bind_rows(lapply(summaries, function(s) s$estimates))
-  arguments <- rows[intersect(c("proportion", "sig_val", "type"), names(rows))]
+  arguments <- rows[intersect(
+    c("proportion", "sig_val", "type", "anchor"),
+    names(rows)
+  )]
   descriptors <- dplyr::bind_rows(lapply(summaries, function(s) s$descriptors))
 
   out <- dplyr::bind_cols(identifiers, keys, estimates, arguments, descriptors)
@@ -101,7 +106,7 @@ summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
   reference <- rep_len(reference, length(values))
 
   no_crossing <- is.na(values)
-  excluded <- no_crossing & is.na(reference)
+  excluded <- no_crossing & (is.na(reference) | !is.finite(control))
   if (row$direction == "decreasing") {
     past_reference <- control <= reference
   } else {

@@ -10,22 +10,6 @@
 
 # Tests for helper functions in R/helpers.R
 
-# clean_names --------------------------------------------------------------
-
-test_that("clean_names strips % and adds Q prefix", {
-  x <- c("50%" = 1, "2.5%" = 2, "97.5%" = 3)
-  result <- toxval:::clean_names(x)
-
-  expect_equal(result, c("Q50", "Q2.5", "Q97.5"))
-})
-
-test_that("clean_names handles integer percentiles", {
-  x <- c("10%" = 1, "90%" = 2)
-  result <- toxval:::clean_names(x)
-
-  expect_equal(result, c("Q10", "Q90"))
-})
-
 # nsec_fct -----------------------------------------------------------------
 
 test_that("nsec_fct returns max x_vec when no crossing found", {

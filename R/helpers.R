@@ -1,9 +1,4 @@
 #' @noRd
-clean_names <- function(x) {
-  paste0("Q", gsub("%", "", names(x), fixed = TRUE))
-}
-
-#' @noRd
 get_nsec_multi <- function(a, sig_val, x_vec, xform) {
   reference_dec <- quantile(a[, 1], sig_val)
   nsec_out_dec <- xform(apply(

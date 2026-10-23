@@ -1,34 +1,54 @@
-#' Extracts the predicted NSEC value as desired from a supported class.
+#' Estimate NSEC values from a fitted model
 #'
-#' @inheritParams toxval_params
+#' Estimates the No-Significant-Effect Concentration (NSEC), the concentration
+#' at which the fitted response departs from the control by more than its
+#' uncertainty allows, in each direction, for a fitted concentration-response
+#' model or for a [toxval_pred] built from one.
 #'
-#' @details For `hormesis_def`, if "max", then NSEC values are calculated
-#' as a decline from the maximum estimates (i.e. the peak at NEC);
-#' if "control", then NSEC values are calculated relative to the control, which
-#' is assumed to be the lowest observed concentration.
+#' @details
+#' The model is evaluated over a grid of concentrations once per realisation,
+#' by [toxval_predict()]: once per posterior draw for a Bayesian fit, and once
+#' per parametric bootstrap replicate for a frequentist one.
 #'
-#' Calls to functions [ecx()] and [nsec()] and
-#' `compare_fitted()` in the bayesnec package do not require the same level of
-#' flexibility in the context of allowing argument `newdata`
-#' (from a [brms::posterior_predict()] perspective) to
-#' be supplied manually, as this is and should be handled within the function
-#' itself. The argument `resolution` controls how precisely the
-#' [ecx()] or [nsec()] value is estimated, with
-#' argument `x_range` allowing estimation beyond the existing range of
-#' the observed data (otherwise the default range) which can be useful in a
-#' small number of cases. There is also no reasonable case where estimating
-#' these from the raw data would be of value, because both functions would
-#' simply return one of the treatment concentrations, making NOEC a better
-#' metric in that case.
+#' The reference for the decreasing direction is the `sig_val` quantile of the
+#' control realisations, the predicted response at the lowest concentration,
+#' and for the increasing direction the `1 - sig_val` quantile. The NSEC is
+#' found for each realisation against that reference, and the realisations are
+#' summarised by `prob_vals`. A direction in which no realisation crosses is
+#' returned with `NA` estimates.
 #'
-#' @return A vector containing the estimated NSEC value, including upper and
-#' lower 95% credible interval bounds.
+#' A fraction `sig_val` of the realisations have a control already beyond the
+#' reference; these are placed at the lowest concentration in the data. A
+#' realisation that does not reach the reference within the evaluated range
+#' ranks above the highest concentration, and an interval limit that falls
+#' among such realisations is reported as the highest concentration, with a
+#' warning.
+#'
+#' `ecnsec` is the effect at the NSEC, as a proportion of the span named by
+#' `type`: the inverse of the [ecx()] reference under the same `type`.
+#'
+#' NSECs are not estimated for `drc` NEC models, whose threshold is a parameter
+#' of the model rather than a feature of a smooth curve.
+#'
+#' @inheritParams ecx
+#' @param sig_val A number between 0 and 0.5, the quantile of the control
+#'   realisations that sets the decreasing reference; `1 - sig_val` sets the
+#'   increasing one.
+#' @param type One of `"absolute"` or `"range"`, naming the span `ecnsec` is a
+#'   proportion of. See [ecx()].
+#' @param anchor One of `"model"` (the default) or `"component"`, where the
+#'   reference is taken from for a model-averaged fit: the averaged control,
+#'   or each component model's own control. The two coincide for a fit that is
+#'   not model-averaged.
+#' @param curveid `r lifecycle::badge("deprecated")` Use `group_var`.
+#'
+#' @return A `toxval` tibble with one row per curve and direction.
 #'
 #' @examples
 #' \donttest{
 #' if (requireNamespace("drc", quietly = TRUE)) {
 #'   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
-#'   nsec(fit, x_var = "conc")
+#'   nsec(fit, seed = 42)
 #' }
 #' }
 #'
@@ -36,384 +56,117 @@
 nsec <- function(
   object,
   sig_val = 0.01,
-  resolution = 100,
-  x_range = NA,
-  hormesis_def = "control",
-  xform = identity,
+  type = "absolute",
+  anchor = "model",
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
-  posterior = FALSE,
-  ...
-) {
-  chk::chk_numeric(sig_val)
-  chk::chk_numeric(resolution)
-  chk::chk_logical(posterior)
-
-  if (length(sig_val) > 1) {
-    stop("You may only pass one sig_val")
-  }
-  if ((hormesis_def %in% c("max", "control")) == FALSE) {
-    stop(
-      "type must be one of \"max\" or \"control\" (the default). ",
-      "Please see ?ecx for more details."
-    )
-  }
-  if (!inherits(xform, "function")) {
-    stop("xform must be a function.")
-  }
-  if (
-    length(prob_vals) < 3 |
-      prob_vals[1] < prob_vals[2] |
-      prob_vals[1] > prob_vals[3] |
-      prob_vals[2] > prob_vals[3]
-  ) {
-    stop(
-      "prob_vals must include central, lower and upper quantiles,",
-      " in that order."
-    )
-  }
-
-  UseMethod("nsec")
-}
-
-#' @describeIn nsec Method for a raw `brms` fit of class [brms::brmsfit]
-#'   returned by [brms::brm()]. Requires `x_var`, and supports estimates per
-#'   group via `group_var` and `by_group`.
-#'
-#' @param x_var A character indicating the name of the predictor (x) data in
-#'   `object`.
-#' @param group_var A character indicating the name of the grouping variable in
-#'   `object`.
-#' @param by_group A logical indicating if values should be returned for each
-#'   level in `group_var`, or marginalised across all groups.
-#' @param horme Logical indicating if hormesis is evident.
-#'
-#' @export
-nsec.brmsfit <- function(
-  object,
-  sig_val = 0.01,
-  resolution = 1000,
-  x_range = NA,
-  hormesis_def = "control",
   xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  posterior = FALSE,
-  x_var,
-  group_var = NA,
-  by_group = FALSE,
-  horme = FALSE,
-  ...
-) {
-  if (is.na(x_range)) {
-    x_range <- range(object$data[x_var])
-  }
-
-  if (missing(x_var)) {
-    stop("x_var must be supplied for a brmsfit object.")
-  }
-  if (by_group & is.na(group_var)) {
-    stop(
-      "You must specify a group_by variable if you want values returned by groups."
-    )
-  }
-
-  col_names <- colnames(object$data)
-  if (max(grepl(x_var, col_names)) == 0) {
-    stop("Your suplied x_var is not contained in the object data.frame")
-  }
-  if (!is.na(group_var)) {
-    if (max(grepl(group_var, col_names)) == 0) {
-      stop("Your suplied group_var is not contained in the object data.frame")
-    }
-  }
-
-  x_vec <- seq(min(x_range), max(x_range), length = resolution)
-
-  if (is.na(group_var)) {
-    pred_dat <- data.frame(x_vec)
-    names(pred_dat) <- x_var
-
-    p_samples <- try(
-      posterior_epred(object, newdata = pred_dat, re_formula = NA),
-      silent = TRUE
-    )
-    if (class(p_samples)[1] == "try-error") {
-      stop(paste(
-        attributes(p_samples)$condition,
-        "Do you need to specify a group_var variable?",
-        sep = ""
-      ))
-    }
-    reference <- quantile(p_samples[, 1], sig_val)
-    ecnsecP <- apply(p_samples, MARGIN = 1, FUN = function(r) {
-      (1 - diff(c(min(r), reference)) / (diff(range(r)))) * 100
-    })
-    ecnsec <- quantile(ecnsecP, probs = prob_vals)
-
-    if (horme) {
-      # MARGIN = 1, not 2. p_samples is draws x x-values, so MARGIN = 1 is the
-      # maximum of each draw -- one hormetic peak per draw -- and its sig_val
-      # quantile is a genuine posterior quantile of that peak. This matched
-      # nsec.bnecfit(), the reference implementation until its removal in
-      # phase 3 (#39). MARGIN = 2 took the pointwise upper envelope of the
-      # posterior band across draws and then quantiled that over x values,
-      # which is not a posterior quantity: it put `reference` above the entire
-      # response surface, so nsec_fct() found no zero crossing and fell through
-      # to its max(x_vec) fallback, returning the top of the x range as the
-      # NSEC.
-      if (hormesis_def == "max") {
-        reference <- quantile(apply(p_samples, 1, max), probs = sig_val)
-      }
-      # The modify_posterior truncation that nsec.bnecfit() ran live stays
-      # commented out here (toxval #37). It cannot be restored as a follow-on to
-      # the margin fix: even with the margin and the bnecfit ordering (reference
-      # first, then truncate), draws whose peak falls at the last x value are
-      # left with a single non-NA point and nsec_fct() errors in approxfun()
-      # with "need at least two non-NA values to interpolate". Left for the
-      # refactor to settle with the rest of the hormesis/direction question
-      # (#20). modify_posterior() and do_wrapper(), which the block calls, were
-      # deleted in phase 3 because nothing live called them; R/helpers.R at the
-      # pre-refactor tag has both.
-      # n <- seq_len(nrow(p_samples))
-      # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-      #                                    p_samples, hormesis_def, fct = "rbind")
-    }
-
-    nsec_out <- apply(p_samples, 1, nsec_fct, reference, x_vec)
-  } else {
-    groups <- unlist(unique(object$data[group_var]))
-    out_vals <- lapply(groups, FUN = function(g) {
-      dat_list <- list(x_vec, g)
-      names(dat_list) <- c(x_var, group_var)
-      pred_dat <- expand.grid(dat_list)
-
-      p_samples <- posterior_epred(object, newdata = pred_dat, re_formula = NA)
-      reference <- quantile(p_samples[, 1], sig_val)
-      ecnsecP <- apply(p_samples, MARGIN = 1, FUN = function(r) {
-        (1 - diff(c(min(r), reference)) / (diff(range(r)))) * 100
-      })
-      ecnsec <- quantile(ecnsecP, probs = prob_vals)
-      if (horme) {
-        # MARGIN = 1 for the same reason as in the ungrouped branch above; the
-        # commented modify_posterior truncation stays commented for the same
-        # reason too (toxval #37).
-        if (hormesis_def == "max") {
-          reference <- quantile(apply(p_samples, 1, max), probs = sig_val)
-        }
-        # n <- seq_len(nrow(p_samples))
-        # p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-        #                                    p_samples, hormesis_def, fct = "rbind")
-      }
-
-      nsec_out <- apply(p_samples, 1, nsec_fct, reference, x_vec)
-      nsec_out <- unlist(nsec_out)
-      attr(nsec_out, "ecnsec_relativeP") <- ecnsec
-      nsec_out
-    })
-    ecnsec <- lapply(out_vals, FUN = function(p) {
-      attributes(p)$ecnsec_relativeP
-    })
-    names(ecnsec) <- groups
-  }
-
-  if (by_group & posterior & !is.na(group_var)) {
-    names(out_vals) <- groups
-    out_vals <- out_vals |>
-      dplyr::bind_cols() |>
-      tidyr::pivot_longer(
-        tidyr::everything(),
-        names_to = group_var,
-        values_to = "NSEC"
-      )
-    attr(out_vals, "ecnsec_relativeP") <- ecnsec
-  }
-
-  if (by_group & !posterior & !is.na(group_var)) {
-    names(out_vals) <- groups
-    out_vals <- lapply(out_vals, quantile, probs = prob_vals) |>
-      dplyr::bind_rows(.id = group_var)
-    names(out_vals) <- clean_names(out_vals)
-    attr(out_vals, "ecnsec_relativeP") <- ecnsec
-  }
-
-  if (!by_group & posterior & !is.na(group_var)) {
-    out_vals <- as.numeric((unlist(out_vals)))
-    attr(out_vals, "ecnsec_relativeP") <- ecnsec
-  }
-
-  if (!by_group & !posterior & !is.na(group_var)) {
-    out_vals <- quantile(unlist(out_vals), probs = prob_vals)
-    names(out_vals) <- clean_names(out_vals)
-    attr(out_vals, "ecnsec_relativeP") <- ecnsec
-  }
-
-  if (posterior & is.na(group_var)) {
-    out_vals <- unlist(nsec_out)
-    attr(out_vals, "ecnsec_relativeP") <- ecnsecP
-  }
-
-  if (!posterior & is.na(group_var)) {
-    out_vals <- quantile(unlist(nsec_out), probs = prob_vals)
-    attr(out_vals, "ecnsec_relativeP") <- ecnsec
-    names(out_vals) <- clean_names(out_vals)
-  }
-
-  attr(out_vals, "resolution") <- resolution
-  attr(out_vals, "sig_val") <- sig_val
-  attr(out_vals, "toxicity_estimate") <- "nsec"
-
-  return(out_vals)
-}
-
-#' @describeIn nsec Method for a `drc` fit (class `drc`) returned by
-#'   [drc::drm()]. Supports estimates per group via `curveid`. Hormesis is not
-#'   currently implemented.
-#'
-#' @param curveid A character indicating the name of the grouping variable in
-#'   `object`.
-#'
-#' @export
-nsec.drc <- function(
-  object,
-  sig_val = 0.01,
-  resolution = 1000,
-  x_range = NA,
-  hormesis_def = "control",
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
   ...,
-  x_var,
-  horme = FALSE,
-  curveid = NA
+  posterior = lifecycle::deprecated(),
+  hormesis_def = lifecycle::deprecated(),
+  horme = lifecycle::deprecated(),
+  by_group = lifecycle::deprecated(),
+  curveid = lifecycle::deprecated()
 ) {
-  chk::chk_numeric(sig_val)
-  chk::chk_numeric(resolution)
+  # recorded before any argument is reassigned, which `missing()` would miss
+  predict_args <- c(
+    x_var = !missing(x_var),
+    group_var = !missing(group_var),
+    resolution = !missing(resolution),
+    x_range = !missing(x_range),
+    ... = ...length() > 0
+  )
 
-  if (length(sig_val) > 1) {
-    stop("You may only pass one sig_val")
+  # arguments retired from the pre-refactor interface (T28, §3.5)
+  if (lifecycle::is_present(posterior)) {
+    lifecycle::deprecate_warn(
+      "2.0.0",
+      "nsec(posterior)",
+      "nsec(draws)",
+      details = "The result is now a `toxval` tibble with the realisations in a `draws` list column, not a vector of realisations."
+    )
+    chk::chk_flag(posterior)
+    draws <- posterior
   }
-  if ((hormesis_def %in% c("max", "control")) == FALSE) {
-    stop(
-      "type must be one of \"max\" or \"control\" (the default). ",
-      "Please see ?ecx for more details."
+  if (lifecycle::is_present(hormesis_def)) {
+    lifecycle::deprecate_warn(
+      "2.0.0",
+      "nsec(hormesis_def)",
+      details = "Both directions are now estimated; the argument is ignored."
     )
   }
-  if (!inherits(xform, "function")) {
-    stop("xform must be a function.")
-  }
-  if (
-    length(prob_vals) < 3 |
-      prob_vals[1] < prob_vals[2] |
-      prob_vals[1] > prob_vals[3] |
-      prob_vals[2] > prob_vals[3]
-  ) {
-    stop(
-      "prob_vals must include central, lower and upper quantiles,",
-      " in that order."
+  if (lifecycle::is_present(horme)) {
+    lifecycle::deprecate_warn(
+      "2.0.0",
+      "nsec(horme)",
+      details = "Both directions are now estimated; the argument is ignored."
     )
   }
-
-  if (max(grepl("NEC", object$call)) == 1) {
-    stop(
-      "nsec can currently only be estimated for smooth curves in drc, NEC models are not supported"
-    )
+  if (lifecycle::is_present(curveid)) {
+    if (!is_missing_value(curveid)) {
+      if (!is_missing_value(group_var)) {
+        chk::abort_chk("`curveid` must not be supplied with `group_var`.")
+      }
+      group_var <- curveid
+      predict_args[["group_var"]] <- TRUE
+    }
   }
-
-  if (is.na(x_range)) {
-    x_range <- range(object$data[x_var])
-  }
-  x_vec <- seq(min(x_range), max(x_range), length = resolution)
-
-  if (is.na(curveid)) {
-    pred_dat <- data.frame(x_vec)
-    names(pred_dat) <- x_var
-
-    p_samples <- suppressWarnings(predict(
-      object,
-      newdata = pred_dat,
-      interval = "confidence",
-      level = prob_vals[3] - prob_vals[2]
-    ))
-    # check curve goes down
-    if (p_samples[1, "Prediction"] < p_samples[2, "Prediction"]) {
-      stop(
-        "nsec can currently only be estimated for curves that represent an overall decreasing function"
+  if (lifecycle::is_present(by_group)) {
+    chk::chk_flag(by_group)
+    if (by_group && is_missing_value(group_var)) {
+      chk::abort_chk("`group_var` must be supplied when `by_group` is TRUE.")
+    }
+    if (!by_group && !is_missing_value(group_var)) {
+      chk::abort_chk(
+        "`by_group = FALSE` with a `group_var` is no longer supported; every ",
+        "level of `group_var` now gives its own estimate."
       )
     }
-
-    # calculate the reference level
-    ref_dat <- data.frame(min(x_vec))
-    colnames(ref_dat) <- colnames(x_vec)
-    reference <- suppressWarnings(predict(
-      object,
-      newdata = ref_dat,
-      interval = "confidence",
-      level = 1 - (sig_val * 2)
-    )["Lower"])
-    ecnsec <- apply(p_samples, MARGIN = 2, FUN = function(r) {
-      (1 - diff(c(min(r), reference)) / (diff(range(r)))) * 100
-    })
-
-    nsec_out <- apply(p_samples, 2, nsec_fct, reference, x_vec)
-    if (inherits(xform, "function")) {
-      xform(nsec_out)
-    }
-    out_vals <- as.numeric(unlist(nsec_out))
-    attr(out_vals, "ecnsec_relativeP") <- ecnsec
-  } else {
-    groups <- unlist(unique(object$data[, 4]))
-    out_vals <- lapply(groups, FUN = function(g) {
-      dat_list <- list(x_vec, g)
-      names(dat_list) <- c(x_var, curveid)
-      pred_dat <- expand.grid(dat_list)
-
-      p_samples <- suppressWarnings(predict(
-        object,
-        newdata = pred_dat,
-        interval = "confidence",
-        level = prob_vals[3] - prob_vals[2]
-      ))
-      # check curve goes down
-      if (p_samples[1, "Prediction"] < p_samples[2, "Prediction"]) {
-        stop(
-          "nsec can currently only be estimated for curves that represent an overall decreasing function"
-        )
-      }
-
-      # calculate the reference level
-      ref_dat <- data.frame(min(x_vec))
-      colnames(ref_dat) <- colnames(x_vec)
-      reference <- suppressWarnings(predict(
-        object,
-        newdata = ref_dat,
-        interval = "confidence",
-        level = 1 - (sig_val * 2)
-      )["Lower"])
-      ecnsec <- apply(p_samples, MARGIN = 2, FUN = function(r) {
-        (1 - diff(c(min(r), reference)) / (diff(range(r)))) * 100
-      })
-
-      nsec_out <- apply(p_samples, 2, nsec_fct, reference, x_vec)
-
-      if (inherits(xform, "function")) {
-        nsec_out <- xform(nsec_out)
-      }
-      attr(nsec_out, "ecnsec_relativeP") <- ecnsec
-      nsec_out
-    })
-    names(out_vals) <- groups
-    ecnsec <- do.call(
-      "rbind",
-      lapply(out_vals, FUN = function(x) {
-        attributes(x)$ecnsec_relativeP
-      })
-    )
-    out_vals <- do.call("rbind", out_vals)
-    attr(out_vals, "ecnsec_relativeP") <- ecnsec
+  }
+  if (is_missing_value(group_var)) {
+    group_var <- NULL
+  }
+  if (is_missing_value(x_range)) {
+    x_range <- NULL
   }
 
-  nsec_estimate <- out_vals
-  attr(nsec_estimate, "resolution") <- resolution
-  attr(nsec_estimate, "sig_val") <- sig_val
-  attr(nsec_estimate, "toxicity_estimate") <- "nsec"
-  nsec_estimate
+  if (inherits(object, "toxval_pred")) {
+    if (any(predict_args)) {
+      chk::abort_chk(
+        "`object` is a `toxval_pred`, whose grid is already built, so ",
+        paste0("`", names(predict_args)[predict_args], "`", collapse = ", "),
+        " must not be supplied."
+      )
+    }
+    pred <- object
+  } else {
+    if (inherits(object, "drc") && inherits(object$fct, "NEC")) {
+      chk::abort_chk(
+        "`object` must not be a `drc` NEC model; NSECs are estimated for ",
+        "smooth curves only."
+      )
+    }
+    pred <- toxval_predict(
+      object,
+      x_var = x_var,
+      group_var = group_var,
+      resolution = resolution,
+      x_range = x_range,
+      ...
+    )
+  }
+
+  rows <- compute_nsec(pred, sig_val = sig_val, type = type, anchor = anchor)
+  summarise_metric(
+    rows,
+    pred,
+    metric = "nsec",
+    prob_vals = prob_vals,
+    xform = xform,
+    draws = draws
+  )
 }

@@ -107,16 +107,26 @@ compute_ecx <- function(
 #' @param type One of `"absolute"` or `"range"`, selecting the `ecnsec`
 #'   definition. `"direct"` is refused (T19): its `ecnsec` would be the
 #'   reference itself, which the `reference` column already reports.
+#' @param anchor One of `"model"` or `"component"`, where the reference comes
+#'   from under model averaging (T23). The two coincide for a fit that is not
+#'   model-averaged, which is every class supported, so it is recorded only.
 #'
 #' @return A tibble with one row per curve and direction: the columns of
-#'   `keys`, `direction`, `sig_val`, `type`, `reference`, and the list columns
-#'   `control`, `draws` and `ecnsec`, each holding one value per realisation.
+#'   `keys`, `direction`, `sig_val`, `type`, `anchor`, `reference`, and the
+#'   list columns `control`, `draws` and `ecnsec`, each holding one value per
+#'   realisation. `ecnsec` is a proportion (T32).
 #'
 #' @noRd
-compute_nsec <- function(pred, sig_val = 0.01, type = "absolute") {
+compute_nsec <- function(
+  pred,
+  sig_val = 0.01,
+  type = "absolute",
+  anchor = "model"
+) {
   chk::chk_s3_class(pred, "toxval_pred")
   chk_sig_val(sig_val)
   chk_type(type)
+  chk_anchor(anchor)
   if (type == "direct") {
     chk::abort_chk(
       "`type` must not be 'direct' for an NSEC; the response value at the ",
@@ -129,9 +139,13 @@ compute_nsec <- function(pred, sig_val = 0.01, type = "absolute") {
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
+    # a realisation with no finite control, such as a bootstrap draw outside
+    # the parameter space, has no place in the reference; it is excluded in
+    # the summary, as in `compute_ecx()`
+    finite_control <- control[is.finite(control)]
     reference <- c(
-      decreasing = unname(stats::quantile(control, sig_val)),
-      increasing = unname(stats::quantile(control, 1 - sig_val))
+      decreasing = nsec_reference(finite_control, sig_val),
+      increasing = nsec_reference(finite_control, 1 - sig_val)
     )
     draws <- lapply(directions(), function(direction) {
       reference_by_row <- rep(reference[[direction]], nrow(curve))
@@ -145,6 +159,7 @@ compute_nsec <- function(pred, sig_val = 0.01, type = "absolute") {
         direction = directions(),
         sig_val = sig_val,
         type = type,
+        anchor = anchor,
         reference = unname(reference[directions()]),
         control = list(control, control),
         draws = unname(draws),
@@ -153,6 +168,16 @@ compute_nsec <- function(pred, sig_val = 0.01, type = "absolute") {
     )
   })
   dplyr::bind_rows(rows)
+}
+
+#' The NSEC reference, a quantile of the finite control realisations
+#'
+#' @noRd
+nsec_reference <- function(control, prob) {
+  if (!length(control)) {
+    return(NA_real_)
+  }
+  unname(stats::quantile(control, prob))
 }
 
 #' @noRd
@@ -289,8 +314,8 @@ ecx_reference <- function(curve, proportion, type, upper, reference = NULL) {
 #' The effect at the NSEC reference for every realisation of a curve, in each
 #' direction
 #'
-#' The inverse of `ecx_reference()`: the percentage of the span that the
-#' reference lies from the control.
+#' The inverse of `ecx_reference()`: the proportion of the span that the
+#' reference lies from the control (T32).
 #'
 #' @param reference The NSEC reference, a numeric vector named `decreasing`
 #'   and `increasing`.
@@ -300,7 +325,7 @@ ecnsec_value <- function(curve, reference, type, upper) {
   control <- curve[, 1]
   span <- reference_span(curve, type, upper)
   list(
-    decreasing = (control - reference[["decreasing"]]) / span$decreasing * 100,
-    increasing = (reference[["increasing"]] - control) / span$increasing * 100
+    decreasing = (control - reference[["decreasing"]]) / span$decreasing,
+    increasing = (reference[["increasing"]] - control) / span$increasing
   )
 }

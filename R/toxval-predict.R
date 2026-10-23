@@ -367,6 +367,15 @@ group_levels <- function(x) {
 #' @param group_var Name of the grouping variable, or `NULL`.
 #' @param group A single level of the grouping variable.
 #'
+#' @details
+#' Where the model has a population-level predictor other than `x_var` that is
+#' not named as `group_var`, `brms` cannot build the prediction data and errors
+#' in its own terms. That error is caught and restated in terms of `x_var`
+#' and `group_var` (#56), naming the variables `brms` reported. Which variables
+#' need a value is left to `brms` rather than read from the formula, since a
+#' variable in a group-level term, such as `site` in `(1 | site)`, needs none
+#' under `re_formula = NA`.
+#'
 #' @return A numeric matrix, one row per draw and one column per grid value.
 #'
 #' @noRd
@@ -375,7 +384,23 @@ epred_curve <- function(object, x_vec, x_var, group_var = NULL, group = NULL) {
   if (!is.null(group_var)) {
     newdata[[group_var]] <- group
   }
-  posterior_epred(object, newdata = newdata, re_formula = NA)
+  tryCatch(
+    posterior_epred(object, newdata = newdata, re_formula = NA),
+    brms_error = function(e) {
+      message <- conditionMessage(e)
+      if (!grepl("can neither be found in 'data'", message, fixed = TRUE)) {
+        stop(e)
+      }
+      quoted <- regmatches(message, gregexpr("'[^']+'", message))[[1]]
+      missing_vars <- setdiff(gsub("'", "", quoted), c("data", "data2"))
+      chk::abort_chk(
+        "`object` needs a value of ",
+        chk::cc(missing_vars, conj = " and "),
+        " to predict; name it as `x_var`, or as `group_var` to get one curve ",
+        "per level."
+      )
+    }
+  )
 }
 
 #' Split `drc` parameter names into parameter and curve

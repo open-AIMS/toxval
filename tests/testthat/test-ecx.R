@@ -403,14 +403,14 @@ test_that("errors if x_var is not in the data set", {
 test_that("errors if x_var is not in a predictor variable", {
   expect_error(
     ecx(brms_model_1, x_var = "y"),
-    "The following variables can neither be found in 'data' nor in 'data2'"
+    "`object` needs a value of 'x' to predict; name it as `x_var`, or as `group_var` to get one curve per level"
   )
 })
 
 test_that("errors if additional groups are present but group_var not specified", {
   expect_error(
     ecx(brms_model_2, x_var = "x"),
-    regexp = "The following variables can neither be found in 'data' nor in 'data2'"
+    regexp = "`object` needs a value of 'z' to predict; name it as `x_var`, or as `group_var` to get one curve per level"
   )
 })
 
