@@ -203,3 +203,106 @@ attributed to RF alone. Task 0's #39 comment is now one sentence and a link to
 #68.
 
 ---
+
+**User:** push it and then go to task 2
+
+**Claude:** Pushed `phase-7-bayesnec-methods` to origin (`1b1f54e`) without
+changing its tracking of `upstream/phase-4-5-spine-and-tibble`. Then task 2,
+the single-fit method.
+
+Code:
+
+- `toxval_predict.bayesnecfit()` and `toxval_predict.bnecfit()` in
+  `R/toxval-predict.R`, after the `drc` method. The helpers are in the new
+  `R/toxval-predict-bayesnec.R`: `bnec_supported_classes()`,
+  `bayesnec_available()`, `check_bayesnec_installed()`,
+  `chk_bayesnec_supported()`, `bnec_two_part_families()`,
+  `chk_no_group_var()`, `bnec_x_var()` and `bnec_grid()`.
+- `build_meta()` gains `data = object$data`, used for `x_control`. The
+  optional elements of BAYESNEC-claude.md §3.1 are left to task 3, where they
+  are first used.
+- `response_upper_bound()` returns 1 for a `bayesnecfit` or `bayesmanecfit`
+  with a binomial or beta-binomial family, because `bnec_newdata()` predicts
+  one trial. This is a branch on `source_class` until T26.
+- `bayesnec` added to `Suggests` (RF approved, 2026-10-23).
+
+```r
+toxval_predict.bayesnecfit <- function(object, x_var = NULL, group_var = NULL,
+                                       resolution = 500, x_range = NULL, ...) {
+  check_bayesnec_installed(object)
+  chk_bayesnec_supported(object)
+  chk_no_group_var(group_var, object)
+  data <- object$fit$data
+  x_var <- bnec_x_var(object$bayesnecformula, data, x_var)
+  newdata <- bnec_grid(object, resolution, x_range)
+  x_vec <- newdata[[x_var]]
+  curve <- posterior_epred(object$fit, newdata = newdata, re_formula = NA)
+  chk_defined_grid(list(curve), x_vec)
+  new_toxval_pred(curves = list(curve), keys = group_keys(), x_vec = x_vec,
+    meta = build_meta(object = object, x_vec = x_vec, x_var = x_var,
+      curves = list(curve), realisation = "draws",
+      family = object$fit$family$family, data = data))
+}
+```
+
+`bnec_x_var()` reads the `x_var` entries of the `bnec_pop` attribute of
+`stats::model.frame(<bayesnecformula>, data)`. It counts them with
+`names(pop) == "x_var"` rather than `[["x_var"]]`, so that a `crf()` naming
+two variables is refused rather than reduced to its first.
+
+Departure from the spec. With the documented methods in
+`R/toxval-predict-bayesnec.R`, `devtools::document()` named
+`man/toxval_predict.Rd` as `\name{toxval_predict.bayesnecfit}`. roxygen takes
+the topic's name from the first block it reads, and reads files in C-locale
+order, where `-` (0x2D) precedes `.` (0x2E). The two exported methods were
+therefore placed beside the `brmsfit` and `drc` methods. `@include` was
+rejected because it adds a `Collate` field to `DESCRIPTION` that every new
+file must then join. BAYESNEC-claude.md §4 is amended. roxygen 8.0.0 is
+installed against the RoxygenNote of 8.0.0.9000; only `toxval_predict.Rd` and
+`NAMESPACE` changed.
+
+Tests in `tests/testthat/test-toxval-predict-bayesnec.R` (17 tests, 53
+expectations, all passing), on `bnec_model_1`, `bayesnec_nec4param`,
+`bayesnec_ecx4param`, `bayesnec_binomial` and `bayesnec_logx` at
+`resolution = 50`:
+
+- curves identical to `brms::posterior_epred(<bayesnecfit>, newdata =
+  bayesnec::bnec_newdata(fit, resolution = 50))`, which is `bayesnec`'s own
+  method, for all five fits;
+- `x_vec` equal to the grid column, a supplied `x_range` honoured, and
+  `x_control` kept at the data minimum;
+- the `meta` contract; the `crf(log(x))` grid over raw `x`; the binomial
+  curve within [0, 1] with an upper bound of 1;
+- `x_var` read, matched or refused; `group_var` refused;
+- the refusals of a joint level, of the four two-part families, of the
+  truncated count part, and of `bayesnecgroupfit`, `bayesnechurdlefit` and
+  `bayesnecjointfit`;
+- the error with `bayesnec_available()` mocked to `FALSE`;
+- `compute_ecx()`, `compute_nsec()` and `summarise_metric()` on
+  `bayesnec_ecx4param`, and `ecx()` on all five fits. `bnec_model_1`
+  (`nechorme`) warns that the increasing ECx is censored (T25), so that call
+  is wrapped in `suppressWarnings()` with a comment.
+
+Checks:
+
+- Full `devtools::test()`: 737 expectations pass. The same 21 tests fail as at
+  `6bdd99c`, the stale `ecx_val` calls.
+- With `bayesnec` removed from the library path, using a scratch library of
+  symlinks to every package but `bayesnec`, assigned to `.lib.loc` (it is
+  installed both in the user library and in `/usr/local/lib/R/site-library`),
+  the new file is skipped at its first line.
+- `devtools::check(args = "--no-tests")`: 0 errors and 0 warnings. Two notes
+  concern the untracked local `.claude` and `superceded` directories.
+
+Finding on the task 1 fixtures. Loaded without `bayesnec`, `bayesnec_logx`
+warns that the `bayesnec` namespace was replaced by `.GlobalEnv`. Bisecting
+its components located the cause in the brms family object. The objects that
+`bayesnec:::validate_family()` returns for `"beta"`,
+`Beta(link = "identity")` and `binomial` all warn when saved and reloaded
+without `bayesnec`; `brms::Beta(link = "identity")` called directly does not.
+`bnec_model_1` and `bayesnec_binomial` load cleanly. The fixture was left as
+`bnec()` returned it, with a comment in `data-raw/DATASET.R`. Rebuilding its
+family was rejected, because the fixture would then differ from what a user
+holds.
+
+---

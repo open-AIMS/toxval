@@ -353,6 +353,14 @@ response_upper_bound <- function(meta, keys, i) {
   if (identical(meta$source_class, "drc")) {
     return(if (family == "binomial") 1 else Inf)
   }
+  # `bayesnec` predicts a binomial or beta-binomial fit for one trial
+  # (`bnec_newdata()`), so the curve is a proportion. A branch on the class
+  # until the trials are recorded per curve (T26).
+  if (meta$source_class %in% c("bayesnecfit", "bayesmanecfit")) {
+    if (family %in% c("binomial", "beta_binomial")) {
+      return(1)
+    }
+  }
   switch(
     family,
     bernoulli = ,

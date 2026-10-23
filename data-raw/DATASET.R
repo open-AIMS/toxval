@@ -314,6 +314,10 @@ strip_stanmodel("tests/testthat/fixtures/bayesnec_binomial.rda")
 # A predictor transformed inside crf(). The brmsfit data and the bayesnec grid
 # hold raw x while Stan applies log(), which is what the predictor-scale tests
 # (§2.1) need; a log column made before fitting would not exercise it.
+# Loaded without bayesnec installed, this fixture warns that the bayesnec
+# namespace was replaced by .GlobalEnv: the beta family bayesnec builds for it
+# holds a reference to a bayesnec function frame. It is stored as bnec()
+# returned it, and the tests that use it are skipped without bayesnec.
 bayesnec_logx <-
   bayesnec::bnec(
     y ~ crf(log(x), model = "ecx4param"),

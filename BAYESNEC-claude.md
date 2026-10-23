@@ -555,10 +555,15 @@ The remedy is in `bayesnec`: keep, rename or retire its functions, or call
 
 ## 4. Tasks
 
-New code goes in `R/toxval-predict-bayesnec.R`, documented with
-`@describeIn toxval_predict`, and its tests in
-`tests/testthat/test-toxval-predict-bayesnec.R`, which calls
-`skip_if_not_installed("bayesnec")` at the top. `air.toml` is present, so R code
+The exported methods go in `R/toxval-predict.R` after the `drc` method,
+documented with `@describeIn toxval_predict`. Their helpers go in
+`R/toxval-predict-bayesnec.R`. roxygen takes the `\name` of a merged topic from
+the first block it reads, and reads files in C-locale order, in which
+`toxval-predict-bayesnec.R` precedes `toxval-predict.R`. With the methods there,
+`man/toxval_predict.Rd` was named `toxval_predict.bayesnecfit` (found in task 2).
+An `@include` would fix the order only by adding a `Collate` field to
+`DESCRIPTION`. Tests go in `tests/testthat/test-toxval-predict-bayesnec.R`,
+which calls `skip_if_not_installed("bayesnec")` at the top. `air.toml` is present, so R code
 is formatted with `air` before each commit. `NEWS.md` is written by `fledge`
 from commit messages and is not edited by hand.
 
@@ -608,12 +613,23 @@ in the pull request.
 
 Done when the fixtures load through `helper-fixtures.R`.
 
+Found in task 2: loaded without `bayesnec` installed, `bayesnec_logx` warns that
+the `bayesnec` namespace was replaced by `.GlobalEnv`. The family objects that
+`bayesnec`'s `validate_family()` returns hold a reference to a `bayesnec`
+function frame. This was shown for `"beta"`, for `Beta(link = "identity")` and
+for `binomial`, each saved and then loaded in a session with `bayesnec`
+removed from the library path. `brms::Beta(link = "identity")` called directly
+loads cleanly, as do `bnec_model_1` and `bayesnec_binomial`. The fit is stored
+as `bnec()` returned it. The tests that use it are skipped without `bayesnec`,
+so the warning is the only effect.
+
 ### The single-fit method (task 2)
 
 - `toxval_predict.bayesnecfit()`, `toxval_predict.bnecfit()`,
   `check_bayesnec_installed()`, `bayesnec_available()`, `bnec_x_var()`,
   `bnec_grid()`, `chk_bayesnec_supported()`, as §3.1.
-- `build_meta()` gains `data` and optional elements (§3.1).
+- `build_meta()` gains `data` (§3.1). The optional elements are added in task
+  3, where they are first used and tested.
 - `bayesnec` in `Suggests`, approved by RF on 2026-10-23.
 
 Tests, on `bnec_model_1` (`nechorme`, beta), `bayesnec_nec4param`,

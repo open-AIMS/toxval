@@ -30,6 +30,7 @@ Imports:
     vctrs,
     withr
 Suggests:
+    bayesnec,
     BH,
     covr,
     drc,

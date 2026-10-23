@@ -2,6 +2,8 @@
 
 S3method(print,toxval_pred)
 S3method(tbl_sum,toxval)
+S3method(toxval_predict,bayesnecfit)
+S3method(toxval_predict,bnecfit)
 S3method(toxval_predict,brmsfit)
 S3method(toxval_predict,default)
 S3method(toxval_predict,drc)
