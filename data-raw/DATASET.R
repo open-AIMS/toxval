@@ -265,6 +265,71 @@ save(
 )
 strip_stanmodel("tests/testthat/fixtures/bayesnec_ecx4param.rda")
 
+# toxval_predict methods for bayesnec fits -----------------------------------
+
+# Fits for the toxval_predict() methods for bayesnecfit and bayesmanecfit
+# (BAYESNEC-claude.md §4, task 1). Generated with bayesnec 2.1.3.39.
+
+# The model average of nec4param and ecx4param. Stored whole, rather than read
+# from bayesnec in the tests, because the stored object is the one whose draw
+# index the tests rebuild; manec_example holds no w_draw_index, so the
+# bayesmanecfit method takes the seeded rebuild path on it.
+bayesnec_manec_example <- bayesnec::manec_example
+save(
+  bayesnec_manec_example,
+  file = "tests/testthat/fixtures/bayesnec_manec_example.rda",
+  compress = "xz"
+)
+strip_stanmodel("tests/testthat/fixtures/bayesnec_manec_example.rda")
+
+# A binomial response predicted as a proportion, from nec3param, which has no
+# bot parameter. Simulated from nec3param itself, with top = 0.9, nec = 1 and
+# exp(beta) = 1.5: 20 trials at each of three replicates of eight
+# concentrations.
+set.seed(2160)
+binom_data <- data.frame(
+  x = rep(c(0, 0.25, 0.5, 1, 1.5, 2, 2.5, 3), each = 3),
+  n = 20L
+)
+binom_p <- 0.9 * exp(-1.5 * pmax(binom_data$x - 1, 0))
+binom_data$y <- stats::rbinom(nrow(binom_data), binom_data$n, binom_p)
+
+bayesnec_binomial <-
+  bayesnec::bnec(
+    y | trials(n) ~ crf(x, model = "nec3param"),
+    data = binom_data,
+    family = binomial,
+    seed = 2161,
+    chains = 2,
+    iter = 2000,
+    thin = 2
+  )
+save(
+  bayesnec_binomial,
+  file = "tests/testthat/fixtures/bayesnec_binomial.rda",
+  compress = "xz"
+)
+strip_stanmodel("tests/testthat/fixtures/bayesnec_binomial.rda")
+
+# A predictor transformed inside crf(). The brmsfit data and the bayesnec grid
+# hold raw x while Stan applies log(), which is what the predictor-scale tests
+# (§2.1) need; a log column made before fitting would not exercise it.
+bayesnec_logx <-
+  bayesnec::bnec(
+    y ~ crf(log(x), model = "ecx4param"),
+    data = bayesnec::nec_data,
+    seed = 2162,
+    chains = 2,
+    iter = 2000,
+    thin = 2
+  )
+save(
+  bayesnec_logx,
+  file = "tests/testthat/fixtures/bayesnec_logx.rda",
+  compress = "xz"
+)
+strip_stanmodel("tests/testthat/fixtures/bayesnec_logx.rda")
+
 # data from bayesnec -------------------------------------------------------
 
 # Stored so that the drc tests fitted to these data run without bayesnec
