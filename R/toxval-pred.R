@@ -27,12 +27,18 @@
 #'     a control-only fit, estimated independently of the dose-response shape,
 #'     one element per row of `keys`, or `NULL`. One element per curve, because
 #'     a grouped fit has one control per group.}
+#'   \item{`asymptote`}{An unnamed list of the per-realisation asymptotes of
+#'     each curve, one element per row of `keys`, or `NULL` where the model
+#'     supplies none. Each element is a list of two numeric vectors,
+#'     `decreasing` (the lower asymptote) and `increasing` (the upper one),
+#'     `NA` where the equation has no such asymptote. `type = "relative"`
+#'     measures from the control to it (T24).}
 #'   \item{`meta`}{Named list of metadata; see below.}
 #' }
 #'
 #' @section Identifying curves:
-#' Row *i* of `keys` identifies element *i* of `curves`, and of `threshold` and
-#' `control` when they are supplied. The columns of `keys` are drawn from
+#' Row *i* of `keys` identifies element *i* of `curves`, and of `threshold`,
+#' `control` and `asymptote` when they are supplied. The columns of `keys` are drawn from
 #' `group` and `response`, and become the descriptor columns of the result:
 #'
 #' \describe{
@@ -74,15 +80,23 @@
 #'   \item{`x_var`}{String, the name of the predictor variable.}
 #'   \item{`group_var`}{String naming the grouping variable. Required when
 #'     `keys` has a `group` column, and `NULL` otherwise.}
-#'   \item{`multi_var`}{String naming the response variable of a multivariate
-#'     fit. Required when `keys` has a `response` column, and `NULL`
-#'     otherwise.}
+#'   \item{`multi_var`}{Character vector of the response names of a
+#'     multivariate fit, as the fitted object names them, including every
+#'     level of `keys$response`. Required when `keys` has a `response` column,
+#'     and `NULL` otherwise.}
 #'   \item{`resolution`}{Whole number, the number of values in `x_vec`.}
 #'   \item{`x_range`}{Numeric of length 2, the range of `x_vec`.}
+#'   \item{`x_control`}{Number, the lowest predictor value in the data the
+#'     model was fitted to, taken to be the control. It differs from the first
+#'     value of `x_vec` when `x_range` is supplied. A realisation whose control
+#'     response already lies beyond the reference is placed here.}
 #'   \item{`family`}{String naming the response distribution, such as the
 #'     `brms` family or the `type` of a `drc` fit, or `NULL` where the fitted
-#'     object has none. It decides whether the response is a proportion,
-#'     bounded at 1.}
+#'     object has none. A multivariate fit whose responses differ in family
+#'     gives a character vector named by response instead. It decides whether
+#'     the response is a proportion, bounded at 1. A binomial family is taken
+#'     to be predicted on the proportion scale, at one trial, as
+#'     [toxval_predict()] predicts a `brms` binomial fit.}
 #'   \item{`realisation`}{Either `"draws"` or `"bootstrap"`, the source of the
 #'     realisations.}
 #'   \item{`n_realisation`}{Whole number, the number of realisations.}
@@ -103,6 +117,9 @@
 #'   threshold values, one element per row of `keys`, or `NULL`.
 #' @param control An unnamed list of numeric vectors of per-realisation control
 #'   values, one element per row of `keys`, or `NULL`.
+#' @param asymptote An unnamed list, one element per row of `keys`, of lists
+#'   of two numeric vectors of per-realisation asymptotes named `decreasing`
+#'   and `increasing`, or `NULL`.
 #'
 #' @return An object of class `toxval_pred`.
 #'
@@ -118,6 +135,7 @@
 #'     multi_var = NULL,
 #'     resolution = 4,
 #'     x_range = c(0, 3),
+#'     x_control = 0,
 #'     family = "gaussian",
 #'     realisation = "draws",
 #'     n_realisation = 2,
@@ -132,7 +150,8 @@ new_toxval_pred <- function(
   x_vec,
   meta,
   threshold = NULL,
-  control = NULL
+  control = NULL,
+  asymptote = NULL
 ) {
   x <- structure(
     list(
@@ -141,6 +160,7 @@ new_toxval_pred <- function(
       x_vec = x_vec,
       threshold = threshold,
       control = control,
+      asymptote = asymptote,
       meta = meta
     ),
     class = "toxval_pred"
@@ -173,6 +193,9 @@ validate_toxval_pred <- function(x) {
   if (!is.null(x$control)) {
     chk_aligned_list(x$control, "control", x$keys, x$meta)
   }
+  if (!is.null(x$asymptote)) {
+    chk_asymptote(x$asymptote, x$keys, x$meta)
+  }
 
   invisible(x)
 }
@@ -186,6 +209,7 @@ meta_required <- function() {
     "multi_var",
     "resolution",
     "x_range",
+    "x_control",
     "family",
     "realisation",
     "n_realisation",
@@ -206,11 +230,10 @@ chk_meta <- function(meta) {
     vld = chk::vld_string,
     x_name = "`meta$group_var`"
   )
-  chk::chk_null_or(
-    meta$multi_var,
-    vld = chk::vld_string,
-    x_name = "`meta$multi_var`"
-  )
+  if (!is.null(meta$multi_var)) {
+    chk_names_vector(meta$multi_var, "`meta$multi_var`")
+    chk::chk_unique(meta$multi_var, x_name = "`meta$multi_var`")
+  }
 
   chk::chk_whole_number(meta$resolution, x_name = "`meta$resolution`")
   chk::chk_gt(meta$resolution, 1, x_name = "`meta$resolution`")
@@ -220,7 +243,17 @@ chk_meta <- function(meta) {
   chk::chk_not_any_na(meta$x_range, x_name = "`meta$x_range`")
   chk::chk_sorted(meta$x_range, x_name = "`meta$x_range`")
 
-  chk::chk_null_or(meta$family, vld = chk::vld_string, x_name = "`meta$family`")
+  chk::chk_number(meta$x_control, x_name = "`meta$x_control`")
+  if (!is.finite(meta$x_control)) {
+    chk::abort_chk("`meta$x_control` must be finite.")
+  }
+
+  if (!is.null(meta$family)) {
+    chk_names_vector(meta$family, "`meta$family`")
+    if (length(meta$family) > 1) {
+      chk::chk_named(meta$family, x_name = "`meta$family`")
+    }
+  }
 
   chk::chk_string(meta$realisation, x_name = "`meta$realisation`")
   chk::chk_subset(
@@ -307,7 +340,49 @@ chk_keys <- function(keys, meta) {
       "`meta$multi_var` must be NULL when `keys` has no 'response' column."
     )
   }
+  if ("response" %in% names(keys)) {
+    chk::chk_subset(
+      levels(keys$response),
+      meta$multi_var,
+      x_name = "levels of `keys$response`"
+    )
+  }
+  chk_family_keys(meta$family, keys)
   invisible(keys)
+}
+
+#' Check that `meta$family` gives a family for every curve
+#'
+#' A family is one string for every curve, or, for a multivariate fit whose
+#' responses differ in family, a vector named by response (T26).
+#'
+#' @noRd
+chk_family_keys <- function(family, keys) {
+  if (length(family) <= 1 && is.null(names(family))) {
+    return(invisible(family))
+  }
+  if (!"response" %in% names(keys)) {
+    chk::abort_chk(
+      "`meta$family` must be a single unnamed string when `keys` has no ",
+      "'response' column."
+    )
+  }
+  chk::chk_subset(
+    levels(keys$response),
+    names(family),
+    x_name = "levels of `keys$response`"
+  )
+  invisible(family)
+}
+
+#' @noRd
+chk_names_vector <- function(x, x_name) {
+  chk::chk_character(x, x_name = x_name)
+  chk::chk_not_any_na(x, x_name = x_name)
+  if (length(x) == 0) {
+    chk::abort_chk(x_name, " must not be empty.")
+  }
+  invisible(x)
 }
 
 #' @noRd
@@ -404,6 +479,34 @@ chk_aligned_list <- function(x, arg, keys, meta) {
   invisible(x)
 }
 
+#' @noRd
+chk_asymptote <- function(asymptote, keys, meta) {
+  chk_aligned_shape(asymptote, "asymptote", keys)
+
+  for (i in seq_along(asymptote)) {
+    nm <- element_name("asymptote", i)
+    chk::chk_list(asymptote[[i]], x_name = nm)
+    if (!identical(names(asymptote[[i]]), c("decreasing", "increasing"))) {
+      chk::abort_chk(
+        nm,
+        " must be a list named 'decreasing' and 'increasing'."
+      )
+    }
+    for (direction in names(asymptote[[i]])) {
+      element <- paste0("`asymptote[[", i, "]]$", direction, "`")
+      values <- asymptote[[i]][[direction]]
+      chk::chk_numeric(values, x_name = element)
+      chk::chk_vector(values, x_name = element)
+      chk::chk_length(
+        values,
+        as.integer(meta$n_realisation),
+        x_name = element
+      )
+    }
+  }
+  invisible(asymptote)
+}
+
 #' Check that a slot is an unnamed list with one element per row of `keys`
 #'
 #' @noRd
@@ -455,6 +558,7 @@ element_name <- function(arg, i) {
 #'     multi_var = NULL,
 #'     resolution = 4,
 #'     x_range = c(0, 3),
+#'     x_control = 0,
 #'     family = "gaussian",
 #'     realisation = "draws",
 #'     n_realisation = 2,
@@ -508,7 +612,9 @@ print_curves <- function(keys, meta) {
   if (ncol(keys) == 0) {
     return("1 (ungrouped)")
   }
-  vars <- c(group = meta$group_var, response = meta$multi_var)
+  # `multi_var` holds the response names themselves, so the column is labelled
+  # by its own name
+  vars <- c(group = meta$group_var, response = "response")
   descriptors <- vapply(
     names(keys),
     function(col) {

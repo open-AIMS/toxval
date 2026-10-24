@@ -92,7 +92,8 @@ takes four values; see §3.10 for the vocabulary.
 
 Optional column:
 
-- `draws` — a list column of realisations, attached when `draws = TRUE`.
+- `draws` — a list column of realisations, attached when `draws = TRUE`: one
+  tibble per row with `.draw`, `value.draw` and, for `nsec`, `ecnsec.draw`.
   See [3.5](#35-draws).
 
 #### `metric` is a closed vocabulary
@@ -242,10 +243,10 @@ function. `nsec_multi()` becomes a deprecated wrapper around `nsec()`.
 Once direction is a column of the result ([3.6](#36-direction)), each argument
 that only `nsec_multi()` takes is either handled elsewhere or kept:
 
-- `multi_var` and `trials_var` say which data the curves are predicted from, so
-  they are predict-level under [3.7](#37-validation) and become arguments of
-  `toxval_predict.brmsfit()`. `trials_var` names the column of trial counts in a
-  binomial model.
+- `multi_var` and `trials_var` said which data the curves are predicted from.
+  They are not arguments: `toxval_predict.brmsfit()` reads the responses, their
+  families and any trials column from the fit with `brms::brmsterms()`, and
+  predicts a binomial response at one trial (amended 2026-10-23, AP; T26).
 - `type = "both"`, `"increasing"` and `"decreasing"` are filters on the
   `direction` column, and are removed.
 - `type = "lower"` with `criterion` selects, for each response, the direction
@@ -412,7 +413,7 @@ platform does natively.
 **Invariant: realisation *i* is the same underlying draw in every slot of a
 `toxval_pred`.** Row *i* of every matrix in `curves`, and element *i* of
 `threshold`, come from the same posterior draw (or the same bootstrap
-replicate). This is what makes the `draws` list columns in
+replicate). This is what makes the `draws` list column in
 [3.5](#35-draws) honest, and it is cheap to assert in the validator.
 
 For a single fit it holds trivially. For a **model-averaged** fit it has to be
@@ -477,15 +478,30 @@ Long form is one pipe stage, not an API:
 ```r
 ecx(fit, draws = TRUE) |> tidyr::unnest(draws)
 #> # A tibble: 4,000 x 6
-#>   metric direction  ecx_val estimate .draw  value
-#>   <chr>  <chr>        <dbl>    <dbl> <int>  <dbl>
-#> 1 ecx    decreasing      10    0.832     1  0.841
-#> 2 ecx    decreasing      10    0.832     2  0.795
-#> 3 ecx    decreasing      10    0.832     3  0.826
+#>   metric direction  ecx_val estimate .draw value.draw
+#>   <chr>  <chr>        <dbl>    <dbl> <int>      <dbl>
+#> 1 ecx    decreasing      10    0.832     1      0.841
+#> 2 ecx    decreasing      10    0.832     2      0.795
+#> 3 ecx    decreasing      10    0.832     3      0.826
 #> # i 3,997 more rows
 ```
 
 `.draw` follows the `posterior` / `tidybayes` convention deliberately.
+
+#### The contents of a `draws` cell
+
+Settled 2026-10-21 (AP). Each cell is a tibble with one row per realisation:
+`.draw`, the realisation index; `value.draw`, the metric for that realisation;
+and, for `nsec`, `ecnsec.draw`, the effect at the NSEC for the same
+realisation. A realisation with no crossing in the evaluated range is `Inf`,
+so it ranks above `max(x_vec)` (T21), and an excluded one is `NA`.
+
+The `.draw` suffix marks the three as a group and keeps them distinct from the
+summary columns. An inner column named `ecnsec` would share its name with the
+summary `ecnsec` column, and `tidyr::unnest(result, draws)` errors on the
+duplicate. One tibble rather than two list columns keeps the NSEC and
+`ecnsec` of each realisation on one row after a single `unnest()`; the two
+always have the same number of realisations, one per row of the curve matrix.
 
 #### Why a list column rather than `*_draws()` functions
 
@@ -505,14 +521,14 @@ column:
   site rather than something a flag does invisibly.
 - **Paired quantities.** `nsec` produces two per-realisation quantities — the
   NSEC realisations and the `ecnsec` realisations — from the same draws. As two
-  list columns on the same row they are aligned by construction. In long form
-  they need a `quantity` column and a self-join to re-pair.
+  columns of the same `draws` tibble they are aligned by construction. In long
+  form they need a `quantity` column and a self-join to re-pair.
 
 Against that, `*_draws()` would double the exported surface (`ecx_draws`,
 `nsec_draws`, `nsec_multi_draws`, later `nec_draws`, `noec_draws`) and duplicate
 the documentation and tests, to save one `unnest()`.
 
-**Pairing is guaranteed, not assumed.** Two list columns on the same row imply
+**Pairing is guaranteed, not assumed.** Two columns of one `draws` tibble imply
 realisation *i* of one corresponds to realisation *i* of the other, and the
 `toxval_pred` alignment invariant in
 [3.4](#34-the-toxval_pred-intermediate-object) makes that true by construction —
@@ -609,7 +625,9 @@ T21 therefore places each realisation where its crossing lies. One whose control
 is already beyond the reference takes the lowest concentration in the data. One
 with no crossing in the evaluated range keeps its rank above `max(x_vec)`, so a
 quantile that falls among such realisations is reported as `max(x_vec)`, with a
-warning giving the fraction (T25).
+warning giving the fraction (T25). The `control` and `reference` columns of a
+row are summarised over the same realisations as its estimate, those not
+excluded (T34).
 
 ### 3.7 Validation
 
@@ -617,9 +635,9 @@ warning giving the fraction (T25).
 
 - Predict-level arguments (`x_var`, `group_var`, `x_range`, `resolution`, and
   that the model has a `toxval_predict` method) are validated in
-  `toxval_predict()`. `multi_var` and `trials_var` join them when
-  `nsec_multi()` is folded into `nsec()` (T15), as arguments of
-  `toxval_predict.brmsfit()`.
+  `toxval_predict()`. The responses and trials of a multivariate or binomial
+  `brmsfit` are read from the fit, so `multi_var` and `trials_var` are not
+  arguments (T15, amended 2026-10-23).
 - Metric arguments (`ecx_val`, `type`, `sig_val`, `prob_vals`, `xform`) are
   validated in the metric entry point, so every class gets identical checks.
   - This fixes the current bug where `ecx.bnecfit` never validates the `ecx_val`
@@ -1089,11 +1107,8 @@ A proportion is recognised from `meta$family` (`response_upper_bound()` in
 `zero_one_inflated_beta`, and a `drc` fit whose `type` is `"binomial"`, which
 `drc` predicts on the proportion scale. `toxval_predict.drc()` records the
 `type` as `meta$family` for this purpose. A `brms` binomial or beta-binomial fit
-is predicted by `posterior_epred()` as a count of trials, bounded by the number
-of trials, which a `toxval_pred` does not record until `trials_var` (T15); its
-increasing `absolute` reference is `NA` until then.
-
-Phase 4 records `trials_var` (T26), so such a fit takes extra risk. Where the
+is predicted by `toxval_predict()` at one trial, so on the proportion scale,
+and takes extra risk like any other proportion (T26, amended 2026-10-23). Where the
 trials are a normalising total rather than a ceiling, as in a gene expression
 fit whose trials are each gene's total count, extra risk measures the change
 against that total. On the 78-gene beta-binomial fit of the #63 comment of

@@ -5,7 +5,15 @@
 \alias{toxval_pred}
 \title{Realisations of a fitted curve over a predictor grid}
 \usage{
-new_toxval_pred(curves, keys, x_vec, meta, threshold = NULL, control = NULL)
+new_toxval_pred(
+  curves,
+  keys,
+  x_vec,
+  meta,
+  threshold = NULL,
+  control = NULL,
+  asymptote = NULL
+)
 }
 \arguments{
 \item{curves}{An unnamed list of numeric matrices of realisations, one
@@ -24,6 +32,10 @@ threshold values, one element per row of \code{keys}, or \code{NULL}.}
 
 \item{control}{An unnamed list of numeric vectors of per-realisation control
 values, one element per row of \code{keys}, or \code{NULL}.}
+
+\item{asymptote}{An unnamed list, one element per row of \code{keys}, of lists
+of two numeric vectors of per-realisation asymptotes named \code{decreasing}
+and \code{increasing}, or \code{NULL}.}
 }
 \value{
 An object of class \code{toxval_pred}.
@@ -58,14 +70,20 @@ why it is carried separately.}
 a control-only fit, estimated independently of the dose-response shape,
 one element per row of \code{keys}, or \code{NULL}. One element per curve, because
 a grouped fit has one control per group.}
+\item{\code{asymptote}}{An unnamed list of the per-realisation asymptotes of
+each curve, one element per row of \code{keys}, or \code{NULL} where the model
+supplies none. Each element is a list of two numeric vectors,
+\code{decreasing} (the lower asymptote) and \code{increasing} (the upper one),
+\code{NA} where the equation has no such asymptote. \code{type = "relative"}
+measures from the control to it (T24).}
 \item{\code{meta}}{Named list of metadata; see below.}
 }
 }
 
 \section{Identifying curves}{
 
-Row \emph{i} of \code{keys} identifies element \emph{i} of \code{curves}, and of \code{threshold} and
-\code{control} when they are supplied. The columns of \code{keys} are drawn from
+Row \emph{i} of \code{keys} identifies element \emph{i} of \code{curves}, and of \code{threshold},
+\code{control} and \code{asymptote} when they are supplied. The columns of \code{keys} are drawn from
 \code{group} and \code{response}, and become the descriptor columns of the result:
 
 \describe{
@@ -111,15 +129,23 @@ realisations came from.}
 \item{\code{x_var}}{String, the name of the predictor variable.}
 \item{\code{group_var}}{String naming the grouping variable. Required when
 \code{keys} has a \code{group} column, and \code{NULL} otherwise.}
-\item{\code{multi_var}}{String naming the response variable of a multivariate
-fit. Required when \code{keys} has a \code{response} column, and \code{NULL}
-otherwise.}
+\item{\code{multi_var}}{Character vector of the response names of a
+multivariate fit, as the fitted object names them, including every
+level of \code{keys$response}. Required when \code{keys} has a \code{response} column,
+and \code{NULL} otherwise.}
 \item{\code{resolution}}{Whole number, the number of values in \code{x_vec}.}
 \item{\code{x_range}}{Numeric of length 2, the range of \code{x_vec}.}
+\item{\code{x_control}}{Number, the lowest predictor value in the data the
+model was fitted to, taken to be the control. It differs from the first
+value of \code{x_vec} when \code{x_range} is supplied. A realisation whose control
+response already lies beyond the reference is placed here.}
 \item{\code{family}}{String naming the response distribution, such as the
 \code{brms} family or the \code{type} of a \code{drc} fit, or \code{NULL} where the fitted
-object has none. It decides whether the response is a proportion,
-bounded at 1.}
+object has none. A multivariate fit whose responses differ in family
+gives a character vector named by response instead. It decides whether
+the response is a proportion, bounded at 1. A binomial family is taken
+to be predicted on the proportion scale, at one trial, as
+\code{\link[=toxval_predict]{toxval_predict()}} predicts a \code{brms} binomial fit.}
 \item{\code{realisation}}{Either \code{"draws"} or \code{"bootstrap"}, the source of the
 realisations.}
 \item{\code{n_realisation}}{Whole number, the number of realisations.}
@@ -140,6 +166,7 @@ new_toxval_pred(
     multi_var = NULL,
     resolution = 4,
     x_range = c(0, 3),
+    x_control = 0,
     family = "gaussian",
     realisation = "draws",
     n_realisation = 2,

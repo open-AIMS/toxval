@@ -6,25 +6,44 @@
 #' @noRd
 chk_type <- function(type) {
   chk::chk_string(type, x_name = "`type`")
-  # EXPECTED-CHANGE relative type, once the asymptote is carried on toxval_pred
-  chk::chk_subset(type, c("absolute", "range", "direct"), x_name = "`type`")
+  chk::chk_subset(
+    type,
+    c("absolute", "relative", "range", "direct"),
+    x_name = "`type`"
+  )
   invisible(type)
 }
 
-#' `ecx_val` is not capped at 100 under `absolute`: a response that goes
+#' `proportion` is not capped at 1 under `absolute`: a response that goes
 #' negative has more than complete inhibition by definition. Under `range` the
-#' reference cannot pass the curve's own minimum or maximum, so it is capped.
+#' reference cannot pass the curve's own minimum or maximum, nor under
+#' `relative` its asymptote, so it is capped.
+#' Several values give one row each (T32).
 #'
 #' @noRd
-chk_ecx_val <- function(ecx_val, type) {
-  chk::chk_number(ecx_val, x_name = "`ecx_val`")
-  if (type != "direct") {
-    chk::chk_gt(ecx_val, 0, x_name = "`ecx_val`")
+chk_proportion <- function(proportion, type) {
+  chk::chk_numeric(proportion, x_name = "`proportion`")
+  if (!length(proportion)) {
+    chk::abort_chk("`proportion` must have at least one value.")
   }
-  if (type == "range") {
-    chk::chk_lte(ecx_val, 100, x_name = "`ecx_val`")
+  chk::chk_not_any_na(proportion, x_name = "`proportion`")
+  if (!all(is.finite(proportion))) {
+    chk::abort_chk("`proportion` must be finite.")
   }
-  invisible(ecx_val)
+  chk::chk_gt(proportion, 0, x_name = "`proportion`")
+  if (type %in% c("range", "relative")) {
+    chk::chk_lte(proportion, 1, x_name = "`proportion`")
+  }
+  invisible(proportion)
+}
+
+#' `"model"` and `"component"` only; `"control"` is left out of phase 4 (T23).
+#'
+#' @noRd
+chk_anchor <- function(anchor) {
+  chk::chk_string(anchor, x_name = "`anchor`")
+  chk::chk_subset(anchor, c("model", "component"), x_name = "`anchor`")
+  invisible(anchor)
 }
 
 #' `sig_val` sets the decreasing reference and `1 - sig_val` the increasing
@@ -58,10 +77,4 @@ chk_prob_vals <- function(prob_vals) {
     )
   }
   invisible(prob_vals)
-}
-
-#' @noRd
-chk_xform <- function(xform) {
-  chk::chk_function(xform, x_name = "`xform`")
-  invisible(xform)
 }

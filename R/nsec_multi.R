@@ -1,19 +1,64 @@
-#' Extracts the predicted NSEC values from a multivariate brmsfit.
+#' Estimate NSEC values from a multivariate brmsfit
 #'
-#' @inheritParams toxval_params
-#' @param trials_var NA if no trials, or a character vector indicating the name or
-#' prefix of any trials column(s).
-#' @param multi_var NA if univariate, or a character vector indicating the name or
-#' prefix of the multivariate column(s).
-#' @param type The type of nsec to be returned. See details.
-#' @param criterion The criterion to use when type ='lowest'.
+#' @description
+#' `r lifecycle::badge("deprecated")`
 #'
-#' @details nsecID extracts nsec values from response curves of unknown
-#' direction or shape. Both increasing and/or decreasing nsec's can be returned.
-#' The returned output depends on the selected type, which can be one of 'both',
-#' 'lower', 'increasing', 'decreasing'.
+#' `nsec_multi()` is deprecated in favour of [nsec()], which gives one row per
+#' response and direction for a multivariate fit, reading the responses from
+#' the fit. It now calls [nsec()] and returns its `toxval` tibble, keeping the
+#' rows `type` selects.
 #'
-#' @return A vector or list containing the estimated NSEC value(s).
+#' @section Converting to `nsec()`:
+#' `multi_var` and `trials_var` are not needed: the responses and any trials
+#' column are read from the fit. `type` becomes a filter on the `direction`
+#' column, and `posterior = TRUE` becomes `draws = TRUE`.
+#'
+#' ```r
+#' # nsec_multi(fit, x_var = "dose", multi_var = "sp")
+#' nsec(fit, x_var = "dose")
+#'
+#' # nsec_multi(fit, x_var = "dose", multi_var = "sp", type = "decreasing")
+#' nsec(fit, x_var = "dose") |>
+#'   dplyr::filter(direction == "decreasing")
+#'
+#' # nsec_multi(fit, x_var = "dose", multi_var = "sp", type = "lower",
+#' #   criterion = 0.8)
+#' nsec(fit, x_var = "dose", draws = TRUE) |>
+#'   dplyr::mutate(
+#'     at_criterion = vapply(
+#'       draws,
+#'       \(d) quantile(d$value.draw, 0.8, na.rm = TRUE),
+#'       numeric(1)
+#'     )
+#'   ) |>
+#'   dplyr::group_by(response) |>
+#'   dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
+#'   dplyr::ungroup()
+#' ```
+#'
+#' `type = "lower"` keeps, for each response, the direction whose NSEC is lower
+#' at the `criterion` quantile of its realisations; a tie keeps the decreasing
+#' direction.
+#'
+#' @inheritParams nsec
+#' @param x_var A string naming the predictor variable.
+#' @param resolution A whole number giving the number of predictor values to
+#'   evaluate the curve at.
+#' @param x_range A numeric vector of length 2 giving the range of predictor
+#'   values to evaluate over, or `NA` to use the range in the model data.
+#' @param posterior A flag; `TRUE` adds the `draws` list column, as
+#'   `draws = TRUE` does in [nsec()].
+#' @param trials_var,multi_var Ignored; the trials and the responses are read
+#'   from the fit.
+#' @param type One of `"both"`, `"lower"`, `"increasing"` or `"decreasing"`,
+#'   the directions to return.
+#' @param criterion A number between 0 and 1, the quantile of the realisations
+#'   compared when `type = "lower"`.
+#' @param ... Additional arguments passed to [nsec()].
+#'
+#' @return A `toxval` tibble, as from [nsec()], with the rows `type` selects.
+#'
+#' @keywords internal
 #' @export
 nsec_multi <- function(
   object,
@@ -30,121 +75,86 @@ nsec_multi <- function(
   criterion = 0.8,
   ...
 ) {
-  #chk::chk_numeric(sig_val)
-  chk::chk_numeric(resolution)
-  chk::chk_logical(posterior)
-
-  if (is.na(match(type, c('both', 'lower', 'increasing', 'decreasing')))) {
-    stop("type must be one of both, lower, increasing, or decreasing")
-  }
-
-  if (length(sig_val) > 1) {
-    stop("You may only pass one sig_val")
-  }
-  if (!inherits(xform, "function")) {
-    stop("xform must be a function.")
-  }
-  if (
-    length(prob_vals) < 3 |
-      prob_vals[1] < prob_vals[2] |
-      prob_vals[1] > prob_vals[3] |
-      prob_vals[2] > prob_vals[3]
-  ) {
-    stop(
-      "prob_vals must include central, lower and upper quantiles,",
-      " in that order."
-    )
-  }
+  lifecycle::deprecate_warn(
+    "2.0.0",
+    "nsec_multi()",
+    "nsec()",
+    details = "The responses of a multivariate fit are read from the fit, and `type` is a filter on the `direction` column of the result."
+  )
+  chk::chk_flag(posterior)
+  chk::chk_string(type)
+  chk::chk_subset(type, c("both", "lower", "increasing", "decreasing"))
+  chk::chk_number(criterion)
+  chk::chk_range(criterion)
   if (missing(x_var)) {
-    stop("x_var must be supplied for a brmsfit object.")
+    x_var <- NULL
+  }
+  if (is_missing_value(x_range)) {
+    x_range <- NULL
   }
 
-  col_names <- colnames(object$data)
-  if (max(grepl(x_var, col_names)) == 0) {
-    stop("Your suplied x_var is not contained in the object data.frame")
-  }
-
-  if (length(x_range) == 1 && is.na(x_range)) {
-    x_range <- range(object$data[x_var])
-  }
-  x_vec <- seq(min(x_range), max(x_range), length = resolution)
-
-  pred_dat <- data.frame(x_vec)
-  names(pred_dat) <- x_var
-
-  if (length(trials_var) == 1 && !is.na(trials_var)) {
-    trials <- object$data |>
-      dplyr::select(dplyr::starts_with(trials_var)) |>
-      colnames()
-    if (length(trials) == 0) {
-      stop("trials_var does not appear to be in your input data.")
-    }
-    trials_data <- object$data |>
-      dplyr::select(dplyr::all_of(trials)) |>
-      unique()
-
-    pred_dat <- cbind(pred_dat, trials_data, row.names = NULL)
-  }
-
-  p_samples <- try(
-    posterior_epred(object, newdata = pred_dat, re_formula = NA),
-    silent = TRUE
+  result <- nsec(
+    object,
+    sig_val = sig_val,
+    x_var = x_var,
+    resolution = resolution,
+    x_range = x_range,
+    draws = posterior || type == "lower",
+    prob_vals = prob_vals,
+    xform = xform,
+    ...
   )
 
-  if (!is.na(multi_var)) {
-    vars <- object$data |>
-      dplyr::select(dplyr::starts_with(multi_var)) |>
-      colnames()
-    if (length(vars) == 0) {
-      stop("multi_var does not appear to be in your input data.")
-    }
-
-    all_nsec_out <- apply(
-      p_samples,
-      MARGIN = 3,
-      FUN = get_nsec_multi,
-      sig_val = sig_val,
-      x_vec = x_vec,
-      xform = xform
-    )
-    names(all_nsec_out) <- vars
-
-    nsec_posterior <- extract_nsec_multi(
-      all_nsec_out,
-      type = type,
-      criterion = criterion
-    )
-
-    if (posterior == TRUE) {
-      return(nsec_posterior)
-    } else {
-      if (type == "both") {
-        nsec_out <- lapply(nsec_posterior, FUN = function(x) {
-          inc_vals <- quantile(x$nsec_inc, probs = c(0.025, 0.5, 0.975))
-          names(inc_vals) <- c("inc_lw", "inc_val", "inc_up")
-          dec_vals <- quantile(x$nsec_dec, probs = c(0.025, 0.5, 0.975))
-          names(dec_vals) <- c("dec_lw", "dec_val", "dec_up")
-          ref_vals <- unlist(attributes(x)$reference_vals)
-          return(c(inc_vals, dec_vals, ref_vals))
-        }) |>
-          dplyr::bind_rows(.id = "vars")
-      } else {
-        nsec_out <- lapply(nsec_posterior, FUN = function(x) {
-          vals <- quantile(x, probs = c(0.025, 0.5, 0.975))
-          names(vals) <- c("lw", "val", "up")
-          ref_val <- unlist(attributes(x)$reference_val)
-          direction <- unlist(attributes(x)$direction)
-          return(c(vals, ref_val, direction))
-        })
-        nsec_out <- do.call("rbind", nsec_out) |>
-          data.frame()
-        colnames(nsec_out) <- c("lw", "val", "up", "ref", "direction")
-        nsec_out$var <- rownames(nsec_out)
-        rownames(nsec_out) <- 1:nrow(nsec_out)
-      }
-      return(nsec_out)
-    }
-  } else {
-    stop("nsec_multi currently only supports multivariate data.")
+  if (type %in% c("increasing", "decreasing")) {
+    result <- result[result$direction == type, ]
   }
+  if (type == "lower") {
+    result <- lowest_direction(result, criterion)
+    if (!posterior) {
+      result$draws <- NULL
+    }
+  }
+  result
+}
+
+#' Keep the direction with the lower NSEC for each curve
+#'
+#' Rows are compared at the `criterion` quantile of their realisations (T30).
+#' Censored realisations are `Inf`, so they rank above every crossing, and
+#' excluded ones are `NA` and are dropped. A tie keeps the decreasing row,
+#' which comes first.
+#'
+#' @param result A `toxval` tibble from [nsec()] with `draws`.
+#' @param criterion The quantile compared.
+#'
+#' @noRd
+lowest_direction <- function(result, criterion) {
+  at_criterion <- vapply(
+    result$draws,
+    function(d) {
+      if (all(is.na(d$value.draw))) {
+        return(NA_real_)
+      }
+      stats::quantile(d$value.draw, criterion, names = FALSE, na.rm = TRUE)
+    },
+    numeric(1)
+  )
+  curve_cols <- intersect(c("group", "response"), names(result))
+  curve <- if (length(curve_cols)) {
+    interaction(result[curve_cols], drop = TRUE, lex.order = TRUE)
+  } else {
+    factor(rep(1L, nrow(result)))
+  }
+  keep <- vapply(
+    split(seq_len(nrow(result)), curve),
+    function(rows) {
+      values <- at_criterion[rows]
+      if (all(is.na(values))) {
+        return(rows[1])
+      }
+      rows[which.min(values)]
+    },
+    integer(1)
+  )
+  result[sort(keep), ]
 }

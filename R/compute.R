@@ -8,54 +8,84 @@
 #' | `type` | decreasing | increasing |
 #' |---|---|---|
 #' | `absolute` | control to 0 | control to 1 for a proportion, otherwise control to twice the control |
+#' | `relative` | control to the lower asymptote | control to the upper asymptote |
 #' | `range` | control to the minimum of the curve | control to the maximum of the curve |
-#' | `direct` | `ecx_val`, a response value | as decreasing |
+#' | `direct` | `reference`, a response value | as decreasing |
 #'
 #' The increasing `absolute` forms are extra risk for a proportion and relative
 #' deviation for any other response (T18): a 10 per cent increase from a control
 #' of 20 is 22. The reference is `NA` for a realisation whose span, the distance
 #' from the control to the bound, is zero or less, such as a control at or below
-#' 0 under `absolute`, since the percentage then has nothing to be taken of.
+#' 0 under `absolute`, since the proportion then has nothing to be taken of.
 #'
 #' Values are not summarised. A realisation with no crossing in a direction is
 #' `NA`.
 #'
 #' @param pred A `toxval_pred`.
-#' @param ecx_val The percentage effect, or the response value under `direct`.
-#' @param type One of `"absolute"`, `"range"` or `"direct"`.
+#' @param proportion The effect as a proportion of the span, one or more
+#'   values. Not used under `direct`.
+#' @param type One of `"absolute"`, `"relative"`, `"range"` or `"direct"`.
+#' @param reference The response value under `direct`, and `NULL` otherwise
+#'   (T32).
 #'
-#' @return A tibble with one row per curve and direction: the columns of
-#'   `keys`, `direction`, `ecx_val`, `type`, and the list columns `control`,
-#'   `reference` and `draws`, each holding one value per realisation.
+#' @return A tibble with one row per curve, proportion and direction: the
+#'   columns of `keys`, `direction`, `proportion` (`NA` under `direct`), `type`,
+#'   and the list columns `control`, `reference`, `asymptote` (`NA` unless
+#'   `type` is `relative`) and `draws`, each holding one value per
+#'   realisation.
 #'
 #' @noRd
-compute_ecx <- function(pred, ecx_val = 10, type = "absolute") {
+compute_ecx <- function(
+  pred,
+  proportion = 0.1,
+  type = "absolute",
+  reference = NULL
+) {
   chk::chk_s3_class(pred, "toxval_pred")
   chk_type(type)
-  chk_ecx_val(ecx_val, type)
-
-  upper <- response_upper_bound(pred$meta)
+  if (type == "direct") {
+    if (is.null(reference)) {
+      chk::abort_chk("`reference` must be supplied when `type` is 'direct'.")
+    }
+    chk::chk_number(reference)
+    proportion <- NA_real_
+  } else {
+    if (!is.null(reference)) {
+      chk::abort_chk(
+        "`reference` must be NULL unless `type` is 'direct'; the reference ",
+        "is computed from `proportion`."
+      )
+    }
+    chk_proportion(proportion, type)
+  }
+  chk_asymptote_supplied(pred, type)
 
   rows <- lapply(seq_along(pred$curves), function(i) {
+    upper <- response_upper_bound(pred$meta, pred$keys, i)
+    asymptote <- curve_asymptote(pred, type, i)
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
-    reference <- ecx_reference(curve, ecx_val, type, upper)
-    draws <- lapply(directions(), function(direction) {
-      crossings_by_row(curve, pred$x_vec, reference[[direction]], direction)
-    })
+    by_proportion <- lapply(proportion, function(p) {
+      references <- ecx_reference(curve, p, type, upper, reference, asymptote)
+      draws <- lapply(directions(), function(direction) {
+        crossings_by_row(curve, pred$x_vec, references[[direction]], direction)
+      })
 
-    dplyr::bind_cols(
-      keys_by_direction(pred$keys, i),
-      dplyr::tibble(
-        direction = directions(),
-        ecx_val = ecx_val,
-        type = type,
-        control = list(control, control),
-        reference = unname(reference[directions()]),
-        draws = unname(draws)
+      dplyr::bind_cols(
+        keys_by_direction(pred$keys, i),
+        dplyr::tibble(
+          direction = directions(),
+          proportion = p,
+          type = type,
+          control = list(control, control),
+          reference = unname(references[directions()]),
+          asymptote = unname(asymptote[directions()]),
+          draws = unname(draws)
+        )
       )
-    )
+    })
+    dplyr::bind_rows(by_proportion)
   })
   dplyr::bind_rows(rows)
 }
@@ -81,37 +111,54 @@ compute_ecx <- function(pred, ecx_val = 10, type = "absolute") {
 #' @param type One of `"absolute"` or `"range"`, selecting the `ecnsec`
 #'   definition. `"direct"` is refused (T19): its `ecnsec` would be the
 #'   reference itself, which the `reference` column already reports.
+#' @param anchor One of `"model"` or `"component"`, where the reference comes
+#'   from under model averaging (T23). The two coincide for a fit that is not
+#'   model-averaged, which is every class supported, so it is recorded only.
 #'
 #' @return A tibble with one row per curve and direction: the columns of
-#'   `keys`, `direction`, `sig_val`, `type`, `reference`, and the list columns
-#'   `control`, `draws` and `ecnsec`, each holding one value per realisation.
+#'   `keys`, `direction`, `sig_val`, `type`, `anchor`, `reference`, and the
+#'   list columns `control`, `asymptote` (`NA` unless `type` is `relative`),
+#'   `draws` and `ecnsec`, each holding one value per realisation. `ecnsec` is
+#'   a proportion (T32).
 #'
 #' @noRd
-compute_nsec <- function(pred, sig_val = 0.01, type = "absolute") {
+compute_nsec <- function(
+  pred,
+  sig_val = 0.01,
+  type = "absolute",
+  anchor = "model"
+) {
   chk::chk_s3_class(pred, "toxval_pred")
   chk_sig_val(sig_val)
   chk_type(type)
+  chk_anchor(anchor)
   if (type == "direct") {
     chk::abort_chk(
       "`type` must not be 'direct' for an NSEC; the response value at the ",
       "NSEC is reported as `reference`."
     )
   }
-  upper <- response_upper_bound(pred$meta)
+  chk_asymptote_supplied(pred, type)
 
   rows <- lapply(seq_along(pred$curves), function(i) {
+    upper <- response_upper_bound(pred$meta, pred$keys, i)
+    asymptote <- curve_asymptote(pred, type, i)
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
+    # a realisation with no finite control, such as a bootstrap draw outside
+    # the parameter space, has no place in the reference; it is excluded in
+    # the summary, as in `compute_ecx()`
+    finite_control <- control[is.finite(control)]
     reference <- c(
-      decreasing = unname(stats::quantile(control, sig_val)),
-      increasing = unname(stats::quantile(control, 1 - sig_val))
+      decreasing = nsec_reference(finite_control, sig_val),
+      increasing = nsec_reference(finite_control, 1 - sig_val)
     )
     draws <- lapply(directions(), function(direction) {
       reference_by_row <- rep(reference[[direction]], nrow(curve))
       crossings_by_row(curve, pred$x_vec, reference_by_row, direction)
     })
-    ecnsec <- ecnsec_value(curve, reference, type, upper)
+    ecnsec <- ecnsec_value(curve, reference, type, upper, asymptote)
 
     dplyr::bind_cols(
       keys_by_direction(pred$keys, i),
@@ -119,14 +166,57 @@ compute_nsec <- function(pred, sig_val = 0.01, type = "absolute") {
         direction = directions(),
         sig_val = sig_val,
         type = type,
+        anchor = anchor,
         reference = unname(reference[directions()]),
         control = list(control, control),
+        asymptote = unname(asymptote[directions()]),
         draws = unname(draws),
         ecnsec = unname(ecnsec[directions()])
       )
     )
   })
   dplyr::bind_rows(rows)
+}
+
+#' Check that `relative` has an asymptote to measure to
+#'
+#' A `brmsfit` carries one only when `asymptote` names it, so `relative` is
+#' refused rather than measured to an assumed bound (T9, T29).
+#'
+#' @noRd
+chk_asymptote_supplied <- function(pred, type) {
+  if (type == "relative" && is.null(pred$asymptote)) {
+    chk::abort_chk(
+      "`type` must not be 'relative' when `object` supplies no asymptote; ",
+      "for a `brmsfit`, name it with `asymptote`, or use `type` 'absolute' ",
+      "or 'range'."
+    )
+  }
+  invisible(pred)
+}
+
+#' The asymptotes of curve `i`, or `NA` where `type` does not use them
+#'
+#' @return A list of two numeric vectors, `decreasing` and `increasing`, one
+#'   value per realisation.
+#'
+#' @noRd
+curve_asymptote <- function(pred, type, i) {
+  if (type == "relative") {
+    return(pred$asymptote[[i]])
+  }
+  none <- rep(NA_real_, pred$meta$n_realisation)
+  list(decreasing = none, increasing = none)
+}
+
+#' The NSEC reference, a quantile of the finite control realisations
+#'
+#' @noRd
+nsec_reference <- function(control, prob) {
+  if (!length(control)) {
+    return(NA_real_)
+  }
+  unname(stats::quantile(control, prob))
 }
 
 #' @noRd
@@ -166,13 +256,14 @@ crossings_by_row <- function(curve, x_vec, reference, direction) {
 #' deviation from the control, the mirror of the decreasing form (T18).
 #'
 #' @param meta The `meta` of a `toxval_pred`.
+#' @param keys The `keys` of the `toxval_pred`.
+#' @param i The curve, a row of `keys`.
 #'
-#' @return 1 for a proportion, `Inf` for a response with no upper bound, or `NA`
-#'   where the bound is not recorded.
+#' @return 1 for a proportion and `Inf` for a response with no upper bound.
 #'
 #' @noRd
-response_upper_bound <- function(meta) {
-  family <- meta$family
+response_upper_bound <- function(meta, keys, i) {
+  family <- curve_family(meta$family, keys, i)
   if (is.null(family)) {
     return(Inf)
   }
@@ -186,15 +277,27 @@ response_upper_bound <- function(meta) {
     bernoulli = ,
     beta = ,
     zero_inflated_beta = ,
-    zero_one_inflated_beta = 1,
-    # `posterior_epred()` returns these as a count of trials, bounded by the
-    # number of trials, which a toxval_pred does not record until `trials_var`
-    # (T15). `NA` keeps the reference from being taken against the wrong bound.
+    zero_one_inflated_beta = ,
+    # predicted at one trial by `toxval_predict.brmsfit()`, so a proportion
+    # whatever the trials in the data (T26)
     binomial = ,
     beta_binomial = ,
-    zero_inflated_binomial = NA_real_,
+    zero_inflated_binomial = 1,
     Inf
   )
+}
+
+#' The family of one curve
+#'
+#' `meta$family` is one string for every curve, or a vector named by response
+#' for a multivariate fit whose responses differ in family (T26).
+#'
+#' @noRd
+curve_family <- function(family, keys, i) {
+  if (is.null(family) || is.null(names(family))) {
+    return(family)
+  }
+  family[[as.character(keys$response[i])]]
 }
 
 #' The span a percentage effect is taken of, for every realisation of a curve
@@ -204,19 +307,19 @@ response_upper_bound <- function(meta) {
 #' span from here, so `ecnsec` stays the inverse of the `ecx` reference (T8). A
 #' span of zero or less gives no percentage, so it is returned as `NA`: under
 #' `absolute` that is a control at or below 0, or at or above 1 for a
-#' proportion; under `range` it is a curve with no extent in that direction.
+#' proportion; under `relative` a control at or beyond the asymptote; under
+#' `range` a curve with no extent in that direction.
 #'
 #' @param upper The upper bound from `response_upper_bound()`.
+#' @param asymptote The output of `curve_asymptote()`, used under `relative`.
 #'
 #' @return A list of two numeric vectors, `decreasing` and `increasing`, one
 #'   value per realisation.
 #'
 #' @noRd
-reference_span <- function(curve, type, upper) {
+reference_span <- function(curve, type, upper, asymptote = NULL) {
   control <- curve[, 1]
-  increasing_absolute <- if (is.na(upper)) {
-    rep(NA_real_, length(control))
-  } else if (is.finite(upper)) {
+  increasing_absolute <- if (is.finite(upper)) {
     upper - control
   } else {
     control
@@ -226,6 +329,10 @@ reference_span <- function(curve, type, upper) {
     absolute = list(
       decreasing = control,
       increasing = increasing_absolute
+    ),
+    relative = list(
+      decreasing = control - asymptote$decreasing,
+      increasing = asymptote$increasing - control
     ),
     range = list(
       decreasing = control - apply(curve, 1, min),
@@ -240,39 +347,48 @@ reference_span <- function(curve, type, upper) {
 
 #' The ECx reference for every realisation of a curve, in each direction
 #'
+#' @param proportion A single proportion of the span.
+#' @param reference The response value under `direct`.
+#'
 #' @noRd
-ecx_reference <- function(curve, ecx_val, type, upper) {
+ecx_reference <- function(
+  curve,
+  proportion,
+  type,
+  upper,
+  reference = NULL,
+  asymptote = NULL
+) {
   n <- nrow(curve)
   if (type == "direct") {
     return(list(
-      decreasing = rep(ecx_val, n),
-      increasing = rep(ecx_val, n)
+      decreasing = rep(reference, n),
+      increasing = rep(reference, n)
     ))
   }
   control <- curve[, 1]
-  p <- ecx_val / 100
-  span <- reference_span(curve, type, upper)
+  span <- reference_span(curve, type, upper, asymptote)
   list(
-    decreasing = control - span$decreasing * p,
-    increasing = control + span$increasing * p
+    decreasing = control - span$decreasing * proportion,
+    increasing = control + span$increasing * proportion
   )
 }
 
 #' The effect at the NSEC reference for every realisation of a curve, in each
 #' direction
 #'
-#' The inverse of `ecx_reference()`: the percentage of the span that the
-#' reference lies from the control.
+#' The inverse of `ecx_reference()`: the proportion of the span that the
+#' reference lies from the control (T32).
 #'
 #' @param reference The NSEC reference, a numeric vector named `decreasing`
 #'   and `increasing`.
 #'
 #' @noRd
-ecnsec_value <- function(curve, reference, type, upper) {
+ecnsec_value <- function(curve, reference, type, upper, asymptote = NULL) {
   control <- curve[, 1]
-  span <- reference_span(curve, type, upper)
+  span <- reference_span(curve, type, upper, asymptote)
   list(
-    decreasing = (control - reference[["decreasing"]]) / span$decreasing * 100,
-    increasing = (reference[["increasing"]] - control) / span$increasing * 100
+    decreasing = (control - reference[["decreasing"]]) / span$decreasing,
+    increasing = (reference[["increasing"]] - control) / span$increasing
   )
 }

@@ -188,8 +188,10 @@ non-generic functions that compute on a `toxval_pred`.
 
 `nsec_multi()` is folded into `nsec()` and deprecated, so one function serves
 ungrouped, grouped and multivariate fits (decision T15, `REFACTOR-claude.md`
-§3.3). Its `type = "lower"` option becomes a filter on the result, so `nsec()`
-needs no argument for it (decision T30).
+§3.3). The responses and any binomial trials are read from the fit, so neither
+`multi_var` nor `trials_var` is an argument (T15 and T26, amended 2026-10-23).
+Its `type = "lower"` option becomes a filter on the result, so `nsec()` needs no
+argument for it (decision T30).
 
 Metric functions accept **either a fitted model or a pre-built `toxval_pred`**
 (one `inherits()` check at the top), which enables predict-once / compute-many
@@ -282,13 +284,16 @@ Long form is one pipe stage rather than a separate API:
 ```r
 ecx(fit, draws = TRUE) |> tidyr::unnest(draws)
 #> # A tibble: 4,000 x 6
-#>   metric direction  ecx_val estimate .draw  value
-#>   <chr>  <chr>        <dbl>    <dbl> <int>  <dbl>
-#> 1 ecx    decreasing      10    0.832     1  0.841
-#> 2 ecx    decreasing      10    0.832     2  0.795
-#> 3 ecx    decreasing      10    0.832     3  0.826
+#>   metric direction  ecx_val estimate .draw value.draw
+#>   <chr>  <chr>        <dbl>    <dbl> <int>      <dbl>
+#> 1 ecx    decreasing      10    0.832     1      0.841
+#> 2 ecx    decreasing      10    0.832     2      0.795
+#> 3 ecx    decreasing      10    0.832     3      0.826
 #> # i 3,997 more rows
 ```
+
+Each `draws` cell is a tibble with `.draw`, `value.draw` and, for `nsec`,
+`ecnsec.draw`, so the NSEC and `ecnsec` of a realisation share a row.
 
 The list column keeps one row per estimate, so unnesting is the caller's explicit
 choice; it satisfies §3.2 without a second function; and it keeps paired
