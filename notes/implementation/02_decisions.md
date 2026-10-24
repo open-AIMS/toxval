@@ -3,8 +3,9 @@
 Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
 2026-09-04/05 with T8-T12, which settle the definitions gating the refactor, and
 2026-10-09 with T13-T17, from the review of PR #59, 2026-10-17 with T18-T20,
-from the review of PR #62, and 2026-10-18/19 with T21-T33, the rulings phases
-4 and 5 need. A session implements these rather than re-opening them.
+from the review of PR #62, 2026-10-18/19 with T21-T33, the rulings phases
+4 and 5 need, and 2026-10-22 with T34, from the review of PR #66. A session
+implements these rather than re-opening them.
 
 **Scope.** This file records decisions about the **package** — what the code
 does and why. Workflow is not recorded here: branching, remotes and review live
@@ -260,7 +261,9 @@ Stated in full in `REFACTOR-claude.md` §3.3.
 `nsec_multi()` becomes a deprecated wrapper around `nsec()`. Its arguments are
 redistributed:
 
-- `multi_var` and `trials_var` become arguments of `toxval_predict.brmsfit()`.
+- `multi_var` and `trials_var` are no longer arguments. `toxval_predict.brmsfit()`
+  reads the responses, their families and any trials column from the fit with
+  `brms::brmsterms()` (amended 2026-10-23, AP).
 - `type = "both"`, `"increasing"` and `"decreasing"` become filters on the
   `direction` column (T10).
 - `type = "lower"` with `criterion` stays an argument of `nsec()`, under a new
@@ -303,7 +306,8 @@ A proportion is recognised from `meta$family`: the `brms` families `bernoulli`,
 `beta`, `zero_inflated_beta` and `zero_one_inflated_beta`, and a `drc` fit whose
 `type` is `"binomial"`. A `brms` binomial or beta-binomial fit is predicted as a
 count of trials, so its increasing reference is `NA` until the number of trials
-is recorded (T15).
+is recorded (T15). Amended 2026-10-23 (AP): such a fit is predicted at one
+trial, so it is a proportion with the bound 1 (T26).
 
 A span of zero or less gives `NA` for the reference and for `ecnsec`, in either
 direction. This replaces the error §3.10 specified for a control at or above 1.
@@ -419,6 +423,21 @@ The `drc` limits are not looked up from `fct$name`, as §3.10 first specified.
 `fct$name` is `"::"` for a fit made with `drc::LL.4()`, and custom `names =`
 change the parameter letters.
 
+Implemented 2026-10-23 (AP), with two points the ruling did not cover:
+
+- `brms` applies the link to the whole non-linear formula, so a named
+  parameter is on the link scale: `bot` of `brms_model_4` (beta, logit link)
+  is about -5.0, an asymptote of 0.0067 on the response scale. A named
+  parameter is taken per draw with `posterior_linpred(nlpar = )` at the first
+  grid value and transformed by `stats::make.link()`'s inverse; a numeric
+  `asymptote` is on the response scale. A link `make.link()` does not know
+  errors and asks for a number.
+- `asymptote` is refused for a multivariate fit until an asymptote per
+  response is needed.
+
+`asymptote` is a descriptor column of every `ecx()` and `nsec()` result,
+`NA` unless `type = "relative"` (§3.10 Output).
+
 ## T25 — warnings for censored and excluded realisations (#6, #24)
 
 Settled 2026-10-18 (RF).
@@ -437,8 +456,17 @@ Settled 2026-10-18 (RF).
 - `meta$multi_var` holds the response names as `posterior_epred()` returns
   them (for example `spsurvival`), matched to the data columns by name rather
   than by position.
-- `trials_var` is recorded per curve, and T18's increasing `absolute` reference
-  for a binomial response uses it.
+- ~~`trials_var` is recorded per curve, and T18's increasing `absolute` reference
+  for a binomial response uses it.~~ Amended 2026-10-23 (AP), for Becky to
+  confirm: a binomial response is predicted at one trial, so its curve,
+  `control` and `reference` are proportions and its upper bound is 1. Trials
+  often vary between observations (eggs counted per well, larvae offered), so
+  no single count scale exists, and a scale that switched with the data was
+  rejected. NSEC, ECx and `ecnsec` do not depend on the number of trials. The
+  trials column is read from the fit and recorded as `meta$trials_var`; a
+  constant or an expression in `trials()` is an error.
+- `meta$multi_var` and the `response` column hold the `brms` response names
+  (`spsurvival`, not `sp_survival`), matched by name (2026-10-23, AP).
 
 A fit whose trials are a normalising total rather than a ceiling on the
 response then also takes extra risk, which puts its increasing `ecnsec` close to
@@ -585,6 +613,33 @@ layer is not written, and each changed test is edited once rather than twice.
 The `toxval` tibble class is built first and additively, as phase 2 built the
 spine. The check that numbers do not change unintentionally compares values
 recorded before the change with the decreasing rows of the new output.
+
+## T34 — `control` is summarised over the realisations of the estimate (T21, T25)
+
+Settled 2026-10-22 (RF) on PR #66.
+
+The `control` column of a row is the central quantile of the control
+realisations not excluded from that row (T21), the same realisations as the
+estimate and the `reference` column. Each row then describes one set of
+realisations, and the warning reports the fraction excluded from it (T25).
+Summarised over every realisation, the printed reference under `absolute` was
+not the stated fraction of the printed control: on `brms_model_1` at a
+resolution of 500, 8 of 1000 realisations have a negative control and no
+reference, and the EC10 reference was 0.8158 against 0.9 x 0.9045 = 0.8140.
+
+Under `absolute` every reference is an increasing linear function of the
+control (0.9 x control decreasing, 1.1 x control increasing, 0.1 + 0.9 x control
+increasing on a proportion), and type 7 quantiles commute with such a
+function, so the relation holds exactly in the printed table. Under `range` the
+reference also depends on each realisation's minimum or maximum, so it does
+not.
+
+Each direction excludes its own realisations, so `control` can differ between
+the two rows of one curve. Where every realisation of a row is excluded,
+`control` is `NA`. Under `range` that is the usual increasing row of a
+monotone decreasing curve, which has no estimate (T10) and no reference
+either. `nsec()` is unaffected: its reference is one finite value per curve,
+so no realisation is excluded.
 
 ---
 
