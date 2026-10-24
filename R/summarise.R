@@ -26,7 +26,8 @@
 #' estimate (T34). Each direction excludes its own, so `control` can differ
 #' between the two rows of one curve, and it is `NA` where every realisation is
 #' excluded. `control` is also `NA` under `type = "direct"`, which does not use
-#' it.
+#' it. `asymptote` is summarised over the same realisations, and is `NA` unless
+#' `type` is `"relative"`.
 #'
 #' @param rows The output of `compute_ecx()` or `compute_nsec()`.
 #' @param pred The `toxval_pred` the rows were computed on.
@@ -89,8 +90,8 @@ summarise_metric <- function(
 #' @param row One row of the output of `compute_ecx()` or `compute_nsec()`.
 #'
 #' @return A list with `estimates`, a one-row tibble of the estimate and interval;
-#'   `descriptors`, a one-row tibble of `control`, `reference` and, for an NSEC,
-#'   the `ecnsec` summary; `draws`, a tibble of the realisations; and the
+#'   `descriptors`, a one-row tibble of `control`, `reference`, `asymptote` and,
+#'   for an NSEC, the `ecnsec` summary; `draws`, a tibble of the realisations; and the
 #'   counts `n`, `n_censored` and `n_excluded`, with `censored`, whether a
 #'   reported quantile is censored.
 #'
@@ -135,7 +136,8 @@ summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
   }
   descriptors <- dplyr::tibble(
     control = control_central,
-    reference = central(reference, prob_vals)
+    reference = central(reference, prob_vals),
+    asymptote = central(row$asymptote[[1]][!excluded], prob_vals)
   )
   draws <- dplyr::tibble(.draw = seq_along(placed), value.draw = placed)
 

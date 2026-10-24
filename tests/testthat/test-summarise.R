@@ -23,7 +23,8 @@ test_that("summarise_metric returns a toxval tibble with the ecx columns", {
       "proportion",
       "type",
       "control",
-      "reference"
+      "reference",
+      "asymptote"
     )
   )
   expect_identical(result$metric, c("ecx", "ecx"))
@@ -49,6 +50,7 @@ test_that("summarise_metric returns the nsec columns, with the ecnsec summary", 
       "anchor",
       "control",
       "reference",
+      "asymptote",
       "ecnsec",
       "ecnsec.low",
       "ecnsec.high"

@@ -9,7 +9,15 @@ test_that("compute_ecx returns one row per direction for an ungrouped fit", {
   expect_s3_class(result, "tbl_df")
   expect_named(
     result,
-    c("direction", "proportion", "type", "control", "reference", "draws")
+    c(
+      "direction",
+      "proportion",
+      "type",
+      "control",
+      "reference",
+      "asymptote",
+      "draws"
+    )
   )
   expect_identical(result$direction, c("decreasing", "increasing"))
   expect_identical(result$proportion, c(0.10, 0.10))
@@ -226,13 +234,15 @@ test_that("compute_ecx errors when pred is not a toxval_pred", {
   )
 })
 
-test_that("compute_ecx errors on the relative type", {
+test_that("compute_ecx errors on the relative type without an asymptote", {
+  # EXPECTED-CHANGE relative type, measured to the asymptote (T24, T29) - done
+  # was refused as an unsupported type
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - x_vec)), x_vec)
 
   expect_error(
     toxval:::compute_ecx(pred, type = "relative"),
-    "`type` must match 'absolute', 'direct' or 'range', not 'relative'."
+    "`type` must not be 'relative' when `object` supplies no asymptote"
   )
 })
 
@@ -254,6 +264,7 @@ test_that("compute_nsec returns one row per direction for an ungrouped fit", {
       "anchor",
       "reference",
       "control",
+      "asymptote",
       "draws",
       "ecnsec"
     )

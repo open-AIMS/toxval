@@ -32,8 +32,8 @@ nsec(
 realisations that sets the decreasing reference; \code{1 - sig_val} sets the
 increasing one.}
 
-\item{type}{One of \code{"absolute"} or \code{"range"}, naming the span \code{ecnsec} is a
-proportion of. See \code{\link[=ecx]{ecx()}}.}
+\item{type}{One of \code{"absolute"}, \code{"relative"} or \code{"range"}, naming the span
+\code{ecnsec} is a proportion of. See \code{\link[=ecx]{ecx()}}.}
 
 \item{anchor}{One of \code{"model"} (the default) or \code{"component"}, where the
 reference is taken from for a model-averaged fit: the averaged control,
@@ -64,7 +64,7 @@ they are summarised, such as \code{exp} for a model fitted on log
 concentration.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit.}
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{draws}.}
 

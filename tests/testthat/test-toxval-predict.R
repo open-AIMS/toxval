@@ -267,7 +267,24 @@ test_that("toxval_predict predicts a binomial response at one trial", {
   expect_true(all(result$curves[[1]] >= 0 & result$curves[[1]] <= 1))
 })
 
+test_that("toxval_predict has no asymptote for a brmsfit unless one is named", {
+  result <- toxval_predict(brms_model_1, x_var = "x", resolution = 6)
+
+  expect_null(result$asymptote)
+})
+
 # toxval_predict.drc --------------------------------------------------------
+
+test_that("toxval_predict takes the asymptotes of a drc fit from its limits", {
+  # nsec_drc_2 is LL.3, whose lower limit is fixed at 0
+  # some bootstrap draws fall outside the parameter space and warn
+  result <- suppressWarnings(
+    toxval_predict(nsec_drc_2, resolution = 5, n_boot = 10, seed = 42)
+  )
+
+  expect_equal(result$asymptote[[1]]$decreasing, rep(0, 10))
+  expect_length(result$asymptote[[1]]$increasing, 10)
+})
 
 test_that("toxval_predict reads x_var from a drc fit when it is not supplied", {
   result <- toxval_predict(nsec_drc_1, resolution = 5, n_boot = 10, seed = 42)

@@ -5,7 +5,15 @@
 \alias{toxval_pred}
 \title{Realisations of a fitted curve over a predictor grid}
 \usage{
-new_toxval_pred(curves, keys, x_vec, meta, threshold = NULL, control = NULL)
+new_toxval_pred(
+  curves,
+  keys,
+  x_vec,
+  meta,
+  threshold = NULL,
+  control = NULL,
+  asymptote = NULL
+)
 }
 \arguments{
 \item{curves}{An unnamed list of numeric matrices of realisations, one
@@ -24,6 +32,10 @@ threshold values, one element per row of \code{keys}, or \code{NULL}.}
 
 \item{control}{An unnamed list of numeric vectors of per-realisation control
 values, one element per row of \code{keys}, or \code{NULL}.}
+
+\item{asymptote}{An unnamed list, one element per row of \code{keys}, of lists
+of two numeric vectors of per-realisation asymptotes named \code{decreasing}
+and \code{increasing}, or \code{NULL}.}
 }
 \value{
 An object of class \code{toxval_pred}.
@@ -58,14 +70,20 @@ why it is carried separately.}
 a control-only fit, estimated independently of the dose-response shape,
 one element per row of \code{keys}, or \code{NULL}. One element per curve, because
 a grouped fit has one control per group.}
+\item{\code{asymptote}}{An unnamed list of the per-realisation asymptotes of
+each curve, one element per row of \code{keys}, or \code{NULL} where the model
+supplies none. Each element is a list of two numeric vectors,
+\code{decreasing} (the lower asymptote) and \code{increasing} (the upper one),
+\code{NA} where the equation has no such asymptote. \code{type = "relative"}
+measures from the control to it (T24).}
 \item{\code{meta}}{Named list of metadata; see below.}
 }
 }
 
 \section{Identifying curves}{
 
-Row \emph{i} of \code{keys} identifies element \emph{i} of \code{curves}, and of \code{threshold} and
-\code{control} when they are supplied. The columns of \code{keys} are drawn from
+Row \emph{i} of \code{keys} identifies element \emph{i} of \code{curves}, and of \code{threshold},
+\code{control} and \code{asymptote} when they are supplied. The columns of \code{keys} are drawn from
 \code{group} and \code{response}, and become the descriptor columns of the result:
 
 \describe{

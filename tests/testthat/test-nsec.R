@@ -541,8 +541,8 @@ test_that("nsec drc model has expected structure and shape", {
   expect_named(
     output,
     c("metric", "direction", "estimate", "conf.low", "conf.high", "sig_val",
-      "type", "anchor", "control", "reference", "ecnsec", "ecnsec.low",
-      "ecnsec.high")
+      "type", "anchor", "control", "reference", "asymptote", "ecnsec",
+      "ecnsec.low", "ecnsec.high")
   )
   
   expect_snapshot({
@@ -671,4 +671,23 @@ test_that("nsec takes extra risk for a binomial response", {
   expect_true(is.finite(row$reference))
   expect_lte(row$reference, 1)
   expect_true(is.finite(row$ecnsec))
+})
+
+test_that("nsec relative takes ecnsec as a proportion of the span to the asymptote", {
+  # with an asymptote of 0 the decreasing span is the control, as under absolute
+  absolute <- suppressWarnings(
+    nsec(brms_model_1, x_var = "x", resolution = 50)
+  )
+  relative <- suppressWarnings(
+    nsec(
+      brms_model_1,
+      x_var = "x",
+      type = "relative",
+      asymptote = c(decreasing = 0),
+      resolution = 50
+    )
+  )
+
+  expect_equal(relative$ecnsec[[1]], absolute$ecnsec[[1]])
+  expect_equal(relative$estimate[[1]], absolute$estimate[[1]])
 })

@@ -20,6 +20,13 @@
 #' - `"absolute"` (the default): decreasing, the control down to 0; increasing,
 #'   the control up to 1 for a response on the proportion scale, and otherwise
 #'   up to twice the control.
+#' - `"relative"`: the control to the lower (decreasing) or upper (increasing)
+#'   asymptote of the curve, a parameter of the fitted equation. It is
+#'   available where the fit supplies the asymptote: from the limits of a `drc`
+#'   fit, and for a `brmsfit` from the parameters named by `asymptote` (see
+#'   [toxval_predict()]). An asymptote outside the observed responses is an
+#'   extrapolation, and `relative` inherits its uncertainty. Before toxval
+#'   2.0.0 `"relative"` meant what is now `"range"`, so supplying it warns.
 #' - `"range"`: the control to the lowest (decreasing) or highest (increasing)
 #'   response the curve predicts.
 #' - `"direct"`: no proportion; the ECx is where the curve crosses the response
@@ -35,7 +42,8 @@
 #' @param proportion A numeric vector of effects, as proportions of the span
 #'   named by `type`; 0.1 is the EC10. Each value gives its own rows. Not
 #'   supplied under `type = "direct"`.
-#' @param type One of `"absolute"`, `"range"` or `"direct"`. See Details.
+#' @param type One of `"absolute"`, `"relative"`, `"range"` or `"direct"`. See
+#'   Details.
 #' @param reference A number, the response value whose crossing is sought under
 #'   `type = "direct"`. Supplied only under `"direct"`.
 #' @inheritParams toxval_predict
@@ -47,7 +55,7 @@
 #'   they are summarised, such as `exp` for a model fitted on log
 #'   concentration.
 #' @param ... Additional arguments passed to [toxval_predict()], such as
-#'   `n_boot` and `seed` for a `drc` fit.
+#'   `n_boot` and `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
 #' @param ecx_val `r lifecycle::badge("deprecated")` Use `proportion`, or
 #'   `reference` under `type = "direct"`.
 #' @param posterior `r lifecycle::badge("deprecated")` Use `draws`.
@@ -161,6 +169,7 @@ ecx <- function(
   if (is_missing_value(x_range)) {
     x_range <- NULL
   }
+  warn_relative(type)
 
   if (inherits(object, "toxval_pred")) {
     if (any(predict_args)) {
@@ -206,4 +215,24 @@ ecx <- function(
 #' @noRd
 is_missing_value <- function(x) {
   is.null(x) || (length(x) == 1 && is.atomic(x) && is.na(x))
+}
+
+#' Warn that `relative` has changed meaning
+#'
+#' A plain warning on every call rather than a lifecycle deprecation, because
+#' `relative` is not deprecated (T29).
+#'
+#' @noRd
+warn_relative <- function(type) {
+  if (identical(type, "relative")) {
+    warning(
+      "`type = \"relative\"` now measures from the control to the asymptote ",
+      "of the curve. Before toxval 2.0.0 it measured to the extent of the ",
+      "curve, which is now `type = \"range\"`; the two also differ for a ",
+      "non-monotonic curve, because `range` measures from the control rather ",
+      "than from the maximum.",
+      call. = FALSE
+    )
+  }
+  invisible(type)
 }

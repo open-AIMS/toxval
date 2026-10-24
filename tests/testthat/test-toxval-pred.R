@@ -46,13 +46,14 @@ test_that("new_toxval_pred returns the documented slots for an ungrouped fit", {
   expect_s3_class(result, "toxval_pred")
   expect_named(
     result,
-    c("curves", "keys", "x_vec", "threshold", "control", "meta")
+    c("curves", "keys", "x_vec", "threshold", "control", "asymptote", "meta")
   )
   expect_length(result$curves, 1)
   expect_equal(dim(result$keys), c(1L, 0L))
   expect_identical(result$x_vec, c(0, 1, 2, 3))
   expect_null(result$threshold)
   expect_null(result$control)
+  expect_null(result$asymptote)
 })
 
 test_that("new_toxval_pred keeps the keys of a grouped fit", {
@@ -557,6 +558,45 @@ test_that("new_toxval_pred errors when a univariate fit has several families", {
       meta = pred_meta(family = c(a = "gaussian", b = "beta"))
     ),
     regexp = "`meta\\$family` must be a single unnamed string when `keys` has no 'response' column"
+  )
+})
+
+test_that("new_toxval_pred accepts an asymptote", {
+  asymptote <- list(list(decreasing = c(0, 0), increasing = c(NA_real_, NA_real_)))
+  result <- new_toxval_pred(
+    curves = list(pred_curve()),
+    keys = pred_keys(),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(),
+    asymptote = asymptote
+  )
+
+  expect_identical(result$asymptote, asymptote)
+})
+
+test_that("new_toxval_pred errors when an asymptote is not named by direction", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(),
+      asymptote = list(list(lower = c(0, 0), upper = c(NA, NA)))
+    ),
+    "`asymptote\\[\\[1\\]\\]` must be a list named 'decreasing' and 'increasing'"
+  )
+})
+
+test_that("new_toxval_pred errors when an asymptote has the wrong number of realisations", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(),
+      asymptote = list(list(decreasing = 0, increasing = NA_real_))
+    ),
+    "`asymptote\\[\\[1\\]\\]\\$decreasing` must be length 2"
   )
 })
 

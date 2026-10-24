@@ -6,14 +6,18 @@
 #' @noRd
 chk_type <- function(type) {
   chk::chk_string(type, x_name = "`type`")
-  # EXPECTED-CHANGE relative type, once the asymptote is carried on toxval_pred
-  chk::chk_subset(type, c("absolute", "range", "direct"), x_name = "`type`")
+  chk::chk_subset(
+    type,
+    c("absolute", "relative", "range", "direct"),
+    x_name = "`type`"
+  )
   invisible(type)
 }
 
 #' `proportion` is not capped at 1 under `absolute`: a response that goes
 #' negative has more than complete inhibition by definition. Under `range` the
-#' reference cannot pass the curve's own minimum or maximum, so it is capped.
+#' reference cannot pass the curve's own minimum or maximum, nor under
+#' `relative` its asymptote, so it is capped.
 #' Several values give one row each (T32).
 #'
 #' @noRd
@@ -27,7 +31,7 @@ chk_proportion <- function(proportion, type) {
     chk::abort_chk("`proportion` must be finite.")
   }
   chk::chk_gt(proportion, 0, x_name = "`proportion`")
-  if (type == "range") {
+  if (type %in% c("range", "relative")) {
     chk::chk_lte(proportion, 1, x_name = "`proportion`")
   }
   invisible(proportion)

@@ -125,6 +125,17 @@ toxval_predict.default <- function(
 #'   depend on the number of trials, so only the scale of `control` and
 #'   `reference` differs from a prediction at the observed trials.
 #'
+#'   `type = "relative"` needs `asymptote`, since which parameter of a
+#'   non-linear formula is an asymptote cannot be read from the fit. It is not
+#'   supported for a multivariate fit.
+#'
+#' @param asymptote `NULL`, or a vector named `decreasing`, `increasing` or
+#'   both, giving the lower and upper asymptotes of a `brmsfit` for
+#'   `type = "relative"`: as the names of non-linear parameters, such as
+#'   `c(decreasing = "bot", increasing = "top")`, which are taken per posterior
+#'   draw and transformed by the inverse link, or as numbers on the response
+#'   scale. A direction not named has no asymptote.
+#'
 #' @export
 toxval_predict.brmsfit <- function(
   object,
@@ -132,6 +143,7 @@ toxval_predict.brmsfit <- function(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  asymptote = NULL,
   ...
 ) {
   chk_x_var_supplied(x_var, "`brmsfit`")
@@ -141,6 +153,7 @@ toxval_predict.brmsfit <- function(
     chk_var_in_data(group_var, data, "group_var")
   }
   responses <- brms_responses(object)
+  chk_brms_asymptote(asymptote, object, responses)
 
   x_vec <- predict_grid(x_range, data[[x_var]], resolution)
   curve_set <- brms_curves(object, x_vec, x_var, group_var, responses)
@@ -151,6 +164,15 @@ toxval_predict.brmsfit <- function(
     curves = curve_set$curves,
     keys = curve_set$keys,
     x_vec = x_vec,
+    asymptote = brms_asymptote(
+      object,
+      asymptote,
+      x_vec,
+      x_var,
+      group_var,
+      responses$trials_var,
+      nrow(curve_set$curves[[1]])
+    ),
     meta = c(
       build_meta(
         object = object,
@@ -173,7 +195,9 @@ toxval_predict.brmsfit <- function(
 #'   supplied `x_var` must match the dose variable of the fit, so another
 #'   column, such as the response, cannot be passed as the predictor.
 #'   `group_var` must name the column passed as `curveid`, and the levels are
-#'   read from the coefficient names rather than from a column position.
+#'   read from the coefficient names rather than from a column position. The
+#'   asymptotes `type = "relative"` measures to are the lower and upper limits
+#'   of the fitted function, from `fct$lowerAs()` and `fct$upperAs()`.
 #'
 #' @param n_boot A whole number giving the number of parametric bootstrap
 #'   replicates to draw.
@@ -221,6 +245,7 @@ toxval_predict.drc <- function(
     curves = curve_set$curves,
     keys = curve_set$keys,
     x_vec = x_vec,
+    asymptote = curve_set$asymptote,
     meta = build_meta(
       object = object,
       x_vec = x_vec,
@@ -522,13 +547,7 @@ epred_curve <- function(
   group = NULL,
   trials_var = NULL
 ) {
-  newdata <- stats::setNames(data.frame(x_vec), x_var)
-  if (!is.null(group_var)) {
-    newdata[[group_var]] <- group
-  }
-  for (var in trials_var) {
-    newdata[[var]] <- 1
-  }
+  newdata <- brms_newdata(x_vec, x_var, group_var, group, trials_var)
   tryCatch(
     posterior_epred(object, newdata = newdata, re_formula = NA),
     brms_error = function(e) {
@@ -543,6 +562,137 @@ epred_curve <- function(
         chk::cc(missing_vars, conj = " and "),
         " to predict; name it as `x_var`, or as `group_var` to get one curve ",
         "per level."
+      )
+    }
+  )
+}
+
+#' The prediction data of one curve of a brmsfit
+#'
+#' @noRd
+brms_newdata <- function(x_vec, x_var, group_var, group, trials_var) {
+  newdata <- stats::setNames(data.frame(x_vec), x_var)
+  if (!is.null(group_var)) {
+    newdata[[group_var]] <- group
+  }
+  for (var in trials_var) {
+    newdata[[var]] <- 1
+  }
+  newdata
+}
+
+#' Check the `asymptote` of a brmsfit
+#'
+#' @noRd
+chk_brms_asymptote <- function(asymptote, object, responses) {
+  if (is.null(asymptote)) {
+    return(invisible(asymptote))
+  }
+  if (!is.null(responses$names)) {
+    chk::abort_chk(
+      "`asymptote` must be NULL for a multivariate `brmsfit`; an asymptote ",
+      "per response is not supported."
+    )
+  }
+  if (!is.character(asymptote) && !is.numeric(asymptote)) {
+    chk::abort_chk("`asymptote` must be character or numeric.")
+  }
+  chk::chk_not_any_na(asymptote, x_name = "`asymptote`")
+  chk::chk_named(asymptote, x_name = "`asymptote`")
+  chk::chk_subset(
+    names(asymptote),
+    directions(),
+    x_name = "names of `asymptote`"
+  )
+  chk::chk_unique(names(asymptote), x_name = "names of `asymptote`")
+  if (is.numeric(asymptote) && !all(is.finite(asymptote))) {
+    chk::abort_chk("`asymptote` must be finite.")
+  }
+  if (is.character(asymptote)) {
+    nlpars <- names(object$formula$pforms)
+    if (!all(asymptote %in% nlpars)) {
+      chk::abort_chk(
+        "`asymptote` must name non-linear parameters of `object`",
+        if (length(nlpars)) {
+          paste0(", one of ", chk::cc(nlpars, conj = " or "))
+        } else {
+          ", which has none"
+        },
+        ", not ",
+        chk::cc(setdiff(asymptote, nlpars), conj = " and "),
+        "."
+      )
+    }
+  }
+  invisible(asymptote)
+}
+
+#' The asymptotes of every curve of a brmsfit
+#'
+#' A named non-linear parameter is predicted per draw at the first grid value,
+#' with group-level effects marginalised as for the curves. `brms` applies the
+#' link to the whole non-linear formula, so the parameter is on the link scale
+#' and is put on the response scale by the inverse link.
+#'
+#' @param n_realisation The number of posterior draws.
+#'
+#' @return `NULL` when `asymptote` is `NULL`, otherwise a list with one element
+#'   per curve, each a list of two numeric vectors, `decreasing` and
+#'   `increasing`.
+#'
+#' @noRd
+brms_asymptote <- function(
+  object,
+  asymptote,
+  x_vec,
+  x_var,
+  group_var,
+  trials_var,
+  n_realisation
+) {
+  if (is.null(asymptote)) {
+    return(NULL)
+  }
+  linkinv <- if (is.character(asymptote)) brms_linkinv(object)
+  groups <- list(NULL)
+  if (!is.null(group_var)) {
+    groups <- as.list(group_levels(object$data[[group_var]]))
+  }
+  lapply(groups, function(group) {
+    newdata <- brms_newdata(x_vec[1], x_var, group_var, group, trials_var)
+    values <- lapply(directions(), function(direction) {
+      if (!direction %in% names(asymptote)) {
+        return(rep(NA_real_, n_realisation))
+      }
+      value <- asymptote[[direction]]
+      if (is.numeric(value)) {
+        return(rep(value, n_realisation))
+      }
+      linpred <- brms::posterior_linpred(
+        object,
+        newdata = newdata,
+        nlpar = value,
+        re_formula = NA
+      )
+      linkinv(unname(linpred[, 1]))
+    })
+    stats::setNames(values, directions())
+  })
+}
+
+#' The inverse link of a brmsfit
+#'
+#' @noRd
+brms_linkinv <- function(object) {
+  link <- object$family$link
+  tryCatch(
+    stats::make.link(link)$linkinv,
+    error = function(e) {
+      chk::abort_chk(
+        "`asymptote` must be numeric for a `brmsfit` with link ",
+        chk::cc(link),
+        "; a named parameter is on the link scale, and the link has no ",
+        "inverse here."
       )
     }
   )
@@ -607,8 +757,9 @@ drc_eval_curve <- function(object, x_vec, parms) {
 #' @param n_boot Number of bootstrap replicates.
 #' @param seed Seed for the draw, or `NULL`.
 #'
-#' @return A list with `curves`, a list of matrices with one per curve, and
-#'   `keys`, the [toxval_pred] table identifying them.
+#' @return A list with `curves`, a list of matrices with one per curve,
+#'   `keys`, the [toxval_pred] table identifying them, and `asymptote`, the
+#'   output of `drc_asymptote()` for each curve.
 #'
 #' @noRd
 drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
@@ -659,17 +810,48 @@ drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
     curve_ids <- curve_ids[order(match(curve_ids, labels))]
   }
 
-  curves <- lapply(curve_ids, function(id) {
-    # one draw of the whole parameter vector per replicate, so the curves stay
-    # aligned with each other replicate by replicate
-    drc_eval_curve(
-      object,
-      x_vec,
-      parms[, drc_curve_cols(split, is_shared, id), drop = FALSE]
-    )
+  # one draw of the whole parameter vector per replicate, so the curves stay
+  # aligned with each other replicate by replicate
+  curve_parms <- lapply(curve_ids, function(id) {
+    parms[, drc_curve_cols(split, is_shared, id), drop = FALSE]
+  })
+  curves <- lapply(curve_parms, function(curve_parm) {
+    drc_eval_curve(object, x_vec, curve_parm)
+  })
+  asymptote <- lapply(curve_parms, function(curve_parm) {
+    drc_asymptote(object$fct, curve_parm)
   })
 
-  list(curves = curves, keys = group_keys(if (grouped) curve_ids))
+  list(
+    curves = curves,
+    keys = group_keys(if (grouped) curve_ids),
+    asymptote = asymptote
+  )
+}
+
+#' The asymptotes of a `drc` curve at every parameter draw
+#'
+#' `drc` gives the limits of its mean function with `fct$lowerAs()` and
+#' `fct$upperAs()`, which also return a limit that `fct$fixed` fixes, such as
+#' the lower limit of 0 in `LL.3()` (T24). They take one parameter vector:
+#' given a matrix, `lowerAs()` returns a wrong value with a warning, so they
+#' are applied row by row.
+#'
+#' @param fct The `fct` of a `drc` fit.
+#' @param parms A matrix of parameter draws for one curve, one row per draw.
+#'
+#' @return A list of two numeric vectors, `decreasing` (the lower limit) and
+#'   `increasing` (the upper limit), `NA` where `fct` gives no such limit.
+#'
+#' @noRd
+drc_asymptote <- function(fct, parms) {
+  limit <- function(as_fun) {
+    if (is.null(as_fun)) {
+      return(rep(NA_real_, nrow(parms)))
+    }
+    unname(apply(parms, 1, function(parm) as.numeric(as_fun(parm))))
+  }
+  list(decreasing = limit(fct$lowerAs), increasing = limit(fct$upperAs))
 }
 
 #' Locate the parameter columns of one curve

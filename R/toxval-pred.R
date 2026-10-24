@@ -27,12 +27,18 @@
 #'     a control-only fit, estimated independently of the dose-response shape,
 #'     one element per row of `keys`, or `NULL`. One element per curve, because
 #'     a grouped fit has one control per group.}
+#'   \item{`asymptote`}{An unnamed list of the per-realisation asymptotes of
+#'     each curve, one element per row of `keys`, or `NULL` where the model
+#'     supplies none. Each element is a list of two numeric vectors,
+#'     `decreasing` (the lower asymptote) and `increasing` (the upper one),
+#'     `NA` where the equation has no such asymptote. `type = "relative"`
+#'     measures from the control to it (T24).}
 #'   \item{`meta`}{Named list of metadata; see below.}
 #' }
 #'
 #' @section Identifying curves:
-#' Row *i* of `keys` identifies element *i* of `curves`, and of `threshold` and
-#' `control` when they are supplied. The columns of `keys` are drawn from
+#' Row *i* of `keys` identifies element *i* of `curves`, and of `threshold`,
+#' `control` and `asymptote` when they are supplied. The columns of `keys` are drawn from
 #' `group` and `response`, and become the descriptor columns of the result:
 #'
 #' \describe{
@@ -111,6 +117,9 @@
 #'   threshold values, one element per row of `keys`, or `NULL`.
 #' @param control An unnamed list of numeric vectors of per-realisation control
 #'   values, one element per row of `keys`, or `NULL`.
+#' @param asymptote An unnamed list, one element per row of `keys`, of lists
+#'   of two numeric vectors of per-realisation asymptotes named `decreasing`
+#'   and `increasing`, or `NULL`.
 #'
 #' @return An object of class `toxval_pred`.
 #'
@@ -141,7 +150,8 @@ new_toxval_pred <- function(
   x_vec,
   meta,
   threshold = NULL,
-  control = NULL
+  control = NULL,
+  asymptote = NULL
 ) {
   x <- structure(
     list(
@@ -150,6 +160,7 @@ new_toxval_pred <- function(
       x_vec = x_vec,
       threshold = threshold,
       control = control,
+      asymptote = asymptote,
       meta = meta
     ),
     class = "toxval_pred"
@@ -181,6 +192,9 @@ validate_toxval_pred <- function(x) {
   }
   if (!is.null(x$control)) {
     chk_aligned_list(x$control, "control", x$keys, x$meta)
+  }
+  if (!is.null(x$asymptote)) {
+    chk_asymptote(x$asymptote, x$keys, x$meta)
   }
 
   invisible(x)
@@ -463,6 +477,34 @@ chk_aligned_list <- function(x, arg, keys, meta) {
     chk::chk_length(x[[i]], as.integer(meta$n_realisation), x_name = nm)
   }
   invisible(x)
+}
+
+#' @noRd
+chk_asymptote <- function(asymptote, keys, meta) {
+  chk_aligned_shape(asymptote, "asymptote", keys)
+
+  for (i in seq_along(asymptote)) {
+    nm <- element_name("asymptote", i)
+    chk::chk_list(asymptote[[i]], x_name = nm)
+    if (!identical(names(asymptote[[i]]), c("decreasing", "increasing"))) {
+      chk::abort_chk(
+        nm,
+        " must be a list named 'decreasing' and 'increasing'."
+      )
+    }
+    for (direction in names(asymptote[[i]])) {
+      element <- paste0("`asymptote[[", i, "]]$", direction, "`")
+      values <- asymptote[[i]][[direction]]
+      chk::chk_numeric(values, x_name = element)
+      chk::chk_vector(values, x_name = element)
+      chk::chk_length(
+        values,
+        as.integer(meta$n_realisation),
+        x_name = element
+      )
+    }
+  }
+  invisible(asymptote)
 }
 
 #' Check that a slot is an unnamed list with one element per row of `keys`

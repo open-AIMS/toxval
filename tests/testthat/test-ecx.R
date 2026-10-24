@@ -48,11 +48,11 @@ test_that("check ecx_val must be a numeric scalar and gives deprecation warning"
   
   expect_length(
     suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50L)), 
-    9
+    10
   )
   expect_length(
     suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50)), 
-    9
+    10
   )
   expect_error(
     suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = c(50, 10, 2))),
@@ -119,11 +119,11 @@ test_that("posterior = true outputs the posterior and throws deprecation warning
   expect_equal(output_pt, output_dt)
 })
 
-# EXPECTED-CHANGE type "relative" reference, redefined (old behaviour renamed "range") #19
+# EXPECTED-CHANGE type "relative" reference, redefined (old behaviour renamed "range") #19 - done
 test_that("check type = relative argument, the relative is now range", {
   expect_error(
-    ecx(brms_model_1, x_var = "x", type = "relative"),
-    regexp = "`type` must match 'absolute', 'direct' or 'range', not 'relative'"
+    suppressWarnings(ecx(brms_model_1, x_var = "x", type = "relative")),
+    regexp = "`type` must not be 'relative' when `object` supplies no asymptote"
   )
   
   output <- suppressWarnings(ecx(brms_model_1, x_var = "x", type = "range"))
@@ -198,10 +198,10 @@ test_that("type = absolute and value passed to trigger NAN catch and throws erro
   )
 })
 
-test_that("type = relative and value passed to trigger NAN catch and throws error", {
+test_that("type = range and value passed to trigger NAN catch and throws error", {
   expect_error(
     expect_warning(
-      ecx(brms_model_1, x_var = "x", type = "relative", x_range = c(-1, 1.05)),
+      ecx(brms_model_1, x_var = "x", type = "range", x_range = c(-1, 1.05)),
       regexp = "NaNs produced"
     ),
     regexp = "`object` gives no finite prediction at 244 of 500 grid values, between -1 and -0.001703; `x_range` must lie where the model is defined"
@@ -222,7 +222,7 @@ test_that("type = direct and value passed to trigger NAN catch", {
 test_that("type errors when wrong value passed", {
   expect_error(
     ecx(brms_model_1, x_var = "x", type = "something"),
-    regex = "`type` must match 'absolute', 'direct' or 'range', not 'something'"
+    regex = "`type` must match 'absolute', 'direct', 'range' or 'relative', not 'something'"
   )
 
   expect_error(
@@ -434,7 +434,7 @@ test_that("if by_group is TRUE you must supply a grouping variable in group_var 
 test_that("by_group = TRUE and group_var supplied it groups the data based on the group_var", {
   output <- suppressWarnings(ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = "z"))
   
-  expect_equal(dim(output), c(4, 10))
+  expect_equal(dim(output), c(4, 11))
   expect_true("group" %in% colnames(output))
   expect_equal(output$group, factor(c("1", "1", "2", "2")))
 })
@@ -483,7 +483,7 @@ test_that("when by_group = TRUE, group_var is provided and draws = TRUE, you get
     posterior = TRUE
   ))
   
-  expect_equal(dim(output), c(4, 11))
+  expect_equal(dim(output), c(4, 12))
   expect_true("group" %in% colnames(output))
   expect_true("draws" %in% colnames(output))
 })
@@ -622,4 +622,127 @@ test_that("ecx absolute matches drc::ED for a curve with a lower limit of 0", {
   expected <- drc::ED(fit, 50, display = FALSE)
   
   expect_equal(output$estimate[[1]], expected[[1]], tolerance = 0.01)
+})
+
+test_that("ecx relative matches drc::ED relative", {
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+
+  output <- suppressWarnings(
+    ecx(fit, type = "relative", proportion = c(0.1, 0.5), seed = 1)
+  )
+  decreasing <- output[output$direction == "decreasing", ]
+  expected <- drc::ED(fit, c(10, 50), type = "relative", display = FALSE)
+
+  expect_equal(decreasing$estimate, unname(expected[, 1]), tolerance = 0.01)
+})
+
+# type = "relative" ----------------------------------------------------------
+
+test_that("ecx relative warns that its meaning has changed", {
+  x_vec <- 0:10
+  pred <- compute_pred(
+    list(rbind(10 - x_vec, 10 - x_vec)),
+    x_vec,
+    asymptote = list(list(decreasing = c(2, 2), increasing = c(NA_real_, NA_real_)))
+  )
+
+  # the increasing direction has no asymptote, so it warns as excluded too
+  expect_warning(
+    expect_warning(
+      ecx(pred, type = "relative"),
+      "`type = \"relative\"` now measures from the control to the asymptote"
+    ),
+    "excluded"
+  )
+})
+
+test_that("ecx relative measures from the control to the asymptote", {
+  # a control of 10 and a lower asymptote of 2: the EC50 reference is 6
+  x_vec <- 0:10
+  pred <- compute_pred(
+    list(rbind(10 - x_vec, 10 - x_vec)),
+    x_vec,
+    asymptote = list(list(decreasing = c(2, 2), increasing = c(NA_real_, NA_real_)))
+  )
+
+  output <- suppressWarnings(ecx(pred, type = "relative", proportion = 0.5))
+
+  expect_equal(output$estimate, c(4, NA))
+  expect_equal(output$reference, c(6, NA))
+  expect_equal(output$asymptote, c(2, NA))
+})
+
+test_that("ecx relative with an asymptote of 0 matches absolute", {
+  absolute <- suppressWarnings(
+    ecx(brms_model_1, x_var = "x", resolution = 50)
+  )
+  relative <- suppressWarnings(
+    ecx(
+      brms_model_1,
+      x_var = "x",
+      type = "relative",
+      asymptote = c(decreasing = 0),
+      resolution = 50
+    )
+  )
+
+  expect_equal(relative$estimate[[1]], absolute$estimate[[1]])
+  expect_equal(relative$asymptote, c(0, NA))
+})
+
+test_that("ecx relative takes a named parameter of a brmsfit on the response scale", {
+  # brms_model_4 is a beta fit with a logit link, so `bot` is on the logit
+  # scale
+  output <- suppressWarnings(
+    ecx(
+      brms_model_4,
+      x_var = "x",
+      group_var = "herbicide",
+      type = "relative",
+      asymptote = c(decreasing = "bot"),
+      resolution = 50
+    )
+  )
+  bot <- brms::posterior_linpred(
+    brms_model_4,
+    newdata = data.frame(x = min(brms_model_4$data$x), herbicide = "ametryn"),
+    nlpar = "bot",
+    re_formula = NA
+  )
+
+  expect_equal(output$asymptote[[1]], stats::median(stats::plogis(bot[, 1])))
+})
+
+test_that("ecx gives an NA asymptote unless type is relative", {
+  output <- ecx(nsec_drc_1, seed = 1, n_boot = 50, resolution = 50)
+
+  expect_equal(output$asymptote, c(NA_real_, NA_real_))
+})
+
+test_that("ecx relative caps proportion at 1", {
+  expect_error(
+    suppressWarnings(
+      ecx(nsec_drc_1, type = "relative", proportion = 1.5, n_boot = 10)
+    ),
+    "`proportion` must be less than or equal to 1, not 1.5"
+  )
+})
+
+test_that("ecx errors when asymptote names no non-linear parameter", {
+  expect_error(
+    ecx(
+      brms_model_4,
+      x_var = "x",
+      group_var = "herbicide",
+      asymptote = c(decreasing = "slope")
+    ),
+    "`asymptote` must name non-linear parameters of `object`, one of 'top', 'bot', 'beta' or 'ec50', not 'slope'"
+  )
+})
+
+test_that("ecx errors when asymptote is supplied for a multivariate brmsfit", {
+  expect_error(
+    ecx(nsec_multi_model_2, x_var = "dose", asymptote = c(decreasing = 0)),
+    "`asymptote` must be NULL for a multivariate `brmsfit`"
+  )
 })

@@ -59,8 +59,8 @@
 #' @param sig_val A number between 0 and 0.5, the quantile of the control
 #'   realisations that sets the decreasing reference; `1 - sig_val` sets the
 #'   increasing one.
-#' @param type One of `"absolute"` or `"range"`, naming the span `ecnsec` is a
-#'   proportion of. See [ecx()].
+#' @param type One of `"absolute"`, `"relative"` or `"range"`, naming the span
+#'   `ecnsec` is a proportion of. See [ecx()].
 #' @param anchor One of `"model"` (the default) or `"component"`, where the
 #'   reference is taken from for a model-averaged fit: the averaged control,
 #'   or each component model's own control. The two coincide for a fit that is
@@ -158,6 +158,7 @@ nsec <- function(
   if (is_missing_value(x_range)) {
     x_range <- NULL
   }
+  warn_relative(type)
 
   if (inherits(object, "toxval_pred")) {
     if (any(predict_args)) {

@@ -2,14 +2,15 @@
 
 test_that("chk_type accepts the supported types", {
   expect_silent(toxval:::chk_type("absolute"))
+  expect_silent(toxval:::chk_type("relative"))
   expect_silent(toxval:::chk_type("range"))
   expect_silent(toxval:::chk_type("direct"))
 })
 
 test_that("chk_type errors on an unsupported type", {
   expect_error(
-    toxval:::chk_type("relative"),
-    "`type` must match 'absolute', 'direct' or 'range', not 'relative'."
+    toxval:::chk_type("something"),
+    "`type` must match 'absolute', 'direct', 'range' or 'relative', not 'something'."
   )
 })
 

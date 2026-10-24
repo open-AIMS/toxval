@@ -32,7 +32,8 @@ ecx(
 named by \code{type}; 0.1 is the EC10. Each value gives its own rows. Not
 supplied under \code{type = "direct"}.}
 
-\item{type}{One of \code{"absolute"}, \code{"range"} or \code{"direct"}. See Details.}
+\item{type}{One of \code{"absolute"}, \code{"relative"}, \code{"range"} or \code{"direct"}. See
+Details.}
 
 \item{reference}{A number, the response value whose crossing is sought under
 \code{type = "direct"}. Supplied only under \code{"direct"}.}
@@ -61,7 +62,7 @@ they are summarised, such as \code{exp} for a model fitted on log
 concentration.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit.}
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{ecx_val}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{proportion}, or
 \code{reference} under \code{type = "direct"}.}
@@ -98,6 +99,13 @@ response at the lowest concentration:
 \item \code{"absolute"} (the default): decreasing, the control down to 0; increasing,
 the control up to 1 for a response on the proportion scale, and otherwise
 up to twice the control.
+\item \code{"relative"}: the control to the lower (decreasing) or upper (increasing)
+asymptote of the curve, a parameter of the fitted equation. It is
+available where the fit supplies the asymptote: from the limits of a \code{drc}
+fit, and for a \code{brmsfit} from the parameters named by \code{asymptote} (see
+\code{\link[=toxval_predict]{toxval_predict()}}). An asymptote outside the observed responses is an
+extrapolation, and \code{relative} inherits its uncertainty. Before toxval
+2.0.0 \code{"relative"} meant what is now \code{"range"}, so supplying it warns.
 \item \code{"range"}: the control to the lowest (decreasing) or highest (increasing)
 response the curve predicts.
 \item \code{"direct"}: no proportion; the ECx is where the curve crosses the response

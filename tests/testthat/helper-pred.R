@@ -8,12 +8,14 @@ compute_pred <- function(
   multi_var = NULL,
   family = "gaussian",
   source_class = "brmsfit",
-  x_control = min(x_vec)
+  x_control = min(x_vec),
+  asymptote = NULL
 ) {
   new_toxval_pred(
     curves = curves,
     keys = keys,
     x_vec = x_vec,
+    asymptote = asymptote,
     meta = list(
       source_class = source_class,
       x_var = "x",
