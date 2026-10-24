@@ -106,6 +106,18 @@ column of the model data that enters as a population-level effect: a
 variable that appears only in a group-level term, such as \code{site} in
 \code{y ~ x + (1 | site)}, gives every level the same curve and is an error.
 
+A multivariate fit gives one curve per response, and per level of
+\code{group_var} when it is supplied, so the responses are read from the fit
+rather than named. They are named as \code{brms} names them, for example
+\code{spsurvival} for a column \code{sp_survival}.
+
+A binomial response, such as \code{y | trials(n) ~ x}, is predicted at one
+trial, so its curves, \code{control} and \code{reference} are proportions rather
+than counts whatever the trials in the data. The trials are read from the
+fit and must name a single column of the data. An NSEC or ECx does not
+depend on the number of trials, so only the scale of \code{control} and
+\code{reference} differs from a prediction at the observed trials.
+
 \item \code{toxval_predict(drc)}: Method for a \code{drc} fit returned by \code{\link[drc:drm]{drc::drm()}}.
 Realisations are parametric bootstrap replicates, so results are stochastic
 unless \code{seed} is supplied. \code{x_var} is read from the fit when \code{NULL}, and a

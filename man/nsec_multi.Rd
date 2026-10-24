@@ -2,7 +2,7 @@
 % Please edit documentation in R/nsec_multi.R
 \name{nsec_multi}
 \alias{nsec_multi}
-\title{Extracts the predicted NSEC values from a multivariate brmsfit.}
+\title{Estimate NSEC values from a multivariate brmsfit}
 \usage{
 nsec_multi(
   object,
@@ -21,55 +21,84 @@ nsec_multi(
 )
 }
 \arguments{
-\item{object}{A fitted model object of a class with a method for the
-function, such as a \link[brms:brmsfit]{brms::brmsfit} returned by \code{\link[brms:brm]{brms::brm()}}.}
+\item{object}{A fitted model with a \code{\link[=toxval_predict]{toxval_predict()}} method, or a
+\link{toxval_pred}.}
 
-\item{sig_val}{Probability value to use as the lower quantile to test
-significance of the predicted posterior values.
-against the lowest observed concentration (assumed to be the control), to
-estimate NEC as an interpolated NOEC value from smooth ECx curves.}
+\item{sig_val}{A number between 0 and 0.5, the quantile of the control
+realisations that sets the decreasing reference; \code{1 - sig_val} sets the
+increasing one.}
 
-\item{resolution}{The number of unique x values over which to find the
-estimate -- large values will make the estimate more precise.}
+\item{resolution}{A whole number giving the number of predictor values to
+evaluate the curve at.}
 
-\item{x_range}{A range of x values over which to consider extracting the
-estimate.}
+\item{x_range}{A numeric vector of length 2 giving the range of predictor
+values to evaluate over, or \code{NA} to use the range in the model data.}
 
-\item{xform}{A function to apply to the returned estimated concentration
-values.}
+\item{xform}{A function applied to the per-realisation concentrations before
+they are summarised, such as \code{exp} for a model fitted on log
+concentration.}
 
-\item{prob_vals}{A vector indicating the probability values over which to
-return the estimated value. Defaults to 0.5 (median) and 0.025 and
-0.975 (95 percent credible intervals).}
+\item{prob_vals}{A numeric vector of the central, lower and upper quantiles
+to summarise the realisations by, in that order.}
 
-\item{posterior}{A logical value indicating if the full
-posterior sample of calculated values should be returned instead of
-just the median and 95 credible intervals.}
+\item{posterior}{A flag; \code{TRUE} adds the \code{draws} list column, as
+\code{draws = TRUE} does in \code{\link[=nsec]{nsec()}}.}
 
-\item{x_var}{A character indicating the name of the predictor (x) data in
-object.}
+\item{x_var}{A string naming the predictor variable.}
 
-\item{trials_var}{NA if no trials, or a character vector indicating the name or
-prefix of any trials column(s).}
+\item{trials_var, multi_var}{Ignored; the trials and the responses are read
+from the fit.}
 
-\item{multi_var}{NA if univariate, or a character vector indicating the name or
-prefix of the multivariate column(s).}
+\item{type}{One of \code{"both"}, \code{"lower"}, \code{"increasing"} or \code{"decreasing"},
+the directions to return.}
 
-\item{type}{The type of nsec to be returned. See details.}
+\item{criterion}{A number between 0 and 1, the quantile of the realisations
+compared when \code{type = "lower"}.}
 
-\item{criterion}{The criterion to use when type ='lowest'.}
-
-\item{...}{Additional arguments passed to class-specific methods.}
+\item{...}{Additional arguments passed to \code{\link[=nsec]{nsec()}}.}
 }
 \value{
-A vector or list containing the estimated NSEC value(s).
+A \code{toxval} tibble, as from \code{\link[=nsec]{nsec()}}, with the rows \code{type} selects.
 }
 \description{
-Extracts the predicted NSEC values from a multivariate brmsfit.
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
+
+\code{nsec_multi()} is deprecated in favour of \code{\link[=nsec]{nsec()}}, which gives one row per
+response and direction for a multivariate fit, reading the responses from
+the fit. It now calls \code{\link[=nsec]{nsec()}} and returns its \code{toxval} tibble, keeping the
+rows \code{type} selects.
 }
-\details{
-nsecID extracts nsec values from response curves of unknown
-direction or shape. Both increasing and/or decreasing nsec's can be returned.
-The returned output depends on the selected type, which can be one of 'both',
-'lower', 'increasing', 'decreasing'.
+\section{Converting to \code{nsec()}}{
+
+\code{multi_var} and \code{trials_var} are not needed: the responses and any trials
+column are read from the fit. \code{type} becomes a filter on the \code{direction}
+column, and \code{posterior = TRUE} becomes \code{draws = TRUE}.
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{# nsec_multi(fit, x_var = "dose", multi_var = "sp")
+nsec(fit, x_var = "dose")
+
+# nsec_multi(fit, x_var = "dose", multi_var = "sp", type = "decreasing")
+nsec(fit, x_var = "dose") |>
+  dplyr::filter(direction == "decreasing")
+
+# nsec_multi(fit, x_var = "dose", multi_var = "sp", type = "lower",
+#   criterion = 0.8)
+nsec(fit, x_var = "dose", draws = TRUE) |>
+  dplyr::mutate(
+    at_criterion = vapply(
+      draws,
+      \\(d) quantile(d$value.draw, 0.8, na.rm = TRUE),
+      numeric(1)
+    )
+  ) |>
+  dplyr::group_by(response) |>
+  dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
+  dplyr::ungroup()
+}\if{html}{\out{</div>}}
+
+\code{type = "lower"} keeps, for each response, the direction whose NSEC is lower
+at the \code{criterion} quantile of its realisations; a tie keeps the decreasing
+direction.
 }
+
+\keyword{internal}

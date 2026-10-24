@@ -74,9 +74,10 @@
 #'   \item{`x_var`}{String, the name of the predictor variable.}
 #'   \item{`group_var`}{String naming the grouping variable. Required when
 #'     `keys` has a `group` column, and `NULL` otherwise.}
-#'   \item{`multi_var`}{String naming the response variable of a multivariate
-#'     fit. Required when `keys` has a `response` column, and `NULL`
-#'     otherwise.}
+#'   \item{`multi_var`}{Character vector of the response names of a
+#'     multivariate fit, as the fitted object names them, including every
+#'     level of `keys$response`. Required when `keys` has a `response` column,
+#'     and `NULL` otherwise.}
 #'   \item{`resolution`}{Whole number, the number of values in `x_vec`.}
 #'   \item{`x_range`}{Numeric of length 2, the range of `x_vec`.}
 #'   \item{`x_control`}{Number, the lowest predictor value in the data the
@@ -85,8 +86,11 @@
 #'     response already lies beyond the reference is placed here.}
 #'   \item{`family`}{String naming the response distribution, such as the
 #'     `brms` family or the `type` of a `drc` fit, or `NULL` where the fitted
-#'     object has none. It decides whether the response is a proportion,
-#'     bounded at 1.}
+#'     object has none. A multivariate fit whose responses differ in family
+#'     gives a character vector named by response instead. It decides whether
+#'     the response is a proportion, bounded at 1. A binomial family is taken
+#'     to be predicted on the proportion scale, at one trial, as
+#'     [toxval_predict()] predicts a `brms` binomial fit.}
 #'   \item{`realisation`}{Either `"draws"` or `"bootstrap"`, the source of the
 #'     realisations.}
 #'   \item{`n_realisation`}{Whole number, the number of realisations.}
@@ -212,11 +216,10 @@ chk_meta <- function(meta) {
     vld = chk::vld_string,
     x_name = "`meta$group_var`"
   )
-  chk::chk_null_or(
-    meta$multi_var,
-    vld = chk::vld_string,
-    x_name = "`meta$multi_var`"
-  )
+  if (!is.null(meta$multi_var)) {
+    chk_names_vector(meta$multi_var, "`meta$multi_var`")
+    chk::chk_unique(meta$multi_var, x_name = "`meta$multi_var`")
+  }
 
   chk::chk_whole_number(meta$resolution, x_name = "`meta$resolution`")
   chk::chk_gt(meta$resolution, 1, x_name = "`meta$resolution`")
@@ -231,7 +234,12 @@ chk_meta <- function(meta) {
     chk::abort_chk("`meta$x_control` must be finite.")
   }
 
-  chk::chk_null_or(meta$family, vld = chk::vld_string, x_name = "`meta$family`")
+  if (!is.null(meta$family)) {
+    chk_names_vector(meta$family, "`meta$family`")
+    if (length(meta$family) > 1) {
+      chk::chk_named(meta$family, x_name = "`meta$family`")
+    }
+  }
 
   chk::chk_string(meta$realisation, x_name = "`meta$realisation`")
   chk::chk_subset(
@@ -318,7 +326,49 @@ chk_keys <- function(keys, meta) {
       "`meta$multi_var` must be NULL when `keys` has no 'response' column."
     )
   }
+  if ("response" %in% names(keys)) {
+    chk::chk_subset(
+      levels(keys$response),
+      meta$multi_var,
+      x_name = "levels of `keys$response`"
+    )
+  }
+  chk_family_keys(meta$family, keys)
   invisible(keys)
+}
+
+#' Check that `meta$family` gives a family for every curve
+#'
+#' A family is one string for every curve, or, for a multivariate fit whose
+#' responses differ in family, a vector named by response (T26).
+#'
+#' @noRd
+chk_family_keys <- function(family, keys) {
+  if (length(family) <= 1 && is.null(names(family))) {
+    return(invisible(family))
+  }
+  if (!"response" %in% names(keys)) {
+    chk::abort_chk(
+      "`meta$family` must be a single unnamed string when `keys` has no ",
+      "'response' column."
+    )
+  }
+  chk::chk_subset(
+    levels(keys$response),
+    names(family),
+    x_name = "levels of `keys$response`"
+  )
+  invisible(family)
+}
+
+#' @noRd
+chk_names_vector <- function(x, x_name) {
+  chk::chk_character(x, x_name = x_name)
+  chk::chk_not_any_na(x, x_name = x_name)
+  if (length(x) == 0) {
+    chk::abort_chk(x_name, " must not be empty.")
+  }
+  invisible(x)
 }
 
 #' @noRd
@@ -520,7 +570,9 @@ print_curves <- function(keys, meta) {
   if (ncol(keys) == 0) {
     return("1 (ungrouped)")
   }
-  vars <- c(group = meta$group_var, response = meta$multi_var)
+  # `multi_var` holds the response names themselves, so the column is labelled
+  # by its own name
+  vars <- c(group = meta$group_var, response = "response")
   descriptors <- vapply(
     names(keys),
     function(col) {

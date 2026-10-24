@@ -207,13 +207,64 @@ test_that("toxval_predict errors when group_var is only a group-level effect", {
   )
 })
 
-test_that("toxval_predict errors for a multivariate brmsfit", {
-  # EXPECTED-CHANGE multivariate brmsfit support, one curve per response
-  # this test will stop erroring once that change is applied
-  expect_error(
-    toxval_predict(nsec_multi_model_1, x_var = "dose", resolution = 6),
-    "`object` must not be a multivariate `brmsfit`"
+test_that("toxval_predict gives one curve per response for a multivariate brmsfit", {
+  result <- toxval_predict(nsec_multi_model_2, x_var = "dose", resolution = 6)
+
+  expect_length(result$curves, 2)
+  expect_equal(
+    result$keys,
+    data.frame(
+      response = factor(
+        c("spsurvival", "spgrowth"),
+        levels = c("spsurvival", "spgrowth")
+      )
+    )
   )
+  expect_identical(result$meta$multi_var, c("spsurvival", "spgrowth"))
+  expect_identical(
+    result$meta$family,
+    c(spsurvival = "bernoulli", spgrowth = "gaussian")
+  )
+  expect_null(result$meta$trials_var)
+  expect_equal(
+    result$curves[[2]],
+    unname(brms::posterior_epred(
+      nsec_multi_model_2,
+      newdata = data.frame(dose = result$x_vec),
+      re_formula = NA,
+      resp = "spgrowth"
+    )),
+    ignore_attr = TRUE
+  )
+})
+
+test_that("toxval_predict reads the trials of a binomial response from the fit", {
+  # brms_model_7 is `survived | trials(n) ~ x` (binomial) and `growth ~ x`
+  result <- toxval_predict(brms_model_7, x_var = "x", resolution = 6)
+
+  expect_identical(result$meta$trials_var, c(survived = "n"))
+  expect_identical(
+    result$meta$family,
+    c(survived = "binomial", growth = "gaussian")
+  )
+})
+
+test_that("toxval_predict predicts a binomial response at one trial", {
+  # the trials in the data vary from 16 to 20, so the curve is a proportion
+  # rather than a count at any one of them (T26)
+  result <- toxval_predict(brms_model_7, x_var = "x", resolution = 6)
+
+  expect_equal(
+    result$curves[[1]],
+    unname(brms::posterior_epred(
+      brms_model_7,
+      newdata = data.frame(x = result$x_vec, n = 1),
+      re_formula = NA,
+      resp = "survived"
+    )),
+    ignore_attr = TRUE
+  )
+  expect_true(all(result$curves[[1]] >= 0 & result$curves[[1]] <= 1))
 })
 
 # toxval_predict.drc --------------------------------------------------------

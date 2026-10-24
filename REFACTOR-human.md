@@ -188,8 +188,10 @@ non-generic functions that compute on a `toxval_pred`.
 
 `nsec_multi()` is folded into `nsec()` and deprecated, so one function serves
 ungrouped, grouped and multivariate fits (decision T15, `REFACTOR-claude.md`
-§3.3). Its `type = "lower"` option becomes a filter on the result, so `nsec()`
-needs no argument for it (decision T30).
+§3.3). The responses and any binomial trials are read from the fit, so neither
+`multi_var` nor `trials_var` is an argument (T15 and T26, amended 2026-10-23).
+Its `type = "lower"` option becomes a filter on the result, so `nsec()` needs no
+argument for it (decision T30).
 
 Metric functions accept **either a fitted model or a pre-built `toxval_pred`**
 (one `inherits()` check at the top), which enables predict-once / compute-many

@@ -75,16 +75,42 @@ test_that("compute_ecx treats a binomial drc fit as a proportion", {
   expect_equal(result$reference[[2]], c(0.55, 0.55))
 })
 
-test_that("compute_ecx returns an NA increasing absolute reference for a binomial brmsfit", {
-  # the bound is the number of trials, which is not recorded until trials_var
+test_that("compute_ecx treats a binomial brmsfit as a proportion", {
+  # EXPECTED-CHANGE binomial brmsfit predicted at one trial (T26) - done
+  # was an NA increasing reference, when the trials were not recorded
   x_vec <- 0:10
-  y <- 2 + x_vec
+  y <- 0.2 + 0.05 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec, family = "binomial")
 
   result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
-  expect_identical(result$reference[[2]], c(NA_real_, NA_real_))
-  expect_equal(result$reference[[1]], c(1.8, 1.8))
+  expect_equal(result$reference[[2]], c(0.28, 0.28))
+  expect_equal(result$reference[[1]], c(0.18, 0.18))
+})
+
+test_that("compute_ecx takes the upper bound from the family of each response", {
+  x_vec <- 0:10
+  y <- 0.2 + 0.05 * x_vec
+  pred <- compute_pred(
+    list(rbind(y, y), rbind(y, y)),
+    x_vec,
+    keys = data.frame(
+      response = factor(
+        c("survival", "growth"),
+        levels = c("survival", "growth")
+      )
+    ),
+    multi_var = c("survival", "growth"),
+    family = c(survival = "bernoulli", growth = "gaussian")
+  )
+
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
+
+  # the curves are identical, so the references differ only through the family:
+  # extra risk for the bernoulli response, 0.2 + (1 - 0.2) * 0.1, and relative
+  # deviation for the gaussian one, 0.2 + 0.2 * 0.1
+  expect_equal(result$reference[[2]], c(0.28, 0.28))
+  expect_equal(result$reference[[4]], c(0.22, 0.22))
 })
 
 test_that("compute_ecx returns an NA absolute reference where the control is at or below 0", {
@@ -181,7 +207,7 @@ test_that("compute_ecx returns rows for each group and response", {
       response = factor(c("growth", "survival", "growth", "survival"))
     ),
     group_var = "site",
-    multi_var = "endpoint"
+    multi_var = c("growth", "survival")
   )
 
   result <- toxval:::compute_ecx(pred)

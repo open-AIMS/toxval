@@ -243,10 +243,10 @@ function. `nsec_multi()` becomes a deprecated wrapper around `nsec()`.
 Once direction is a column of the result ([3.6](#36-direction)), each argument
 that only `nsec_multi()` takes is either handled elsewhere or kept:
 
-- `multi_var` and `trials_var` say which data the curves are predicted from, so
-  they are predict-level under [3.7](#37-validation) and become arguments of
-  `toxval_predict.brmsfit()`. `trials_var` names the column of trial counts in a
-  binomial model.
+- `multi_var` and `trials_var` said which data the curves are predicted from.
+  They are not arguments: `toxval_predict.brmsfit()` reads the responses, their
+  families and any trials column from the fit with `brms::brmsterms()`, and
+  predicts a binomial response at one trial (amended 2026-10-23, AP; T26).
 - `type = "both"`, `"increasing"` and `"decreasing"` are filters on the
   `direction` column, and are removed.
 - `type = "lower"` with `criterion` selects, for each response, the direction
@@ -635,9 +635,9 @@ excluded (T34).
 
 - Predict-level arguments (`x_var`, `group_var`, `x_range`, `resolution`, and
   that the model has a `toxval_predict` method) are validated in
-  `toxval_predict()`. `multi_var` and `trials_var` join them when
-  `nsec_multi()` is folded into `nsec()` (T15), as arguments of
-  `toxval_predict.brmsfit()`.
+  `toxval_predict()`. The responses and trials of a multivariate or binomial
+  `brmsfit` are read from the fit, so `multi_var` and `trials_var` are not
+  arguments (T15, amended 2026-10-23).
 - Metric arguments (`ecx_val`, `type`, `sig_val`, `prob_vals`, `xform`) are
   validated in the metric entry point, so every class gets identical checks.
   - This fixes the current bug where `ecx.bnecfit` never validates the `ecx_val`
@@ -1107,11 +1107,8 @@ A proportion is recognised from `meta$family` (`response_upper_bound()` in
 `zero_one_inflated_beta`, and a `drc` fit whose `type` is `"binomial"`, which
 `drc` predicts on the proportion scale. `toxval_predict.drc()` records the
 `type` as `meta$family` for this purpose. A `brms` binomial or beta-binomial fit
-is predicted by `posterior_epred()` as a count of trials, bounded by the number
-of trials, which a `toxval_pred` does not record until `trials_var` (T15); its
-increasing `absolute` reference is `NA` until then.
-
-Phase 4 records `trials_var` (T26), so such a fit takes extra risk. Where the
+is predicted by `toxval_predict()` at one trial, so on the proportion scale,
+and takes extra risk like any other proportion (T26, amended 2026-10-23). Where the
 trials are a normalising total rather than a ceiling, as in a gene expression
 fit whose trials are each gene's total count, extra risk measures the change
 against that total. On the 78-gene beta-binomial fit of the #63 comment of

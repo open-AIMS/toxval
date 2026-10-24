@@ -72,14 +72,14 @@ test_that("new_toxval_pred keeps the keys of a multivariate fit", {
     curves = list(pred_curve(), pred_curve()),
     keys = pred_keys(response = factor(c("growth", "survival"))),
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(multi_var = "endpoint")
+    meta = pred_meta(multi_var = c("growth", "survival"))
   )
 
   expect_equal(
     result$keys,
     data.frame(response = factor(c("growth", "survival")))
   )
-  expect_identical(result$meta$multi_var, "endpoint")
+  expect_identical(result$meta$multi_var, c("growth", "survival"))
 })
 
 test_that("new_toxval_pred keeps the keys of a grouped multivariate fit", {
@@ -94,13 +94,13 @@ test_that("new_toxval_pred keeps the keys of a grouped multivariate fit", {
     curves = list(pred_curve(), pred_curve(), pred_curve(), pred_curve()),
     keys = keys,
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(group_var = "site", multi_var = "endpoint")
+    meta = pred_meta(group_var = "site", multi_var = c("growth", "survival"))
   )
 
   expect_length(result$curves, 4)
   expect_equal(result$keys, keys)
   expect_identical(result$meta$group_var, "site")
-  expect_identical(result$meta$multi_var, "endpoint")
+  expect_identical(result$meta$multi_var, c("growth", "survival"))
 })
 
 test_that("new_toxval_pred accepts a threshold and a control", {
@@ -389,7 +389,7 @@ test_that("new_toxval_pred accepts a repeated group when the responses differ", 
       response = factor(c("growth", "survival"))
     ),
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(group_var = "site", multi_var = "endpoint")
+    meta = pred_meta(group_var = "site", multi_var = c("growth", "survival"))
   )
 
   expect_equal(nrow(result$keys), 2)
@@ -405,7 +405,7 @@ test_that("new_toxval_pred accepts a group and a response with the same values",
     curves = list(pred_curve(), pred_curve()),
     keys = keys,
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(group_var = "site", multi_var = "endpoint")
+    meta = pred_meta(group_var = "site", multi_var = c("A", "B"))
   )
 
   expect_equal(result$keys, keys)
@@ -422,7 +422,7 @@ test_that("new_toxval_pred accepts rows that would collide if the columns were p
     curves = list(pred_curve(), pred_curve()),
     keys = keys,
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(group_var = "site", multi_var = "endpoint")
+    meta = pred_meta(group_var = "site", multi_var = c("BC", "C"))
   )
 
   expect_equal(result$keys, keys)
@@ -446,7 +446,7 @@ test_that("new_toxval_pred errors when the response column is not a factor", {
       curves = list(pred_curve(), pred_curve()),
       keys = pred_keys(response = c("growth", "survival")),
       x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(multi_var = "endpoint")
+      meta = pred_meta(multi_var = c("growth", "survival"))
     ),
     regexp = "`keys\\$response` must be factor"
   )
@@ -474,7 +474,7 @@ test_that("new_toxval_pred errors when the levels of keys do not follow its rows
         )
       ),
       x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(multi_var = "endpoint")
+      meta = pred_meta(multi_var = c("growth", "survival"))
     ),
     regexp = "Levels of `keys\\$response` must be its values in order of first appearance"
   )
@@ -504,6 +504,62 @@ test_that("new_toxval_pred errors when a multivariate fit has no multi_var", {
   )
 })
 
+test_that("new_toxval_pred errors when multi_var does not name every response", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(response = factor(c("growth", "survival"))),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(multi_var = "growth")
+    ),
+    regexp = "Levels of `keys\\$response` must have values matching 'growth'"
+  )
+})
+
+test_that("new_toxval_pred accepts a family named by response", {
+  result <- new_toxval_pred(
+    curves = list(pred_curve(), pred_curve()),
+    keys = pred_keys(response = factor(c("growth", "survival"))),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(
+      multi_var = c("growth", "survival"),
+      family = c(growth = "gaussian", survival = "bernoulli")
+    )
+  )
+
+  expect_identical(
+    result$meta$family,
+    c(growth = "gaussian", survival = "bernoulli")
+  )
+})
+
+test_that("new_toxval_pred errors when a family named by response misses one", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve(), pred_curve()),
+      keys = pred_keys(response = factor(c("growth", "survival"))),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(
+        multi_var = c("growth", "survival"),
+        family = c(growth = "gaussian", mortality = "bernoulli")
+      )
+    ),
+    regexp = "Levels of `keys\\$response` must have values matching 'growth' or 'mortality'"
+  )
+})
+
+test_that("new_toxval_pred errors when a univariate fit has several families", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(family = c(a = "gaussian", b = "beta"))
+    ),
+    regexp = "`meta\\$family` must be a single unnamed string when `keys` has no 'response' column"
+  )
+})
+
 test_that("new_toxval_pred errors when an ungrouped fit names a group_var", {
   # `keys` and `group_var` record one fact, so an object cannot call itself
   # ungrouped and name a grouping variable
@@ -524,7 +580,7 @@ test_that("new_toxval_pred errors when a univariate fit names a multi_var", {
       curves = list(pred_curve(), pred_curve()),
       keys = pred_keys(group = factor(c("A", "B"))),
       x_vec = c(0, 1, 2, 3),
-      meta = pred_meta(group_var = "site", multi_var = "endpoint")
+      meta = pred_meta(group_var = "site", multi_var = c("growth", "survival"))
     ),
     regexp = "`meta\\$multi_var` must be NULL when `keys` has no 'response' column"
   )
@@ -833,12 +889,12 @@ test_that("print.toxval_pred names the responses of a multivariate fit", {
     curves = list(pred_curve(), pred_curve()),
     keys = pred_keys(response = factor(c("growth", "survival"))),
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(multi_var = "endpoint")
+    meta = pred_meta(multi_var = c("growth", "survival"))
   )
 
   expect_identical(
     capture.output(print(result))[4],
-    "  curves:       2 by endpoint: growth, survival"
+    "  curves:       2 by response: growth, survival"
   )
 })
 
@@ -850,12 +906,12 @@ test_that("print.toxval_pred names the groups and responses of a grouped multiva
       response = factor(c("growth", "survival", "growth", "survival"))
     ),
     x_vec = c(0, 1, 2, 3),
-    meta = pred_meta(group_var = "site", multi_var = "endpoint")
+    meta = pred_meta(group_var = "site", multi_var = c("growth", "survival"))
   )
 
   expect_identical(
     capture.output(print(result))[4],
-    "  curves:       4 by site: A, B; endpoint: growth, survival"
+    "  curves:       4 by site: A, B; response: growth, survival"
   )
 })
 

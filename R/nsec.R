@@ -30,6 +30,31 @@
 #' NSECs are not estimated for `drc` NEC models, whose threshold is a parameter
 #' of the model rather than a feature of a smooth curve.
 #'
+#' @section Multivariate fits:
+#' A multivariate `brmsfit` gives rows for each response, named in the
+#' `response` column as `brms` names them; see [toxval_predict()]. This
+#' replaces [nsec_multi()]. To keep, for each response, only the direction
+#' whose NSEC is lower at the 0.8 quantile of its realisations, as
+#' `nsec_multi(type = "lower")` did, filter the result returned with
+#' `draws = TRUE`:
+#'
+#' ```r
+#' nsec(fit, x_var = "dose", draws = TRUE) |>
+#'   dplyr::mutate(
+#'     at_criterion = vapply(
+#'       draws,
+#'       \(d) quantile(d$value.draw, 0.8, na.rm = TRUE),
+#'       numeric(1)
+#'     )
+#'   ) |>
+#'   dplyr::group_by(response) |>
+#'   dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
+#'   dplyr::ungroup()
+#' ```
+#'
+#' A censored realisation is `Inf` in `value.draw`, so it ranks above every
+#' crossing, and an excluded one is `NA`.
+#'
 #' @inheritParams ecx
 #' @param sig_val A number between 0 and 0.5, the quantile of the control
 #'   realisations that sets the decreasing reference; `1 - sig_val` sets the

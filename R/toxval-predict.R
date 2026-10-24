@@ -113,6 +113,18 @@ toxval_predict.default <- function(
 #'   variable that appears only in a group-level term, such as `site` in
 #'   `y ~ x + (1 | site)`, gives every level the same curve and is an error.
 #'
+#'   A multivariate fit gives one curve per response, and per level of
+#'   `group_var` when it is supplied, so the responses are read from the fit
+#'   rather than named. They are named as `brms` names them, for example
+#'   `spsurvival` for a column `sp_survival`.
+#'
+#'   A binomial response, such as `y | trials(n) ~ x`, is predicted at one
+#'   trial, so its curves, `control` and `reference` are proportions rather
+#'   than counts whatever the trials in the data. The trials are read from the
+#'   fit and must name a single column of the data. An NSEC or ECx does not
+#'   depend on the number of trials, so only the scale of `control` and
+#'   `reference` differs from a prediction at the observed trials.
+#'
 #' @export
 toxval_predict.brmsfit <- function(
   object,
@@ -122,51 +134,35 @@ toxval_predict.brmsfit <- function(
   x_range = NULL,
   ...
 ) {
-  # EXPECTED-CHANGE multivariate brmsfit support, one curve per response
-  # Removing this guard is not enough on its own: `brms_curves()` returns a
-  # single curve, and `meta$family` holds one string where such a fit has a
-  # family per response. The test itself stays, as the branch selector.
-  if (brms::is.mvbrmsformula(object$formula)) {
-    chk::abort_chk(
-      "`object` must not be a multivariate `brmsfit`; one curve per response ",
-      "is not yet supported by `toxval_predict()`."
-    )
-  }
-
   chk_x_var_supplied(x_var, "`brmsfit`")
   data <- object$data
   chk_var_in_data(x_var, data, "x_var")
   if (!is.null(group_var)) {
     chk_var_in_data(group_var, data, "group_var")
   }
+  responses <- brms_responses(object)
 
   x_vec <- predict_grid(x_range, data[[x_var]], resolution)
-  curve_set <- brms_curves(object, x_vec, x_var, group_var)
+  curve_set <- brms_curves(object, x_vec, x_var, group_var, responses)
   chk_defined_grid(curve_set$curves, x_vec)
-
-  # check effects are population-level
-  curves <- curve_set$curves
-  same <- vapply(curves[-1], identical, logical(1), curves[[1]])
-  if (length(curves) > 1 && all(same)) {
-    chk::abort_chk(
-      "group-level effects are marginalised; ",
-      "`group_var` must be fitted as a population-level effect in `object` to ",
-      "give one curve per level."
-    )
-  }
+  chk_population_level(curve_set$curves, max(1L, length(responses$names)))
 
   new_toxval_pred(
     curves = curve_set$curves,
     keys = curve_set$keys,
     x_vec = x_vec,
-    meta = build_meta(
-      object = object,
-      x_vec = x_vec,
-      x_var = x_var,
-      curves = curve_set$curves,
-      group_var = group_var,
-      realisation = "draws",
-      family = object$family$family
+    meta = c(
+      build_meta(
+        object = object,
+        x_vec = x_vec,
+        x_var = x_var,
+        curves = curve_set$curves,
+        group_var = group_var,
+        multi_var = responses$names,
+        realisation = "draws",
+        family = responses$family
+      ),
+      list(trials_var = responses$trials_var)
     )
   )
 }
@@ -252,9 +248,11 @@ toxval_predict.drc <- function(
 #' @param x_var Name of the predictor variable.
 #' @param curves The list of realisation matrices.
 #' @param group_var Name of the grouping variable, or `NULL`.
+#' @param multi_var The response names of a multivariate fit, or `NULL`.
 #' @param realisation Either `"draws"` or `"bootstrap"`.
-#' @param family The response distribution: the `brms` family, the `type` of a
-#'   `drc` fit, or `NULL` where there is none.
+#' @param family The response distribution: the `brms` family, named by
+#'   response for a multivariate fit, the `type` of a `drc` fit, or `NULL`
+#'   where there is none.
 #' @param seed The bootstrap seed, or `NULL`.
 #'
 #' @return A named list satisfying the `meta` contract of [toxval_pred].
@@ -266,18 +264,16 @@ build_meta <- function(
   x_var,
   curves,
   group_var = NULL,
+  multi_var = NULL,
   realisation,
   family = NULL,
   seed = NULL
 ) {
-  # EXPECTED-CHANGE multivariate brmsfit support, one curve per response
-  # The one place that assumes every supported fit is univariate: such a fit
-  # identifies its curves by response, so it would supply `multi_var`.
   list(
     source_class = class(object)[1],
     x_var = x_var,
     group_var = group_var,
-    multi_var = NULL,
+    multi_var = multi_var,
     resolution = length(x_vec),
     x_range = range(x_vec),
     # the lowest concentration in the data, not of the grid, which starts
@@ -290,34 +286,169 @@ build_meta <- function(
   )
 }
 
+#' The responses of a brmsfit, read from its formula
+#'
+#' @param object A fitted model of class [brms::brmsfit].
+#'
+#' @return A list with `names`, the response names of a multivariate fit as
+#'   `posterior_epred()` names them, or `NULL` for a univariate fit; `family`,
+#'   one string for a univariate fit and a vector named by response for a
+#'   multivariate one (T26); and `trials_var`, the columns holding the trials
+#'   of any binomial response, named by response for a multivariate fit, or
+#'   `NULL`.
+#'
+#' @noRd
+brms_responses <- function(object) {
+  terms <- brms::brmsterms(object$formula)
+  multivariate <- brms::is.mvbrmsformula(object$formula)
+  forms <- if (multivariate) terms$terms else list(terms)
+
+  family <- vapply(forms, function(form) form$family$family, character(1))
+  trials_var <- unlist(lapply(forms, trials_column))
+  if (!multivariate) {
+    return(list(
+      names = NULL,
+      family = unname(family),
+      trials_var = trials_var
+    ))
+  }
+  list(names = names(forms), family = family, trials_var = trials_var)
+}
+
+#' The column holding the trials of a binomial response
+#'
+#' The trials are set to 1 in the prediction data, so that a binomial response
+#' is predicted as a proportion (T26). That needs them to be a single column:
+#' a constant, as in `trials(10)`, or an expression, as in `trials(n + m)`,
+#' cannot be set to 1.
+#'
+#' @param form The `brmsterms` of one response.
+#'
+#' @return The name of the trials column, or `NULL` where the response has no
+#'   trials.
+#'
+#' @noRd
+trials_column <- function(form) {
+  trials <- form$adforms$trials
+  if (is.null(trials)) {
+    return(NULL)
+  }
+  # the right-hand side is `resp_trials(<expression>)`
+  expr <- trials[[2]][[2]]
+  if (!is.symbol(expr)) {
+    chk::abort_chk(
+      "The trials of a binomial response must be a single column of the ",
+      "data, not ",
+      chk::cc(deparse(expr)),
+      "; it is set to 1 to predict a proportion."
+    )
+  }
+  as.character(expr)
+}
+
 #' Posterior draws of every curve in a brmsfit
 #'
-#' EXPECTED-CHANGE multivariate brmsfit support, one curve per response
-#' A multivariate fit adds a third branch here, with a `response` column of
-#' `keys` taken from the response names `posterior_epred()` returns in
-#' `dimnames(.)[[3]]`.
+#' A grouped fit is predicted once per level, and a multivariate fit gives one
+#' curve per response from each prediction, so the curves run by response
+#' within group.
 #'
 #' @param object A fitted model of class [brms::brmsfit].
 #' @param x_vec The predictor grid.
 #' @param x_var Name of the predictor variable.
 #' @param group_var Name of the grouping variable, or `NULL`.
+#' @param responses The output of `brms_responses()`.
 #'
 #' @return A list with `curves`, a list of matrices with one per curve, and
 #'   `keys`, the [toxval_pred] table identifying them.
 #'
 #' @noRd
-brms_curves <- function(object, x_vec, x_var, group_var) {
-  if (is.null(group_var)) {
-    return(list(
-      curves = list(epred_curve(object, x_vec, x_var)),
-      keys = group_keys()
-    ))
+brms_curves <- function(object, x_vec, x_var, group_var, responses) {
+  groups <- NULL
+  if (!is.null(group_var)) {
+    groups <- group_levels(object$data[[group_var]])
   }
-  groups <- group_levels(object$data[[group_var]])
-  curves <- lapply(seq_along(groups), function(i) {
-    epred_curve(object, x_vec, x_var, group_var, groups[i])
+  by_group <- lapply(seq_len(max(1L, length(groups))), function(i) {
+    epred <- epred_curve(
+      object,
+      x_vec,
+      x_var,
+      group_var,
+      groups[i],
+      responses$trials_var
+    )
+    if (is.null(responses$names)) {
+      return(list(epred))
+    }
+    # matched by name, not by position (T26)
+    lapply(responses$names, function(response) {
+      matrix(
+        epred[, , response],
+        nrow = dim(epred)[1],
+        ncol = dim(epred)[2]
+      )
+    })
   })
-  list(curves = curves, keys = group_keys(groups))
+  list(
+    curves = unlist(by_group, recursive = FALSE),
+    keys = brms_keys(groups, responses$names)
+  )
+}
+
+#' The `keys` table of a brmsfit, with responses within groups
+#'
+#' @param groups The levels of the grouping variable, or `NULL`.
+#' @param responses The response names of a multivariate fit, or `NULL`.
+#'
+#' @noRd
+brms_keys <- function(groups, responses) {
+  if (is.null(responses)) {
+    return(group_keys(groups))
+  }
+  n_groups <- max(1L, length(groups))
+  keys <- data.frame(
+    response = factor(rep(responses, times = n_groups), levels = responses)
+  )
+  if (is.null(groups)) {
+    return(keys)
+  }
+  groups <- as.character(groups)
+  data.frame(
+    group = factor(rep(groups, each = length(responses)), levels = groups),
+    keys
+  )
+}
+
+#' Check that the levels of `group_var` give different curves
+#'
+#' Group-level effects are marginalised, so a `group_var` that enters only a
+#' group-level term gives every level the same curve. For a multivariate fit
+#' the curves are compared within each response, and it is an error only when
+#' `group_var` changes the curve of no response.
+#'
+#' @param curves The list of realisation matrices, responses within groups.
+#' @param n_responses The number of responses, 1 for a univariate fit.
+#'
+#' @noRd
+chk_population_level <- function(curves, n_responses) {
+  if (length(curves) == n_responses) {
+    return(invisible(curves))
+  }
+  same <- vapply(
+    seq_len(n_responses),
+    function(r) {
+      by_group <- curves[seq(r, length(curves), by = n_responses)]
+      all(vapply(by_group[-1], identical, logical(1), by_group[[1]]))
+    },
+    logical(1)
+  )
+  if (all(same)) {
+    chk::abort_chk(
+      "group-level effects are marginalised; ",
+      "`group_var` must be fitted as a population-level effect in `object` to ",
+      "give one curve per level."
+    )
+  }
+  invisible(curves)
 }
 
 #' The `keys` table of an ungrouped or grouped fit
@@ -366,6 +497,8 @@ group_levels <- function(x) {
 #' @param x_var Name of the predictor variable.
 #' @param group_var Name of the grouping variable, or `NULL`.
 #' @param group A single level of the grouping variable.
+#' @param trials_var The columns holding the trials of a binomial response,
+#'   which are set to 1, or `NULL`.
 #'
 #' @details
 #' Where the model has a population-level predictor other than `x_var` that is
@@ -376,13 +509,25 @@ group_levels <- function(x) {
 #' variable in a group-level term, such as `site` in `(1 | site)`, needs none
 #' under `re_formula = NA`.
 #'
-#' @return A numeric matrix, one row per draw and one column per grid value.
+#' @return A numeric matrix, one row per draw and one column per grid value,
+#'   or for a multivariate fit an array with a third dimension named by
+#'   response.
 #'
 #' @noRd
-epred_curve <- function(object, x_vec, x_var, group_var = NULL, group = NULL) {
+epred_curve <- function(
+  object,
+  x_vec,
+  x_var,
+  group_var = NULL,
+  group = NULL,
+  trials_var = NULL
+) {
   newdata <- stats::setNames(data.frame(x_vec), x_var)
   if (!is.null(group_var)) {
     newdata[[group_var]] <- group
+  }
+  for (var in trials_var) {
+    newdata[[var]] <- 1
   }
   tryCatch(
     posterior_epred(object, newdata = newdata, re_formula = NA),

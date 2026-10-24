@@ -110,6 +110,32 @@ warning.
 NSECs are not estimated for \code{drc} NEC models, whose threshold is a parameter
 of the model rather than a feature of a smooth curve.
 }
+\section{Multivariate fits}{
+
+A multivariate \code{brmsfit} gives rows for each response, named in the
+\code{response} column as \code{brms} names them; see \code{\link[=toxval_predict]{toxval_predict()}}. This
+replaces \code{\link[=nsec_multi]{nsec_multi()}}. To keep, for each response, only the direction
+whose NSEC is lower at the 0.8 quantile of its realisations, as
+\code{nsec_multi(type = "lower")} did, filter the result returned with
+\code{draws = TRUE}:
+
+\if{html}{\out{<div class="sourceCode r">}}\preformatted{nsec(fit, x_var = "dose", draws = TRUE) |>
+  dplyr::mutate(
+    at_criterion = vapply(
+      draws,
+      \\(d) quantile(d$value.draw, 0.8, na.rm = TRUE),
+      numeric(1)
+    )
+  ) |>
+  dplyr::group_by(response) |>
+  dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
+  dplyr::ungroup()
+}\if{html}{\out{</div>}}
+
+A censored realisation is \code{Inf} in \code{value.draw}, so it ranks above every
+crossing, and an excluded one is \code{NA}.
+}
+
 \examples{
 \donttest{
 if (requireNamespace("drc", quietly = TRUE)) {

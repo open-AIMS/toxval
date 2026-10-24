@@ -57,9 +57,8 @@ compute_ecx <- function(
     chk_proportion(proportion, type)
   }
 
-  upper <- response_upper_bound(pred$meta)
-
   rows <- lapply(seq_along(pred$curves), function(i) {
+    upper <- response_upper_bound(pred$meta, pred$keys, i)
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
@@ -133,9 +132,8 @@ compute_nsec <- function(
       "NSEC is reported as `reference`."
     )
   }
-  upper <- response_upper_bound(pred$meta)
-
   rows <- lapply(seq_along(pred$curves), function(i) {
+    upper <- response_upper_bound(pred$meta, pred$keys, i)
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
@@ -217,13 +215,14 @@ crossings_by_row <- function(curve, x_vec, reference, direction) {
 #' deviation from the control, the mirror of the decreasing form (T18).
 #'
 #' @param meta The `meta` of a `toxval_pred`.
+#' @param keys The `keys` of the `toxval_pred`.
+#' @param i The curve, a row of `keys`.
 #'
-#' @return 1 for a proportion, `Inf` for a response with no upper bound, or `NA`
-#'   where the bound is not recorded.
+#' @return 1 for a proportion and `Inf` for a response with no upper bound.
 #'
 #' @noRd
-response_upper_bound <- function(meta) {
-  family <- meta$family
+response_upper_bound <- function(meta, keys, i) {
+  family <- curve_family(meta$family, keys, i)
   if (is.null(family)) {
     return(Inf)
   }
@@ -237,15 +236,27 @@ response_upper_bound <- function(meta) {
     bernoulli = ,
     beta = ,
     zero_inflated_beta = ,
-    zero_one_inflated_beta = 1,
-    # `posterior_epred()` returns these as a count of trials, bounded by the
-    # number of trials, which a toxval_pred does not record until `trials_var`
-    # (T15). `NA` keeps the reference from being taken against the wrong bound.
+    zero_one_inflated_beta = ,
+    # predicted at one trial by `toxval_predict.brmsfit()`, so a proportion
+    # whatever the trials in the data (T26)
     binomial = ,
     beta_binomial = ,
-    zero_inflated_binomial = NA_real_,
+    zero_inflated_binomial = 1,
     Inf
   )
+}
+
+#' The family of one curve
+#'
+#' `meta$family` is one string for every curve, or a vector named by response
+#' for a multivariate fit whose responses differ in family (T26).
+#'
+#' @noRd
+curve_family <- function(family, keys, i) {
+  if (is.null(family) || is.null(names(family))) {
+    return(family)
+  }
+  family[[as.character(keys$response[i])]]
 }
 
 #' The span a percentage effect is taken of, for every realisation of a curve
@@ -265,9 +276,7 @@ response_upper_bound <- function(meta) {
 #' @noRd
 reference_span <- function(curve, type, upper) {
   control <- curve[, 1]
-  increasing_absolute <- if (is.na(upper)) {
-    rep(NA_real_, length(control))
-  } else if (is.finite(upper)) {
+  increasing_absolute <- if (is.finite(upper)) {
     upper - control
   } else {
     control

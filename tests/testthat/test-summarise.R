@@ -69,7 +69,7 @@ test_that("summarise_metric puts the key columns after direction", {
       response = factor(c("growth", "survival", "growth", "survival"))
     ),
     group_var = "site",
-    multi_var = "endpoint"
+    multi_var = c("growth", "survival")
   )
 
   result <- summarise_metric(compute_ecx(pred), pred, "ecx")
@@ -374,6 +374,7 @@ test_that("summarise_metric pairs ecnsec with the nsec realisations in draws", {
 })
 
 test_that("summarise_metric draws unnest alongside the summary columns", {
+  skip_if_not_installed("tidyr")
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
 

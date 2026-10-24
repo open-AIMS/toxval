@@ -640,3 +640,35 @@ test_that("nsec gives NA ecnsec when no realisation has a span", {
     c(NA_real_, NA_real_, NA_real_)
   )
 })
+
+# Multivariate fits -------------------------------------------------------
+
+test_that("nsec gives rows for each response of a multivariate brmsfit", {
+  result <- suppressWarnings(
+    nsec(nsec_multi_model_2, x_var = "dose", resolution = 50)
+  )
+
+  expect_identical(
+    result$response,
+    factor(
+      c("spsurvival", "spsurvival", "spgrowth", "spgrowth"),
+      levels = c("spsurvival", "spgrowth")
+    )
+  )
+  expect_identical(result$direction, rep(c("decreasing", "increasing"), 2))
+})
+
+test_that("nsec takes extra risk for a binomial response", {
+  # predicted at one trial, a binomial response is a proportion bounded at 1,
+  # so its increasing reference and ecnsec are defined (T26)
+  result <- suppressWarnings(
+    nsec(brms_model_7, x_var = "x", resolution = 50)
+  )
+  row <- result[
+    result$response == "survived" & result$direction == "increasing",
+  ]
+
+  expect_true(is.finite(row$reference))
+  expect_lte(row$reference, 1)
+  expect_true(is.finite(row$ecnsec))
+})
