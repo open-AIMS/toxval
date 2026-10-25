@@ -125,7 +125,9 @@ compute_ecx <- function(
 #'   reference itself, which the `reference` column already reports.
 #' @param anchor One of `"model"` or `"component"`, where the reference comes
 #'   from under model averaging (T23). The two coincide for a fit that is not
-#'   model-averaged, which is every class supported, so it is recorded only.
+#'   model-averaged, so it is recorded only. A model average, which records
+#'   `meta$draw_model`, refuses `"component"` until the reference is taken per
+#'   component (BAYESNEC-claude.md task 4).
 #'
 #' @return A tibble with one row per curve and direction: the columns of
 #'   `keys`, `direction`, `sig_val`, `type`, `anchor`, `reference`, and the
@@ -144,6 +146,14 @@ compute_nsec <- function(
   chk_sig_val(sig_val)
   chk_type(type)
   chk_anchor(anchor)
+  # the reference below is pooled over every realisation, so a model average
+  # would otherwise return the "model" reference labelled "component"
+  if (anchor == "component" && !is.null(pred$meta$draw_model)) {
+    chk::abort_chk(
+      "`anchor` must be 'model' for a model-averaged fit; 'component' is not ",
+      "yet supported."
+    )
+  }
   if (type == "direct") {
     chk::abort_chk(
       "`type` must not be 'direct' for an NSEC; the response value at the ",
@@ -353,22 +363,16 @@ response_upper_bound <- function(meta, keys, i) {
   if (identical(meta$source_class, "drc")) {
     return(if (family == "binomial") 1 else Inf)
   }
-  # `bayesnec` predicts a binomial or beta-binomial fit for one trial
-  # (`bnec_newdata()`), so the curve is a proportion. A branch on the class
-  # until the trials are recorded per curve (T26).
-  if (meta$source_class %in% c("bayesnecfit", "bayesmanecfit")) {
-    if (family %in% c("binomial", "beta_binomial")) {
-      return(1)
-    }
-  }
   switch(
     family,
     bernoulli = ,
     beta = ,
     zero_inflated_beta = ,
     zero_one_inflated_beta = ,
-    # predicted at one trial by `toxval_predict.brmsfit()`, so a proportion
-    # whatever the trials in the data (T26)
+    # predicted at one trial by `toxval_predict()`, so a proportion whatever
+    # the trials in the data (T26); `bnec_newdata()` sets them to 1 for a
+    # `bayesnec` fit
+    binomial = ,
     binomial = ,
     beta_binomial = ,
     zero_inflated_binomial = 1,

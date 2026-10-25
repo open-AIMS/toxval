@@ -76,7 +76,7 @@ test_that("toxval_predict on a binomial bayesnecfit gives a proportion", {
   pred <- toxval_predict(bayesnec_binomial, resolution = 50)
 
   expect_true(all(pred$curves[[1]] >= 0 & pred$curves[[1]] <= 1))
-  expect_identical(response_upper_bound(pred$meta), 1)
+  expect_identical(response_upper_bound(pred$meta, pred$keys, 1), 1)
 })
 
 # x_var and group_var -----------------------------------------------------
@@ -203,6 +203,24 @@ test_that("ecx() on a bayesnecfit returns a toxval tibble", {
     expect_s3_class(result, "toxval")
     expect_identical(nrow(result), 2L, info = nm)
   }
+})
+
+test_that("nsec() on a bayesnecfit returns a toxval tibble", {
+  fits <- bnec_single_fits()
+  for (nm in names(fits)) {
+    result <- suppressWarnings(nsec(fits[[nm]], resolution = 50))
+    expect_s3_class(result, "toxval")
+    expect_identical(result$direction, c("decreasing", "increasing"))
+  }
+})
+
+test_that("nsec() on a bayesnecfit gives the same result under either anchor", {
+  model <- nsec(bayesnec_ecx4param, resolution = 50)
+  component <- nsec(bayesnec_ecx4param, resolution = 50, anchor = "component")
+
+  expect_identical(component$anchor, c("component", "component"))
+  expect_identical(component$estimate, model$estimate)
+  expect_identical(component$reference, model$reference)
 })
 
 # the model average --------------------------------------------------------
@@ -365,4 +383,19 @@ test_that("ecx() on a bayesmanecfit returns a toxval tibble", {
 
   expect_s3_class(result, "toxval")
   expect_identical(nrow(result), 2L)
+})
+
+test_that("nsec() on a bayesmanecfit returns a toxval tibble", {
+  result <- nsec(bayesnec_manec_example, resolution = 50)
+
+  expect_s3_class(result, "toxval")
+  expect_identical(result$direction, c("decreasing", "increasing"))
+  expect_identical(result$anchor, c("model", "model"))
+})
+
+test_that("nsec() refuses the component anchor on a bayesmanecfit", {
+  expect_error(
+    nsec(bayesnec_manec_example, resolution = 50, anchor = "component"),
+    "must be 'model' for a model-averaged fit"
+  )
 })

@@ -347,6 +347,18 @@ test_that("compute_nsec takes the reference from quantiles of the control realis
   expect_equal(result$reference, c(9.5, 10.5))
 })
 
+test_that("compute_nsec refuses the component anchor on a model average", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(9 - x_vec, 10 - x_vec, 11 - x_vec)), x_vec)
+  pred$meta$draw_model <- c("a", "a", "b")
+
+  expect_error(
+    toxval:::compute_nsec(pred, anchor = "component"),
+    "must be 'model' for a model-averaged fit"
+  )
+  expect_identical(toxval:::compute_nsec(pred)$anchor, c("model", "model"))
+})
+
 test_that("compute_nsec finds the decreasing crossing of each realisation", {
   x_vec <- 0:10
   pred <- compute_pred(

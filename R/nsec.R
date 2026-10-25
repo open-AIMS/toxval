@@ -73,7 +73,7 @@
 #' @param anchor One of `"model"` (the default) or `"component"`, where the
 #'   reference is taken from for a model-averaged fit: the averaged control,
 #'   or each component model's own control. The two coincide for a fit that is
-#'   not model-averaged.
+#'   not model-averaged. A `bayesmanecfit` supports only `"model"` so far.
 #' @param curveid `r lifecycle::badge("deprecated")` Use `group_var`.
 #'
 #' @return A `toxval` tibble with one row per curve and direction.

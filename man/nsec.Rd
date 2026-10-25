@@ -44,7 +44,7 @@ increasing one.}
 \item{anchor}{One of \code{"model"} (the default) or \code{"component"}, where the
 reference is taken from for a model-averaged fit: the averaged control,
 or each component model's own control. The two coincide for a fit that is
-not model-averaged.}
+not model-averaged. A \code{bayesmanecfit} supports only \code{"model"} so far.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
