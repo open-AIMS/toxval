@@ -638,3 +638,75 @@ than run.
 force-pushing the fork were left for RF to confirm.
 
 ---
+
+**User:** Part of the issue text is out of date - can you update it? And
+formally confirm the amendment where ever that needs to happen? The vignette
+format will be quarto. The vignette doesn't need nec_data as package data? A
+vignette can call a dataset from another package? we might use drc ones as
+well. Yes go ahead and push the rebased branch, and I'll be doing the first
+draft of vignettes in the toxval-review repo, so it can install from that
+branch. Yes go ahead and move phase-7-bayesnec-methods to the rebased commits
+and force-push the fork.
+
+**Claude:** The branch was moved with `git reset --keep`. No prompt file
+differed between the two heads, so the other sessions' uncommitted prompt
+files were kept. The log was committed, and the fork was force-pushed with a
+lease on its previous head, `65e2d69`. It is now at `eb0a68e`. The scratch
+worktree and `phase-7-rebase` were removed.
+
+RF had already confirmed the T26 amendment, as ruling 6 of the PR #66
+rulings comment of 2026-10-24 (issuecomment-6382626146). Ayla's `2436858`,
+committed a few hours before that comment, still read "for Becky to confirm"
+in `notes/implementation/02_decisions.md`. That line now reads "Amended
+2026-10-23 (AP), and confirmed 2026-10-24 (RF, ruling 6 on PR #66)",
+committed as `6ef7c56` and pushed. The same comment asks AP to amend T26 in
+place on #66, so a later rebase may meet her wording on that line. Her
+wording takes precedence there.
+
+Issue #71 was edited; it had no comments, so no marker comment was posted:
+
+- "Proposed decisions" became "Decisions". Decision 3 is settled (RF,
+  2026-10-26): Quarto for vignettes and articles. The R Markdown alternative
+  was removed.
+- The dependency table gained a state column for 2026-10-26:
+  - ECx and NSEC definitions, brms single and grouped, and drc are on PR #66;
+  - multivariate support is on PR #66 (`d220ef3`), but the paper and data
+    are unpublished;
+  - bayesnec single fits and model sets are on `phase-7-bayesnec-methods`,
+    while `anchor = "component"` on a model set and `type = "relative"`
+    need #68 task 4;
+  - there is no `glm` method on either branch.
+
+  It names `beckyfisher/toxval@phase-7-bayesnec-methods` as the branch drafts
+  install from. toxval-review is private, so it is not named in the issue.
+- A Build bullet says that a vignette can use another package's dataset
+  (`bayesnec::nec_data`, `drc::daphnids`) without toxval storing it. A
+  shipped vignette may use only Suggests packages and guards their chunks with
+  `requireNamespace()`.
+- The multivariate bullet now follows T26 as confirmed. A beta-binomial is
+  predicted at one trial, so `type = "absolute"` gives an increasing extra-risk
+  reference, and the increasing `ecnsec` sits near 0 for normalising-total
+  trials (the #63 edge case). It replaces "`response_upper_bound()` returns
+  `NA` ... use `type = "range"`, or wait for #63. Ask which."
+- The drc bullet takes `nec_data` from `bayesnec`; it is not package data.
+- The bayesnec bullet notes the interim refusal of `"component"` on a model
+  set.
+- The definition of done names the vignettes in commit messages for `fledge`,
+  instead of `NEWS.md` listing them, because `NEWS.md` is not edited by hand.
+- The ask list dropped the format, the `nec_data` question and the
+  multivariate `type`. It keeps any package other than `quarto` added to
+  DESCRIPTION, one article or one per class, and the publication timing.
+
+The answer to the question on datasets is yes. A vignette can call
+`bayesnec::nec_data` or `drc::daphnids` directly. A shipped vignette, built
+by R CMD check, may use only packages in Imports or Suggests, and guards their
+chunks because a Suggests package can be absent. Articles excluded from the
+build need only the packages installed.
+
+toxval-review loads toxval with `toxval_at(commit)`, which archives a commit
+of the local toxval checkout and loads it with `pkgload`. Either
+`toxval_at("phase-7-bayesnec-methods")` or a pinned SHA works. A SHA keeps a
+draft reproducible across the rebases #66 will force, and the archive in
+`_cache/` keeps the code after a rebase.
+
+---
