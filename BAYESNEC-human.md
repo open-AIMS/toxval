@@ -225,9 +225,12 @@ decide. Its plan currently relocates them to `toxval` and imports `toxval`
 
 ## 4. Order of work
 
-There are six tasks. Tasks 1 to 3 can start now. Task 0 is done last, after PR
-#66 merges. Task 4 waits for phase 4 to add `type = "relative"` and `anchor`.
-Task 5 waits for `nsec()` to call `toxval_predict()`; `ecx()` already does.
+There are six tasks. Tasks 1 to 3 are done. Task 0 is done last, after PR #66
+merges. Phase 4 has added `type = "relative"` and `anchor` on PR #66, so task 4
+can start. `ecx()` and `nsec()` both call `toxval_predict()`, so task 5 waits
+only for task 4. Until task 4, `nsec()` on a model set refuses
+`anchor = "component"`, because it would otherwise return the `"model"` result
+under that label.
 `BAYESNEC-claude.md` §4 gives files, tests and stopping points for each.
 
 0. Task 0 records the decision. It adds T35 to
@@ -253,13 +256,12 @@ Task 5 waits for `nsec()` to call `toxval_predict()`; `ecx()` already does.
    `bayesnec::posterior_epred()` on `manec_example` and the call leaves the
    caller's random number state unchanged.
 4. Task 4 fills the `asymptote` slot and makes `anchor = "component"` read
-   `meta$draw_model`. It waits for phase 4. It is done when `type = "relative"`
-   and both anchors are tested on `manec_example`.
+   `meta$draw_model`. It is done when `type = "relative"` and both anchors are
+   tested on `manec_example`.
 5. Task 5 tests `ecx()` and `nsec()` on every fixture and compares them with
    `bayesnec` in `tests/local/`. It also updates the examples, the README and
-   `DESCRIPTION`. It waits for task 4 and for `nsec()` to call
-   `toxval_predict()`. It is done when R CMD check passes with and without
-   `bayesnec` installed.
+   `DESCRIPTION`. It waits for task 4. It is done when R CMD check passes with
+   and without `bayesnec` installed.
 
 The four classes of section 3.3 follow in later pull requests.
 

@@ -520,12 +520,12 @@ asks for the equations to be named, which needs the compute layer to read
 
 #### The response bound
 
-`response_upper_bound()` (`R/compute.R`) returns `NA` for a `brms` `binomial` or
-`beta_binomial` fit because `posterior_epred()` predicts a count of trials. A
-`bnec()` fit is predicted with one trial (`expand_classes.R:327-330`), so its
-curve is a proportion and the bound is 1. Implemented as a branch on
-`source_class`, as the `drc` branch is, unless T26 has by then recorded trials
-per curve, in which case the method records one trial.
+A `bnec()` fit is predicted with one trial (`expand_classes.R:327-330`), so its
+`binomial` or `beta_binomial` curve is a proportion and the bound is 1. Task 2
+implemented this as a branch on `source_class` in `response_upper_bound()`
+(`R/compute.R`), because a `brms` binomial fit was then bounded at `NA`. T26,
+amended on PR #66 (`2436858`), predicts a `brms` binomial fit at one trial and
+bounds every binomial family at 1, so the branch was removed (`c3c0dd8`).
 
 #### The threshold slot
 
@@ -792,15 +792,17 @@ Done when the tests pass and the measurement is recorded in the pull request.
 
 ### Asymptotes and the component anchor (task 4)
 
-Waits for phase 4 to add the `asymptote` slot (T24), `type = "relative"` and
-`anchor` (T23).
+Phase 4 added the `asymptote` slot (T24), `type = "relative"` and `anchor`
+(T23) on PR #66 (`2436858`).
 
 - Fill `asymptote` as §3.4.
 - Make `anchor = "component"` group the realisations by `meta$draw_model` (§3.2).
 
-Stop and ask AP how phase 4 implements `"component"`. If it already groups by
-`meta$draw_model`, treating `NULL` as one equation, this task only fills the
-element; if not, the grouping is added here.
+Phase 4 records `anchor` on the result without grouping the realisations
+(`compute_nsec()` at `2436858`), so the grouping is added here, treating a
+`NULL` `meta$draw_model` as one equation. Until then `compute_nsec()` refuses
+`"component"` when `meta$draw_model` is present (`c3c0dd8`), because the pooled
+reference would otherwise be returned labelled `"component"`.
 
 Tests: on `bayesnec_nec4param` the decreasing asymptote equals the
 `b_bot_Intercept` draws; on `bnec_model_1` (`nechorme`, beta, no `bot`) it is 0;
@@ -841,7 +843,8 @@ Done when R CMD check passes with `bayesnec` installed, and with it absent and
 ## 5. Branch and dependencies
 
 `phase-7-bayesnec-methods` was branched from `upstream/phase-4-5-spine-and-tibble`
-at `9a3b846`, rebased onto `6bdd99c` on 2026-10-23, and tracks it. AP adds
+at `9a3b846`, rebased onto `6bdd99c` on 2026-10-23 and onto `2436858` on
+2026-10-26, and tracks it. AP adds
 commits to #66 rather than rewriting them, so while #66 is open the branch is
 rebased with `git rebase upstream/phase-4-5-spine-and-tibble`.
 
@@ -857,21 +860,20 @@ This branch's code is in new files, so a rebase can conflict only in
 `DESCRIPTION`, `NAMESPACE` and `man/`, which `devtools::document()` regenerates,
 and in the refactor documents that task 0 edits.
 
-| needed | by task | from | state on 2026-10-23 |
+| needed | by task | from | state on 2026-10-26 |
 |---|---|---|---|
 | `toxval_predict()`, `new_toxval_pred()`, `group_keys()`, `build_meta()` | 2, 3 | phase 2 | merged into `phase-2` |
 | `compute_ecx()`, `compute_nsec()`, `summarise_metric()`, `new_toxval()` | 2, 3 | phases 2, 4 | on PR #66 |
 | `resolution` default of 500 (T31), `chk_defined_grid()` | 2, 3 | phase 4 | on PR #66 (`6bdd99c`) |
-| trials per curve (T26) | 2 | phase 4 | not started |
-| `asymptote` slot (T24), `type = "relative"` | 4 | phase 4 | not started |
-| `anchor` (T23) | 4 | phase 4 | not started |
+| one trial for a binomial fit (T26, amended) | 2 | phase 4 | on PR #66 (`2436858`) |
+| `asymptote` slot (T24), `type = "relative"` | 4 | phase 4 | on PR #66 (`a550c52`) |
+| `anchor` (T23) | 4 | phase 4 | on PR #66, recorded without grouping |
 | `ecx()` on the spine; `proportion` (T32) | 2, 5 | phase 4 | on PR #66 (`6bdd99c`) |
-| `nsec()` on the spine | 5 | phase 5 | AP's next step on #66 |
+| `nsec()` on the spine | 5 | phase 5 | on PR #66 (`9263d9d`) |
 
-Tasks 1 to 3 need only code that is merged or on PR #66. Task 2's response
-bound uses `source_class` until T26 lands (§3.4). Task 4 needs phase 4 work that
-has not started, and task 5 needs task 4 and `nsec()`. Phase 6, CRAN
-publication, is not a prerequisite of any task.
+Every task now needs only code that is merged or on PR #66. Task 4 can start,
+and task 5 waits only for task 4. Phase 6, CRAN publication, is not a
+prerequisite of any task.
 
 ## 6. Decisions and points for review
 
