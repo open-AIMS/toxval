@@ -546,3 +546,95 @@ further source, and leaves a set whose `sample_size` differs from its draws
 out of the per-realisation comparison.
 
 ---
+
+## Session: phase7-bayesnec-methods (continued)
+Date: 2026-10-26
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:** Ayla has push up a lot more to the 4/5 branch, including nsec. Can
+bayesnec fits be run now?
+
+**Claude:** Yes. `upstream/phase-4-5-spine-and-tibble` had eight new commits,
+`a043730` to `2436858`:
+
+- `nsec()` on the spine, calling `toxval_predict()` for any class;
+- `nsec_multi()` folded into `nsec()`;
+- the `asymptote` slot with `type = "relative"`;
+- an `anchor` argument that is recorded but does not group;
+- T26 amended so that a `brms` binomial fit is predicted at one trial and
+  bounded at 1.
+
+The branch was rebased onto `2436858` in a scratch worktree on a new branch,
+`phase-7-rebase`. The main checkout, which holds other sessions' uncommitted
+prompt files, was left alone. The only conflict was in `build_meta()`: Ayla
+had added `multi_var` and removed a stale EXPECTED-CHANGE comment, while this
+branch had added `data` and `...`. The resolution keeps both and drops the
+comment. roxygen produced no changes.
+
+Full suite on the rebased branch: 812 expectations, 1 failure. The failure is
+the snapshot of `test-nsec.R:225` ("nsec drc additional example 2"), a drc
+bootstrap NSEC that differs in the third figure (0.402 against 0.403). It
+fails identically on `upstream/phase-4-5-spine-and-tibble` alone, in a
+detached worktree, so it is not from this branch. It is for AP.
+
+`ecx(proportion = c(0.1, 0.5))` and `nsec()` were run directly on every
+bayesnec fixture with bayesnec 2.1.3.39 installed: `bnec_model_1`,
+`bayesnec_nec4param`, `bayesnec_ecx4param`, `bayesnec_binomial`,
+`bayesnec_logx` and `bayesnec_manec_example`. Each returned a `toxval`
+tibble with `# Model:` naming the class. The binomial control was 0.886, a
+proportion. The only warnings were the expected censoring warnings on
+`bnec_model_1` (`nechorme`). `type = "range"` ran on the model set, and
+`type = "relative"` stopped with phase 4's "supplies no asymptote" message.
+
+`nsec(bayesnec_manec_example, anchor = "component")` returned the `"model"`
+numbers labelled `"component"`: the same estimate, 1.47, and the same
+reference, 2.04. Phase 4 records `anchor` only, on the stated ground that no
+supported class is model-averaged, which this branch makes untrue. The plan's
+task 4 had said to stop and ask how phase 4 groups. It does not group, so the
+grouping belongs to task 4. As the minimal guard until then, `compute_nsec()`
+refuses `"component"` when `meta$draw_model` is present:
+
+```r
+  # the reference below is pooled over every realisation, so a model average
+  # would otherwise return the "model" reference labelled "component"
+  if (anchor == "component" && !is.null(pred$meta$draw_model)) {
+    chk::abort_chk(
+      "`anchor` must be 'model' for a model-averaged fit; 'component' is not ",
+      "yet supported."
+    )
+  }
+```
+
+The `@param anchor` of `compute_nsec()` and `nsec()` say so. The `bayesnecfit`
+/ `bayesmanecfit` branch of `response_upper_bound()` was removed, because the
+amended T26 bounds every binomial family at 1. Tests were added:
+
+- the guard on a hand-built model average in `test-compute.R`;
+- `nsec()` on every single fixture and on the model set;
+- identical results under either anchor on a single fit;
+- the refusal on the model set.
+
+The binomial bound test now calls the three-argument `response_upper_bound()`.
+Committed as `c3c0dd8`. Full suite: 831 expectations, the same single drc
+failure.
+
+`BAYESNEC-claude.md` (§3.4 response bound, task 4, §5 dependency table and
+rebase history) and `BAYESNEC-human.md` §4 were updated: tasks 1 to 3 done,
+task 4 can start, task 5 waits only for task 4, and the interim refusal is
+noted. Committed as `67809d1`.
+
+The robustness harness was not rerun. The session scratchpad had been cleared
+since 2026-10-23 (`/tmp` is a tmpfs under WSL), taking the 3.3 GB of fits, the
+predev export and the recorded comparison table with it. The scripts are in the
+repository, and their default output is the user cache, which persists.
+Refitting takes about 75 minutes. The prediction path of the bayesnec methods
+is unchanged by the rebase apart from `build_meta()`, so it was offered rather
+than run.
+
+`phase-7-rebase` holds the result. The local and fork copies of
+`phase-7-bayesnec-methods` are still at `f727958`. Moving the branch and
+force-pushing the fork were left for RF to confirm.
+
+---
