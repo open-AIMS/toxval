@@ -23,6 +23,39 @@ test_that("toxval_predict errors when a brmsfit is given no x_var", {
   )
 })
 
+test_that("a misspelt argument errors rather than being ignored", {
+  expect_error(
+    ecx(brms_model_1, x_var = "x", proprtion = 0.5),
+    "`...` must be unused for a `brmsfit`, not 'proprtion'"
+  )
+  expect_error(
+    ecx(nsec_drc_1, proprtion = 0.5),
+    "`...` must be unused for a `drc` fit, not 'proprtion'"
+  )
+})
+
+test_that("an abbreviated argument errors rather than partially matching", {
+  expect_error(
+    ecx(brms_model_1, x_var = "x", resol = 20),
+    "`...` must be unused for a `brmsfit`, not 'resol'"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, n_bo = 10),
+    "`...` must be unused for a `drc` fit, not 'n_bo'"
+  )
+})
+
+test_that("an argument passed by position after object errors", {
+  expect_error(
+    ecx(nsec_drc_1, 0.5),
+    "Arguments after `object` must be named, not passed by position"
+  )
+  expect_error(
+    nsec(brms_model_1, 0.05, x_var = "x"),
+    "Arguments after `object` must be named, not passed by position"
+  )
+})
+
 test_that("toxval_predict errors for a class with no method", {
   expect_error(
     toxval_predict(1:10),

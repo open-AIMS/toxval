@@ -80,6 +80,7 @@
 #' @export
 nsec <- function(
   object,
+  ...,
   sig_val = 0.01,
   type = "absolute",
   anchor = "model",
@@ -90,7 +91,6 @@ nsec <- function(
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
-  ...,
   posterior = lifecycle::deprecated(),
   hormesis_def = lifecycle::deprecated(),
   horme = lifecycle::deprecated(),

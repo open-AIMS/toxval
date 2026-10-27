@@ -46,7 +46,9 @@
 #'   evaluate the curve at. Larger values estimate a metric more precisely.
 #' @param x_range A numeric vector of length 2 giving the range of predictor
 #'   values to evaluate over, or `NULL` to use the range in the model data.
-#' @param ... Additional arguments passed to methods.
+#' @param ... Additional arguments passed to methods. These and every argument
+#'   after `...` must be named in full; an argument the method does not use is
+#'   an error.
 #'
 #' @return An object of class [toxval_pred].
 #'
@@ -61,11 +63,11 @@
 #' @export
 toxval_predict <- function(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL,
-  ...
+  x_range = NULL
 ) {
   chk_x_var(x_var)
   chk::chk_null_or(group_var, vld = chk::vld_string)
@@ -91,11 +93,11 @@ toxval_predict <- function(
 #' @export
 toxval_predict.default <- function(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL,
-  ...
+  x_range = NULL
 ) {
   chk::abort_chk(
     "`object` must be a fitted model with a `toxval_predict()` method, ",
@@ -139,13 +141,14 @@ toxval_predict.default <- function(
 #' @export
 toxval_predict.brmsfit <- function(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
-  asymptote = NULL,
-  ...
+  asymptote = NULL
 ) {
+  chk_dots_unused(..., source = "`brmsfit`")
   chk_x_var_supplied(x_var, "`brmsfit`")
   data <- object$data
   chk_var_in_data(x_var, data, "x_var")
@@ -208,14 +211,15 @@ toxval_predict.brmsfit <- function(
 #' @export
 toxval_predict.drc <- function(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
   n_boot = 1000,
-  seed = NULL,
-  ...
+  seed = NULL
 ) {
+  chk_dots_unused(..., source = "`drc` fit")
   chk::chk_whole_number(n_boot)
   chk::chk_gt(n_boot, 0)
   chk::chk_null_or(seed, vld = chk::vld_whole_number)
@@ -979,6 +983,40 @@ chk_x_var <- function(x_var) {
     chk::chk_string(x_var)
   }
   invisible(x_var)
+}
+
+#' Check that no argument was left in `...`
+#'
+#' `...` follows `object`, so every other argument must be named in full (T39).
+#' A misspelt, abbreviated or unnamed argument lands in `...`, and would
+#' otherwise be dropped without a message.
+#'
+#' @param ... The `...` of a `toxval_predict()` method.
+#' @param source The class of the method, for the message.
+#'
+#' @return `NULL`, invisibly.
+#'
+#' @noRd
+chk_dots_unused <- function(..., source) {
+  if (...length() == 0) {
+    return(invisible(NULL))
+  }
+  dot_names <- names(list(...))
+  if (is.null(dot_names)) {
+    dot_names <- rep("", ...length())
+  }
+  if (any(dot_names == "")) {
+    chk::abort_chk(
+      "Arguments after `object` must be named, not passed by position."
+    )
+  }
+  chk::abort_chk(
+    "`...` must be unused for a ",
+    source,
+    ", not ",
+    chk::cc(dot_names, conj = " and "),
+    "; arguments after `object` must be named in full."
+  )
 }
 
 #' Check that a method was given the `x_var` it requires

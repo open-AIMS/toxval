@@ -9,46 +9,50 @@
 \usage{
 toxval_predict(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL,
-  ...
+  x_range = NULL
 )
 
 \method{toxval_predict}{default}(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL,
-  ...
+  x_range = NULL
 )
 
 \method{toxval_predict}{brmsfit}(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
-  asymptote = NULL,
-  ...
+  asymptote = NULL
 )
 
 \method{toxval_predict}{drc}(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
   n_boot = 1000,
-  seed = NULL,
-  ...
+  seed = NULL
 )
 }
 \arguments{
 \item{object}{A fitted model object. Methods are provided for \link[brms:brmsfit]{brms::brmsfit}
 and \code{drc} fits.}
+
+\item{...}{Additional arguments passed to methods. These and every argument
+after \code{...} must be named in full; an argument the method does not use is
+an error.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -62,8 +66,6 @@ evaluate the curve at. Larger values estimate a metric more precisely.}
 
 \item{x_range}{A numeric vector of length 2 giving the range of predictor
 values to evaluate over, or \code{NULL} to use the range in the model data.}
-
-\item{...}{Additional arguments passed to methods.}
 
 \item{asymptote}{\code{NULL}, or a vector named \code{decreasing}, \code{increasing} or
 both, giving the lower and upper asymptotes of a \code{brmsfit} for

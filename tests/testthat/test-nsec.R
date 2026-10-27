@@ -63,7 +63,7 @@ test_that("x_range can be passed various values", {
   output_1 <- nsec(nsec_drc_1, x_range = c(0.5, 100), x_var = "x", seed = 1)
   expect_equal(output_1$estimate, c(1.158826, NA_real_), tolerance = 0.001)
   
-  output_2 <- nsec(brms_model_3, x_range = c(0.5, 100), x_var = "x", seed = 1)
+  output_2 <- nsec(brms_model_3, x_range = c(0.5, 100), x_var = "x")
   expect_equal(output_2$estimate, c(1.3688852, 0.6452353), tolerance = 0.001)
 })
 

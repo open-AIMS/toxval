@@ -6,6 +6,7 @@
 \usage{
 nsec(
   object,
+  ...,
   sig_val = 0.01,
   type = "absolute",
   anchor = "model",
@@ -16,7 +17,6 @@ nsec(
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
-  ...,
   posterior = lifecycle::deprecated(),
   hormesis_def = lifecycle::deprecated(),
   horme = lifecycle::deprecated(),
@@ -27,6 +27,11 @@ nsec(
 \arguments{
 \item{object}{A fitted model with a \code{\link[=toxval_predict]{toxval_predict()}} method, or a
 \link{toxval_pred}.}
+
+\item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.
+These and every argument after \code{...} must be named in full; an argument
+no method uses is an error.}
 
 \item{sig_val}{A number between 0 and 0.5, the quantile of the control
 realisations that sets the decreasing reference; \code{1 - sig_val} sets the
@@ -62,9 +67,6 @@ to summarise the realisations by, in that order.}
 \item{xform}{A function applied to the per-realisation concentrations before
 they are summarised, such as \code{exp} for a model fitted on log
 concentration.}
-
-\item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{draws}.}
 

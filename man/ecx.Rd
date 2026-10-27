@@ -6,6 +6,7 @@
 \usage{
 ecx(
   object,
+  ...,
   proportion = 0.1,
   type = "absolute",
   reference = NULL,
@@ -16,7 +17,6 @@ ecx(
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
-  ...,
   ecx_val = lifecycle::deprecated(),
   posterior = lifecycle::deprecated(),
   hormesis_def = lifecycle::deprecated(),
@@ -27,6 +27,11 @@ ecx(
 \arguments{
 \item{object}{A fitted model with a \code{\link[=toxval_predict]{toxval_predict()}} method, or a
 \link{toxval_pred}.}
+
+\item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.
+These and every argument after \code{...} must be named in full; an argument
+no method uses is an error.}
 
 \item{proportion}{A numeric vector of effects, as proportions of the span
 named by \code{type}; 0.1 is the EC10. Each value gives its own rows. Not
@@ -60,9 +65,6 @@ to summarise the realisations by, in that order.}
 \item{xform}{A function applied to the per-realisation concentrations before
 they are summarised, such as \code{exp} for a model fitted on log
 concentration.}
-
-\item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{ecx_val}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{proportion}, or
 \code{reference} under \code{type = "direct"}.}

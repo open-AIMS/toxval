@@ -641,6 +641,27 @@ monotone decreasing curve, which has no estimate (T10) and no reference
 either. `nsec()` is unaffected: its reference is one finite value per curve,
 so no realisation is excluded.
 
+## T39 — `...` follows `object`, and an unused argument is an error
+
+Settled 2026-10-26 (AP) on PR #66.
+
+In `ecx()`, `nsec()`, the `toxval_predict()` generic and its methods, `...` is
+the second argument, so every argument after `object` must be named in full.
+R matches an argument before `...` by partial name and by position, so
+`ecx(fit, x_var = "x", resol = 20)` ran at a resolution of 20 without a
+message. After `...`, only an exact name matches.
+
+The `brmsfit` and `drc` methods of `toxval_predict()` error when `...` is not
+empty, naming the arguments. They never passed `...` on, so a misspelt,
+abbreviated or unnamed argument was dropped without a message. The check is in
+the methods rather than in `ecx()` and `nsec()`, which pass `n_boot`, `seed`
+and `asymptote` through `...` to the method that takes them. A method defined
+in another package decides for itself what to do with `...`.
+
+An argument to the underlying prediction, such as `ndraws` for
+`brms::posterior_epred()`, is added as a named argument of the method rather
+than passed through `...`.
+
 ---
 
 ## Still to decide

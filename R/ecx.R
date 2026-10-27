@@ -56,6 +56,8 @@
 #'   concentration.
 #' @param ... Additional arguments passed to [toxval_predict()], such as
 #'   `n_boot` and `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
+#'   These and every argument after `...` must be named in full; an argument
+#'   no method uses is an error.
 #' @param ecx_val `r lifecycle::badge("deprecated")` Use `proportion`, or
 #'   `reference` under `type = "direct"`.
 #' @param posterior `r lifecycle::badge("deprecated")` Use `draws`.
@@ -77,6 +79,7 @@
 #' @export
 ecx <- function(
   object,
+  ...,
   proportion = 0.1,
   type = "absolute",
   reference = NULL,
@@ -87,7 +90,6 @@ ecx <- function(
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
-  ...,
   ecx_val = lifecycle::deprecated(),
   posterior = lifecycle::deprecated(),
   hormesis_def = lifecycle::deprecated(),
