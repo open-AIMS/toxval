@@ -221,7 +221,10 @@ test_that("nsec drc additional example 2", {
     c(0.4018911, 0.3380835, 0.4405638),
     tolerance = 0.01
   )
-  
+
+  # the third significant figure differs between platforms (R-CMD-check on
+  # ubuntu-24.04 gives a conf.high of 0.440, not 0.441) so set to 2 sig figs
+  withr::local_options(pillar.sigfig = 2)
   expect_snapshot({
     print(output, width = Inf)
   })

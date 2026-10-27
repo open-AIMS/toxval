@@ -125,12 +125,12 @@
       # Settings: resolution 500 | 1000 bootstrap realisations
         metric direction  estimate conf.low conf.high sig_val type     anchor control
         <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>    <dbl>
-      1 nsec   decreasing    0.402    0.338     0.441    0.01 absolute model    0.677
-      2 nsec   increasing   NA       NA        NA        0.01 absolute model    0.677
+      1 nsec   decreasing     0.40     0.34      0.44    0.01 absolute model     0.68
+      2 nsec   increasing    NA       NA        NA       0.01 absolute model     0.68
         reference asymptote ecnsec ecnsec.low ecnsec.high
             <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1     0.662        NA 0.0215    0.00355      0.0380
-      2     0.690        NA 0.0190    0.00179      0.0377
+      1      0.66        NA  0.022     0.0035       0.038
+      2      0.69        NA  0.019     0.0018       0.038
 
 # nsec accepts a toxval_pred
 
