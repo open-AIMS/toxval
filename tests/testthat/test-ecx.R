@@ -128,9 +128,14 @@ test_that("check type = relative argument, the relative is now range", {
   
   output <- suppressWarnings(ecx(brms_model_1, x_var = "x", type = "range"))
 
+  # 951 draws decrease and 49 increase; a draw with no span in a direction is
+  # censored (T38), so each row has an upper limit of max(x_vec)
   expect_equal(output$estimate[[1]], 0.822, tolerance = 0.0001)
   expect_equal(output$conf.low[[1]], 0.822, tolerance = 0.0001)
-  expect_equal(output$conf.high[[1]], 0.822, tolerance = 0.0001) # TODO DOUBLE CHECK this one changed from 1.021 to 0.8221
+  expect_equal(output$conf.high[[1]], 1.05, tolerance = 0.0001)
+  expect_equal(output$estimate[[2]], 1.05, tolerance = 0.0001)
+  expect_equal(output$conf.low[[2]], 0.822, tolerance = 0.0001)
+  expect_equal(output$conf.high[[2]], 1.05, tolerance = 0.0001)
 })
 
 # EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24

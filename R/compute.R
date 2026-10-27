@@ -17,6 +17,8 @@
 #' of 20 is 22. The reference is `NA` for a realisation whose span, the distance
 #' from the control to the bound, is zero or less, such as a control at or below
 #' 0 under `absolute`, since the proportion then has nothing to be taken of.
+#' Under `range` such a realisation is flagged in `no_span`, so that it is
+#' censored rather than excluded when summarised (T38).
 #'
 #' Values are not summarised. A realisation with no crossing in a direction is
 #' `NA`.
@@ -31,8 +33,8 @@
 #' @return A tibble with one row per curve, proportion and direction: the
 #'   columns of `keys`, `direction`, `proportion` (`NA` under `direct`), `type`,
 #'   and the list columns `control`, `reference`, `asymptote` (`NA` unless
-#'   `type` is `relative`) and `draws`, each holding one value per
-#'   realisation.
+#'   `type` is `relative`), `no_span` (`FALSE` unless `type` is `range`) and
+#'   `draws`, each holding one value per realisation.
 #'
 #' @noRd
 compute_ecx <- function(
@@ -66,6 +68,14 @@ compute_ecx <- function(
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
+    no_span <- if (type == "range") {
+      no_span_by_direction(curve, type, upper)
+    } else {
+      list(
+        decreasing = rep(FALSE, nrow(curve)),
+        increasing = rep(FALSE, nrow(curve))
+      )
+    }
     by_proportion <- lapply(proportion, function(p) {
       references <- ecx_reference(curve, p, type, upper, reference, asymptote)
       draws <- lapply(directions(), function(direction) {
@@ -81,6 +91,7 @@ compute_ecx <- function(
           control = list(control, control),
           reference = unname(references[directions()]),
           asymptote = unname(asymptote[directions()]),
+          no_span = unname(no_span[directions()]),
           draws = unname(draws)
         )
       )
@@ -325,12 +336,40 @@ curve_family <- function(family, keys, i) {
 #' @noRd
 reference_span <- function(curve, type, upper, asymptote = NULL) {
   control <- curve[, 1]
+  span <- span_extent(curve, type, upper, asymptote)
+  lapply(span, function(x) {
+    x[no_span(x, control)] <- NA_real_
+    x
+  })
+}
+
+#' Whether each realisation has no span, in each direction
+#'
+#' Under `range` such a realisation is censored rather than excluded (T38): its
+#' curve never falls below, or rises above, its control within the evaluated
+#' range.
+#'
+#' @inheritParams reference_span
+#'
+#' @return A list of two logical vectors, `decreasing` and `increasing`, one
+#'   value per realisation.
+#'
+#' @noRd
+no_span_by_direction <- function(curve, type, upper, asymptote = NULL) {
+  control <- curve[, 1]
+  span <- span_extent(curve, type, upper, asymptote)
+  lapply(span, no_span, control = control)
+}
+
+#' @noRd
+span_extent <- function(curve, type, upper, asymptote = NULL) {
+  control <- curve[, 1]
   increasing_absolute <- if (is.finite(upper)) {
     upper - control
   } else {
     control
   }
-  span <- switch(
+  switch(
     type,
     absolute = list(
       decreasing = control,
@@ -345,13 +384,16 @@ reference_span <- function(curve, type, upper, asymptote = NULL) {
       increasing = apply(curve, 1, max) - control
     )
   )
+}
+
+#' @noRd
+no_span <- function(span, control) {
   # a span that is zero in exact arithmetic can be a few units of rounding
   # error above zero, so compare against a tolerance on the scale of the control
   tolerance <- sqrt(.Machine$double.eps) * abs(control)
-  lapply(span, function(x) {
-    x[!is.na(x) & x <= tolerance] <- NA_real_
-    x
-  })
+  out <- span <= tolerance
+  out[is.na(out)] <- FALSE
+  out
 }
 
 #' The ECx reference for every realisation of a curve, in each direction

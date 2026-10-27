@@ -11,7 +11,9 @@
 #'   sought takes `meta$x_control`, the lowest concentration in the data;
 #' - one whose reference is `NA`, a span of zero or less (T18), or whose
 #'   control is not finite, such as a bootstrap draw outside the parameter
-#'   space, is excluded;
+#'   space, is excluded, except that under `range` a span of zero or less is
+#'   censored (T38), since the curve never leaves its control in that
+#'   direction;
 #' - any other has no crossing within the evaluated range. It ranks above
 #'   `max(x_vec)` and is given no value, so a quantile that falls among such
 #'   realisations is reported as `max(x_vec)`.
@@ -107,13 +109,22 @@ summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
   reference <- rep_len(reference, length(values))
 
   no_crossing <- is.na(values)
-  excluded <- no_crossing & (is.na(reference) | !is.finite(control))
+  # under `range`, a realisation with no span never leaves its control in this
+  # direction, so it is censored rather than excluded (T38)
+  no_span <- if ("no_span" %in% names(row)) {
+    row$no_span[[1]] & is.finite(control)
+  } else {
+    rep(FALSE, length(values))
+  }
+  excluded <- no_crossing &
+    !no_span &
+    (is.na(reference) | !is.finite(control))
   if (row$direction == "decreasing") {
     past_reference <- control <= reference
   } else {
     past_reference <- control >= reference
   }
-  beyond <- no_crossing & !excluded & past_reference
+  beyond <- no_crossing & !excluded & !no_span & past_reference
   censored <- no_crossing & !excluded & !beyond
 
   placed <- values

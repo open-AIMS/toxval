@@ -16,6 +16,7 @@ test_that("compute_ecx returns one row per direction for an ungrouped fit", {
       "control",
       "reference",
       "asymptote",
+      "no_span",
       "draws"
     )
   )

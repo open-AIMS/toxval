@@ -261,12 +261,16 @@ test_that("summarise_metric names the group in the warning", {
 
 test_that("summarise_metric summarises control over the realisations not excluded", {
   x_vec <- 0:10
-  # under `range` the first realisation has no increasing span and the second
-  # no decreasing span, so each row excludes a different realisation
-  pred <- compute_pred(list(rbind(10 - x_vec, 8 + x_vec)), x_vec)
+  # under `relative` the first realisation has no increasing asymptote and the
+  # second no decreasing one, so each row excludes a different realisation
+  pred <- compute_pred(
+    list(rbind(10 - x_vec, 8 + x_vec)),
+    x_vec,
+    asymptote = list(list(decreasing = c(0, NA), increasing = c(NA, 20)))
+  )
 
   result <- suppressWarnings(summarise_metric(
-    compute_ecx(pred, type = "range"),
+    compute_ecx(pred, type = "relative"),
     pred,
     "ecx"
   ))
@@ -277,11 +281,15 @@ test_that("summarise_metric summarises control over the realisations not exclude
 
 test_that("summarise_metric gives NA control where every realisation is excluded", {
   x_vec <- 0:10
-  # under `range` a decreasing curve has no increasing span
-  pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
+  # under `relative` no realisation has an increasing asymptote
+  pred <- compute_pred(
+    list(rbind(10 - x_vec, 10 - 2 * x_vec)),
+    x_vec,
+    asymptote = list(list(decreasing = c(0, 0), increasing = c(NA_real_, NA_real_)))
+  )
 
   result <- suppressWarnings(summarise_metric(
-    compute_ecx(pred, type = "range"),
+    compute_ecx(pred, type = "relative"),
     pred,
     "ecx"
   ))
@@ -289,6 +297,46 @@ test_that("summarise_metric gives NA control where every realisation is excluded
   expect_identical(result$control[2], NA_real_)
   expect_identical(result$reference[2], NA_real_)
   expect_identical(result$estimate[2], NA_real_)
+})
+
+test_that("summarise_metric censors a realisation with no span under range", {
+  x_vec <- 0:10
+  # the second realisation is flat, so it never falls below its control (T38)
+  pred <- compute_pred(list(rbind(10 - x_vec, rep(10, 11))), x_vec)
+
+  warnings <- character()
+  result <- withCallingHandlers(
+    summarise_metric(
+      compute_ecx(pred, type = "range"),
+      pred,
+      "ecx",
+      draws = TRUE
+    ),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  expect_identical(result$draws[[1]]$value.draw[[2]], Inf)
+  expect_equal(result$reference[[1]], 9)
+  expect_match(warnings, "decreasing: 50.0% censored", all = FALSE)
+  expect_no_match(warnings, "% excluded")
+})
+
+test_that("summarise_metric keeps excluding a span of zero outside range", {
+  x_vec <- 0:10
+  # under `absolute` a control of 0 has no decreasing span
+  pred <- compute_pred(list(rbind(10 - x_vec, 0 - x_vec)), x_vec)
+
+  result <- suppressWarnings(summarise_metric(
+    compute_ecx(pred),
+    pred,
+    "ecx",
+    draws = TRUE
+  ))
+
+  expect_identical(result$draws[[1]]$value.draw[[2]], NA_real_)
 })
 
 test_that("summarise_metric sets control to NA under direct", {
