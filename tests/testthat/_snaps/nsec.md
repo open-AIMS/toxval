@@ -161,8 +161,8 @@
         <chr>  <chr>      <fct>    <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr> 
       1 nsec   decreasing 1        NA      NA         NA       0.01 absolute model 
       2 nsec   increasing 1         1.05    1.05       1.05    0.01 absolute model 
-      3 nsec   decreasing 2         1.05    0.979      1.05    0.01 absolute model 
-      4 nsec   increasing 2         1.05    0.921      1.05    0.01 absolute model 
+      3 nsec   decreasing 2         1.05    1.00       1.05    0.01 absolute model 
+      4 nsec   increasing 2         1.05    0.942      1.05    0.01 absolute model 
         control reference asymptote ecnsec ecnsec.low ecnsec.high draws               
           <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl> <list>              
       1   0.900     -5.12        NA   6.17      2.45        31.2  <tibble [1,000 x 3]>
@@ -175,16 +175,16 @@
       # A tibble: 1,000 x 3
          .draw value.draw ecnsec.draw
          <int>      <dbl>       <dbl>
-       1     1      Inf         12.8 
-       2     2      Inf         14.6 
-       3     3      Inf          3.20
-       4     4      Inf         NA   
-       5     5      Inf         NA   
-       6     6      Inf          4.59
-       7     7      Inf         NA   
-       8     8        0.8       NA   
-       9     9        0.8       NA   
-      10    10        0.8       NA   
+       1     1        Inf       12.8 
+       2     2        Inf       14.6 
+       3     3        Inf        3.20
+       4     4        Inf       NA   
+       5     5        Inf       NA   
+       6     6        Inf        4.59
+       7     7        Inf       NA   
+       8     8        Inf       NA   
+       9     9        Inf       NA   
+      10    10        Inf       NA   
       # i 990 more rows
 
 # nsec drc model has expected structure and shape
