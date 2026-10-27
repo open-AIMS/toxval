@@ -180,16 +180,21 @@ compute_nsec <- function(
 
 #' Check that `relative` has an asymptote to measure to
 #'
-#' A `brmsfit` carries one only when `asymptote` names it, so `relative` is
-#' refused rather than measured to an assumed bound (T9, T29).
+#' A `toxval_pred` has no asymptote when its method could not supply one, such
+#' as a `brmsfit` predicted without `asymptote`, so `relative` is refused rather
+#' than measured to an assumed bound (T9, T29).
 #'
 #' @noRd
 chk_asymptote_supplied <- function(pred, type) {
-  if (type == "relative" && is.null(pred$asymptote)) {
+  # a method can supply NA asymptotes rather than NULL, as drc does for a
+  # function without lowerAs() or upperAs()
+  no_asymptote <- is.null(pred$asymptote) ||
+    all(is.na(unlist(pred$asymptote)))
+  if (type == "relative" && no_asymptote) {
     chk::abort_chk(
       "`type` must not be 'relative' when `object` supplies no asymptote; ",
-      "for a `brmsfit`, name it with `asymptote`, or use `type` 'absolute' ",
-      "or 'range'."
+      "supply `asymptote` where the `toxval_predict()` method takes it, or ",
+      "use `type` 'absolute' or 'range'."
     )
   }
   invisible(pred)

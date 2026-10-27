@@ -728,6 +728,15 @@ test_that("ecx relative caps proportion at 1", {
   )
 })
 
+test_that("ecx relative errors for a drc function that supplies no asymptote", {
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::W1.4())
+
+  expect_error(
+    suppressWarnings(ecx(fit, type = "relative", n_boot = 10)),
+    "`type` must not be 'relative' when `object` supplies no asymptote"
+  )
+})
+
 test_that("ecx errors when asymptote names no non-linear parameter", {
   expect_error(
     ecx(
