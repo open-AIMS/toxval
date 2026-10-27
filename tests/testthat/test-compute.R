@@ -246,6 +246,34 @@ test_that("compute_ecx errors on the relative type without an asymptote", {
   )
 })
 
+test_that("a span of zero up to rounding error is excluded", {
+  # the increasing asymptote equals the control up to rounding error, above it
+  # in some realisations and below it in others
+  x_vec <- 0:10
+  curve <- 1 - x_vec / 20
+  pred <- compute_pred(
+    list(rbind(curve, curve, curve, curve)),
+    x_vec,
+    asymptote = list(list(
+      decreasing = c(0.5, 0.5, 0.5, 0.5),
+      increasing = 1 + c(1e-15, -1e-15, 1e-15, 0)
+    ))
+  )
+
+  output <- suppressWarnings(nsec(pred, type = "relative"))
+  expect_identical(output$ecnsec[[2]], NA_real_)
+
+  warnings <- character()
+  withCallingHandlers(
+    ecx(pred, type = "relative"),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_match(warnings, "increasing: 100.0% excluded", all = FALSE)
+})
+
 # compute_nsec -----------------------------------------------------------------
 
 test_that("compute_nsec returns one row per direction for an ungrouped fit", {

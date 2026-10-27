@@ -305,7 +305,8 @@ curve_family <- function(family, keys, i) {
 #' The reference is the control minus (decreasing) or plus (increasing) a
 #' percentage of this span. `ecx_reference()` and `ecnsec_value()` both take the
 #' span from here, so `ecnsec` stays the inverse of the `ecx` reference (T8). A
-#' span of zero or less gives no percentage, so it is returned as `NA`: under
+#' span of zero or less, up to rounding error relative to the control, gives no
+#' percentage, so it is returned as `NA`: under
 #' `absolute` that is a control at or below 0, or at or above 1 for a
 #' proportion; under `relative` a control at or beyond the asymptote; under
 #' `range` a curve with no extent in that direction.
@@ -339,8 +340,11 @@ reference_span <- function(curve, type, upper, asymptote = NULL) {
       increasing = apply(curve, 1, max) - control
     )
   )
+  # a span that is zero in exact arithmetic can be a few units of rounding
+  # error above zero, so compare against a tolerance on the scale of the control
+  tolerance <- sqrt(.Machine$double.eps) * abs(control)
   lapply(span, function(x) {
-    x[!is.na(x) & x <= 0] <- NA_real_
+    x[!is.na(x) & x <= tolerance] <- NA_real_
     x
   })
 }
