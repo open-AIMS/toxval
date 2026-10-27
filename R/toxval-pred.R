@@ -89,7 +89,9 @@
 #'   \item{`x_control`}{Number, the lowest predictor value in the data the
 #'     model was fitted to, taken to be the control. It differs from the first
 #'     value of `x_vec` when `x_range` is supplied. A realisation whose control
-#'     response already lies beyond the reference is placed here.}
+#'     response already lies beyond the reference is placed here. In `nsec()`,
+#'     one whose response first changes away from the effect and passes to the
+#'     other side of the reference without returning is censored instead (T21).}
 #'   \item{`family`}{String naming the response distribution, such as the
 #'     `brms` family or the `type` of a `drc` fit, or `NULL` where the fitted
 #'     object has none. A multivariate fit whose responses differ in family

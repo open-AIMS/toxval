@@ -183,13 +183,13 @@ test_that("ecx under direct keeps the control for a realisation past the referen
 
   expect_equal(
     unlist(output[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 0.9538, conf.low = 0.8, conf.high = 1.05),
-    tolerance = 0.001
+    c(estimate = 0.9538237, conf.low = 0.8, conf.high = 1.05),
+    tolerance = 1e-6
   )
   expect_equal(
     unlist(output[2, c("estimate", "conf.low", "conf.high")]),
     c(estimate = 0.8, conf.low = 0.8, conf.high = 1.05),
-    tolerance = 0.001
+    tolerance = 1e-6
   )
 })
 

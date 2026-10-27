@@ -22,12 +22,13 @@
 #' takes that crossing. One whose response first changes away from the effect
 #' as concentration rises from the control (rising, for a decreasing NSEC;
 #' falling, for an increasing one), and which passes to the other side of the
-#' reference without returning, shows no effect in the tested range and is
-#' treated as not crossing. The rest are placed at the lowest concentration in
-#' the data. A realisation that does not cross the reference within the
-#' evaluated range ranks above the highest concentration, and an interval
-#' limit that falls among such realisations is reported as the highest
-#' concentration, with a warning.
+#' reference without returning, shows no effect in the tested range. It is
+#' treated as a realisation that does not reach the reference. The rest are
+#' placed at the lowest concentration in the data. A
+#' realisation that does not reach the reference within the evaluated range
+#' ranks above the highest concentration, and an interval limit that falls
+#' among such realisations is reported as the highest concentration, with a
+#' warning.
 #'
 #' `ecnsec` is the effect at the NSEC, as a proportion of the span named by
 #' `type`: the inverse of the [ecx()] reference under the same `type`.

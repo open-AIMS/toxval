@@ -187,29 +187,20 @@ test_that("summarise_metric places a realisation already past the reference at x
 # reference, the 0.25 quantile of the 39 controls, is 0.5 * 4 + 0.5 * 6 = 5.
 # Decreasing, towards the effect is falling and the no-effect side is above 5.
 # The mirror image about 5 gives the increasing cases, against the 0.75
-# quantile, which is also 5.
+# quantile, which is also 5. Each row is named for its case; the first two
+# cross in the direction sought, at 2.5 and 3.5.
 past_at_control <- function(x_vec) {
   rbind(
-    # crosses in the direction sought, at 2.5
-    c(4, 6, 6, rep(4, 8)),
-    # dips towards the effect, then crosses later, at 3.5
-    c(4, 3.5, 6, 6, rep(4, 7)),
-    # changes towards the effect, stays past
-    4 - x_vec / 10,
-    # flat, then changes towards the effect, stays past
-    c(4, 4, 4, rep(3, 8)),
-    # first change at round-off level away, then towards, stays past
-    c(4, 4 + 1e-12, rep(3, 9)),
-    # hormetic: changes away, stays past, then towards
-    c(4, 4.5, 4.8, 4.5, 3, 2, 1, 0, 0, 0, 0),
-    # changes away, never leaves
-    c(4, rep(4.5, 10)),
-    # changes towards, then leaves late, never returns
-    c(4, rep(3, 8), 6, 6),
-    # first change at round-off level away, then towards, leaves late
-    c(4, 4 + 1e-12, rep(3, 7), 6, 6),
-    # changes away, leaves, never returns
-    c(4, rep(6, 10)),
+    crosses = c(4, 6, 6, rep(4, 8)),
+    dips_then_crosses = c(4, 3.5, 6, 6, rep(4, 7)),
+    towards = 4 - x_vec / 10,
+    flat_then_towards = c(4, 4, 4, rep(3, 8)),
+    round_off_away_then_towards = c(4, 4 + 1e-12, rep(3, 9)),
+    hormetic = c(4, 4.5, 4.8, 4.5, 3, 2, 1, 0, 0, 0, 0),
+    away_never_leaves = c(4, rep(4.5, 10)),
+    towards_then_leaves = c(4, rep(3, 8), 6, 6),
+    round_off_away_then_towards_leaves = c(4, 4 + 1e-12, rep(3, 7), 6, 6),
+    away_leaves = c(4, rep(6, 10)),
     matrix(6 - x_vec / 2, nrow = 29, ncol = length(x_vec), byrow = TRUE)
   )
 }

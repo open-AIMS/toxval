@@ -138,7 +138,9 @@ and \code{NULL} otherwise.}
 \item{\code{x_control}}{Number, the lowest predictor value in the data the
 model was fitted to, taken to be the control. It differs from the first
 value of \code{x_vec} when \code{x_range} is supplied. A realisation whose control
-response already lies beyond the reference is placed here.}
+response already lies beyond the reference is placed here. In \code{nsec()},
+one whose response first changes away from the effect and passes to the
+other side of the reference without returning is censored instead (T21).}
 \item{\code{family}}{String naming the response distribution, such as the
 \code{brms} family or the \code{type} of a \code{drc} fit, or \code{NULL} where the fitted
 object has none. A multivariate fit whose responses differ in family

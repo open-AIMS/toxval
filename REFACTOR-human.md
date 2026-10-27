@@ -318,10 +318,13 @@ both are reported. `hormesis_def` cannot be repaired in place, because the two
 Where no draw crosses in a direction, the row is still returned with `NA`
 (decision T10). Where some draws cross and some do not (#60), a draw whose
 control is already past the reference takes the lowest concentration in the
-data. A draw that does not cross within the tested range is ranked above the
-highest concentration. An interval limit that falls among such draws is
-reported as the highest concentration, with a warning giving the fraction
-(decisions T21 and T25).
+data. `nsec()` makes one exception (#74). A draw whose response first changes
+away from the effect, and then passes to the other side of the reference
+without returning, shows no effect in the tested range. It is treated as a
+draw that does not cross. A draw that does not cross within the tested range
+is ranked above the highest concentration. An interval limit that falls among
+such draws is reported as the highest concentration, with a warning giving the
+fraction (decisions T21 and T25).
 
 ### 3.7 Validation
 
