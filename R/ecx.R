@@ -60,7 +60,8 @@
 #'   no method uses is an error.
 #' @param ecx_val `r lifecycle::badge("deprecated")` Use `proportion`, or
 #'   `reference` under `type = "direct"`.
-#' @param posterior `r lifecycle::badge("deprecated")` Use `draws`.
+#' @param posterior `r lifecycle::badge("deprecated")` Supplying it is an
+#'   error. Use `draws`.
 #' @param hormesis_def,horme `r lifecycle::badge("deprecated")` Both
 #'   directions are now always estimated, so these are ignored.
 #' @param by_group `r lifecycle::badge("deprecated")` Supplying `group_var`
@@ -130,14 +131,12 @@ ecx <- function(
     )
   }
   if (lifecycle::is_present(posterior)) {
-    lifecycle::deprecate_warn(
+    lifecycle::deprecate_stop(
       "2.0.0",
       "ecx(posterior)",
       "ecx(draws)",
       details = "The result is now a `toxval` tibble with the realisations in a `draws` list column, not a vector of realisations."
     )
-    chk::chk_flag(posterior)
-    draws <- posterior
   }
   if (lifecycle::is_present(hormesis_def)) {
     lifecycle::deprecate_warn(

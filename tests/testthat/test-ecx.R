@@ -104,19 +104,19 @@ test_that("proper resolution values can be passed", {
   )
 })
 
-test_that("posterior = true outputs the posterior and throws deprecation warning now, draws in now the path", {
-  lifecycle::expect_deprecated(ecx(nsec_drc_1, posterior = TRUE, seed = 1))
-  
-  output_pt <- suppressWarnings(ecx(brms_model_1, x_var = "x", posterior = TRUE))
-  output_dt <- suppressWarnings(ecx(brms_model_1, x_var = "x", draws = TRUE))
-  
-  expect_type(output_pt$draws[[1]]$value.draw, "double")
-  expect_equal(nrow(output_pt$draws[[1]]), 1000)
-  expect_equal(output_pt$estimate[[1]], 0.832, tolerance = 0.001)
-  expect_equal(output_pt$draws[[1]]$value.draw[[100]], 0.8189, tolerance = 0.001)
-  expect_equal(output_pt$draws[[1]]$value.draw[[1000]], 0.8247, tolerance = 0.001)
-  
-  expect_equal(output_pt, output_dt)
+test_that("ecx posterior is defunct, draws replaced it", {
+  lifecycle::expect_defunct(ecx(nsec_drc_1, posterior = TRUE, seed = 1))
+  lifecycle::expect_defunct(ecx(brms_model_1, x_var = "x", posterior = TRUE))
+})
+
+test_that("ecx draws returns the realisations", {
+  output <- suppressWarnings(ecx(brms_model_1, x_var = "x", draws = TRUE))
+
+  expect_type(output$draws[[1]]$value.draw, "double")
+  expect_equal(nrow(output$draws[[1]]), 1000)
+  expect_equal(output$estimate[[1]], 0.832, tolerance = 0.001)
+  expect_equal(output$draws[[1]]$value.draw[[100]], 0.8189, tolerance = 0.001)
+  expect_equal(output$draws[[1]]$value.draw[[1000]], 0.8247, tolerance = 0.001)
 })
 
 # EXPECTED-CHANGE type "relative" reference, redefined (old behaviour renamed "range") #19 - done
@@ -287,12 +287,9 @@ test_that("xform fails if function not passed", {
 
 # Moved from the bnecfit tests when that method was removed (#39). The check is
 # in the ecx() generic, so the class of the fit does not matter. - done
-test_that("posterior fails if not logical and is deprecated", {
-  lifecycle::expect_deprecated(
-    expect_error(
-      ecx(brms_model_1, x_var = "x", posterior = "yes"),
-      regex = "`posterior` must be a flag \\(TRUE or FALSE\\)"
-    )
+test_that("posterior is defunct whatever its value", {
+  lifecycle::expect_defunct(
+    ecx(brms_model_1, x_var = "x", posterior = "yes")
   )
 })
 
@@ -467,7 +464,7 @@ test_that("when group_var == x_var will error it errors", {
         x_var = "x",
         by_group = TRUE,
         group_var = "x",
-        posterior = TRUE
+        draws = TRUE
       ) 
     ),
     regexp = "group_var` and `x_var` must name different columns, not both 'x'"
@@ -480,7 +477,7 @@ test_that("when by_group = TRUE, group_var is provided and draws = TRUE, you get
     x_var = "x",
     by_group = TRUE,
     group_var = "z",
-    posterior = TRUE
+    draws = TRUE
   ))
   
   expect_equal(dim(output), c(4, 12))

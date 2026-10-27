@@ -68,7 +68,8 @@ to summarise the realisations by, in that order.}
 they are summarised, such as \code{exp} for a model fitted on log
 concentration.}
 
-\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{draws}.}
+\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Supplying it is an
+error. Use \code{draws}.}
 
 \item{hormesis_def, horme}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Both
 directions are now always estimated, so these are ignored.}
@@ -129,13 +130,15 @@ whose NSEC is lower at the 0.8 quantile of its realisations, as
       numeric(1)
     )
   ) |>
+  dplyr::filter(!is.na(estimate)) |>
   dplyr::group_by(response) |>
   dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
   dplyr::ungroup()
 }\if{html}{\out{</div>}}
 
 A censored realisation is \code{Inf} in \code{value.draw}, so it ranks above every
-crossing, and an excluded one is \code{NA}.
+crossing, and an excluded one is \code{NA}. A row whose estimate is \code{NA} has no
+crossing in that direction, so it is dropped before choosing.
 }
 
 \examples{

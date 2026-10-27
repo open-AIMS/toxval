@@ -4,69 +4,17 @@
 \alias{nsec_multi}
 \title{Estimate NSEC values from a multivariate brmsfit}
 \usage{
-nsec_multi(
-  object,
-  sig_val = 0.01,
-  resolution = 50,
-  x_range = NA,
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  posterior = FALSE,
-  x_var,
-  trials_var = NA,
-  multi_var = NA,
-  type = "both",
-  criterion = 0.8,
-  ...
-)
+nsec_multi(...)
 }
 \arguments{
-\item{object}{A fitted model with a \code{\link[=toxval_predict]{toxval_predict()}} method, or a
-\link{toxval_pred}.}
-
-\item{sig_val}{A number between 0 and 0.5, the quantile of the control
-realisations that sets the decreasing reference; \code{1 - sig_val} sets the
-increasing one.}
-
-\item{resolution}{A whole number giving the number of predictor values to
-evaluate the curve at.}
-
-\item{x_range}{A numeric vector of length 2 giving the range of predictor
-values to evaluate over, or \code{NA} to use the range in the model data.}
-
-\item{xform}{A function applied to the per-realisation concentrations before
-they are summarised, such as \code{exp} for a model fitted on log
-concentration.}
-
-\item{prob_vals}{A numeric vector of the central, lower and upper quantiles
-to summarise the realisations by, in that order.}
-
-\item{posterior}{A flag; \code{TRUE} adds the \code{draws} list column, as
-\code{draws = TRUE} does in \code{\link[=nsec]{nsec()}}.}
-
-\item{x_var}{A string naming the predictor variable.}
-
-\item{trials_var, multi_var}{Ignored; the trials and the responses are read
-from the fit.}
-
-\item{type}{One of \code{"both"}, \code{"lower"}, \code{"increasing"} or \code{"decreasing"},
-the directions to return.}
-
-\item{criterion}{A number between 0 and 1, the quantile of the realisations
-compared when \code{type = "lower"}.}
-
-\item{...}{Additional arguments passed to \code{\link[=nsec]{nsec()}}.}
-}
-\value{
-A \code{toxval} tibble, as from \code{\link[=nsec]{nsec()}}, with the rows \code{type} selects.
+\item{...}{Unused.}
 }
 \description{
 \ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
 
-\code{nsec_multi()} is deprecated in favour of \code{\link[=nsec]{nsec()}}, which gives one row per
-response and direction for a multivariate fit, reading the responses from
-the fit. It now calls \code{\link[=nsec]{nsec()}} and returns its \code{toxval} tibble, keeping the
-rows \code{type} selects.
+\code{nsec_multi()} is deprecated and calling it is an error. Use \code{\link[=nsec]{nsec()}}, which
+gives one row per response and direction for a multivariate fit, reading the
+responses from the fit.
 }
 \section{Converting to \code{nsec()}}{
 
@@ -91,14 +39,11 @@ nsec(fit, x_var = "dose", draws = TRUE) |>
       numeric(1)
     )
   ) |>
+  dplyr::filter(!is.na(estimate)) |>
   dplyr::group_by(response) |>
   dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
   dplyr::ungroup()
 }\if{html}{\out{</div>}}
-
-\code{type = "lower"} keeps, for each response, the direction whose NSEC is lower
-at the \code{criterion} quantile of its realisations; a tie keeps the decreasing
-direction.
 }
 
 \keyword{internal}

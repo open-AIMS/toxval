@@ -47,13 +47,15 @@
 #'       numeric(1)
 #'     )
 #'   ) |>
+#'   dplyr::filter(!is.na(estimate)) |>
 #'   dplyr::group_by(response) |>
 #'   dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
 #'   dplyr::ungroup()
 #' ```
 #'
 #' A censored realisation is `Inf` in `value.draw`, so it ranks above every
-#' crossing, and an excluded one is `NA`.
+#' crossing, and an excluded one is `NA`. A row whose estimate is `NA` has no
+#' crossing in that direction, so it is dropped before choosing.
 #'
 #' @inheritParams ecx
 #' @param sig_val A number between 0 and 0.5, the quantile of the control
@@ -108,14 +110,12 @@ nsec <- function(
 
   # arguments retired from the pre-refactor interface (T28, §3.5)
   if (lifecycle::is_present(posterior)) {
-    lifecycle::deprecate_warn(
+    lifecycle::deprecate_stop(
       "2.0.0",
       "nsec(posterior)",
       "nsec(draws)",
       details = "The result is now a `toxval` tibble with the realisations in a `draws` list column, not a vector of realisations."
     )
-    chk::chk_flag(posterior)
-    draws <- posterior
   }
   if (lifecycle::is_present(hormesis_def)) {
     lifecycle::deprecate_warn(

@@ -366,27 +366,10 @@ test_that("a hormetic fit gives a decreasing and an increasing NSEC", {
   expect_equal(output$estimate[[2]], 0.1635, tolerance = 0.001)
 })
 
-test_that("brms model posterior is true still works but is deprecated, draws replaced it", {
-  output_1 <- suppressWarnings(nsec(
-    brms_model_2,
-    x_var = "x",
-    by_group = TRUE,
-    posterior = TRUE,
-    group_var = "z"
-  ))
-  expect_s3_class(output_1, "data.frame")
-  expect_true("draws" %in% colnames(output_1))
-  expect_equal(dim(output_1$draws[[1]]), c(1000, 3))
-  
-  output_2 <- suppressWarnings(nsec(
-    brms_model_2,
-    x_var = "x",
-    by_group = TRUE,
-    draws = TRUE,
-    group_var = "z"
-  ))
-  
-  expect_identical(output_1, output_2)
+test_that("nsec posterior is defunct, draws replaced it", {
+  lifecycle::expect_defunct(
+    nsec(brms_model_2, x_var = "x", posterior = TRUE, group_var = "z")
+  )
 })
 
 test_that("brms model when posterior is true and group_var is na", {
@@ -589,13 +572,6 @@ test_that("nsec input validation catches non-logical draws", {
     nsec(brms_model_1, x_var = "x", draws = "yes"),
     "`draws` must be a flag \\(TRUE or FALSE\\)"
   )
-  
-  expect_error(
-    lifecycle::expect_deprecated(
-      nsec(brms_model_1, x_var = "x", posterior = "yes")
-    ),
-    "`posterior` must be a flag \\(TRUE or FALSE\\)"
-  )
 })
 
 
@@ -693,4 +669,67 @@ test_that("nsec relative takes ecnsec as a proportion of the span to the asympto
 
   expect_equal(relative$ecnsec[[1]], absolute$ecnsec[[1]])
   expect_equal(relative$estimate[[1]], absolute$estimate[[1]])
+})
+
+# multivariate fits ------------------------------------------------------------
+
+# EXPECTED-CHANGE output is the nsec() toxval tibble (#4, T15); realisations
+# with no crossing are placed or censored rather than set to max(x_vec) (T21,
+# #60) - done
+# Pre-refactor nsec_multi() gave as :
+#                          lower,     estimate,  upper      reference:
+#   sp_survival decreasing 0.2026466, 0.4624833, 0.6802316, 0.9208626
+#   sp_survival increasing 0.001,     1.5,       1.5,       1.0
+#   sp_growth   decreasing 0.4181719, 0.8688531, 1.5,       0.8209478
+#   sp_growth   increasing 1.5,       1.5,       1.5,       2.350757
+# The references are unchanged. sp_survival increasing has no realisation that
+# crosses its reference, so it is NA.
+test_that("nsec of a multivariate fit against the pre-refactor nsec_multi", {
+  output <- suppressWarnings(
+    nsec(nsec_multi_model_2, x_var = "dose", resolution = 50)
+  )
+
+  expect_equal(
+    output$estimate,
+    c(0.4615262, NA, 0.8591841, 1.5),
+    tolerance = 1e-6
+  )
+  expect_equal(
+    output$conf.low,
+    c(0.1559251, NA, 0.3908073, 1.5),
+    tolerance = 1e-6
+  )
+  expect_equal(
+    output$conf.high,
+    c(0.6570357, NA, 1.5, 1.5),
+    tolerance = 1e-6
+  )
+  expect_equal(
+    output$reference,
+    c(0.9208626, 1, 0.8209478, 2.350757),
+    tolerance = 1e-6
+  )
+})
+
+test_that("nsec gives each response its own realisations", {
+  output <- suppressWarnings(
+    nsec(nsec_multi_model_2, x_var = "dose", resolution = 50, draws = TRUE)
+  )
+
+  expect_equal(vapply(output$draws, nrow, integer(1)), rep(1000L, 4))
+  expect_false(identical(
+    output$draws[[1]]$value.draw,
+    output$draws[[3]]$value.draw
+  ))
+})
+
+test_that("nsec of a multivariate toxval_pred matches nsec of the fit", {
+  pred <- toxval_predict(nsec_multi_model_2, x_var = "dose", resolution = 50)
+
+  expect_identical(
+    suppressWarnings(nsec(pred)),
+    suppressWarnings(
+      nsec(nsec_multi_model_2, x_var = "dose", resolution = 50)
+    )
+  )
 })

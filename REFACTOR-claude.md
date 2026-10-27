@@ -239,6 +239,8 @@ separately.
 Settled 2026-09-04 (RF) on #20, and recorded here 2026-10-09 (RF) on #59, after
 the review of #59 found the plan still listing `nsec_multi` as a separate metric
 function. `nsec_multi()` becomes a deprecated wrapper around `nsec()`.
+Amended 2026-10-24 (RF, T37): `nsec_multi()` is defunct, and a call to it stops
+with an error that names `nsec()`.
 
 Once direction is a column of the result ([3.6](#36-direction)), each argument
 that only `nsec_multi()` takes is either handled elsewhere or kept:
@@ -252,8 +254,8 @@ that only `nsec_multi()` takes is either handled elsewhere or kept:
 - `type = "lower"` with `criterion` selects, for each response, the direction
   whose NSEC is lower at the `criterion` quantile of the realisations (default
   0.8). It is the one metric-level rule. It is a filter on the result returned
-  with `draws = TRUE`, so `nsec()` takes no argument for it, and `nsec_multi()`
-  applies it inside the wrapper (T30).
+  with `draws = TRUE`, so `nsec()` takes no argument for it (T30). The filter
+  drops rows whose estimate is `NA` before choosing (T30, amended 2026-10-24).
 
 The consequence that matters now is that `nsec(fit, group_var = , multi_var = )`
 becomes a valid call. A grouped multivariate fit therefore has to be
@@ -541,9 +543,14 @@ than something the output has to hedge about.
 draws. `draws = TRUE` *adds* a column. The shape changes either way, so the
 deprecation message has to say so.
 
-Since 1.0.0 has been released, keep `posterior` accepted for one release behind
+~~Since 1.0.0 has been released, keep `posterior` accepted for one release behind
 `lifecycle::deprecate_warn()`, mapping it to `draws` and warning that the return
-shape has changed. Two current defects make the retirement easy to justify:
+shape has changed.~~ Amended 2026-10-24 (RF, T37): `posterior` is defunct. A
+call that supplies it stops through `lifecycle::deprecate_stop()` with an error
+that names `draws`, since code that used the old vector fails anyway, later and
+further from the cause. The formal stays as `lifecycle::deprecated()`, so the
+error names `draws` rather than reporting an unused argument (T39). Two
+defects of the old argument made the retirement easy to justify:
 
 - `nsec.drc()` has no `posterior` parameter at all — it is absorbed by `...`, so
   `nsec(drc_fit, posterior = TRUE)` passes `chk_logical()` in the generic and is
@@ -1231,7 +1238,7 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 1 | **Lock a regression net.** Mark every test a later phase changes with `# EXPECTED-CHANGE <reason> #<issue>`, replacing the existing `TODO` markers; unmarked tests are the "must not move" set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan. | - |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`, with their tests. Store what the remaining tests and examples read from `bayesnec` as fixtures, so the suite passes with `bayesnec` not installed, and remove `bayesnec` from `Imports`. See [Phase 3 without `bayesnec`](#phase-3-without-bayesnec). | none in `toxval`. `ecx` and `nsec` on a `bnecfit` are no longer computed here, and `bayesnec` objects receive the #19 answer at phase 7 |
-| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. #60 is answered (T21). Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). Its rulings are T21–T33. It is done with phase 5 (T33). | per #19/#20, and #60 |
+| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` defunct. `nsec_multi()` is defunct in favour of `nsec()` (T15, T37), which needs `toxval_predict.brmsfit()` to return one curve per response first. #60 is answered (T21). Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). Its rulings are T21–T33. It is done with phase 5 (T33). | per #19/#20, and #60 |
 | 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. `ecx_val` becomes `proportion` (#3, T32). Done with phase 4 (T33). Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
 | 6 | **`toxval` to CRAN**, carrying the final API. | — |
 | 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
