@@ -55,29 +55,29 @@ toxval_predict(
 
 \method{toxval_predict}{bayesnecfit}(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL,
-  ...
+  x_range = NULL
 )
 
 \method{toxval_predict}{bayesmanecfit}(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL,
-  ...
+  x_range = NULL
 )
 
 \method{toxval_predict}{bnecfit}(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL,
-  ...
+  x_range = NULL
 )
 }
 \arguments{

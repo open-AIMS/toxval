@@ -301,12 +301,13 @@ toxval_predict.drc <- function(
 #' @export
 toxval_predict.bayesnecfit <- function(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL,
-  ...
+  x_range = NULL
 ) {
+  chk_dots_unused(..., source = "`bayesnecfit`")
   check_bayesnec_installed(object)
   chk_bayesnec_supported(object)
   chk_no_group_var(group_var, object)
@@ -349,12 +350,13 @@ toxval_predict.bayesnecfit <- function(
 #' @export
 toxval_predict.bayesmanecfit <- function(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL,
-  ...
+  x_range = NULL
 ) {
+  chk_dots_unused(..., source = "`bayesmanecfit`")
   check_bayesnec_installed(object)
   mod_fits <- object$mod_fits
   for (component in mod_fits) {
@@ -412,11 +414,11 @@ toxval_predict.bayesmanecfit <- function(
 #' @export
 toxval_predict.bnecfit <- function(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL,
-  ...
+  x_range = NULL
 ) {
   chk::abort_chk(
     "`object` must be a ",

@@ -179,6 +179,17 @@ test_that("toxval_predict on a bayesnecfit errors when bayesnec is not installed
   )
 })
 
+test_that("a misspelt or abbreviated argument errors for the bayesnec classes", {
+  expect_error(
+    ecx(bnec_model_1, proprtion = 0.5),
+    "`...` must be unused for a `bayesnecfit`, not 'proprtion'"
+  )
+  expect_error(
+    toxval_predict(bayesnec_manec_example, resol = 20),
+    "`...` must be unused for a `bayesmanecfit`, not 'resol'"
+  )
+})
+
 # the metric functions ----------------------------------------------------
 
 test_that("a bayesnecfit toxval_pred passes through the compute functions", {
