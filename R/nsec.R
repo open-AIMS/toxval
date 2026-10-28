@@ -138,6 +138,7 @@ nsec <- function(
     )
   }
   if (lifecycle::is_present(curveid)) {
+    lifecycle::deprecate_warn("2.0.0", "nsec(curveid)", "nsec(group_var)")
     if (!is_missing_value(curveid)) {
       if (!is_missing_value(group_var)) {
         chk::abort_chk("`curveid` must not be supplied with `group_var`.")
@@ -147,6 +148,11 @@ nsec <- function(
     }
   }
   if (lifecycle::is_present(by_group)) {
+    lifecycle::deprecate_warn(
+      "2.0.0",
+      "nsec(by_group)",
+      details = "Every level of `group_var` now gives its own estimate, so `by_group` is not needed."
+    )
     chk::chk_flag(by_group)
     if (by_group && is_missing_value(group_var)) {
       chk::abort_chk("`group_var` must be supplied when `by_group` is TRUE.")

@@ -439,23 +439,32 @@ test_that("errors if additional groups are present but group_var not specified",
 
 test_that("if by_group is TRUE you must supply a grouping variable in group_var that is in the data", {
   expect_error(
-    ecx(brms_model_2, x_var = "x", by_group = TRUE),
+    suppressWarnings(ecx(brms_model_2, x_var = "x", by_group = TRUE)),
     "`group_var` must be supplied when `by_group` is TRUE"
   )
 
   expect_error(
-    ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = "aa"),
+    suppressWarnings(
+      ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = "aa")
+    ),
     "`group_var` must name a column of the data in `object`, not 'aa'"
   )
 
   expect_error(
-    ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = 1),
+    suppressWarnings(
+      ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = 1)
+    ),
     "`group_var` must be a string \\(non-missing character scalar\\) or NULL"
   )
 })
 
 test_that("by_group = TRUE and group_var supplied it groups the data based on the group_var", {
-  output <- suppressWarnings(ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = "z"))
+  expect_warning(
+    lifecycle::expect_deprecated(
+      output <- ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = "z")
+    ),
+    "no crossing within the evaluated range"
+  )
   
   expect_equal(dim(output), c(4, 11))
   expect_true("group" %in% colnames(output))
@@ -464,13 +473,13 @@ test_that("by_group = TRUE and group_var supplied it groups the data based on th
 
 test_that("by_group = FALSE, group_var is a value in the data then it throws an", {
   expect_error(
-    ecx(
+    suppressWarnings(ecx(
       brms_model_2,
       x_var = "z",
       by_group = FALSE,
       group_var = "x",
       prob_vals = c(0.5, 0.025, 0.975)
-    ),
+    )),
     regexp = "`by_group = FALSE` with a `group_var` is no longer supported; every level of `group_var` now gives its own estimate"
   )
 })

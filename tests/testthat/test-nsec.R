@@ -107,11 +107,13 @@ test_that("additional examples brms 1", {
 
 
 test_that("additional examples brms 2", {
-  output <- nsec(
-    brms_model_4,
-    x_var = "x",
-    by_group = TRUE,
-    group_var = "herbicide"
+  lifecycle::expect_deprecated(
+    output <- nsec(
+      brms_model_4,
+      x_var = "x",
+      by_group = TRUE,
+      group_var = "herbicide"
+    )
   )
   expect_snapshot({
     print(output, width = Inf)
@@ -142,7 +144,9 @@ test_that("nsec for drc works for curveid and binomial data", {
     fct = drc::LL.2(),
     type = "binomial"
   )
-  output <- nsec(daphnids_m2, x_var = "dose", curveid = "time", seed = 1)
+  lifecycle::expect_deprecated(
+    output <- nsec(daphnids_m2, x_var = "dose", curveid = "time", seed = 1)
+  )
   
   expect_snapshot({
     print(output, width = Inf)
@@ -280,7 +284,7 @@ test_that("brms model errors without x_var", {
 
 test_that("brms model errors if by_group is true but no group_var is supplied", {
   expect_error(
-    nsec(brms_model_2, x_var = "x", by_group = TRUE),
+    suppressWarnings(nsec(brms_model_2, x_var = "x", by_group = TRUE)),
     regexp = "`group_var` must be supplied when `by_group` is TRUE"
   )
 })
@@ -313,7 +317,9 @@ test_that("brms model errors if group_var is not in the dataset when non-charact
 
 test_that("brms model errors if by_group is FALSE and a group_var is supplied", {
   expect_error(
-    nsec(brms_model_2, x_var = "x", group_var = "z", by_group = FALSE),
+    suppressWarnings(
+      nsec(brms_model_2, x_var = "x", group_var = "z", by_group = FALSE)
+    ),
     regexp = "`by_group = FALSE` with a `group_var` is no longer supported"
   )
 })
@@ -413,13 +419,13 @@ test_that("nsec posterior is defunct, draws replaced it", {
 })
 
 test_that("brms model when posterior is true and group_var is na", {
-  output <- nsec(
+  output <- suppressWarnings(nsec(
     brms_model_3,
     x_var = "x",
     by_group = FALSE,
     draws = TRUE,
     group_var = NA
-  )
+  ))
 
   expect_equal(nrow(output$draws[[1]]), 1000)
   expect_equal(output$sig_val, c(0.01, 0.01))
@@ -477,15 +483,15 @@ test_that("drc curveid is translated to group_var", {
     type = "binomial"
   )
   
-  expect_identical(
-    nsec(fit, curveid = "time", seed = 1),
-    nsec(fit, group_var = "time", seed = 1)
+  lifecycle::expect_deprecated(
+    output <- nsec(fit, curveid = "time", seed = 1)
   )
+  expect_identical(output, nsec(fit, group_var = "time", seed = 1))
 })
 
 test_that("drc curveid must name the curveid column of the fit", {
   expect_error(
-    nsec(nsec_drc_1, curveid = "a"),
+    suppressWarnings(nsec(nsec_drc_1, curveid = "a")),
     "`group_var` must name a column of the data in `object`, not 'a'"
   )
 })
@@ -631,7 +637,7 @@ test_that("nsec errors when a toxval_pred is given predict-level arguments", {
 
 test_that("curveid must not be supplied with group_var", {
   expect_error(
-    nsec(nsec_drc_1, curveid = "time", group_var = "time"),
+    suppressWarnings(nsec(nsec_drc_1, curveid = "time", group_var = "time")),
     "`curveid` must not be supplied with `group_var`"
   )
 })
