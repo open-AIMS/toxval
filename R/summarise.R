@@ -8,7 +8,11 @@
 #' lies (T21):
 #'
 #' - one whose control already lies beyond the reference in the direction
-#'   sought takes `meta$x_control`, the lowest concentration in the data;
+#'   sought takes `meta$x_control`, the lowest concentration in the data. For
+#'   an NSEC, one whose first change in response is away from the effect and
+#'   which is on the no-effect side of the reference at a later grid value
+#'   shows no effect in the tested range and is censored instead. An ECx keeps
+#'   the first rule for every `type` (T21, amended on #74);
 #' - one whose reference is `NA`, a span of zero or less (T18), or whose
 #'   control is not finite, such as a bootstrap draw outside the parameter
 #'   space, is excluded, except that under `range` a span of zero or less is
@@ -124,7 +128,19 @@ summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
   } else {
     past_reference <- control >= reference
   }
-  beyond <- no_crossing & !excluded & !no_span & past_reference
+  # An NSEC realisation whose first change is away from the effect and which is
+  # on the no-effect side at a later grid value is past the reference only
+  # because its own control is in the tail. It shows no effect in the tested
+  # range, so it is censored; either condition alone misplaces realisations.
+  # An ECx row has no such flags and keeps T21: under `direct` the reference is
+  # a level the user supplies, so a control past it is beyond that level (T21,
+  # amended on #74).
+  no_effect <- if ("first_change_away" %in% names(row)) {
+    row$first_change_away[[1]] & row$on_no_effect_side[[1]]
+  } else {
+    rep(FALSE, length(values))
+  }
+  beyond <- no_crossing & !excluded & !no_span & past_reference & !no_effect
   censored <- no_crossing & !excluded & !beyond
 
   placed <- values

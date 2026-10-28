@@ -629,7 +629,10 @@ them at the grid edge makes it a function of where testing stopped. Measured on
 43.8th percentile of the full posterior as the median, and both rules return the
 grid boundary or below it as the upper compatibility limit against a true 4.788.
 T21 therefore places each realisation where its crossing lies. One whose control
-is already beyond the reference takes the lowest concentration in the data. One
+is already beyond the reference takes the lowest concentration in the data. In
+`nsec()` the exception is one whose response first changes away from the effect
+and passes to the other side of the reference without returning, which shows no
+effect in the tested range and is censored (T21, amended on #74). One
 with no crossing in the evaluated range keeps its rank above `max(x_vec)`, so a
 quantile that falls among such realisations is reported as `max(x_vec)`, with a
 warning giving the fraction (T25). The `control` and `reference` columns of a

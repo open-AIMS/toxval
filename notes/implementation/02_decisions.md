@@ -366,7 +366,8 @@ lies:
 - A realisation whose control already lies beyond the reference in the
   direction sought takes the lowest concentration in the data the model was
   fitted to. That is the control concentration, which `x_vec[1]` is not when
-  `x_range` is supplied.
+  `x_range` is supplied. In `nsec()`, one that shows no effect in the tested
+  range is censored instead (amended 2026-10-27, below).
 - A realisation with no crossing within the evaluated range keeps its rank
   above `max(x_vec)` and is not given a value. A quantile that falls among such
   realisations is reported as `max(x_vec)`, and the call warns with the
@@ -383,6 +384,76 @@ adds `meta$x_control`, the concentration assumed to be the control (RF,
 2026-10-19). The `x_` prefix, as in `x_var` and `x_range`, separates it from the
 `control` slot (T13), which holds response realisations from a control-only fit. Adding it changes the public
 `toxval_pred` contract (§3.3).
+
+Amended 2026-10-27 (RF) on #74, for `nsec()` only. For a realisation whose
+control is past the NSEC reference in the direction sought:
+
+1. If it crosses the reference in the direction sought, it takes that crossing,
+   as before.
+2. Otherwise it is censored above `max(x_vec)`, and counted in the censored
+   fraction (T25), when both of these hold:
+   - its first change in response, as concentration rises from the control,
+     is away from the effect: rising for a decreasing reference, falling for an
+     increasing one. The first change is the first difference between adjacent
+     grid values whose absolute value exceeds `1e-8` times the largest
+     absolute response of that realisation. A realisation with no such
+     difference counts as away;
+   - it is on the no-effect side of the reference at a later grid value. With
+     no crossing in the direction sought, it does not return.
+3. Every other such realisation takes the control concentration, as before.
+
+A realisation that meets both conditions is past the reference at the control
+only because its own control lies in the tail of the control realisations,
+which by construction is true of about `sig_val` of them. Its response changes
+away from the effect and does not return, so it shows no effect within the
+tested range. At the control it was ranked with the most sensitive
+realisations, which lowered the lower limit and sometimes the upper limit.
+
+Each condition alone was rejected, because each misplaces realisations in the
+test fixtures. Being on the no-effect side at a later grid value, alone,
+censors a realisation that first changes further into the effect and leaves
+only near the top. In the increasing row of `brms_model_5`, the 10 realisations
+above the reference at the control rise, have no increasing crossing, and fall
+below the reference at x = 1.98 to 2.10, on a grid from 0.032 to 3.22. Their
+effect begins at the control, which is where rule 3 places them. A first change
+away from the effect, alone, censors hormetic realisations that rise a little,
+stay past the reference throughout, and then fall steeply. The decreasing row
+of `bnec_model_1` has 4 (#74).
+
+The tolerance is needed because some curves are flat at the control. `nec`
+equations hold a plateau, and `drc` log-logistic curves change by about 1e-14
+near 0, a change whose sign is arbitrary. Rule 1 is kept because a small first
+change does not locate the crossing. The decreasing row of `brms_model_3` has 10
+hormetic realisations that start just below the reference, dip by about
+0.0003, rise above it and cross it near 1.2, where the other realisations
+cross. They keep that crossing.
+
+`ecx()` keeps the first rule unchanged for every `type` (RF, 2026-10-27).
+Under `absolute`, `relative` and `range`, each realisation's reference is built
+from its own control, so no control is past its own reference and the rule
+could not apply. Under `direct` the reference is a level the user supplies. A
+realisation past it at the control is beyond that level, not past it because
+of its own control, and the control concentration is the right answer for it.
+Applying the rule there would change answers wholesale rather than correct a
+few. In `ecx(brms_model_1, type = "direct", reference = 0.5)`, 95% of the
+controls exceed 0.5. The rule would censor 858 of 1,000 realisations in the
+increasing row, and change its estimate from the control (0.8) to the highest
+concentration (1.05) (#74).
+
+Run on `02f543f` with and without the amendment, at 500 grid points unless
+stated, the rule censors 7 of the 10 realisations at the control in the
+decreasing row of `brms_model_1`, whose lower limit changes from 0.9847278 to
+0.991338. It censors all 10 in the decreasing row of `brms_model_6`, from
+0.966905 to 0.9716878. The estimates and upper limits of both stay at 1.05. In
+`brms_model_2` with `group_var = "z"`, it censors 9 of 10 in the decreasing row
+of group 2, whose lower limit changes from 0.9789 to 1.004, and 8 of 10 in the
+increasing row, from 0.9205 to 0.9418. In the sp_growth decreasing row of
+`nsec_multi_model_2` at 50 points it censors 5 of 10, and the NSEC changes from
+0.8591841 (0.3908073 to 1.5) to 0.8671501 (0.410851 to 1.5). These agree with
+the values in #74, computed outside toxval with quantile type 7.
+
+The amendment departs from `bayesnec` D17 ruling 1 and the `bayesnec` #404
+rule, which T21 adopted and which place every such realisation at the control.
 
 ## T22 — `lifecycle` joins `Imports`
 

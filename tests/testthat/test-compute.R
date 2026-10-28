@@ -294,6 +294,8 @@ test_that("compute_nsec returns one row per direction for an ungrouped fit", {
       "reference",
       "control",
       "asymptote",
+      "first_change_away",
+      "on_no_effect_side",
       "draws",
       "ecnsec"
     )
@@ -301,6 +303,35 @@ test_that("compute_nsec returns one row per direction for an ungrouped fit", {
   expect_identical(result$direction, c("decreasing", "increasing"))
   expect_identical(result$sig_val, c(0.01, 0.01))
   expect_identical(result$type, c("absolute", "absolute"))
+})
+
+test_that("the first change and the no-effect side are found for each realisation (T21, #74)", {
+  # Reference 5. The first changes by round-off and then falls, the second is
+  # flat, the third rises above the reference, and the fourth falls across a
+  # missing value.
+  curve <- rbind(
+    c(4, 4 + 1e-12, rep(3, 9)),
+    rep(4, 11),
+    c(4, rep(6, 10)),
+    c(4, NA, rep(3, 9))
+  )
+
+  expect_identical(
+    toxval:::first_change_away_by_row(curve, "decreasing"),
+    c(FALSE, TRUE, TRUE, FALSE)
+  )
+  expect_identical(
+    toxval:::first_change_away_by_row(curve, "increasing"),
+    c(TRUE, TRUE, FALSE, TRUE)
+  )
+  expect_identical(
+    toxval:::on_no_effect_side_by_row(curve, 5, "decreasing"),
+    c(FALSE, FALSE, TRUE, FALSE)
+  )
+  expect_identical(
+    toxval:::on_no_effect_side_by_row(curve, 5, "increasing"),
+    c(TRUE, TRUE, TRUE, TRUE)
+  )
 })
 
 test_that("compute_nsec takes the reference from quantiles of the control realisations", {

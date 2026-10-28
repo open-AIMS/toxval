@@ -329,9 +329,13 @@ test_that("brms model runs when multiple variables in data and group_var specifi
     c(NA_real_, 1.05, 1.05, 1.05),
     tolerance = 0.001
   )
+  # In group 2, 9 decreasing and 8 increasing realisations start past the
+  # reference, change away from the effect and pass to the other side without
+  # returning, so they are censored (T21, amended on #74). Before that
+  # amendment they took the control, giving 0.97893 and 0.92054.
   expect_equal(
     output$conf.low,
-    c(NA_real_, 1.05, 0.97893, 0.92054),
+    c(NA_real_, 1.05, 1.003957, 0.941763),
     tolerance = 0.001
   )
   expect_equal(
@@ -364,6 +368,42 @@ test_that("a hormetic fit gives a decreasing and an increasing NSEC", {
   expect_equal(output$direction, c("decreasing", "increasing"))
   expect_equal(output$estimate[[1]], 2.2916, tolerance = 0.001)
   expect_equal(output$estimate[[2]], 0.1635, tolerance = 0.001)
+})
+
+# The expected values were computed outside toxval with quantile type 7 (#74).
+test_that("nsec censors the brms_model_1 realisations that show no effect (T21, #74)", {
+  pred <- toxval_predict(brms_model_1, x_var = "x")
+  output <- suppressWarnings(nsec(pred, draws = TRUE))
+
+  # 10 realisations start at or below the decreasing reference without
+  # crossing it; 7 rise, away from the effect, and pass above it without
+  # returning. Before the amendment all 10 took the control, and the lower
+  # limit was 0.9847278.
+  past <- pred$curves[[1]][, 1] <= output$reference[[1]]
+  expect_equal(sum(past), 10)
+  expect_equal(sum(is.infinite(output$draws[[1]]$value.draw[past])), 7)
+  expect_equal(
+    unlist(output[1, c("estimate", "conf.low", "conf.high")]),
+    c(estimate = 1.05, conf.low = 0.991338, conf.high = 1.05),
+    tolerance = 1e-6
+  )
+})
+
+test_that("nsec censors the brms_model_6 realisations that show no effect (T21, #74)", {
+  pred <- toxval_predict(brms_model_6, x_var = "x")
+  output <- suppressWarnings(nsec(pred, draws = TRUE))
+
+  # all 10 realisations at or below the decreasing reference rise and pass
+  # above it without returning. Before the amendment they took the control,
+  # and the lower limit was 0.966905.
+  past <- pred$curves[[1]][, 1] <= output$reference[[1]]
+  expect_equal(sum(past), 10)
+  expect_equal(sum(is.infinite(output$draws[[1]]$value.draw[past])), 10)
+  expect_equal(
+    unlist(output[1, c("estimate", "conf.low", "conf.high")]),
+    c(estimate = 1.05, conf.low = 0.9716878, conf.high = 1.05),
+    tolerance = 1e-6
+  )
 })
 
 test_that("nsec posterior is defunct, draws replaced it", {
@@ -471,6 +511,10 @@ test_that("drc model provides NA estimates when draws are excluded and not enoug
 
 # nsec.brmsfit — additional tests ------------------------------------------
 
+# The group 2 lower limits and draws 8 to 10 of group 1 decreasing changed when
+# realisations that start past the reference, change away from the effect and
+# pass to the other side were censored rather than placed at the control (T21,
+# amended on #74). Group 1 decreasing stays NA (T10).
 test_that("brms grouped nsec with draws has one row per group and direction", {
   output <- suppressWarnings(
     nsec(brms_model_2, x_var = "x", group_var = "z", draws = TRUE)
@@ -683,7 +727,11 @@ test_that("nsec relative takes ecnsec as a proportion of the span to the asympto
 #   sp_growth   decreasing 0.4181719, 0.8688531, 1.5,       0.8209478
 #   sp_growth   increasing 1.5,       1.5,       1.5,       2.350757
 # The references are unchanged. sp_survival increasing has no realisation that
-# crosses its reference, so it is NA.
+# crosses its reference, so it is NA. In sp_growth decreasing, 10 realisations
+# start below the reference without crossing it. 5 rise, away from the effect,
+# and pass above the reference without returning, so they are censored (T21,
+# amended on #74); before that amendment all 10 took the control, giving
+# 0.8591841 (0.3908073 to 1.5).
 test_that("nsec of a multivariate fit against the pre-refactor nsec_multi", {
   output <- suppressWarnings(
     nsec(nsec_multi_model_2, x_var = "dose", resolution = 50)
@@ -691,12 +739,12 @@ test_that("nsec of a multivariate fit against the pre-refactor nsec_multi", {
 
   expect_equal(
     output$estimate,
-    c(0.4615262, NA, 0.8591841, 1.5),
+    c(0.4615262, NA, 0.8671501, 1.5),
     tolerance = 1e-6
   )
   expect_equal(
     output$conf.low,
-    c(0.1559251, NA, 0.3908073, 1.5),
+    c(0.1559251, NA, 0.410851, 1.5),
     tolerance = 1e-6
   )
   expect_equal(
