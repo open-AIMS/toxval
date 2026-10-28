@@ -193,3 +193,30 @@ test_that("the header lines survive a dplyr filter", {
   expect_s3_class(filtered, "toxval")
   expect_identical(attr(filtered, "settings"), attr(result, "settings"))
 })
+
+test_that("toxval tibbles with the same settings combine and keep the header", {
+  ecx_rows <- ecx(nsec_drc_1, seed = 1)
+  nsec_rows <- nsec(nsec_drc_1, seed = 1)
+
+  result <- dplyr::bind_rows(ecx_rows, nsec_rows)
+
+  expect_s3_class(result, "toxval")
+  expect_identical(attr(result, "settings"), attr(ecx_rows, "settings"))
+  expect_identical(result$metric, c("ecx", "ecx", "nsec", "nsec"))
+})
+
+test_that("toxval tibbles with different settings do not combine", {
+  brms_rows <- nsec(brms_model_3, x_var = "x")
+  drc_rows <- nsec(nsec_drc_1, seed = 1)
+
+  expect_error(
+    dplyr::bind_rows(brms_rows, drc_rows),
+    "Their run settings differ"
+  )
+  combined <- dplyr::bind_rows(
+    tibble::as_tibble(brms_rows),
+    tibble::as_tibble(drc_rows)
+  )
+  expect_false(inherits(combined, "toxval"))
+  expect_identical(nrow(combined), 4L)
+})

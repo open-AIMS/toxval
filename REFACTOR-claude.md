@@ -137,7 +137,10 @@ Header lines are **display only**. Anything a caller needs programmatically is a
 column. Bare attributes on a tibble subclass are dropped by most dplyr verbs
 unless `dplyr_reconstruct.toxval` and friends are implemented, so a user doing
 `result |> filter(group == "A")` would silently lose them or keep ones that
-no longer describe the data.
+no longer describe the data. Amended 2026-10-27 (AP, T40): the dplyr verbs keep
+the header through the default method, so no `dplyr_reconstruct.toxval` is
+written. `bind_rows()` of `toxval` tibbles combines them only when their
+settings are identical, through `vctrs` methods, and otherwise errors.
 
 #### Examples
 
@@ -1242,7 +1245,7 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`, with their tests. Store what the remaining tests and examples read from `bayesnec` as fixtures, so the suite passes with `bayesnec` not installed, and remove `bayesnec` from `Imports`. See [Phase 3 without `bayesnec`](#phase-3-without-bayesnec). | none in `toxval`. `ecx` and `nsec` on a `bnecfit` are no longer computed here, and `bayesnec` objects receive the #19 answer at phase 7 |
 | 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` defunct. `nsec_multi()` is defunct in favour of `nsec()` (T15, T37), which needs `toxval_predict.brmsfit()` to return one curve per response first. #60 is answered (T21). Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). Its rulings are T21–T33. It is done with phase 5 (T33). | per #19/#20, and #60 |
-| 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. `ecx_val` becomes `proportion` (#3, T32). Done with phase 4 (T33). Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
+| 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, and `vctrs` methods so that `bind_rows()` combines only matching settings (T40). `ecx_val` becomes `proportion` (#3, T32). Done with phase 4 (T33). Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
 | 6 | **`toxval` to CRAN**, carrying the final API. | — |
 | 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
 

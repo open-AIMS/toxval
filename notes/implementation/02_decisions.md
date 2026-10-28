@@ -5,7 +5,8 @@ Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
 2026-10-09 with T13-T17, from the review of PR #59, 2026-10-17 with T18-T20,
 from the review of PR #62, 2026-10-18/19 with T21-T33, the rulings phases
 4 and 5 need, and 2026-10-22 to 2026-10-26 with T34 and T36-T39, from the
-review of PR #66. A session implements these rather than re-opening them.
+review of PR #66, and 2026-10-27 with T40. A session implements these rather
+than re-opening them.
 
 **Scope.** This file records decisions about the **package** — what the code
 does and why. Workflow is not recorded here: branching, remotes and review live
@@ -835,6 +836,32 @@ in another package decides for itself what to do with `...`.
 An argument to the underlying prediction, such as `ndraws` for
 `brms::posterior_epred()`, is added as a named argument of the method rather
 than passed through `...`.
+
+## T40 — `toxval` tibbles combine only when their settings match
+
+Settled 2026-10-27 (AP) on PR #66.
+
+`vctrs` methods `vec_ptype2.toxval.toxval()` and `vec_cast.toxval.toxval()`
+let `dplyr::bind_rows()` combine `toxval` tibbles whose `settings` are
+identical, keeping the class and header. Tibbles whose settings differ, such as
+`ecx()` on a `brmsfit` and `nsec()` on a `drc` fit, are an error that says to
+convert each with `tibble::as_tibble()` first. The header describes every row
+(§3.1), and no single header describes rows from different runs.
+
+Before, `bind_rows()` kept the settings of the first tibble and printed
+"Model: brmsfit" and "posterior draws" above the `drc` rows. A
+`dplyr_reconstruct.toxval()` method, which §3.1 and the phase 5 row planned,
+cannot prevent this: `bind_rows()` passes it only the first tibble as the
+template, and the generic strips the combined data to a bare data frame, so the
+settings of the other tibbles are never seen. No `dplyr_reconstruct()` method is
+written. `filter()`, `select()`, `mutate()`, `arrange()`, `slice()`, the joins
+and `distinct()` keep the class and the header through the default method,
+which copies them from the input they describe.
+
+An error was chosen over dropping to a plain tibble, which `bind_rows()` cannot
+be made to do, and over moving the settings into columns, which would change
+§3.1. `vctrs` is added to Imports; it is already a dependency of `dplyr` and
+`tibble`.
 
 ---
 

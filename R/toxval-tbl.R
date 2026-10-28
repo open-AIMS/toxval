@@ -119,6 +119,54 @@ tbl_sum.toxval <- function(x, ...) {
   )
 }
 
+#' Combine toxval tibbles
+#'
+#' The header describes every row, so toxval tibbles combine, as in
+#' `dplyr::bind_rows()`, only when their run settings are identical. Otherwise
+#' `bind_rows()` would keep the settings of the first and print them above rows
+#' they do not describe; `dplyr_reconstruct()` cannot prevent this, since it
+#' sees only the first tibble (T40).
+#'
+#' @param x,y,to Objects of class `toxval`.
+#' @param ...,x_arg,y_arg Passed on by vctrs.
+#'
+#' @return The common type, or `x` cast to `to`.
+#'
+#' @importFrom vctrs vec_ptype2
+#' @export
+#' @noRd
+vec_ptype2.toxval.toxval <- function(x, y, ..., x_arg = "", y_arg = "") {
+  if (!identical(attr(x, "settings"), attr(y, "settings"))) {
+    vctrs::stop_incompatible_type(
+      x,
+      y,
+      ...,
+      x_arg = x_arg,
+      y_arg = y_arg,
+      details = paste0(
+        "Their run settings differ, so one header cannot describe every row. ",
+        "Convert each with `tibble::as_tibble()` before combining."
+      )
+    )
+  }
+  tibble::new_tibble(
+    vctrs::tib_ptype2(x, y, ..., x_arg = x_arg, y_arg = y_arg),
+    settings = attr(x, "settings"),
+    class = "toxval"
+  )
+}
+
+#' @importFrom vctrs vec_cast
+#' @export
+#' @noRd
+vec_cast.toxval.toxval <- function(x, to, ...) {
+  tibble::new_tibble(
+    vctrs::tib_cast(x, to, ...),
+    settings = attr(to, "settings"),
+    class = "toxval"
+  )
+}
+
 #' @noRd
 format_realisations <- function(n, realisation) {
   label <- switch(

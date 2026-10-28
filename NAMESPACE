@@ -5,6 +5,8 @@ S3method(tbl_sum,toxval)
 S3method(toxval_predict,brmsfit)
 S3method(toxval_predict,default)
 S3method(toxval_predict,drc)
+S3method(vec_cast,toxval.toxval)
+S3method(vec_ptype2,toxval.toxval)
 export(ecx)
 export(new_toxval_pred)
 export(nsec)
@@ -12,3 +14,7 @@ export(nsec_multi)
 export(toxval_predict)
 importFrom(brms,posterior_epred)
 importFrom(pillar,tbl_sum)
+importFrom(vctrs,
+  vec_cast,
+  vec_ptype2
+)

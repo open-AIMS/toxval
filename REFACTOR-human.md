@@ -112,6 +112,8 @@ or a response value (#49, decision T8).
 `"noec"` — with the value that parameterises it in its own column: `metric =
 "ecx"` with `ecx_val = 10`, never `metric = "ec10"`. Run settings are displayed
 as tibble header lines via `tbl_sum()`, as `# Groups:` is on a grouped tibble.
+Results combine with `dplyr::bind_rows()` only when their run settings match,
+since one header must describe every row (decision T40).
 
 Some examples of `ecx()`:
 
@@ -419,7 +421,8 @@ break would force two breaking releases in a row.
    `nsec_multi()` and `posterior` defunct (decision T37). Its rulings are
    decisions T21 to T33. It is done together with phase 5, so no interim
    version returns today's shapes from the spine (decision T33).
-5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
+5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing,
+   combined by `bind_rows()` only when the run settings match (decision T40);
    `ecx_val` becomes `proportion`, so an EC10 is `proportion = 0.1` rather
    than `ecx_val = 10`, and `type = "direct"` takes its response value as
    `reference` (decision T32);

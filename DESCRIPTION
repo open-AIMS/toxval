@@ -27,6 +27,7 @@ Imports:
     lifecycle,
     pillar,
     tibble,
+    vctrs,
     withr
 Suggests:
     BH,
