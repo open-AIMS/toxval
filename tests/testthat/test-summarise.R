@@ -397,7 +397,10 @@ test_that("summarise_metric gives NA control where every realisation is excluded
   pred <- compute_pred(
     list(rbind(10 - x_vec, 10 - 2 * x_vec)),
     x_vec,
-    asymptote = list(list(decreasing = c(0, 0), increasing = c(NA_real_, NA_real_)))
+    asymptote = list(list(
+      decreasing = c(0, 0),
+      increasing = c(NA_real_, NA_real_)
+    ))
   )
 
   result <- suppressWarnings(summarise_metric(

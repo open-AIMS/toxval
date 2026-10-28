@@ -12,10 +12,10 @@
 test_that("outputs ecx value", {
   output <- suppressWarnings(ecx(brms_model_1, x_var = "x", resolution = 1000))
   settings <- pillar::tbl_sum(output)[["Settings"]]
-  
+
   expect_type(output$estimate, "double")
   expect_equal(output$estimate[[1]], 0.8320, tolerance = 0.001)
-  expect_equal(output$conf.low[[1]], 0.820, tolerance = 0.001) # EXPECT-CHANGE delete commment the small change here comes from the tolerance not being strict enough, 
+  expect_equal(output$conf.low[[1]], 0.820, tolerance = 0.001) # EXPECT-CHANGE delete commment the small change here comes from the tolerance not being strict enough,
   expect_equal(output$conf.high[[1]], 1.0500, tolerance = 0.001)
   expect_equal(output$metric, c("ecx", "ecx"))
   expect_equal(output$proportion, c(0.1, 0.1))
@@ -25,19 +25,23 @@ test_that("outputs ecx value", {
 
 test_that("ecx_val changes when different value provided", {
   output_1 <- suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50))
-  
+
   expect_equal(output_1$estimate[[1]], 0.975, tolerance = 0.001)
   expect_equal(output_1$conf.low[[1]], 0.904, tolerance = 0.001)
   expect_equal(output_1$conf.high[[1]], 1.05, tolerance = 0.001)
   expect_equal(output_1$proportion, c(0.50, 0.50))
-  
-  output_2 <- suppressWarnings(ecx(brms_model_1, x_var = "x", proportion = 0.50))
-  
+
+  output_2 <- suppressWarnings(ecx(
+    brms_model_1,
+    x_var = "x",
+    proportion = 0.50
+  ))
+
   expect_equal(output_2$estimate[[1]], 0.975, tolerance = 0.001)
   expect_equal(output_2$conf.low[[1]], 0.904, tolerance = 0.001)
   expect_equal(output_2$conf.high[[1]], 1.05, tolerance = 0.001)
   expect_equal(output_2$proportion, c(0.50, 0.50))
-  
+
   expect_identical(output_1, output_2)
 })
 
@@ -45,13 +49,13 @@ test_that("check ecx_val must be a numeric scalar and gives deprecation warning"
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
   lifecycle::expect_deprecated(ecx(pred, ecx_val = 10))
-  
+
   expect_length(
-    suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50L)), 
+    suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50L)),
     10
   )
   expect_length(
-    suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50)), 
+    suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50)),
     10
   )
   expect_error(
@@ -125,7 +129,7 @@ test_that("check type = relative argument, the relative is now range", {
     suppressWarnings(ecx(brms_model_1, x_var = "x", type = "relative")),
     regexp = "`type` must not be 'relative' when `object` supplies no asymptote"
   )
-  
+
   output <- suppressWarnings(ecx(brms_model_1, x_var = "x", type = "range"))
 
   # 951 draws decrease and 49 increase; a draw with no span in a direction is
@@ -145,18 +149,17 @@ test_that("check type = direct argument", {
     ecx(brms_model_1, x_var = "x", type = "direct"),
     regexp = "`reference` must be supplied when `type` is 'direct'"
   )
-  
+
   output <- ecx(brms_model_1, x_var = "x", type = "direct", reference = 10)
 
   expect_equal(output$estimate[[1]], NA_real_)
   expect_equal(output$conf.low[[1]], NA_real_)
   expect_equal(output$conf.high[[1]], NA_real_)
   expect_equal(output$proportion[[1]], NA_real_)
-  
 })
 
 # EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24
-# Change has occured as expected 
+# Change has occured as expected
 test_that("check type = direct argument with in range value", {
   expect_warning(
     expect_warning(
@@ -164,12 +167,11 @@ test_that("check type = direct argument with in range value", {
       regexp = 'Use `proportion`, a proportion rather than a percentage, or `reference` under `type = "direct"`'
     )
   )
-  
+
   expect_equal(output$estimate[[1]], 0.954, tolerance = 0.001)
   expect_equal(output$conf.low[[1]], 0.8, tolerance = 0.001)
   expect_equal(output$conf.high[[1]], 1.05, tolerance = 0.001)
   expect_equal(output$proportion[[1]], NA_real_)
-  
 })
 
 # The amendment of T21 on #74 applies to nsec() only. Under `direct` the
@@ -200,21 +202,29 @@ test_that("check type = absolute argument", {
   expect_equal(output$conf.low[[1]], 0.820, tolerance = 0.01)
   expect_equal(output$conf.high[[1]], 1.050, tolerance = 0.001)
   expect_equal(output$type[[1]], "absolute")
-
 })
 
 test_that("check type = range and absolute arguments behave as expeceted", {
-  output1 <- suppressWarnings(ecx(brms_model_1, x_var = "x", type = "range", proportion = 0.50))
-  output2 <- suppressWarnings(ecx(brms_model_1, x_var = "x", type = "absolute", proportion = 0.50))
-  
+  output1 <- suppressWarnings(ecx(
+    brms_model_1,
+    x_var = "x",
+    type = "range",
+    proportion = 0.50
+  ))
+  output2 <- suppressWarnings(ecx(
+    brms_model_1,
+    x_var = "x",
+    type = "absolute",
+    proportion = 0.50
+  ))
+
   expect_gt(output2$estimate[[1]], output1$estimate[[1]])
   expect_equal(output1$estimate[[1]], 0.9165, tolerance = 0.001)
   expect_equal(output2$estimate[[1]], 0.9747, tolerance = 0.001)
 })
 
-# TODO note this now errors instead of producing values, switched it from just giving NAs 
+# TODO note this now errors instead of producing values, switched it from just giving NAs
 test_that("type = absolute and value passed to trigger NAN catch and throws error", {
-  
   expect_error(
     expect_warning(
       ecx(brms_model_1, x_var = "x", type = "absolute", x_range = c(-1, 1.05)),
@@ -261,7 +271,7 @@ test_that("type errors when wrong value passed", {
 test_that("hormesis_def is deprecated and ignored", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
-  
+
   lifecycle::expect_deprecated(
     output_max <- ecx(pred, hormesis_def = "max")
   )
@@ -270,7 +280,7 @@ test_that("hormesis_def is deprecated and ignored", {
   lifecycle::expect_deprecated(
     output_con <- ecx(pred, hormesis_def = "control")
   )
-  
+
   expect_identical(output_max, output_con)
 })
 
@@ -279,9 +289,9 @@ test_that("a hormetic curve gives both an increasing and a decreasing ECx", {
   # rises from a control of 10 to a peak of 14 at x = 2, then falls
   y <- 10 + 4 * x_vec - x_vec^2
   pred <- compute_pred(list(rbind(y, y)), x_vec)
-  
+
   output <- ecx(pred)
-  
+
   expect_identical(output$direction, c("decreasing", "increasing"))
   expect_false(anyNA(output$estimate))
 })
@@ -289,7 +299,7 @@ test_that("a hormetic curve gives both an increasing and a decreasing ECx", {
 # EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20 - done
 test_that("a hormetic fit gives a decreasing and an increasing EC50", {
   output <- ecx(brms_model_5, x_var = "x", proportion = 0.5)
-  
+
   expect_equal(output$estimate[[1]], 2.4621, tolerance = 0.001)
   expect_equal(output$estimate[[2]], 0.394, tolerance = 0.001)
   expect_equal(output$direction, c("decreasing", "increasing"))
@@ -297,11 +307,27 @@ test_that("a hormetic fit gives a decreasing and an increasing EC50", {
 
 test_that("xform function is applied to the values", {
   output_1 <- suppressWarnings(ecx(brms_model_1, x_var = "x"))
-  output_2 <- suppressWarnings(ecx(brms_model_1, x_var = "x", xform = function(x) x - 1))
+  output_2 <- suppressWarnings(ecx(
+    brms_model_1,
+    x_var = "x",
+    xform = function(x) x - 1
+  ))
 
-  expect_equal(output_2$estimate[[1]], output_1$estimate[[1]] - 1, tolerance = 0.01)
-  expect_equal(output_2$conf.low[[1]], output_1$conf.low[[1]] - 1, tolerance = 0.01)
-  expect_equal(output_2$conf.high[[1]], output_1$conf.high[[1]] - 1, tolerance = 0.01)
+  expect_equal(
+    output_2$estimate[[1]],
+    output_1$estimate[[1]] - 1,
+    tolerance = 0.01
+  )
+  expect_equal(
+    output_2$conf.low[[1]],
+    output_1$conf.low[[1]] - 1,
+    tolerance = 0.01
+  )
+  expect_equal(
+    output_2$conf.high[[1]],
+    output_1$conf.high[[1]] - 1,
+    tolerance = 0.01
+  )
 })
 
 test_that("xform fails if function not passed", {
@@ -321,9 +347,13 @@ test_that("posterior is defunct whatever its value", {
 
 test_that("prob_vals argument changes when new values provided", {
   output_1 <- suppressWarnings(ecx(brms_model_1, x_var = "x"))
-  output_2 <- suppressWarnings(ecx(brms_model_1, x_var = "x", prob_vals = c(0.35, 0.05, 0.9)))
+  output_2 <- suppressWarnings(ecx(
+    brms_model_1,
+    x_var = "x",
+    prob_vals = c(0.35, 0.05, 0.9)
+  ))
   columns <- c("estimate", "conf.low", "conf.high")
-  
+
   expect_false(any(output_1[1, columns] == output_2[1, columns]))
 })
 
@@ -374,8 +404,12 @@ test_that("can only pass a single exc_val argument", {
     suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = c(10, 50, 100))),
     "`ecx_val` must be a number"
   )
-  
-  output <- suppressWarnings(ecx(brms_model_1, x_var = "x", proportion = c(0.10, 0.50, 1)))
+
+  output <- suppressWarnings(ecx(
+    brms_model_1,
+    x_var = "x",
+    proportion = c(0.10, 0.50, 1)
+  ))
   expect_equal(output$metric, rep("ecx", 6))
   expect_equal(output$direction, rep(c("decreasing", "increasing"), 3))
   expect_equal(output$proportion, c(0.10, 0.10, 0.50, 0.50, 1, 1))
@@ -387,11 +421,19 @@ test_that("can only pass a single exc_val argument", {
 test_that("when type is not direct ecx_val has to between 1 and 99", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
-  
-  expect_no_error(suppressWarnings(ecx(pred, proportion = 0.02, type = "absolute")))
-  expect_no_error(suppressWarnings(ecx(pred, proportion = 1.5, type = "absolute")))
+
+  expect_no_error(suppressWarnings(ecx(
+    pred,
+    proportion = 0.02,
+    type = "absolute"
+  )))
+  expect_no_error(suppressWarnings(ecx(
+    pred,
+    proportion = 1.5,
+    type = "absolute"
+  )))
   expect_no_error(suppressWarnings(ecx(pred, type = "range", proportion = 1)))
-  
+
   expect_error(ecx(pred, proportion = 0), "`proportion` must be greater than 0")
   expect_error(
     ecx(pred, type = "range", proportion = 1.5),
@@ -402,10 +444,18 @@ test_that("when type is not direct ecx_val has to between 1 and 99", {
 test_that("reference under direct can be any number", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
-  
+
   expect_no_error(suppressWarnings(ecx(pred, type = "direct", reference = 0)))
-  expect_no_error(suppressWarnings(ecx(pred, type = "direct", reference = 1000)))
-  expect_no_error(suppressWarnings(ecx(pred, type = "direct", reference = -0.25)))
+  expect_no_error(suppressWarnings(ecx(
+    pred,
+    type = "direct",
+    reference = 1000
+  )))
+  expect_no_error(suppressWarnings(ecx(
+    pred,
+    type = "direct",
+    reference = -0.25
+  )))
 })
 
 test_that("errors if x_var argument not provided", {
@@ -465,7 +515,7 @@ test_that("by_group = TRUE and group_var supplied it groups the data based on th
     ),
     "no crossing within the evaluated range"
   )
-  
+
   expect_equal(dim(output), c(4, 11))
   expect_true("group" %in% colnames(output))
   expect_equal(output$group, factor(c("1", "1", "2", "2")))
@@ -486,7 +536,11 @@ test_that("by_group = FALSE, group_var is a value in the data then it throws an"
 
 # EXPECTED-CHANGE x_range will be treated as a range, not a single value #10
 test_that("x_range limits where ecx looks for a crossing", {
-  output <- suppressWarnings(ecx(brms_model_1, x_var = "x", x_range = c(0.8, 0.9)))
+  output <- suppressWarnings(ecx(
+    brms_model_1,
+    x_var = "x",
+    x_range = c(0.8, 0.9)
+  ))
   expect_equal(output$conf.high, c(0.9, 0.9))
 })
 
@@ -500,7 +554,7 @@ test_that("when group_var == x_var will error it errors", {
         by_group = TRUE,
         group_var = "x",
         draws = TRUE
-      ) 
+      )
     ),
     regexp = "group_var` and `x_var` must name different columns, not both 'x'"
   )
@@ -514,7 +568,7 @@ test_that("when by_group = TRUE, group_var is provided and draws = TRUE, you get
     group_var = "z",
     draws = TRUE
   ))
-  
+
   expect_equal(dim(output), c(4, 12))
   expect_true("group" %in% colnames(output))
   expect_true("draws" %in% colnames(output))
@@ -529,7 +583,7 @@ test_that("ecx passes other brms errors through unchanged", {
       ))
     }
   )
-  
+
   expect_error(
     ecx(brms_model_1, x_var = "x"),
     "some other brms problem",
@@ -556,14 +610,24 @@ test_that("brmsfit ec50 is larger than ec10", {
     ecx(brms_model_3, x_var = "x", proportion = c(0.1, 0.5))
   )
   decreasing <- output[output$direction == "decreasing", ]
-  
+
   expect_identical(decreasing$proportion, c(0.1, 0.5))
   expect_gt(decreasing$estimate[[2]], decreasing$estimate[[1]])
 })
 
 test_that("brmsfit type = range gives smaller ECx than type = absolute", {
-  e_rel <- suppressWarnings(ecx(brms_model_3, x_var = "x", type = "range", ecx_val = 50))
-  e_abs <- suppressWarnings(ecx(brms_model_3, x_var = "x", type = "absolute", ecx_val = 50))
+  e_rel <- suppressWarnings(ecx(
+    brms_model_3,
+    x_var = "x",
+    type = "range",
+    ecx_val = 50
+  ))
+  e_abs <- suppressWarnings(ecx(
+    brms_model_3,
+    x_var = "x",
+    type = "absolute",
+    ecx_val = 50
+  ))
 
   expect_lt(e_rel$estimate[[1]], e_abs$estimate[[1]])
 })
@@ -573,7 +637,7 @@ test_that("brmsfit type = range gives smaller ECx than type = absolute", {
 test_that("ecx and nsec error when a toxval_pred is given predict-level arguments", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
-  
+
   expect_error(
     ecx(pred, x_var = "x"),
     "`object` is a `toxval_pred`, whose grid is already built, so `x_var` must not be supplied"
@@ -583,7 +647,7 @@ test_that("ecx and nsec error when a toxval_pred is given predict-level argument
 test_that("proportion must not be supplied under type = direct", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
-  
+
   expect_error(
     ecx(pred, type = "direct", proportion = 0.1, reference = 5),
     "`proportion` must not be supplied when `type` is 'direct'"
@@ -593,7 +657,7 @@ test_that("proportion must not be supplied under type = direct", {
 test_that("reference must not be supplied unless type is direct", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
-  
+
   expect_error(
     ecx(pred, reference = 5),
     "`reference` must be NULL unless `type` is 'direct'"
@@ -603,7 +667,7 @@ test_that("reference must not be supplied unless type is direct", {
 test_that("ecx_val must not be supplied with proportion or reference", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
-  
+
   expect_error(
     ecx(pred, ecx_val = 10, proportion = 0.1),
     "`ecx_val` must not be supplied with `proportion` or `reference`"
@@ -617,7 +681,7 @@ test_that("ecx_val must not be supplied with proportion or reference", {
 test_that("horme is deprecated and ignored by ecx", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
-  
+
   lifecycle::expect_deprecated(output <- ecx(pred, horme = TRUE))
   expect_identical(output, ecx(pred))
 })
@@ -640,19 +704,19 @@ test_that("proportion must be finite", {
 
 test_that("ecx direct matches drc::ED absolute", {
   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
-  
+
   output <- ecx(fit, type = "direct", reference = 5, seed = 1)
   expected <- drc::ED(fit, 5, type = "absolute", display = FALSE)
-  
+
   expect_equal(output$estimate[[1]], expected[[1]], tolerance = 0.01)
 })
 
 test_that("ecx absolute matches drc::ED for a curve with a lower limit of 0", {
   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.3())
-  
+
   output <- ecx(fit, proportion = 0.5, seed = 1)
   expected <- drc::ED(fit, 50, display = FALSE)
-  
+
   expect_equal(output$estimate[[1]], expected[[1]], tolerance = 0.01)
 })
 
@@ -675,7 +739,10 @@ test_that("ecx relative warns that its meaning has changed", {
   pred <- compute_pred(
     list(rbind(10 - x_vec, 10 - x_vec)),
     x_vec,
-    asymptote = list(list(decreasing = c(2, 2), increasing = c(NA_real_, NA_real_)))
+    asymptote = list(list(
+      decreasing = c(2, 2),
+      increasing = c(NA_real_, NA_real_)
+    ))
   )
 
   # the increasing direction has no asymptote, so it warns as excluded too
@@ -694,7 +761,10 @@ test_that("ecx relative measures from the control to the asymptote", {
   pred <- compute_pred(
     list(rbind(10 - x_vec, 10 - x_vec)),
     x_vec,
-    asymptote = list(list(decreasing = c(2, 2), increasing = c(NA_real_, NA_real_)))
+    asymptote = list(list(
+      decreasing = c(2, 2),
+      increasing = c(NA_real_, NA_real_)
+    ))
   )
 
   output <- suppressWarnings(ecx(pred, type = "relative", proportion = 0.5))

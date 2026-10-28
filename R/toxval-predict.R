@@ -411,7 +411,7 @@ brms_curves <- function(object, x_vec, x_var, group_var, responses) {
     # matched by name, not by position (T26)
     lapply(responses$names, function(response) {
       matrix(
-        epred[, , response],
+        epred[,, response],
         nrow = dim(epred)[1],
         ncol = dim(epred)[2]
       )

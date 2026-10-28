@@ -562,7 +562,10 @@ test_that("new_toxval_pred errors when a univariate fit has several families", {
 })
 
 test_that("new_toxval_pred accepts an asymptote", {
-  asymptote <- list(list(decreasing = c(0, 0), increasing = c(NA_real_, NA_real_)))
+  asymptote <- list(list(
+    decreasing = c(0, 0),
+    increasing = c(NA_real_, NA_real_)
+  ))
   result <- new_toxval_pred(
     curves = list(pred_curve()),
     keys = pred_keys(),

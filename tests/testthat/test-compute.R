@@ -397,7 +397,11 @@ test_that("compute_nsec computes the absolute ecnsec against 1 when increasing f
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_equal(result$ecnsec[[2]], c(0.16667, 0.0625, -0.07143), tolerance = 0.001)
+  expect_equal(
+    result$ecnsec[[2]],
+    c(0.16667, 0.0625, -0.07143),
+    tolerance = 0.001
+  )
 })
 
 test_that("compute_nsec computes the absolute ecnsec against the control when increasing for an unbounded response", {
@@ -409,7 +413,11 @@ test_that("compute_nsec computes the absolute ecnsec against the control when in
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_equal(result$ecnsec[[2]], c(0.16667, 0.05, -0.04545), tolerance = 0.001)
+  expect_equal(
+    result$ecnsec[[2]],
+    c(0.16667, 0.05, -0.04545),
+    tolerance = 0.001
+  )
 })
 
 # A span of zero or less gives no percentage, so `ecnsec` is NA rather than
