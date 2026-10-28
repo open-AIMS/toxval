@@ -2,140 +2,132 @@
 % Please edit documentation in R/ecx.R
 \name{ecx}
 \alias{ecx}
-\alias{ecx.brmsfit}
-\title{Extracts the predicted ECx value as desired from a supported class.}
+\title{Estimate ECx values from a fitted model}
 \usage{
 ecx(
   object,
-  ecx_val = 10,
-  resolution = 1000,
-  posterior = FALSE,
+  ...,
+  proportion = 0.1,
   type = "absolute",
-  hormesis_def = "control",
-  x_range = NA,
-  xform = identity,
+  reference = NULL,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
-  ...
-)
-
-\method{ecx}{brmsfit}(
-  object,
-  ecx_val = 10,
-  resolution = 1000,
-  posterior = FALSE,
-  type = "absolute",
-  hormesis_def = "control",
-  x_range = NA,
   xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  x_var,
-  group_var = NA,
-  by_group = FALSE,
-  horme = FALSE,
-  ...
+  ecx_val = lifecycle::deprecated(),
+  posterior = lifecycle::deprecated(),
+  hormesis_def = lifecycle::deprecated(),
+  horme = lifecycle::deprecated(),
+  by_group = lifecycle::deprecated()
 )
 }
 \arguments{
-\item{object}{A fitted model object of a class with a method for the
-function, such as a \link[brms:brmsfit]{brms::brmsfit} returned by \code{\link[brms:brm]{brms::brm()}}.}
+\item{object}{A fitted model with a \code{\link[=toxval_predict]{toxval_predict()}} method, or a
+\link{toxval_pred}.}
 
-\item{ecx_val}{The desired percentage effect value. This must be a value
-between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.}
+\item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.
+These and every argument after \code{...} must be named in full; an argument
+no method uses is an error.}
 
-\item{resolution}{The number of unique x values over which to find the
-estimate -- large values will make the estimate more precise.}
+\item{proportion}{A numeric vector of effects, as proportions of the span
+named by \code{type}; 0.1 is the EC10. Each value gives its own rows. Not
+supplied under \code{type = "direct"}.}
 
-\item{posterior}{A logical value indicating if the full
-posterior sample of calculated values should be returned instead of
-just the median and 95 credible intervals.}
+\item{type}{One of \code{"absolute"}, \code{"relative"}, \code{"range"} or \code{"direct"}. See
+Details.}
 
-\item{type}{A character vector, taking values of
-"relative", "absolute" (the default) or "direct". See Details.}
+\item{reference}{A number, the response value whose crossing is sought under
+\code{type = "direct"}. Supplied only under \code{"direct"}.}
 
-\item{hormesis_def}{A character vector, taking values
-of "max" or "control". See Details.}
+\item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
+where the class of \code{object} records which of its variables is the
+predictor. Each method states whether it accepts \code{NULL}.}
 
-\item{x_range}{A range of x values over which to consider extracting the
-estimate.}
+\item{group_var}{A string naming the grouping variable in \code{object}, or \code{NULL}
+for a single curve.}
 
-\item{xform}{A function to apply to the returned estimated concentration
-values.}
+\item{resolution}{A whole number giving the number of predictor values to
+evaluate the curve at. Larger values estimate a metric more precisely.}
 
-\item{prob_vals}{A vector indicating the probability values over which to
-return the estimated value. Defaults to 0.5 (median) and 0.025 and
-0.975 (95 percent credible intervals).}
+\item{x_range}{A numeric vector of length 2 giving the range of predictor
+values to evaluate over, or \code{NULL} to use the range in the model data.}
 
-\item{...}{Additional arguments passed to class-specific methods.}
+\item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
+per-realisation values of each row.}
 
-\item{x_var}{A character indicating the name of the predictor (x) data in
-\code{object}.}
+\item{prob_vals}{A numeric vector of the central, lower and upper quantiles
+to summarise the realisations by, in that order.}
 
-\item{group_var}{A character indicating the name of the grouping variable in
-\code{object}.}
+\item{xform}{A function applied to the per-realisation concentrations before
+they are summarised, such as \code{exp} for a model fitted on log
+concentration.}
 
-\item{by_group}{A logical indicating if values should be returned for each
-level in \code{group_var}, or marginalised across all groups.}
+\item{ecx_val}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{proportion}, or
+\code{reference} under \code{type = "direct"}.}
 
-\item{horme}{Logical indicating if hormesis is evident.}
+\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Supplying it is an
+error. Use \code{draws}.}
+
+\item{hormesis_def, horme}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Both
+directions are now always estimated, so these are ignored.}
+
+\item{by_group}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Supplying \code{group_var}
+gives one estimate per level.}
 }
 \value{
-A vector containing the estimated ECx value, including upper and
-lower 95\% credible interval bounds.
+A \code{toxval} tibble with one row per curve, proportion and direction.
 }
 \description{
-Extracts the predicted ECx value as desired from a supported class.
+Estimates the concentration at which the fitted response changes by a given
+proportion from the control, in each direction, for a fitted
+concentration-response model or for a \link{toxval_pred} built from one.
 }
 \details{
-\code{type} "relative" is calculated as the percentage decrease
-from the maximum predicted value of the response (top) to the minimum
-predicted value of the response. Type "absolute" (the default) is
-calculated as the percentage decrease from the maximum value of the
-response (top) to 0. Type "direct"
-provides a direct estimate of the x value for a given y.
-Note that for the current version, ECx for an "nechorme" (NEC Hormesis)
-model is estimated at a percent decline from the control.
+The model is evaluated over a grid of concentrations once per realisation,
+by \code{\link[=toxval_predict]{toxval_predict()}}: once per posterior draw for a Bayesian fit, and once
+per parametric bootstrap replicate for a frequentist one. The ECx is found
+for each realisation and the realisations are summarised by \code{prob_vals}.
 
-For \code{hormesis_def}, if "max", then ECx values are calculated as a
-decline from the maximum estimates (i.e. the peak at NEC);
-if "control", then ECx values are calculated relative to the control, which
-is assumed to be the lowest observed concentration.
+Each realisation is searched for both a decreasing and an increasing
+crossing, and each direction is a row of the result. A direction in which no
+realisation crosses is returned with \code{NA} estimates.
 
-Calls to functions \code{\link[=ecx]{ecx()}} and \code{\link[=nsec]{nsec()}} and
-\code{compare_fitted()} in the bayesnec package do not require the same level of
-flexibility in the context of allowing argument \code{newdata}
-(from a \code{\link[brms:posterior_predict]{brms::posterior_predict()}} perspective) to
-be supplied manually, as this is and should be handled within the function
-itself. The argument \code{resolution} controls how precisely the
-\code{\link[=ecx]{ecx()}} or \code{\link[=nsec]{nsec()}} value is estimated, with
-argument \code{x_range} allowing estimation beyond the existing range of
-the observed data (otherwise the default range) which can be useful in a
-small number of cases. There is also no reasonable case where estimating
-these from the raw data would be of value, because both functions would
-simply return one of the treatment concentrations, making NOEC a better
-metric in that case.
-}
-\section{Methods (by class)}{
+\code{type} names what \code{proportion} is taken of, from the control, the predicted
+response at the lowest concentration:
 \itemize{
-\item \code{ecx(brmsfit)}: Method for a raw \code{brms} fit of class \link[brms:brmsfit]{brms::brmsfit}
-returned by \code{\link[brms:brm]{brms::brm()}}. Requires \code{x_var}, and supports estimates per
-group via \code{group_var} and \code{by_group}.
+\item \code{"absolute"} (the default): decreasing, the control down to 0; increasing,
+the control up to 1 for a response on the proportion scale, and otherwise
+up to twice the control.
+\item \code{"relative"}: the control to the lower (decreasing) or upper (increasing)
+asymptote of the curve, a parameter of the fitted equation. It is
+available where the fit supplies the asymptote: from the limits of a \code{drc}
+fit, and for a \code{brmsfit} from the parameters named by \code{asymptote} (see
+\code{\link[=toxval_predict]{toxval_predict()}}). An asymptote outside the observed responses is an
+extrapolation, and \code{relative} inherits its uncertainty. Before toxval
+2.0.0 \code{"relative"} meant what is now \code{"range"}, so supplying it warns.
+\item \code{"range"}: the control to the lowest (decreasing) or highest (increasing)
+response the curve predicts.
+\item \code{"direct"}: no proportion; the ECx is where the curve crosses the response
+value supplied as \code{reference}.
+}
 
-}}
+A realisation that does not reach the reference within the evaluated range
+ranks above the highest concentration, and an interval limit that falls
+among such realisations is reported as the highest concentration, with a
+warning. Under \code{"range"} this includes a realisation that never falls below,
+or rises above, its control. Under \code{"absolute"} and \code{"relative"}, a
+realisation with nothing to take the proportion of, such as a control at or
+below 0 or a missing asymptote, is excluded from the summary, with a warning.
+}
 \examples{
-# ecx() has no method for drc fits, so this example fits a brms model.
-# Compiling the Stan model takes about a minute.
 \donttest{
 if (requireNamespace("drc", quietly = TRUE)) {
-  fit <- brms::brm(
-    rootl ~ s(conc, k = 5),
-    data = drc::ryegrass,
-    chains = 2,
-    seed = 1,
-    refresh = 0,
-    control = list(adapt_delta = 0.99)
-  )
-  print(ecx(fit, x_var = "conc"))
-  print(ecx(fit, x_var = "conc", ecx_val = 50))
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+  ecx(fit, proportion = c(0.1, 0.5), seed = 42)
 }
 }
 

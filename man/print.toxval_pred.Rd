@@ -29,6 +29,7 @@ pred <- new_toxval_pred(
     multi_var = NULL,
     resolution = 4,
     x_range = c(0, 3),
+    x_control = 0,
     family = "gaussian",
     realisation = "draws",
     n_realisation = 2,

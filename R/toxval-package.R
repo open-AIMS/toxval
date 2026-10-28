@@ -2,8 +2,7 @@
 "_PACKAGE"
 
 ## usethis namespace: start
-#' @importFrom stats quantile predict
-#' @importFrom brms as_draws_df posterior_epred
+#' @importFrom brms posterior_epred
 ## usethis namespace: end
 
 ## mockable bindings: start

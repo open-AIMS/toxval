@@ -1,340 +1,247 @@
-#' Extracts the predicted ECx value as desired from a supported class.
+#' Estimate ECx values from a fitted model
 #'
-#' @inheritParams toxval_params
-#' @param ecx_val The desired percentage effect value. This must be a value
-#' between 1 and 99 (for type = "relative" and "absolute"), defaults to 10.
-#' @param type A character vector, taking values of
-#' "relative", "absolute" (the default) or "direct". See Details.
+#' Estimates the concentration at which the fitted response changes by a given
+#' proportion from the control, in each direction, for a fitted
+#' concentration-response model or for a [toxval_pred] built from one.
 #'
-#' @details `type` "relative" is calculated as the percentage decrease
-#' from the maximum predicted value of the response (top) to the minimum
-#' predicted value of the response. Type "absolute" (the default) is
-#' calculated as the percentage decrease from the maximum value of the
-#' response (top) to 0. Type "direct"
-#' provides a direct estimate of the x value for a given y.
-#' Note that for the current version, ECx for an "nechorme" (NEC Hormesis)
-#' model is estimated at a percent decline from the control.
+#' @details
+#' The model is evaluated over a grid of concentrations once per realisation,
+#' by [toxval_predict()]: once per posterior draw for a Bayesian fit, and once
+#' per parametric bootstrap replicate for a frequentist one. The ECx is found
+#' for each realisation and the realisations are summarised by `prob_vals`.
 #'
-#' For `hormesis_def`, if "max", then ECx values are calculated as a
-#' decline from the maximum estimates (i.e. the peak at NEC);
-#' if "control", then ECx values are calculated relative to the control, which
-#' is assumed to be the lowest observed concentration.
+#' Each realisation is searched for both a decreasing and an increasing
+#' crossing, and each direction is a row of the result. A direction in which no
+#' realisation crosses is returned with `NA` estimates.
 #'
-#' Calls to functions [ecx()] and [nsec()] and
-#' `compare_fitted()` in the bayesnec package do not require the same level of
-#' flexibility in the context of allowing argument `newdata`
-#' (from a [brms::posterior_predict()] perspective) to
-#' be supplied manually, as this is and should be handled within the function
-#' itself. The argument `resolution` controls how precisely the
-#' [ecx()] or [nsec()] value is estimated, with
-#' argument `x_range` allowing estimation beyond the existing range of
-#' the observed data (otherwise the default range) which can be useful in a
-#' small number of cases. There is also no reasonable case where estimating
-#' these from the raw data would be of value, because both functions would
-#' simply return one of the treatment concentrations, making NOEC a better
-#' metric in that case.
+#' `type` names what `proportion` is taken of, from the control, the predicted
+#' response at the lowest concentration:
 #'
-#' @return A vector containing the estimated ECx value, including upper and
-#' lower 95% credible interval bounds.
+#' - `"absolute"` (the default): decreasing, the control down to 0; increasing,
+#'   the control up to 1 for a response on the proportion scale, and otherwise
+#'   up to twice the control.
+#' - `"relative"`: the control to the lower (decreasing) or upper (increasing)
+#'   asymptote of the curve, a parameter of the fitted equation. It is
+#'   available where the fit supplies the asymptote: from the limits of a `drc`
+#'   fit, and for a `brmsfit` from the parameters named by `asymptote` (see
+#'   [toxval_predict()]). An asymptote outside the observed responses is an
+#'   extrapolation, and `relative` inherits its uncertainty. Before toxval
+#'   2.0.0 `"relative"` meant what is now `"range"`, so supplying it warns.
+#' - `"range"`: the control to the lowest (decreasing) or highest (increasing)
+#'   response the curve predicts.
+#' - `"direct"`: no proportion; the ECx is where the curve crosses the response
+#'   value supplied as `reference`.
+#'
+#' A realisation that does not reach the reference within the evaluated range
+#' ranks above the highest concentration, and an interval limit that falls
+#' among such realisations is reported as the highest concentration, with a
+#' warning. Under `"range"` this includes a realisation that never falls below,
+#' or rises above, its control. Under `"absolute"` and `"relative"`, a
+#' realisation with nothing to take the proportion of, such as a control at or
+#' below 0 or a missing asymptote, is excluded from the summary, with a warning.
+#'
+#' @param object A fitted model with a [toxval_predict()] method, or a
+#'   [toxval_pred].
+#' @param proportion A numeric vector of effects, as proportions of the span
+#'   named by `type`; 0.1 is the EC10. Each value gives its own rows. Not
+#'   supplied under `type = "direct"`.
+#' @param type One of `"absolute"`, `"relative"`, `"range"` or `"direct"`. See
+#'   Details.
+#' @param reference A number, the response value whose crossing is sought under
+#'   `type = "direct"`. Supplied only under `"direct"`.
+#' @inheritParams toxval_predict
+#' @param draws A flag. If `TRUE`, a `draws` list column holds the
+#'   per-realisation values of each row.
+#' @param prob_vals A numeric vector of the central, lower and upper quantiles
+#'   to summarise the realisations by, in that order.
+#' @param xform A function applied to the per-realisation concentrations before
+#'   they are summarised, such as `exp` for a model fitted on log
+#'   concentration.
+#' @param ... Additional arguments passed to [toxval_predict()], such as
+#'   `n_boot` and `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
+#'   These and every argument after `...` must be named in full; an argument
+#'   no method uses is an error.
+#' @param ecx_val `r lifecycle::badge("deprecated")` Use `proportion`, or
+#'   `reference` under `type = "direct"`.
+#' @param posterior `r lifecycle::badge("deprecated")` Supplying it is an
+#'   error. Use `draws`.
+#' @param hormesis_def,horme `r lifecycle::badge("deprecated")` Both
+#'   directions are now always estimated, so these are ignored.
+#' @param by_group `r lifecycle::badge("deprecated")` Supplying `group_var`
+#'   gives one estimate per level.
+#'
+#' @return A `toxval` tibble with one row per curve, proportion and direction.
 #'
 #' @examples
-#' # ecx() has no method for drc fits, so this example fits a brms model.
-#' # Compiling the Stan model takes about a minute.
 #' \donttest{
 #' if (requireNamespace("drc", quietly = TRUE)) {
-#'   fit <- brms::brm(
-#'     rootl ~ s(conc, k = 5),
-#'     data = drc::ryegrass,
-#'     chains = 2,
-#'     seed = 1,
-#'     refresh = 0,
-#'     control = list(adapt_delta = 0.99)
-#'   )
-#'   print(ecx(fit, x_var = "conc"))
-#'   print(ecx(fit, x_var = "conc", ecx_val = 50))
+#'   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+#'   ecx(fit, proportion = c(0.1, 0.5), seed = 42)
 #' }
 #' }
 #'
 #' @export
 ecx <- function(
   object,
-  ecx_val = 10,
-  resolution = 1000,
-  posterior = FALSE,
+  ...,
+  proportion = 0.1,
   type = "absolute",
-  hormesis_def = "control",
-  x_range = NA,
-  xform = identity,
+  reference = NULL,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
-  ...
-) {
-  chk::chk_numeric(resolution)
-  chk::chk_logical(posterior)
-  if ((type %in% c("relative", "absolute", "direct")) == FALSE) {
-    stop(
-      "type must be one of 'relative', 'absolute' (the default) or 'direct'. 
-         Please see ?ecx for more details."
-    )
-  }
-  if ((hormesis_def %in% c("max", "control")) == FALSE) {
-    stop(
-      "type must be one of 'max' or 'control' (the default). 
-         Please see ?ecx for more details."
-    )
-  }
-  if (!inherits(xform, "function")) {
-    stop("xform must be a function.")
-  }
-  if (
-    length(prob_vals) < 3 ||
-      prob_vals[1] < prob_vals[2] ||
-      prob_vals[1] > prob_vals[3] ||
-      prob_vals[2] > prob_vals[3]
-  ) {
-    stop(
-      "prob_vals must include central, lower and upper quantiles,",
-      " in that order"
-    )
-  }
-
-  UseMethod("ecx")
-}
-
-#' @noRd
-ecx_x_relative <- function(y, ecx_val, x_vec, hormesis_def) {
-  if (length(which(!is.na(y))) == 0) {
-    outval <- max(x_vec)
-  } else {
-    if (hormesis_def == "max") {
-      range_y <- c(y[1], min(y, na.rm = TRUE))
-      ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)
-    }
-
-    if (hormesis_def == "control") {
-      range_y <- range(y, na.rm = TRUE)
-      ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)
-    }
-
-    val <- min(modelbased::zero_crossings(y - ecx_y))
-    if (is.na(val)) {
-      outval <- max(x_vec)
-    } else {
-      floor_x <- x_vec[floor(val)]
-      ceiling_x <- x_vec[ceiling(val)]
-      prop_x <- (val - floor(val)) * (ceiling_x - floor_x)
-      outval <- floor_x + prop_x
-    }
-  }
-  outval
-}
-
-#' @noRd
-ecx_x_absolute <- function(y, ecx_val, x_vec, hormesis_def) {
-  if (length(which(!is.na(y))) == 0) {
-    outval <- max(x_vec)
-  } else {
-    if (hormesis_def == "max") {
-      range_y <- c(0, max(y, na.rm = TRUE))
-      ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)
-    }
-
-    if (hormesis_def == "control") {
-      range_y <- c(0, y[1])
-      ecx_y <- max(range_y) - diff(range_y) * (ecx_val / 100)
-    }
-
-    val <- min(modelbased::zero_crossings(y - ecx_y))
-    if (is.na(val)) {
-      outval <- max(x_vec)
-    } else {
-      floor_x <- x_vec[floor(val)]
-      ceiling_x <- x_vec[ceiling(val)]
-      prop_x <- (val - floor(val)) * (ceiling_x - floor_x)
-      outval <- floor_x + prop_x
-    }
-  }
-  outval
-}
-
-#' @noRd
-ecx_x_direct <- function(y, ecx_val, x_vec, hormesis_def) {
-  if (length(which(!is.na(y))) == 0) {
-    outval <- max(x_vec)
-  } else {
-    ecx_y <- ecx_val
-
-    val <- min(modelbased::zero_crossings(y - ecx_y))
-    if (is.na(val)) {
-      outval <- max(x_vec)
-    } else {
-      floor_x <- x_vec[floor(val)]
-      ceiling_x <- x_vec[ceiling(val)]
-      prop_x <- (val - floor(val)) * (ceiling_x - floor_x)
-      outval <- floor_x + prop_x
-    }
-  }
-  outval
-}
-
-#' @describeIn ecx Method for a raw `brms` fit of class [brms::brmsfit]
-#'   returned by [brms::brm()]. Requires `x_var`, and supports estimates per
-#'   group via `group_var` and `by_group`.
-#'
-#' @param x_var A character indicating the name of the predictor (x) data in
-#'   `object`.
-#' @param group_var A character indicating the name of the grouping variable in
-#'   `object`.
-#' @param by_group A logical indicating if values should be returned for each
-#'   level in `group_var`, or marginalised across all groups.
-#' @param horme Logical indicating if hormesis is evident.
-#'
-#' @export
-ecx.brmsfit <- function(
-  object,
-  ecx_val = 10,
-  resolution = 1000,
-  posterior = FALSE,
-  type = "absolute",
-  hormesis_def = "control",
-  x_range = NA,
   xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  x_var,
-  group_var = NA,
-  by_group = FALSE,
-  horme = FALSE,
-  ...
+  ecx_val = lifecycle::deprecated(),
+  posterior = lifecycle::deprecated(),
+  hormesis_def = lifecycle::deprecated(),
+  horme = lifecycle::deprecated(),
+  by_group = lifecycle::deprecated()
 ) {
-  chk::chk_numeric(ecx_val)
-  if (length(ecx_val) > 1) {
-    stop("You may only pass one ecx_val")
-  }
+  # recorded before any argument is reassigned, which `missing()` would miss
+  predict_args <- c(
+    x_var = !missing(x_var),
+    group_var = !missing(group_var),
+    resolution = !missing(resolution),
+    x_range = !missing(x_range),
+    ... = ...length() > 0
+  )
 
-  if (type != "direct") {
-    if (ecx_val < 1 || ecx_val > 99) {
-      stop(
-        "Supplied ecx_val is not in the required range. ",
-        "Please supply a percentage value between 1 and 99."
+  # arguments retired from the pre-refactor interface (T28, T32, §3.5)
+  if (lifecycle::is_present(ecx_val)) {
+    if (!missing(proportion) || !is.null(reference)) {
+      chk::abort_chk(
+        "`ecx_val` must not be supplied with `proportion` or `reference`."
+      )
+    }
+    lifecycle::deprecate_warn(
+      "2.0.0",
+      "ecx(ecx_val)",
+      details = "Use `proportion`, a proportion rather than a percentage, or `reference` under `type = \"direct\"`."
+    )
+    chk::chk_number(ecx_val)
+    if (identical(type, "direct")) {
+      reference <- ecx_val
+    } else {
+      proportion <- ecx_val / 100
+    }
+  } else if (identical(type, "direct") && !missing(proportion)) {
+    chk::abort_chk(
+      "`proportion` must not be supplied when `type` is 'direct'; supply the ",
+      "response value as `reference`."
+    )
+  }
+  if (lifecycle::is_present(posterior)) {
+    lifecycle::deprecate_stop(
+      "2.0.0",
+      "ecx(posterior)",
+      "ecx(draws)",
+      details = "The result is now a `toxval` tibble with the realisations in a `draws` list column, not a vector of realisations."
+    )
+  }
+  if (lifecycle::is_present(hormesis_def)) {
+    lifecycle::deprecate_warn(
+      "2.0.0",
+      "ecx(hormesis_def)",
+      details = "Both directions are now estimated; the argument is ignored."
+    )
+  }
+  if (lifecycle::is_present(horme)) {
+    lifecycle::deprecate_warn(
+      "2.0.0",
+      "ecx(horme)",
+      details = "Both directions are now estimated; the argument is ignored."
+    )
+  }
+  if (lifecycle::is_present(by_group)) {
+    lifecycle::deprecate_warn(
+      "2.0.0",
+      "ecx(by_group)",
+      details = "Every level of `group_var` now gives its own estimate, so `by_group` is not needed."
+    )
+    chk::chk_flag(by_group)
+    if (by_group && is_missing_value(group_var)) {
+      chk::abort_chk("`group_var` must be supplied when `by_group` is TRUE.")
+    }
+    if (!by_group && !is_missing_value(group_var)) {
+      chk::abort_chk(
+        "`by_group = FALSE` with a `group_var` is no longer supported; every ",
+        "level of `group_var` now gives its own estimate."
       )
     }
   }
-
-  if (missing(x_var)) {
-    stop("x_var must be supplied for a brmsfit object.")
+  if (is_missing_value(group_var)) {
+    group_var <- NULL
   }
-  if (by_group & is.na(group_var)) {
-    stop(
-      "You must specify a group_by variable if you want values returned by groups."
+  if (is_missing_value(x_range)) {
+    x_range <- NULL
+  }
+  warn_relative(type)
+
+  if (inherits(object, "toxval_pred")) {
+    if (any(predict_args)) {
+      chk::abort_chk(
+        "`object` is a `toxval_pred`, whose grid is already built, so ",
+        paste0("`", names(predict_args)[predict_args], "`", collapse = ", "),
+        " must not be supplied."
+      )
+    }
+    pred <- object
+  } else {
+    pred <- toxval_predict(
+      object,
+      x_var = x_var,
+      group_var = group_var,
+      resolution = resolution,
+      x_range = x_range,
+      ...
     )
   }
 
-  col_names <- colnames(object$data)
-  if (max(grepl(x_var, col_names)) == 0) {
-    stop("Your suplied x_var is not contained in the object data.frame")
+  rows <- compute_ecx(
+    pred,
+    proportion = proportion,
+    type = type,
+    reference = reference
+  )
+  summarise_metric(
+    rows,
+    pred,
+    metric = "ecx",
+    prob_vals = prob_vals,
+    xform = xform,
+    draws = draws
+  )
+}
+
+#' Whether an argument was left at a pre-refactor default of `NA`
+#'
+#' `group_var = NA` and `x_range = NA` were the defaults before `NULL`, and are
+#' translated without a warning (T28).
+#'
+#' @noRd
+is_missing_value <- function(x) {
+  is.null(x) || (length(x) == 1 && is.atomic(x) && is.na(x))
+}
+
+#' Warn that `relative` has changed meaning
+#'
+#' A plain warning on every call rather than a lifecycle deprecation, because
+#' `relative` is not deprecated (T29).
+#'
+#' @noRd
+warn_relative <- function(type) {
+  if (identical(type, "relative")) {
+    warning(
+      "`type = \"relative\"` now measures from the control to the asymptote ",
+      "of the curve. Before toxval 2.0.0 it measured to the extent of the ",
+      "curve, which is now `type = \"range\"`; the two also differ for a ",
+      "non-monotonic curve, because `range` measures from the control rather ",
+      "than from the maximum.",
+      call. = FALSE
+    )
   }
-  if (!is.na(group_var)) {
-    if (max(grepl(group_var, col_names)) == 0) {
-      stop("Your suplied group_var is not contained in the object data.frame")
-    }
-  }
-
-  if (is.na(x_range)) {
-    x_range <- range(object$data[x_var])
-  }
-  x_vec <- seq(min(x_range), max(x_range), length = resolution)
-
-  if (is.na(group_var)) {
-    pred_dat <- data.frame(x_vec)
-    names(pred_dat) <- x_var
-
-    p_samples <- posterior_epred(object, newdata = pred_dat, re_formula = NA)
-    if (class(p_samples)[1] == "try-error") {
-      stop(paste(
-        attributes(p_samples)$condition,
-        "Do you need to specify a group_var variable?",
-        sep = ""
-      ))
-    }
-
-    ecx_fct <- get(paste0("ecx_x_", type))
-    ecx_out <- apply(p_samples, 1, ecx_fct, ecx_val, x_vec, hormesis_def)
-
-    if (inherits(xform, "function")) {
-      ecx_out <- xform(ecx_out)
-    }
-  } else {
-    groups <- unlist(unique(object$data[group_var]))
-    out_vals <- lapply(groups, FUN = function(g) {
-      dat_list <- list(x_vec, g)
-      names(dat_list) <- c(x_var, group_var)
-      pred_dat <- expand.grid(dat_list)
-
-      p_samples <- posterior_epred(object, newdata = pred_dat, re_formula = NA)
-      # Kept deliberately (toxval #33). This is not dead code, it is an
-      # unimplemented feature: ecx.bnecfit, removed in phase 3 (#39), truncated
-      # the posterior below the hormetic peak via modify_posterior()
-      # unconditionally, ecx.brmsfit never does. The block cannot simply be
-      # uncommented: the guard is a bayesnec-ism, `object$model` on a
-      # bayesnecfit is the model name, on a brmsfit it is the Stan code, so
-      # grepl("horme", .) is meaningless here. The block also calls
-      # modify_posterior() and do_wrapper(), deleted in phase 3 because nothing
-      # live called them; R/helpers.R at the pre-refactor tag has both.
-      # The `horme` argument this method already documents and accepts is the
-      # intended guard, and is currently unused. Left for the refactor to
-      # settle alongside the direction/hormesis decision, not resolved here,
-      # because switching it on would move ECx values.
-      # if (grepl("horme", object$model)) {
-      #   n <- seq_len(nrow(p_samples))
-      #   p_samples <- do_wrapper(n, modify_posterior, object, x_vec,
-      #                           p_samples, hormesis_def, fct = "rbind")
-      # }
-      ecx_fct <- get(paste0("ecx_x_", type))
-      ecx_out <- apply(p_samples, 1, ecx_fct, ecx_val, x_vec, hormesis_def)
-      if (inherits(xform, "function")) {
-        ecx_out <- xform(ecx_out)
-      }
-    })
-  }
-
-  if (by_group & posterior & !is.na(group_var)) {
-    names(out_vals) <- groups
-    out_vals <- out_vals |>
-      dplyr::bind_cols() |>
-      tidyr::pivot_longer(
-        tidyr::everything(),
-        names_to = group_var,
-        values_to = "ECx"
-      )
-  }
-
-  if (by_group & !posterior & !is.na(group_var)) {
-    names(out_vals) <- groups
-    out_vals <- lapply(out_vals, quantile, probs = prob_vals) |>
-      dplyr::bind_rows(.id = group_var)
-    names(out_vals) <- clean_names(out_vals)
-  }
-
-  if (!by_group & posterior & !is.na(group_var)) {
-    out_vals <- as.numeric((unlist(out_vals)))
-  }
-
-  if (!by_group & !posterior & !is.na(group_var)) {
-    out_vals <- quantile(unlist(out_vals), probs = prob_vals)
-    names(out_vals) <- clean_names(out_vals)
-  }
-
-  if (posterior & is.na(group_var)) {
-    out_vals <- unlist(ecx_out)
-  }
-
-  if (!posterior & is.na(group_var)) {
-    out_vals <- quantile(unlist(ecx_out), probs = prob_vals)
-    names(out_vals) <- clean_names(out_vals)
-  }
-
-  attr(out_vals, "resolution") <- resolution
-  attr(out_vals, "ecx_val") <- ecx_val
-  attr(out_vals, "toxicity_estimate") <- "ecx"
-
-  return(out_vals)
+  invisible(type)
 }

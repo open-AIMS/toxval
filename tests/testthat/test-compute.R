@@ -1,33 +1,3 @@
-# A toxval_pred of hand-built curves. Each element of `curves` is a matrix with
-# one realisation per row, evaluated over `x_vec`.
-compute_pred <- function(
-  curves,
-  x_vec,
-  keys = data.frame(row.names = 1L),
-  group_var = NULL,
-  multi_var = NULL,
-  family = "gaussian",
-  source_class = "brmsfit"
-) {
-  new_toxval_pred(
-    curves = curves,
-    keys = keys,
-    x_vec = x_vec,
-    meta = list(
-      source_class = source_class,
-      x_var = "x",
-      group_var = group_var,
-      multi_var = multi_var,
-      resolution = length(x_vec),
-      x_range = range(x_vec),
-      family = family,
-      realisation = "draws",
-      n_realisation = nrow(curves[[1]]),
-      seed = NULL
-    )
-  )
-}
-
 # compute_ecx ------------------------------------------------------------------
 
 test_that("compute_ecx returns one row per direction for an ungrouped fit", {
@@ -39,10 +9,19 @@ test_that("compute_ecx returns one row per direction for an ungrouped fit", {
   expect_s3_class(result, "tbl_df")
   expect_named(
     result,
-    c("direction", "ecx_val", "type", "control", "reference", "draws")
+    c(
+      "direction",
+      "proportion",
+      "type",
+      "control",
+      "reference",
+      "asymptote",
+      "no_span",
+      "draws"
+    )
   )
   expect_identical(result$direction, c("decreasing", "increasing"))
-  expect_identical(result$ecx_val, c(10, 10))
+  expect_identical(result$proportion, c(0.10, 0.10))
   expect_identical(result$type, c("absolute", "absolute"))
 })
 
@@ -50,7 +29,7 @@ test_that("compute_ecx builds the absolute reference from each realisation's con
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 8 - x_vec)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_equal(result$control[[1]], c(10, 8))
   expect_equal(result$reference[[1]], c(9, 7.2))
@@ -61,7 +40,7 @@ test_that("compute_ecx returns NA for a direction with no crossing", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_equal(result$draws[[1]], c(1, 0.5))
   expect_identical(result$draws[[2]], c(NA_real_, NA_real_))
@@ -72,7 +51,7 @@ test_that("compute_ecx takes the increasing absolute reference towards 1 for a p
   y <- 0.1 + 0.08 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec, family = "beta")
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 50)
+  result <- toxval:::compute_ecx(pred, proportion = 0.50)
 
   expect_equal(result$reference[[2]], c(0.55, 0.55))
   expect_equal(result$draws[[2]], c(5.625, 5.625))
@@ -84,7 +63,7 @@ test_that("compute_ecx takes the increasing absolute reference as a percentage o
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(20 + x_vec, 10 + x_vec)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_equal(result$reference[[2]], c(22, 11))
   expect_equal(result$draws[[2]], c(2, 1))
@@ -100,21 +79,47 @@ test_that("compute_ecx treats a binomial drc fit as a proportion", {
     source_class = "drc"
   )
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 50)
+  result <- toxval:::compute_ecx(pred, proportion = 0.50)
 
   expect_equal(result$reference[[2]], c(0.55, 0.55))
 })
 
-test_that("compute_ecx returns an NA increasing absolute reference for a binomial brmsfit", {
-  # the bound is the number of trials, which is not recorded until trials_var
+test_that("compute_ecx treats a binomial brmsfit as a proportion", {
+  # EXPECTED-CHANGE binomial brmsfit predicted at one trial (T26) - done
+  # was an NA increasing reference, when the trials were not recorded
   x_vec <- 0:10
-  y <- 2 + x_vec
+  y <- 0.2 + 0.05 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec, family = "binomial")
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
-  expect_identical(result$reference[[2]], c(NA_real_, NA_real_))
-  expect_equal(result$reference[[1]], c(1.8, 1.8))
+  expect_equal(result$reference[[2]], c(0.28, 0.28))
+  expect_equal(result$reference[[1]], c(0.18, 0.18))
+})
+
+test_that("compute_ecx takes the upper bound from the family of each response", {
+  x_vec <- 0:10
+  y <- 0.2 + 0.05 * x_vec
+  pred <- compute_pred(
+    list(rbind(y, y), rbind(y, y)),
+    x_vec,
+    keys = data.frame(
+      response = factor(
+        c("survival", "growth"),
+        levels = c("survival", "growth")
+      )
+    ),
+    multi_var = c("survival", "growth"),
+    family = c(survival = "bernoulli", growth = "gaussian")
+  )
+
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
+
+  # the curves are identical, so the references differ only through the family:
+  # extra risk for the bernoulli response, 0.2 + (1 - 0.2) * 0.1, and relative
+  # deviation for the gaussian one, 0.2 + 0.2 * 0.1
+  expect_equal(result$reference[[2]], c(0.28, 0.28))
+  expect_equal(result$reference[[4]], c(0.22, 0.22))
 })
 
 test_that("compute_ecx returns an NA absolute reference where the control is at or below 0", {
@@ -125,19 +130,19 @@ test_that("compute_ecx returns an NA absolute reference where the control is at 
     x_vec
   )
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_equal(result$reference[[1]], c(NA, NA, 1.8))
   expect_equal(result$reference[[2]], c(NA, NA, 2.2))
   expect_equal(result$draws[[1]], c(NA, NA, 2))
 })
 
-test_that("compute_ecx accepts an absolute ecx_val above 100 for a response that goes negative", {
+test_that("compute_ecx accepts an absolute proportion above 100 for a response that goes negative", {
   x_vec <- 0:10
   y <- 10 - 2 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 150)
+  result <- toxval:::compute_ecx(pred, proportion = 1.50)
 
   expect_equal(result$reference[[1]], c(-5, -5))
   expect_equal(result$draws[[1]], c(7.5, 7.5))
@@ -148,8 +153,8 @@ test_that("compute_ecx measures the range reference down to the minimum of the c
   y <- 10 - 0.5 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec)
 
-  range <- toxval:::compute_ecx(pred, ecx_val = 10, type = "range")
-  absolute <- toxval:::compute_ecx(pred, ecx_val = 10, type = "absolute")
+  range <- toxval:::compute_ecx(pred, proportion = 0.10, type = "range")
+  absolute <- toxval:::compute_ecx(pred, proportion = 0.10, type = "absolute")
 
   expect_equal(range$reference[[1]], c(9.5, 9.5))
   expect_equal(range$draws[[1]], c(1, 1))
@@ -161,7 +166,7 @@ test_that("compute_ecx measures the range reference up to the maximum of the cur
   y <- 2 + 0.5 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 20, type = "range")
+  result <- toxval:::compute_ecx(pred, proportion = 0.20, type = "range")
 
   expect_equal(result$reference[[2]], c(3, 3))
   expect_equal(result$draws[[2]], c(2, 2))
@@ -170,12 +175,12 @@ test_that("compute_ecx measures the range reference up to the maximum of the cur
   expect_identical(result$draws[[1]], c(NA_real_, NA_real_))
 })
 
-test_that("compute_ecx uses ecx_val as the reference in both directions under direct", {
+test_that("compute_ecx uses proportion as the reference in both directions under direct", {
   x_vec <- 0:4
   y <- c(6, 8, 10, 8, 6)
   pred <- compute_pred(list(rbind(y, y)), x_vec)
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 7, type = "direct")
+  result <- toxval:::compute_ecx(pred, reference = 7, type = "direct")
 
   expect_equal(result$reference[[1]], c(7, 7))
   expect_equal(result$reference[[2]], c(7, 7))
@@ -192,7 +197,7 @@ test_that("compute_ecx returns rows for each group in the order of keys", {
     group_var = "site"
   )
 
-  result <- toxval:::compute_ecx(pred, ecx_val = 10)
+  result <- toxval:::compute_ecx(pred, proportion = 0.10)
 
   expect_identical(result$group, factor(c("B", "B", "A", "A"), c("B", "A")))
   expect_identical(result$direction, rep(c("decreasing", "increasing"), 2))
@@ -211,7 +216,7 @@ test_that("compute_ecx returns rows for each group and response", {
       response = factor(c("growth", "survival", "growth", "survival"))
     ),
     group_var = "site",
-    multi_var = "endpoint"
+    multi_var = c("growth", "survival")
   )
 
   result <- toxval:::compute_ecx(pred)
@@ -230,14 +235,44 @@ test_that("compute_ecx errors when pred is not a toxval_pred", {
   )
 })
 
-test_that("compute_ecx errors on the relative type", {
+test_that("compute_ecx errors on the relative type without an asymptote", {
+  # EXPECTED-CHANGE relative type, measured to the asymptote (T24, T29) - done
+  # was refused as an unsupported type
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - x_vec)), x_vec)
 
   expect_error(
     toxval:::compute_ecx(pred, type = "relative"),
-    "`type` must match 'absolute', 'direct' or 'range', not 'relative'."
+    "`type` must not be 'relative' when `object` supplies no asymptote"
   )
+})
+
+test_that("a span of zero up to rounding error is excluded", {
+  # the increasing asymptote equals the control up to rounding error, above it
+  # in some realisations and below it in others
+  x_vec <- 0:10
+  curve <- 1 - x_vec / 20
+  pred <- compute_pred(
+    list(rbind(curve, curve, curve, curve)),
+    x_vec,
+    asymptote = list(list(
+      decreasing = c(0.5, 0.5, 0.5, 0.5),
+      increasing = 1 + c(1e-15, -1e-15, 1e-15, 0)
+    ))
+  )
+
+  output <- suppressWarnings(nsec(pred, type = "relative"))
+  expect_identical(output$ecnsec[[2]], NA_real_)
+
+  warnings <- character()
+  withCallingHandlers(
+    ecx(pred, type = "relative"),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_match(warnings, "increasing: 100.0% excluded", all = FALSE)
 })
 
 # compute_nsec -----------------------------------------------------------------
@@ -255,8 +290,12 @@ test_that("compute_nsec returns one row per direction for an ungrouped fit", {
       "direction",
       "sig_val",
       "type",
+      "anchor",
       "reference",
       "control",
+      "asymptote",
+      "first_change_away",
+      "on_no_effect_side",
       "draws",
       "ecnsec"
     )
@@ -264,6 +303,35 @@ test_that("compute_nsec returns one row per direction for an ungrouped fit", {
   expect_identical(result$direction, c("decreasing", "increasing"))
   expect_identical(result$sig_val, c(0.01, 0.01))
   expect_identical(result$type, c("absolute", "absolute"))
+})
+
+test_that("the first change and the no-effect side are found for each realisation (T21, #74)", {
+  # Reference 5. The first changes by round-off and then falls, the second is
+  # flat, the third rises above the reference, and the fourth falls across a
+  # missing value.
+  curve <- rbind(
+    c(4, 4 + 1e-12, rep(3, 9)),
+    rep(4, 11),
+    c(4, rep(6, 10)),
+    c(4, NA, rep(3, 9))
+  )
+
+  expect_identical(
+    toxval:::first_change_away_by_row(curve, "decreasing"),
+    c(FALSE, TRUE, TRUE, FALSE)
+  )
+  expect_identical(
+    toxval:::first_change_away_by_row(curve, "increasing"),
+    c(TRUE, TRUE, FALSE, TRUE)
+  )
+  expect_identical(
+    toxval:::on_no_effect_side_by_row(curve, 5, "decreasing"),
+    c(FALSE, FALSE, TRUE, FALSE)
+  )
+  expect_identical(
+    toxval:::on_no_effect_side_by_row(curve, 5, "increasing"),
+    c(TRUE, TRUE, TRUE, TRUE)
+  )
 })
 
 test_that("compute_nsec takes the reference from quantiles of the control realisations", {
@@ -316,7 +384,7 @@ test_that("compute_nsec computes the absolute ecnsec against 0 when decreasing",
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_equal(result$ecnsec[[1]], c(-5.556, 5, 13.636), tolerance = 0.001)
+  expect_equal(result$ecnsec[[1]], c(-0.0556, 0.05, 0.13636), tolerance = 0.001)
 })
 
 test_that("compute_nsec computes the absolute ecnsec against 1 when increasing for a proportion", {
@@ -329,7 +397,11 @@ test_that("compute_nsec computes the absolute ecnsec against 1 when increasing f
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_equal(result$ecnsec[[2]], c(16.667, 6.25, -7.143), tolerance = 0.001)
+  expect_equal(
+    result$ecnsec[[2]],
+    c(0.16667, 0.0625, -0.07143),
+    tolerance = 0.001
+  )
 })
 
 test_that("compute_nsec computes the absolute ecnsec against the control when increasing for an unbounded response", {
@@ -341,7 +413,11 @@ test_that("compute_nsec computes the absolute ecnsec against the control when in
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_equal(result$ecnsec[[2]], c(16.667, 5, -4.545), tolerance = 0.001)
+  expect_equal(
+    result$ecnsec[[2]],
+    c(0.16667, 0.05, -0.04545),
+    tolerance = 0.001
+  )
 })
 
 # A span of zero or less gives no percentage, so `ecnsec` is NA rather than
@@ -357,7 +433,7 @@ test_that("compute_nsec returns an NA ecnsec only for the draws of a proportion 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
   expect_equal(result$reference[2], 1.5)
-  expect_equal(result$ecnsec[[2]], c(200, NA, NA))
+  expect_equal(result$ecnsec[[2]], c(2, NA, NA))
 })
 
 # A span of zero or less gives no percentage (RF, PR #62 review)
@@ -371,7 +447,7 @@ test_that("compute_nsec returns an NA ecnsec when the control is at or below 0 w
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
   expect_equal(result$reference[1], -0.5)
-  expect_equal(result$ecnsec[[1]], c(NA, NA, 125))
+  expect_equal(result$ecnsec[[1]], c(NA, NA, 1.25))
 })
 
 test_that("compute_nsec computes the range ecnsec against the minimum of the curve", {
@@ -383,7 +459,7 @@ test_that("compute_nsec computes the range ecnsec against the minimum of the cur
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25, type = "range")
 
-  expect_equal(result$ecnsec[[1]], c(-5, 5, 15))
+  expect_equal(result$ecnsec[[1]], c(-0.05, 0.05, 0.15))
 })
 
 # A span of zero or less gives no percentage (RF, PR #62 review)

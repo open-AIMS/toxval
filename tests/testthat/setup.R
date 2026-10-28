@@ -8,23 +8,6 @@ options(mc.cores = 1)
 # call anyway.)
 requireNamespace("drc", quietly = TRUE)
 
-random_filename <- function(nchar) {
-  paste0(
-    c(
-      round(runif(nchar) * 15),
-      sample(letters, nchar),
-      sample(LETTERS, nchar)
-    )[sample(1:nchar * 3, nchar)],
-    collapse = ""
-  )
-}
-
-add_na <- function(x, n = 3) {
-  x_b <- x
-  x_b[sample(seq_along(x), n)] <- NA
-  x_b
-}
-
 # Data the tests take from bayesnec are stored in fixtures/ and loaded by
 # helper-fixtures.R, rather than read from the package, so the suite runs
 # without bayesnec installed (#39).

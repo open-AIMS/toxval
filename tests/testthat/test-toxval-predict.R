@@ -23,6 +23,39 @@ test_that("toxval_predict errors when a brmsfit is given no x_var", {
   )
 })
 
+test_that("a misspelt argument errors rather than being ignored", {
+  expect_error(
+    ecx(brms_model_1, x_var = "x", proprtion = 0.5),
+    "`...` must be unused for a `brmsfit`, not 'proprtion'"
+  )
+  expect_error(
+    ecx(nsec_drc_1, proprtion = 0.5),
+    "`...` must be unused for a `drc` fit, not 'proprtion'"
+  )
+})
+
+test_that("an abbreviated argument errors rather than partially matching", {
+  expect_error(
+    ecx(brms_model_1, x_var = "x", resol = 20),
+    "`...` must be unused for a `brmsfit`, not 'resol'"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, n_bo = 10),
+    "`...` must be unused for a `drc` fit, not 'n_bo'"
+  )
+})
+
+test_that("an argument passed by position after object errors", {
+  expect_error(
+    ecx(nsec_drc_1, 0.5),
+    "Arguments after `object` must be named, not passed by position"
+  )
+  expect_error(
+    nsec(brms_model_1, 0.05, x_var = "x"),
+    "Arguments after `object` must be named, not passed by position"
+  )
+})
+
 test_that("toxval_predict errors for a class with no method", {
   expect_error(
     toxval_predict(1:10),
@@ -207,16 +240,84 @@ test_that("toxval_predict errors when group_var is only a group-level effect", {
   )
 })
 
-test_that("toxval_predict errors for a multivariate brmsfit", {
-  # EXPECTED-CHANGE multivariate brmsfit support, one curve per response
-  # this test will stop erroring once that change is applied
-  expect_error(
-    toxval_predict(nsec_multi_model_1, x_var = "dose", resolution = 6),
-    "`object` must not be a multivariate `brmsfit`"
+test_that("toxval_predict gives one curve per response for a multivariate brmsfit", {
+  result <- toxval_predict(nsec_multi_model_2, x_var = "dose", resolution = 6)
+
+  expect_length(result$curves, 2)
+  expect_equal(
+    result$keys,
+    data.frame(
+      response = factor(
+        c("spsurvival", "spgrowth"),
+        levels = c("spsurvival", "spgrowth")
+      )
+    )
+  )
+  expect_identical(result$meta$multi_var, c("spsurvival", "spgrowth"))
+  expect_identical(
+    result$meta$family,
+    c(spsurvival = "bernoulli", spgrowth = "gaussian")
+  )
+  expect_null(result$meta$trials_var)
+  expect_equal(
+    result$curves[[2]],
+    unname(brms::posterior_epred(
+      nsec_multi_model_2,
+      newdata = data.frame(dose = result$x_vec),
+      re_formula = NA,
+      resp = "spgrowth"
+    )),
+    ignore_attr = TRUE
   )
 })
 
+test_that("toxval_predict reads the trials of a binomial response from the fit", {
+  # brms_model_7 is `survived | trials(n) ~ x` (binomial) and `growth ~ x`
+  result <- toxval_predict(brms_model_7, x_var = "x", resolution = 6)
+
+  expect_identical(result$meta$trials_var, c(survived = "n"))
+  expect_identical(
+    result$meta$family,
+    c(survived = "binomial", growth = "gaussian")
+  )
+})
+
+test_that("toxval_predict predicts a binomial response at one trial", {
+  # the trials in the data vary from 16 to 20, so the curve is a proportion
+  # rather than a count at any one of them (T26)
+  result <- toxval_predict(brms_model_7, x_var = "x", resolution = 6)
+
+  expect_equal(
+    result$curves[[1]],
+    unname(brms::posterior_epred(
+      brms_model_7,
+      newdata = data.frame(x = result$x_vec, n = 1),
+      re_formula = NA,
+      resp = "survived"
+    )),
+    ignore_attr = TRUE
+  )
+  expect_true(all(result$curves[[1]] >= 0 & result$curves[[1]] <= 1))
+})
+
+test_that("toxval_predict has no asymptote for a brmsfit unless one is named", {
+  result <- toxval_predict(brms_model_1, x_var = "x", resolution = 6)
+
+  expect_null(result$asymptote)
+})
+
 # toxval_predict.drc --------------------------------------------------------
+
+test_that("toxval_predict takes the asymptotes of a drc fit from its limits", {
+  # nsec_drc_2 is LL.3, whose lower limit is fixed at 0
+  # some bootstrap draws fall outside the parameter space and warn
+  result <- suppressWarnings(
+    toxval_predict(nsec_drc_2, resolution = 5, n_boot = 10, seed = 42)
+  )
+
+  expect_equal(result$asymptote[[1]]$decreasing, rep(0, 10))
+  expect_length(result$asymptote[[1]]$increasing, 10)
+})
 
 test_that("toxval_predict reads x_var from a drc fit when it is not supplied", {
   result <- toxval_predict(nsec_drc_1, resolution = 5, n_boot = 10, seed = 42)
@@ -419,6 +520,26 @@ test_that("toxval_predict takes the grid range from the data when x_range is NUL
   )
 
   expect_equal(range(result$x_vec), range(nsec_drc_1$data$x))
+})
+
+test_that("toxval_predict records the lowest concentration in the data as x_control", {
+  result <- toxval_predict(brms_model_1, x_var = "x", resolution = 4)
+
+  expect_identical(result$meta$x_control, min(brms_model_1$data$x))
+})
+
+test_that("toxval_predict takes x_control from the data, not from x_range", {
+  result <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    x_range = c(1, 3),
+    resolution = 4,
+    n_boot = 5,
+    seed = 42
+  )
+
+  expect_identical(result$meta$x_control, min(nsec_drc_1$data$x))
+  expect_lt(result$meta$x_control, result$x_vec[1])
 })
 
 test_that("toxval_predict errors when the predictor takes a single value", {
@@ -837,5 +958,28 @@ test_that("toxval_predict handles a single bootstrap replicate", {
     as.numeric(result$curves[[1]]),
     c(0.9002389, 0.8941983, 0.4380216, 0.0091685),
     tolerance = 1e-6
+  )
+})
+
+test_that("toxval_predict errors when x_range runs outside where the model is defined", {
+  # brms_model_1 is y ~ log(x), which has no value at x <= 0
+  expect_error(
+    suppressWarnings(
+      toxval_predict(brms_model_1, x_var = "x", x_range = c(-1, 1.05))
+    ),
+    "`x_range` must lie where the model is defined"
+  )
+})
+
+test_that("chk_defined_grid allows a non-finite value in some realisations", {
+  curve <- rbind(c(10, NaN, 8), c(10, 9, 8))
+  expect_silent(chk_defined_grid(list(curve), c(0, 1, 2)))
+})
+
+test_that("chk_defined_grid errors at a grid value with no finite realisation", {
+  curve <- rbind(c(NaN, 9, 8), c(NaN, 9, 8))
+  expect_error(
+    chk_defined_grid(list(curve), c(0, 1, 2)),
+    "no finite prediction at 1 of 3 grid values, between 0 and 0"
   )
 })

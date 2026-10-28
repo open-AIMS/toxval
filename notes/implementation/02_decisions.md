@@ -3,8 +3,10 @@
 Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
 2026-09-04/05 with T8-T12, which settle the definitions gating the refactor, and
 2026-10-09 with T13-T17, from the review of PR #59, 2026-10-17 with T18-T20,
-from the review of PR #62, and 2026-10-18/19 with T21-T33, the rulings phases
-4 and 5 need. A session implements these rather than re-opening them.
+from the review of PR #62, 2026-10-18/19 with T21-T33, the rulings phases
+4 and 5 need, and 2026-10-22 to 2026-10-26 with T34 and T36-T39, from the
+review of PR #66, and 2026-10-27 with T40. A session implements these rather
+than re-opening them.
 
 **Scope.** This file records decisions about the **package** — what the code
 does and why. Workflow is not recorded here: branching, remotes and review live
@@ -176,6 +178,9 @@ Two points settled in the discussion:
 
 - **A direction with no crossing emits a row with `NA`**, rather than omitting
   the row. The direction was looked for and not found, which is information.
+- **A row with no estimate keeps its `ecnsec`** (RF, 2026-10-24, ruling 1 on
+  PR #66). `ecnsec` depends only on the control and the reference, which the
+  row already reports, not on a crossing.
 - **Each direction has its own reference.** A single reference would return
   `NA` in both directions for a monotonic increasing response, which is the
   case #20 exists to support. `nsec_multi` already builds `reference_dec` and
@@ -205,6 +210,13 @@ Two quantities computed that differently should not share the column names
 **Consequence.** `drc` intervals change. They are not a correction of the
 current ones but a different quantity, so this needs a NEWS entry and the
 reasoning in the documentation, not a silent substitution. Built in phase 2.
+
+**Invalid replicates** (RF, 2026-10-24, ruling 5 on PR #66). A replicate
+outside the parameter space gives non-finite predictions: on `nsec_drc_2`,
+24.6% of replicates have `e < 0`. Such a replicate is excluded from the summary
+with a warning, in `ecx()` and `nsec()` alike. The remedies, dropping invalid
+replicates in `toxval_predict.drc()` or bootstrapping on a transformed scale,
+amend this entry and need their own evidence: #76.
 
 This is an approach rather than a definition, so it did not gate phase 0.
 
@@ -257,15 +269,18 @@ Settled 2026-09-04 (RF) on #20. Recorded 2026-10-09 (RF), after the review of
 #59 found the plan still listing `nsec_multi` as a separate metric function.
 Stated in full in `REFACTOR-claude.md` §3.3.
 
-`nsec_multi()` becomes a deprecated wrapper around `nsec()`. Its arguments are
-redistributed:
+`nsec_multi()` becomes a deprecated wrapper around `nsec()`. Amended
+2026-10-24 (RF): `nsec_multi()` is defunct rather than a wrapper (T37). Its
+arguments are redistributed:
 
-- `multi_var` and `trials_var` become arguments of `toxval_predict.brmsfit()`.
+- `multi_var` and `trials_var` are no longer arguments. `toxval_predict.brmsfit()`
+  reads the responses, their families and any trials column from the fit with
+  `brms::brmsterms()` (amended 2026-10-23, AP).
 - `type = "both"`, `"increasing"` and `"decreasing"` become filters on the
   `direction` column (T10).
-- `type = "lower"` with `criterion` stays an argument of `nsec()`, under a new
+- ~~`type = "lower"` with `criterion` stays an argument of `nsec()`, under a new
   name chosen in phase 4, because `type` in `nsec()` selects the `ecnsec`
-  definition (T8).
+  definition (T8).~~ Amended by T30: a documented filter on the result.
 
 ## T16 — marginalised group-level effects in a `brmsfit` (#59)
 
@@ -303,7 +318,8 @@ A proportion is recognised from `meta$family`: the `brms` families `bernoulli`,
 `beta`, `zero_inflated_beta` and `zero_one_inflated_beta`, and a `drc` fit whose
 `type` is `"binomial"`. A `brms` binomial or beta-binomial fit is predicted as a
 count of trials, so its increasing reference is `NA` until the number of trials
-is recorded (T15).
+is recorded (T15). Amended 2026-10-23 (AP): such a fit is predicted at one
+trial, so it is a proportion with the bound 1 (T26).
 
 A span of zero or less gives `NA` for the reference and for `ecnsec`, in either
 direction. This replaces the error §3.10 specified for a control at or above 1.
@@ -351,7 +367,8 @@ lies:
 - A realisation whose control already lies beyond the reference in the
   direction sought takes the lowest concentration in the data the model was
   fitted to. That is the control concentration, which `x_vec[1]` is not when
-  `x_range` is supplied.
+  `x_range` is supplied. In `nsec()`, one that shows no effect in the tested
+  range is censored instead (amended 2026-10-27, below).
 - A realisation with no crossing within the evaluated range keeps its rank
   above `max(x_vec)` and is not given a value. A quantile that falls among such
   realisations is reported as `max(x_vec)`, and the call warns with the
@@ -360,13 +377,84 @@ lies:
 The increasing direction mirrors the first rule against the `1 - sig_val`
 reference. In `ecx()` the second rule applies as in `nsec()`. A realisation
 whose `ecx()` reference is `NA`, a span of zero or less (T18), is excluded from
-the summary and counted in the warning, not censored.
+the summary and counted in the warning, not censored. Under `range` it is
+censored instead (T38).
 
 `meta` does not record the lowest concentration in the data, so the first rule
 adds `meta$x_control`, the concentration assumed to be the control (RF,
 2026-10-19). The `x_` prefix, as in `x_var` and `x_range`, separates it from the
 `control` slot (T13), which holds response realisations from a control-only fit. Adding it changes the public
 `toxval_pred` contract (§3.3).
+
+Amended 2026-10-27 (RF) on #74, for `nsec()` only. For a realisation whose
+control is past the NSEC reference in the direction sought:
+
+1. If it crosses the reference in the direction sought, it takes that crossing,
+   as before.
+2. Otherwise it is censored above `max(x_vec)`, and counted in the censored
+   fraction (T25), when both of these hold:
+   - its first change in response, as concentration rises from the control,
+     is away from the effect: rising for a decreasing reference, falling for an
+     increasing one. The first change is the first difference between adjacent
+     grid values whose absolute value exceeds `1e-8` times the largest
+     absolute response of that realisation. A realisation with no such
+     difference counts as away;
+   - it is on the no-effect side of the reference at a later grid value. With
+     no crossing in the direction sought, it does not return.
+3. Every other such realisation takes the control concentration, as before.
+
+A realisation that meets both conditions is past the reference at the control
+only because its own control lies in the tail of the control realisations,
+which by construction is true of about `sig_val` of them. Its response changes
+away from the effect and does not return, so it shows no effect within the
+tested range. At the control it was ranked with the most sensitive
+realisations, which lowered the lower limit and sometimes the upper limit.
+
+Each condition alone was rejected, because each misplaces realisations in the
+test fixtures. Being on the no-effect side at a later grid value, alone,
+censors a realisation that first changes further into the effect and leaves
+only near the top. In the increasing row of `brms_model_5`, the 10 realisations
+above the reference at the control rise, have no increasing crossing, and fall
+below the reference at x = 1.98 to 2.10, on a grid from 0.032 to 3.22. Their
+effect begins at the control, which is where rule 3 places them. A first change
+away from the effect, alone, censors hormetic realisations that rise a little,
+stay past the reference throughout, and then fall steeply. The decreasing row
+of `bnec_model_1` has 4 (#74).
+
+The tolerance is needed because some curves are flat at the control. `nec`
+equations hold a plateau, and `drc` log-logistic curves change by about 1e-14
+near 0, a change whose sign is arbitrary. Rule 1 is kept because a small first
+change does not locate the crossing. The decreasing row of `brms_model_3` has 10
+hormetic realisations that start just below the reference, dip by about
+0.0003, rise above it and cross it near 1.2, where the other realisations
+cross. They keep that crossing.
+
+`ecx()` keeps the first rule unchanged for every `type` (RF, 2026-10-27).
+Under `absolute`, `relative` and `range`, each realisation's reference is built
+from its own control, so no control is past its own reference and the rule
+could not apply. Under `direct` the reference is a level the user supplies. A
+realisation past it at the control is beyond that level, not past it because
+of its own control, and the control concentration is the right answer for it.
+Applying the rule there would change answers wholesale rather than correct a
+few. In `ecx(brms_model_1, type = "direct", reference = 0.5)`, 95% of the
+controls exceed 0.5. The rule would censor 858 of 1,000 realisations in the
+increasing row, and change its estimate from the control (0.8) to the highest
+concentration (1.05) (#74).
+
+Run on `02f543f` with and without the amendment, at 500 grid points unless
+stated, the rule censors 7 of the 10 realisations at the control in the
+decreasing row of `brms_model_1`, whose lower limit changes from 0.9847278 to
+0.991338. It censors all 10 in the decreasing row of `brms_model_6`, from
+0.966905 to 0.9716878. The estimates and upper limits of both stay at 1.05. In
+`brms_model_2` with `group_var = "z"`, it censors 9 of 10 in the decreasing row
+of group 2, whose lower limit changes from 0.9789 to 1.004, and 8 of 10 in the
+increasing row, from 0.9205 to 0.9418. In the sp_growth decreasing row of
+`nsec_multi_model_2` at 50 points it censors 5 of 10, and the NSEC changes from
+0.8591841 (0.3908073 to 1.5) to 0.8671501 (0.410851 to 1.5). These agree with
+the values in #74, computed outside toxval with quantile type 7.
+
+The amendment departs from `bayesnec` D17 ruling 1 and the `bayesnec` #404
+rule, which T21 adopted and which place every such realisation at the control.
 
 ## T22 — `lifecycle` joins `Imports`
 
@@ -375,7 +463,8 @@ Settled 2026-10-18 (RF).
 The deprecations in this plan use `lifecycle::deprecate_warn()`, as T9 and
 `REFACTOR-claude.md` §3.5 specify: of `hormesis_def` and `horme` (T28), of
 `nsec_multi()` (T15), and of `posterior` (§3.5). `lifecycle` is added to
-`Imports` in phase 4. The change of meaning of `relative` is not a deprecation,
+`Imports` in phase 4. Amended 2026-10-24 (RF): `nsec_multi()` and `posterior`
+are made defunct with `lifecycle::deprecate_stop()` instead (T37). The change of meaning of `relative` is not a deprecation,
 and has a plain warning (T29).
 
 ## T23 — the scope of `anchor` in phase 4 (T12)
@@ -419,6 +508,21 @@ The `drc` limits are not looked up from `fct$name`, as §3.10 first specified.
 `fct$name` is `"::"` for a fit made with `drc::LL.4()`, and custom `names =`
 change the parameter letters.
 
+Implemented 2026-10-23 (AP), with two points the ruling did not cover:
+
+- `brms` applies the link to the whole non-linear formula, so a named
+  parameter is on the link scale: `bot` of `brms_model_4` (beta, logit link)
+  is about -5.0, an asymptote of 0.0067 on the response scale. A named
+  parameter is taken per draw with `posterior_linpred(nlpar = )` at the first
+  grid value and transformed by `stats::make.link()`'s inverse; a numeric
+  `asymptote` is on the response scale. A link `make.link()` does not know
+  errors and asks for a number.
+- `asymptote` is refused for a multivariate fit until an asymptote per
+  response is needed.
+
+`asymptote` is a descriptor column of every `ecx()` and `nsec()` result,
+`NA` unless `type = "relative"` (§3.10 Output).
+
 ## T25 — warnings for censored and excluded realisations (#6, #24)
 
 Settled 2026-10-18 (RF).
@@ -437,8 +541,17 @@ Settled 2026-10-18 (RF).
 - `meta$multi_var` holds the response names as `posterior_epred()` returns
   them (for example `spsurvival`), matched to the data columns by name rather
   than by position.
-- `trials_var` is recorded per curve, and T18's increasing `absolute` reference
-  for a binomial response uses it.
+- ~~`trials_var` is recorded per curve, and T18's increasing `absolute` reference
+  for a binomial response uses it.~~ Amended 2026-10-23 (AP), confirmed
+  2026-10-24 (RF, ruling 6 on PR #66): a binomial response is predicted at one trial, so its curve,
+  `control` and `reference` are proportions and its upper bound is 1. Trials
+  often vary between observations (eggs counted per well, larvae offered), so
+  no single count scale exists, and a scale that switched with the data was
+  rejected. NSEC, ECx and `ecnsec` do not depend on the number of trials. The
+  trials column is read from the fit and recorded as `meta$trials_var`; a
+  constant or an expression in `trials()` is an error.
+- `meta$multi_var` and the `response` column hold the `brms` response names
+  (`spsurvival`, not `sp_survival`), matched by name (2026-10-23, AP).
 
 A fit whose trials are a normalising total rather than a ceiling on the
 response then also takes extra risk, which puts its increasing `ecnsec` close to
@@ -465,6 +578,15 @@ directions are computed (T10), and the tests marked #20 change. `by_group`,
 `group_var = NA`, `x_range = NA` and `curveid` are translated to the new
 arguments without a warning. They are deprecated with the change to the
 `toxval` tibble.
+
+Settled 2026-10-24 (RF), rulings 2 and 4 on PR #66:
+
+- `by_group = FALSE` with a `group_var` is an error (T3), since the pooled
+  result it asked for is no longer computed.
+- The decline from the peak, `hormesis_def = "max"`, is not reimplemented. It
+  defines a different reference, and further reference definitions are the
+  scope of #63. It is no longer available to `bayesnec` users after phase 7,
+  which the phase 7 plan states.
 
 ## T29 — `relative` takes its new meaning in phase 4 (T9)
 
@@ -494,10 +616,15 @@ quantile of its realisations. That is a filter on the result returned with
 `draws = TRUE`:
 
 ```r
-nsec(fit, multi_var = "sp", draws = TRUE) |>
+nsec(fit, x_var = "dose", draws = TRUE) |>
   dplyr::mutate(
-    at_criterion = vapply(draws, \(d) quantile(d$value, 0.8), numeric(1))
+    at_criterion = vapply(
+      draws,
+      \(d) quantile(d$value.draw, 0.8, na.rm = TRUE),
+      numeric(1)
+    )
   ) |>
+  dplyr::filter(!is.na(estimate)) |>
   dplyr::group_by(response) |>
   dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
   dplyr::ungroup()
@@ -507,10 +634,17 @@ The same filter ran as written on `compute_nsec()` output for `brms_model_4`,
 with its seven herbicide groups in place of responses (2026-10-19). A tie keeps
 the decreasing row, which comes first, as `nsec_multi()` does today. Censored
 realisations rank above `max(x_vec)` (T21), and enter the quantile there.
+Excluded realisations are `NA` in `value.draw`, hence `na.rm = TRUE`.
 
-`nsec_multi(type = "lower", criterion = )` keeps working through the deprecated
-wrapper, which applies the filter itself. The `nsec()` documentation shows the
-filter as an example.
+A row whose estimate is `NA` is dropped before choosing (RF, 2026-10-24, ruling
+7 on PR #66). Such a direction was searched and has no crossing (T10), so it
+cannot be the lower NSEC. Without the filter, `nsec_multi_model_2` at
+`criterion = 0.01` kept the spsurvival increasing row, whose estimate is `NA`.
+
+~~`nsec_multi(type = "lower", criterion = )` keeps working through the
+deprecated wrapper, which applies the filter itself.~~ Amended 2026-10-24 (RF):
+`nsec_multi()` is defunct (T37). The `nsec()` documentation shows the filter
+as an example.
 
 ## T31 — `resolution` defaults to 500
 
@@ -585,6 +719,149 @@ layer is not written, and each changed test is edited once rather than twice.
 The `toxval` tibble class is built first and additively, as phase 2 built the
 spine. The check that numbers do not change unintentionally compares values
 recorded before the change with the decreasing rows of the new output.
+
+## T34 — `control` is summarised over the realisations of the estimate (T21, T25)
+
+Settled 2026-10-22 (RF) on PR #66.
+
+The `control` column of a row is the central quantile of the control
+realisations not excluded from that row (T21), the same realisations as the
+estimate and the `reference` column. Each row then describes one set of
+realisations, and the warning reports the fraction excluded from it (T25).
+Summarised over every realisation, the printed reference under `absolute` was
+not the stated fraction of the printed control: on `brms_model_1` at a
+resolution of 500, 8 of 1000 realisations have a negative control and no
+reference, and the EC10 reference was 0.8158 against 0.9 x 0.9045 = 0.8140.
+
+Under `absolute` every reference is an increasing linear function of the
+control (0.9 x control decreasing, 1.1 x control increasing, 0.1 + 0.9 x control
+increasing on a proportion), and type 7 quantiles commute with such a
+function, so the relation holds exactly in the printed table. Under `range` the
+reference also depends on each realisation's minimum or maximum, so it does
+not.
+
+Each direction excludes its own realisations, so `control` can differ between
+the two rows of one curve. Where every realisation of a row is excluded,
+`control` is `NA`. Under `relative` that is the row of a direction with no
+asymptote, which has no estimate and no reference either. Under `range` a
+realisation with no span is censored rather than excluded (T38), so the
+increasing row of a monotone decreasing curve keeps its `control`. `nsec()` is unaffected: its reference is one finite value per curve,
+so no realisation is excluded.
+
+## T36 — a grid value with no finite prediction is an error (T3)
+
+Settled 2026-10-24 (RF), ruling 3 on PR #66. T35 is held for #68.
+
+`toxval_predict()` errors when a value of `x_vec` has no finite prediction in
+any realisation, naming the affected range of the predictor. An `x_range` below
+0 for a formula in `log(x)` is the usual case. Such a grid previously gave
+values, then `NA`. A grid value with no finite prediction in any realisation is
+a mismatch between `x_range` and the model, so it is an error rather than a
+coercion (T3).
+
+## T37 — `nsec_multi()` and `posterior` are defunct
+
+Settled 2026-10-24 (RF) on PR #66, amending T15, T22, T30 and
+`REFACTOR-claude.md` §3.5.
+
+`nsec_multi()` and the `posterior` argument of `ecx()` and `nsec()` are made
+defunct with `lifecycle::deprecate_stop()`, rather than kept as a deprecated
+wrapper and a deprecated argument. A call to `nsec_multi()` stops with an error
+that names `nsec()`, and a call that supplies `posterior` stops with one that
+names `draws`. The stubs are deleted in a later release.
+
+The wrapper kept a call running, but it returned the new `toxval` tibble, so
+code that read the old output, such as the `dec_val`, `inc_val` and `vars`
+columns, failed anyway, later and further from the cause. The old function also
+predicted a binomial response at the trials in the data, so its `control` and
+`reference` were counts where `nsec()` now reports proportions (T26).
+`posterior = TRUE` returned a numeric vector of realisations and now returns a
+`toxval` tibble, so code that used the vector fails in the same way:
+`quantile(ecx(fit, posterior = TRUE), 0.5)` stops with "cannot xtfrm data
+frames". An error at the call names the replacement where the code has to
+change.
+
+The other retired arguments, `ecx_val`, `hormesis_def`, `horme`, `by_group` and
+`curveid`, stay deprecated for one release (T28, T32). Each is ignored or
+translated, so a call that supplies one returns the same rows as the call that
+replaces it.
+
+No argument replaces `multi_var` or `trials_var`, since `nsec()` reads the
+responses of a multivariate `brmsfit` from the fit. `type = "lower"` becomes
+the documented filter alone (T30).
+
+## T38 — realisations with no span under `range` are censored (T21)
+
+Settled 2026-10-24 (RF) on PR #66, amending T21.
+
+Under `range`, a realisation whose span is zero or less is censored, not
+excluded. Exclusion is kept for a realisation whose control is not finite, and
+for a span of zero or less under `absolute` and `relative`.
+
+Under `range`, the span is the distance from the control to the lowest
+(decreasing) or highest (increasing) response the curve predicts. A span of
+zero means the realisation never falls below, or rises above, its control
+within the evaluated range, which is the definition of a censored realisation.
+Excluding it instead summarises only the realisations that show an effect in
+that direction.
+
+On `brms_model_1` (`y ~ log(x)`, 1000 draws, `resolution = 500`), 951 draws
+decrease and 49 increase. With exclusion, the increasing `range` EC10 is 0.822
+(0.822, 0.822), computed from the 49 increasing draws with 95.1% excluded, and
+its `control` is 0.404 against 0.914 on the decreasing row. With censoring, the
+decreasing row is 0.822 (0.822, 1.05) and the increasing row 1.05 (0.822,
+1.05).
+
+The censored realisation's reference stays `NA`, so the `reference` summary is
+unaffected. `nsec(type = "range")` is unaffected, since its reference does not
+depend on the span; its `ecnsec` stays `NA` for such a realisation.
+
+## T39 — `...` follows `object`, and an unused argument is an error
+
+Settled 2026-10-26 (AP) on PR #66.
+
+In `ecx()`, `nsec()`, the `toxval_predict()` generic and its methods, `...` is
+the second argument, so every argument after `object` must be named in full.
+R matches an argument before `...` by partial name and by position, so
+`ecx(fit, x_var = "x", resol = 20)` ran at a resolution of 20 without a
+message. After `...`, only an exact name matches.
+
+The `brmsfit` and `drc` methods of `toxval_predict()` error when `...` is not
+empty, naming the arguments. They never passed `...` on, so a misspelt,
+abbreviated or unnamed argument was dropped without a message. The check is in
+the methods rather than in `ecx()` and `nsec()`, which pass `n_boot`, `seed`
+and `asymptote` through `...` to the method that takes them. A method defined
+in another package decides for itself what to do with `...`.
+
+An argument to the underlying prediction, such as `ndraws` for
+`brms::posterior_epred()`, is added as a named argument of the method rather
+than passed through `...`.
+
+## T40 — `toxval` tibbles combine only when their settings match
+
+Settled 2026-10-27 (AP) on PR #66.
+
+`vctrs` methods `vec_ptype2.toxval.toxval()` and `vec_cast.toxval.toxval()`
+let `dplyr::bind_rows()` combine `toxval` tibbles whose `settings` are
+identical, keeping the class and header. Tibbles whose settings differ, such as
+`ecx()` on a `brmsfit` and `nsec()` on a `drc` fit, are an error that says to
+convert each with `tibble::as_tibble()` first. The header describes every row
+(§3.1), and no single header describes rows from different runs.
+
+Before, `bind_rows()` kept the settings of the first tibble and printed
+"Model: brmsfit" and "posterior draws" above the `drc` rows. A
+`dplyr_reconstruct.toxval()` method, which §3.1 and the phase 5 row planned,
+cannot prevent this: `bind_rows()` passes it only the first tibble as the
+template, and the generic strips the combined data to a bare data frame, so the
+settings of the other tibbles are never seen. No `dplyr_reconstruct()` method is
+written. `filter()`, `select()`, `mutate()`, `arrange()`, `slice()`, the joins
+and `distinct()` keep the class and the header through the default method,
+which copies them from the input they describe.
+
+An error was chosen over dropping to a plain tibble, which `bind_rows()` cannot
+be made to do, and over moving the settings into columns, which would change
+§3.1. `vctrs` is added to Imports; it is already a dependency of `dplyr` and
+`tibble`.
 
 ---
 

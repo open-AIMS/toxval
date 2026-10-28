@@ -24,8 +24,10 @@ Imports:
     brms,
     chk (>= 0.11.0),
     dplyr,
-    modelbased,
-    tidyr,
+    lifecycle,
+    pillar,
+    tibble,
+    vctrs,
     withr
 Suggests:
     BH,
@@ -33,7 +35,8 @@ Suggests:
     drc,
     RcppEigen,
     rmarkdown,
-    testthat (>= 3.1.7)
+    testthat (>= 3.1.7),
+    tidyr
 Biarch: true
 Config/roxygen2/version: 8.0.0.9000
 Config/testthat/edition: 3

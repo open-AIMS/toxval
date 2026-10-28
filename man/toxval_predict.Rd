@@ -9,45 +9,50 @@
 \usage{
 toxval_predict(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
-  x_range = NULL,
-  ...
+  resolution = 500,
+  x_range = NULL
 )
 
 \method{toxval_predict}{default}(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
-  x_range = NULL,
-  ...
+  resolution = 500,
+  x_range = NULL
 )
 
 \method{toxval_predict}{brmsfit}(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
-  ...
+  asymptote = NULL
 )
 
 \method{toxval_predict}{drc}(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
-  resolution = 1000,
+  resolution = 500,
   x_range = NULL,
   n_boot = 1000,
-  seed = NULL,
-  ...
+  seed = NULL
 )
 }
 \arguments{
 \item{object}{A fitted model object. Methods are provided for \link[brms:brmsfit]{brms::brmsfit}
 and \code{drc} fits.}
+
+\item{...}{Additional arguments passed to methods. These and every argument
+after \code{...} must be named in full; an argument the method does not use is
+an error.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -62,7 +67,12 @@ evaluate the curve at. Larger values estimate a metric more precisely.}
 \item{x_range}{A numeric vector of length 2 giving the range of predictor
 values to evaluate over, or \code{NULL} to use the range in the model data.}
 
-\item{...}{Additional arguments passed to methods.}
+\item{asymptote}{\code{NULL}, or a vector named \code{decreasing}, \code{increasing} or
+both, giving the lower and upper asymptotes of a \code{brmsfit} for
+\code{type = "relative"}: as the names of non-linear parameters, such as
+\code{c(decreasing = "bot", increasing = "top")}, which are taken per posterior
+draw and transformed by the inverse link, or as numbers on the response
+scale. A direction not named has no asymptote.}
 
 \item{n_boot}{A whole number giving the number of parametric bootstrap
 replicates to draw.}
@@ -106,13 +116,31 @@ column of the model data that enters as a population-level effect: a
 variable that appears only in a group-level term, such as \code{site} in
 \code{y ~ x + (1 | site)}, gives every level the same curve and is an error.
 
+A multivariate fit gives one curve per response, and per level of
+\code{group_var} when it is supplied, so the responses are read from the fit
+rather than named. They are named as \code{brms} names them, for example
+\code{spsurvival} for a column \code{sp_survival}.
+
+A binomial response, such as \code{y | trials(n) ~ x}, is predicted at one
+trial, so its curves, \code{control} and \code{reference} are proportions rather
+than counts whatever the trials in the data. The trials are read from the
+fit and must name a single column of the data. An NSEC or ECx does not
+depend on the number of trials, so only the scale of \code{control} and
+\code{reference} differs from a prediction at the observed trials.
+
+\code{type = "relative"} needs \code{asymptote}, since which parameter of a
+non-linear formula is an asymptote cannot be read from the fit. It is not
+supported for a multivariate fit.
+
 \item \code{toxval_predict(drc)}: Method for a \code{drc} fit returned by \code{\link[drc:drm]{drc::drm()}}.
 Realisations are parametric bootstrap replicates, so results are stochastic
 unless \code{seed} is supplied. \code{x_var} is read from the fit when \code{NULL}, and a
 supplied \code{x_var} must match the dose variable of the fit, so another
 column, such as the response, cannot be passed as the predictor.
 \code{group_var} must name the column passed as \code{curveid}, and the levels are
-read from the coefficient names rather than from a column position.
+read from the coefficient names rather than from a column position. The
+asymptotes \code{type = "relative"} measures to are the lower and upper limits
+of the fitted function, from \code{fct$lowerAs()} and \code{fct$upperAs()}.
 
 }}
 \section{Supplying the predictor}{

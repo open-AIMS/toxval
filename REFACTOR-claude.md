@@ -92,7 +92,8 @@ takes four values; see §3.10 for the vocabulary.
 
 Optional column:
 
-- `draws` — a list column of realisations, attached when `draws = TRUE`.
+- `draws` — a list column of realisations, attached when `draws = TRUE`: one
+  tibble per row with `.draw`, `value.draw` and, for `nsec`, `ecnsec.draw`.
   See [3.5](#35-draws).
 
 #### `metric` is a closed vocabulary
@@ -136,7 +137,10 @@ Header lines are **display only**. Anything a caller needs programmatically is a
 column. Bare attributes on a tibble subclass are dropped by most dplyr verbs
 unless `dplyr_reconstruct.toxval` and friends are implemented, so a user doing
 `result |> filter(group == "A")` would silently lose them or keep ones that
-no longer describe the data.
+no longer describe the data. Amended 2026-10-27 (AP, T40): the dplyr verbs keep
+the header through the default method, so no `dplyr_reconstruct.toxval` is
+written. `bind_rows()` of `toxval` tibbles combines them only when their
+settings are identical, through `vctrs` methods, and otherwise errors.
 
 #### Examples
 
@@ -238,21 +242,23 @@ separately.
 Settled 2026-09-04 (RF) on #20, and recorded here 2026-10-09 (RF) on #59, after
 the review of #59 found the plan still listing `nsec_multi` as a separate metric
 function. `nsec_multi()` becomes a deprecated wrapper around `nsec()`.
+Amended 2026-10-24 (RF, T37): `nsec_multi()` is defunct, and a call to it stops
+with an error that names `nsec()`.
 
 Once direction is a column of the result ([3.6](#36-direction)), each argument
 that only `nsec_multi()` takes is either handled elsewhere or kept:
 
-- `multi_var` and `trials_var` say which data the curves are predicted from, so
-  they are predict-level under [3.7](#37-validation) and become arguments of
-  `toxval_predict.brmsfit()`. `trials_var` names the column of trial counts in a
-  binomial model.
+- `multi_var` and `trials_var` said which data the curves are predicted from.
+  They are not arguments: `toxval_predict.brmsfit()` reads the responses, their
+  families and any trials column from the fit with `brms::brmsterms()`, and
+  predicts a binomial response at one trial (amended 2026-10-23, AP; T26).
 - `type = "both"`, `"increasing"` and `"decreasing"` are filters on the
   `direction` column, and are removed.
 - `type = "lower"` with `criterion` selects, for each response, the direction
   whose NSEC is lower at the `criterion` quantile of the realisations (default
   0.8). It is the one metric-level rule. It is a filter on the result returned
-  with `draws = TRUE`, so `nsec()` takes no argument for it, and `nsec_multi()`
-  applies it inside the wrapper (T30).
+  with `draws = TRUE`, so `nsec()` takes no argument for it (T30). The filter
+  drops rows whose estimate is `NA` before choosing (T30, amended 2026-10-24).
 
 The consequence that matters now is that `nsec(fit, group_var = , multi_var = )`
 becomes a valid call. A grouped multivariate fit therefore has to be
@@ -412,7 +418,7 @@ platform does natively.
 **Invariant: realisation *i* is the same underlying draw in every slot of a
 `toxval_pred`.** Row *i* of every matrix in `curves`, and element *i* of
 `threshold`, come from the same posterior draw (or the same bootstrap
-replicate). This is what makes the `draws` list columns in
+replicate). This is what makes the `draws` list column in
 [3.5](#35-draws) honest, and it is cheap to assert in the validator.
 
 For a single fit it holds trivially. For a **model-averaged** fit it has to be
@@ -477,15 +483,30 @@ Long form is one pipe stage, not an API:
 ```r
 ecx(fit, draws = TRUE) |> tidyr::unnest(draws)
 #> # A tibble: 4,000 x 6
-#>   metric direction  ecx_val estimate .draw  value
-#>   <chr>  <chr>        <dbl>    <dbl> <int>  <dbl>
-#> 1 ecx    decreasing      10    0.832     1  0.841
-#> 2 ecx    decreasing      10    0.832     2  0.795
-#> 3 ecx    decreasing      10    0.832     3  0.826
+#>   metric direction  ecx_val estimate .draw value.draw
+#>   <chr>  <chr>        <dbl>    <dbl> <int>      <dbl>
+#> 1 ecx    decreasing      10    0.832     1      0.841
+#> 2 ecx    decreasing      10    0.832     2      0.795
+#> 3 ecx    decreasing      10    0.832     3      0.826
 #> # i 3,997 more rows
 ```
 
 `.draw` follows the `posterior` / `tidybayes` convention deliberately.
+
+#### The contents of a `draws` cell
+
+Settled 2026-10-21 (AP). Each cell is a tibble with one row per realisation:
+`.draw`, the realisation index; `value.draw`, the metric for that realisation;
+and, for `nsec`, `ecnsec.draw`, the effect at the NSEC for the same
+realisation. A realisation with no crossing in the evaluated range is `Inf`,
+so it ranks above `max(x_vec)` (T21), and an excluded one is `NA`.
+
+The `.draw` suffix marks the three as a group and keeps them distinct from the
+summary columns. An inner column named `ecnsec` would share its name with the
+summary `ecnsec` column, and `tidyr::unnest(result, draws)` errors on the
+duplicate. One tibble rather than two list columns keeps the NSEC and
+`ecnsec` of each realisation on one row after a single `unnest()`; the two
+always have the same number of realisations, one per row of the curve matrix.
 
 #### Why a list column rather than `*_draws()` functions
 
@@ -505,14 +526,14 @@ column:
   site rather than something a flag does invisibly.
 - **Paired quantities.** `nsec` produces two per-realisation quantities — the
   NSEC realisations and the `ecnsec` realisations — from the same draws. As two
-  list columns on the same row they are aligned by construction. In long form
-  they need a `quantity` column and a self-join to re-pair.
+  columns of the same `draws` tibble they are aligned by construction. In long
+  form they need a `quantity` column and a self-join to re-pair.
 
 Against that, `*_draws()` would double the exported surface (`ecx_draws`,
 `nsec_draws`, `nsec_multi_draws`, later `nec_draws`, `noec_draws`) and duplicate
 the documentation and tests, to save one `unnest()`.
 
-**Pairing is guaranteed, not assumed.** Two list columns on the same row imply
+**Pairing is guaranteed, not assumed.** Two columns of one `draws` tibble imply
 realisation *i* of one corresponds to realisation *i* of the other, and the
 `toxval_pred` alignment invariant in
 [3.4](#34-the-toxval_pred-intermediate-object) makes that true by construction —
@@ -525,9 +546,14 @@ than something the output has to hedge about.
 draws. `draws = TRUE` *adds* a column. The shape changes either way, so the
 deprecation message has to say so.
 
-Since 1.0.0 has been released, keep `posterior` accepted for one release behind
+~~Since 1.0.0 has been released, keep `posterior` accepted for one release behind
 `lifecycle::deprecate_warn()`, mapping it to `draws` and warning that the return
-shape has changed. Two current defects make the retirement easy to justify:
+shape has changed.~~ Amended 2026-10-24 (RF, T37): `posterior` is defunct. A
+call that supplies it stops through `lifecycle::deprecate_stop()` with an error
+that names `draws`, since code that used the old vector fails anyway, later and
+further from the cause. The formal stays as `lifecycle::deprecated()`, so the
+error names `draws` rather than reporting an unused argument (T39). Two
+defects of the old argument made the retirement easy to justify:
 
 - `nsec.drc()` has no `posterior` parameter at all — it is absorbed by `...`, so
   `nsec(drc_fit, posterior = TRUE)` passes `chk_logical()` in the generic and is
@@ -606,10 +632,15 @@ them at the grid edge makes it a function of where testing stopped. Measured on
 43.8th percentile of the full posterior as the median, and both rules return the
 grid boundary or below it as the upper compatibility limit against a true 4.788.
 T21 therefore places each realisation where its crossing lies. One whose control
-is already beyond the reference takes the lowest concentration in the data. One
+is already beyond the reference takes the lowest concentration in the data. In
+`nsec()` the exception is one whose response first changes away from the effect
+and passes to the other side of the reference without returning, which shows no
+effect in the tested range and is censored (T21, amended on #74). One
 with no crossing in the evaluated range keeps its rank above `max(x_vec)`, so a
 quantile that falls among such realisations is reported as `max(x_vec)`, with a
-warning giving the fraction (T25).
+warning giving the fraction (T25). The `control` and `reference` columns of a
+row are summarised over the same realisations as its estimate, those not
+excluded (T34).
 
 ### 3.7 Validation
 
@@ -617,9 +648,9 @@ warning giving the fraction (T25).
 
 - Predict-level arguments (`x_var`, `group_var`, `x_range`, `resolution`, and
   that the model has a `toxval_predict` method) are validated in
-  `toxval_predict()`. `multi_var` and `trials_var` join them when
-  `nsec_multi()` is folded into `nsec()` (T15), as arguments of
-  `toxval_predict.brmsfit()`.
+  `toxval_predict()`. The responses and trials of a multivariate or binomial
+  `brmsfit` are read from the fit, so `multi_var` and `trials_var` are not
+  arguments (T15, amended 2026-10-23).
 - Metric arguments (`ecx_val`, `type`, `sig_val`, `prob_vals`, `xform`) are
   validated in the metric entry point, so every class gets identical checks.
   - This fixes the current bug where `ecx.bnecfit` never validates the `ecx_val`
@@ -1089,11 +1120,8 @@ A proportion is recognised from `meta$family` (`response_upper_bound()` in
 `zero_one_inflated_beta`, and a `drc` fit whose `type` is `"binomial"`, which
 `drc` predicts on the proportion scale. `toxval_predict.drc()` records the
 `type` as `meta$family` for this purpose. A `brms` binomial or beta-binomial fit
-is predicted by `posterior_epred()` as a count of trials, bounded by the number
-of trials, which a `toxval_pred` does not record until `trials_var` (T15); its
-increasing `absolute` reference is `NA` until then.
-
-Phase 4 records `trials_var` (T26), so such a fit takes extra risk. Where the
+is predicted by `toxval_predict()` at one trial, so on the proportion scale,
+and takes extra risk like any other proportion (T26, amended 2026-10-23). Where the
 trials are a normalising total rather than a ceiling, as in a gene expression
 fit whose trials are each gene's total count, extra risk measures the change
 against that total. On the 78-gene beta-binomial fit of the #63 comment of
@@ -1216,8 +1244,8 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 1 | **Lock a regression net.** Mark every test a later phase changes with `# EXPECTED-CHANGE <reason> #<issue>`, replacing the existing `TODO` markers; unmarked tests are the "must not move" set. Excluded as too broad to mark: the phase-5 tibble (#4) and the grid replacement (#40), the latter not yet in this plan. | - |
 | 2 | **Build the spine.** `toxval_pred`, `toxval_predict()` and its methods, the shared `chk` validator, the class-agnostic compute functions, the parametric bootstrap. `ecx()` / `nsec()` keep returning **today's named vectors**. Purely additive. | unchanged |
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`, with their tests. Store what the remaining tests and examples read from `bayesnec` as fixtures, so the suite passes with `bayesnec` not installed, and remove `bayesnec` from `Imports`. See [Phase 3 without `bayesnec`](#phase-3-without-bayesnec). | none in `toxval`. `ecx` and `nsec` on a `bnecfit` are no longer computed here, and `bayesnec` objects receive the #19 answer at phase 7 |
-| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` deprecated but working. `nsec_multi()` becomes a deprecated wrapper around `nsec()` (T15), which needs `toxval_predict.brmsfit()` to return one curve per response first. #60 is answered (T21). Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). Its rulings are T21–T33. It is done with phase 5 (T33). | per #19/#20, and #60 |
-| 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, `dplyr_reconstruct`. `ecx_val` becomes `proportion` (#3, T32). Done with phase 4 (T33). Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
+| 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` defunct. `nsec_multi()` is defunct in favour of `nsec()` (T15, T37), which needs `toxval_predict.brmsfit()` to return one curve per response first. #60 is answered (T21). Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). Its rulings are T21–T33. It is done with phase 5 (T33). | per #19/#20, and #60 |
+| 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, and `vctrs` methods so that `bind_rows()` combines only matching settings (T40). `ecx_val` becomes `proportion` (#3, T32). Done with phase 4 (T33). Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
 | 6 | **`toxval` to CRAN**, carrying the final API. | — |
 | 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
 

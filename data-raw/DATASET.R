@@ -188,6 +188,35 @@ save(
 )
 strip_stanmodel("tests/testthat/fixtures/brms_model_6.rda")
 
+# A multivariate fit with a binomial response whose trials vary between
+# observations, which toxval_predict() predicts at one trial (T26)
+data <- data.frame(
+  x = rep(c(0.001, 0.01, 0.1, 0.5, 1, 1.5), each = 2),
+  survived = c(19, 17, 18, 19, 15, 17, 10, 9, 4, 5, 1, 0),
+  n = c(20, 18, 19, 20, 17, 20, 20, 19, 18, 20, 20, 16),
+  growth = c(1.9, 2.1, 2.0, 1.8, 1.7, 1.9, 1.2, 1.3, 0.7, 0.8, 0.5, 0.4)
+)
+
+surv_formula <- brms::bf(survived | trials(n) ~ x, family = binomial())
+growth_formula <- brms::bf(growth ~ x)
+
+brms_model_7 <-
+  brms::brm(
+    surv_formula + growth_formula,
+    data = data,
+    chains = 2,
+    iter = 2000,
+    thin = 2,
+    seed = 102,
+    backend = "cmdstanr"
+  )
+save(
+  brms_model_7,
+  file = "tests/testthat/fixtures/brms_model_7.rda",
+  compress = "xz"
+)
+strip_stanmodel("tests/testthat/fixtures/brms_model_7.rda")
+
 # bnecfit -----------------------------------------------------------------
 
 data <- data.frame(
