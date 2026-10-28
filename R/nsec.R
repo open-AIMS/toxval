@@ -114,7 +114,7 @@ nsec <- function(
     ... = ...length() > 0
   )
 
-  # arguments retired from the pre-refactor interface (T28, §3.5)
+  # arguments deprecated in 2.0.0
   if (lifecycle::is_present(posterior)) {
     lifecycle::deprecate_stop(
       "2.0.0",

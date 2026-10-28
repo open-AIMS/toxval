@@ -75,7 +75,7 @@ each curve, one element per row of \code{keys}, or \code{NULL} where the model
 supplies none. Each element is a list of two numeric vectors,
 \code{decreasing} (the lower asymptote) and \code{increasing} (the upper one),
 \code{NA} where the equation has no such asymptote. \code{type = "relative"}
-measures from the control to it (T24).}
+measures from the control to it.}
 \item{\code{meta}}{Named list of metadata; see below.}
 }
 }
@@ -140,7 +140,7 @@ model was fitted to, taken to be the control. It differs from the first
 value of \code{x_vec} when \code{x_range} is supplied. A realisation whose control
 response already lies beyond the reference is placed here. In \code{nsec()},
 one whose response first changes away from the effect and passes to the
-other side of the reference without returning is censored instead (T21).}
+other side of the reference without returning is censored instead.}
 \item{\code{family}}{String naming the response distribution, such as the
 \code{brms} family or the \code{type} of a \code{drc} fit, or \code{NULL} where the fitted
 object has none. A multivariate fit whose responses differ in family

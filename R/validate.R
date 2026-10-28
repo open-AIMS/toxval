@@ -18,7 +18,7 @@ chk_type <- function(type) {
 #' negative has more than complete inhibition by definition. Under `range` the
 #' reference cannot pass the curve's own minimum or maximum, nor under
 #' `relative` its asymptote, so it is capped.
-#' Several values give one row each (T32).
+#' Several values give one row each.
 #'
 #' @noRd
 chk_proportion <- function(proportion, type) {
@@ -37,7 +37,7 @@ chk_proportion <- function(proportion, type) {
   invisible(proportion)
 }
 
-#' `"model"` and `"component"` only; `"control"` is left out of phase 4 (T23).
+#' `anchor` is `"model"` or `"component"`.
 #'
 #' @noRd
 chk_anchor <- function(anchor) {

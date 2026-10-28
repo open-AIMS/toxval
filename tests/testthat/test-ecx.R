@@ -1,13 +1,3 @@
-# Tests whose values or behaviour are expected to change during the refactor
-# have a `# EXPECTED-CHANGE` comment giving the reason and the issue. If a test
-# without one changes, the developer should double check the change was
-# intentional.
-#
-# Two changes are deliberately not marked, because each would alter almost every
-# test in this file: the phase-5 switch to a toxval tibble (#4), and the
-# replacement of the evaluation grid with root-finding (#40), which is not yet
-# in the refactor plan.
-
 # brms --------------------------------------------------------------------
 test_that("outputs ecx value", {
   output <- suppressWarnings(ecx(brms_model_1, x_var = "x", resolution = 1000))
@@ -119,8 +109,7 @@ test_that("ecx draws returns the realisations", {
   expect_equal(output$draws[[1]]$value.draw[[1000]], 0.8247, tolerance = 0.001)
 })
 
-# EXPECTED-CHANGE type "relative" reference, redefined (old behaviour renamed "range") #19 - done
-test_that("check type = relative argument, the relative is now range", {
+test_that("type = relative errors without an asymptote and type = range gives values (#19)", {
   expect_error(
     suppressWarnings(ecx(brms_model_1, x_var = "x", type = "relative")),
     regexp = "`type` must not be 'relative' when `object` supplies no asymptote"
@@ -129,7 +118,7 @@ test_that("check type = relative argument, the relative is now range", {
   output <- suppressWarnings(ecx(brms_model_1, x_var = "x", type = "range"))
 
   # 951 draws decrease and 49 increase; a draw with no span in a direction is
-  # censored (T38), so each row has an upper limit of max(x_vec)
+  # censored, so each row has an upper limit of max(x_vec)
   expect_equal(output$estimate[[1]], 0.822, tolerance = 0.0001)
   expect_equal(output$conf.low[[1]], 0.822, tolerance = 0.0001)
   expect_equal(output$conf.high[[1]], 1.05, tolerance = 0.0001)
@@ -138,8 +127,6 @@ test_that("check type = relative argument, the relative is now range", {
   expect_equal(output$conf.high[[2]], 1.05, tolerance = 0.0001)
 })
 
-# EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24
-# Old code gave back a number it could never reach, this is correct now :)
 test_that("check type = direct argument", {
   expect_error(
     ecx(brms_model_1, x_var = "x", type = "direct"),
@@ -155,8 +142,6 @@ test_that("check type = direct argument", {
   
 })
 
-# EXPECTED-CHANGE warns when estimate is pinned at a bound #6, #24
-# Change has occured as expected 
 test_that("check type = direct argument with in range value", {
   expect_warning(
     expect_warning(
@@ -172,11 +157,12 @@ test_that("check type = direct argument with in range value", {
   
 })
 
-# The amendment of T21 on #74 applies to nsec() only. Under `direct` the
+# Censoring a realisation that changes away from the effect (#74) applies to
+# nsec() only. Under `direct` the
 # reference is a level the user supplies, so a realisation past it at the
 # control keeps the control. 95% of these controls exceed 0.5, and the
 # increasing row stays at the control.
-test_that("ecx under direct keeps the control for a realisation past the reference (T21, #74)", {
+test_that("ecx under direct keeps the control for a realisation past the reference (#74)", {
   output <- suppressWarnings(
     ecx(brms_model_1, x_var = "x", type = "direct", reference = 0.5)
   )
@@ -212,7 +198,6 @@ test_that("check type = range and absolute arguments behave as expeceted", {
   expect_equal(output2$estimate[[1]], 0.9747, tolerance = 0.001)
 })
 
-# TODO note this now errors instead of producing values, switched it from just giving NAs 
 test_that("type = absolute and value passed to trigger NAN catch and throws error", {
   
   expect_error(
@@ -244,7 +229,6 @@ test_that("type = direct and value passed to trigger NAN catch", {
   )
 })
 
-# EXPECTED-CHANGE type vocabulary gains "range"; passing >1 type will error cleanly #7 - Done :)
 test_that("type errors when wrong value passed", {
   expect_error(
     ecx(brms_model_1, x_var = "x", type = "something"),
@@ -257,7 +241,6 @@ test_that("type errors when wrong value passed", {
   )
 })
 
-# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20 - Done
 test_that("hormesis_def is deprecated and ignored", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
@@ -286,7 +269,6 @@ test_that("a hormetic curve gives both an increasing and a decreasing ECx", {
   expect_false(anyNA(output$estimate))
 })
 
-# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20 - done
 test_that("a hormetic fit gives a decreasing and an increasing EC50", {
   output <- ecx(brms_model_5, x_var = "x", proportion = 0.5)
   
@@ -311,8 +293,7 @@ test_that("xform fails if function not passed", {
   )
 })
 
-# Moved from the bnecfit tests when that method was removed (#39). The check is
-# in the ecx() generic, so the class of the fit does not matter. - done
+# The check is in the ecx() generic, so the class of the fit does not matter.
 test_that("posterior is defunct whatever its value", {
   lifecycle::expect_defunct(
     ecx(brms_model_1, x_var = "x", posterior = "yes")
@@ -368,7 +349,6 @@ test_that("check prob_vals errors with more then 3 values", {
 
 # BRMS specific tests -----------------------------------------------------
 
-# EXPECTED-CHANGE multiple ecx_val values will be allowed #9 - DONE
 test_that("can only pass a single exc_val argument", {
   expect_error(
     suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = c(10, 50, 100))),
@@ -381,9 +361,6 @@ test_that("can only pass a single exc_val argument", {
   expect_equal(output$proportion, c(0.10, 0.10, 0.50, 0.50, 1, 1))
 })
 
-# EXPECTED-CHANGE ecx_val may become a proportion not a percentage #3; - done
-# ecx_val validation moves to the generic (all methods, not just brms) #55;
-# extreme ecx_val not reached within the tested range will warn to widen x_range #24
 test_that("when type is not direct ecx_val has to between 1 and 99", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
@@ -415,7 +392,6 @@ test_that("errors if x_var argument not provided", {
   )
 })
 
-# EXPECTED-CHANGE error message typo "suplied" fixed #53 - done
 test_that("errors if x_var is not in the data set", {
   expect_error(
     ecx(brms_model_1, x_var = "z"),
@@ -484,13 +460,11 @@ test_that("by_group = FALSE, group_var is a value in the data then it throws an"
   )
 })
 
-# EXPECTED-CHANGE x_range will be treated as a range, not a single value #10
 test_that("x_range limits where ecx looks for a crossing", {
   output <- suppressWarnings(ecx(brms_model_1, x_var = "x", x_range = c(0.8, 0.9)))
   expect_equal(output$conf.high, c(0.9, 0.9))
 })
 
-# EXPECTED-CHANGE group_var == x_var will error #15 - done
 test_that("when group_var == x_var will error it errors", {
   expect_error(
     suppressWarnings(

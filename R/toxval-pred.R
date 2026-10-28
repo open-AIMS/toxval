@@ -32,7 +32,7 @@
 #'     supplies none. Each element is a list of two numeric vectors,
 #'     `decreasing` (the lower asymptote) and `increasing` (the upper one),
 #'     `NA` where the equation has no such asymptote. `type = "relative"`
-#'     measures from the control to it (T24).}
+#'     measures from the control to it.}
 #'   \item{`meta`}{Named list of metadata; see below.}
 #' }
 #'
@@ -91,7 +91,7 @@
 #'     value of `x_vec` when `x_range` is supplied. A realisation whose control
 #'     response already lies beyond the reference is placed here. In `nsec()`,
 #'     one whose response first changes away from the effect and passes to the
-#'     other side of the reference without returning is censored instead (T21).}
+#'     other side of the reference without returning is censored instead.}
 #'   \item{`family`}{String naming the response distribution, such as the
 #'     `brms` family or the `type` of a `drc` fit, or `NULL` where the fitted
 #'     object has none. A multivariate fit whose responses differ in family
@@ -356,7 +356,7 @@ chk_keys <- function(keys, meta) {
 #' Check that `meta$family` gives a family for every curve
 #'
 #' A family is one string for every curve, or, for a multivariate fit whose
-#' responses differ in family, a vector named by response (T26).
+#' responses differ in family, a vector named by response.
 #'
 #' @noRd
 chk_family_keys <- function(family, keys) {

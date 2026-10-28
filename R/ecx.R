@@ -109,7 +109,7 @@ ecx <- function(
     ... = ...length() > 0
   )
 
-  # arguments retired from the pre-refactor interface (T28, T32, §3.5)
+  # arguments deprecated in 2.0.0
   if (lifecycle::is_present(ecx_val)) {
     if (!missing(proportion) || !is.null(reference)) {
       chk::abort_chk(
@@ -216,10 +216,10 @@ ecx <- function(
   )
 }
 
-#' Whether an argument was left at a pre-refactor default of `NA`
+#' Whether an argument is `NULL` or `NA`
 #'
-#' `group_var = NA` and `x_range = NA` were the defaults before `NULL`, and are
-#' translated without a warning (T28).
+#' `group_var = NA` and `x_range = NA`, the defaults before toxval 2.0.0, are
+#' treated as `NULL` without a warning.
 #'
 #' @noRd
 is_missing_value <- function(x) {
@@ -229,7 +229,7 @@ is_missing_value <- function(x) {
 #' Warn that `relative` has changed meaning
 #'
 #' A plain warning on every call rather than a lifecycle deprecation, because
-#' `relative` is not deprecated (T29).
+#' `relative` is not deprecated.
 #'
 #' @noRd
 warn_relative <- function(type) {

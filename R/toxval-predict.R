@@ -258,7 +258,7 @@ toxval_predict.drc <- function(
       group_var = group_var,
       realisation = "bootstrap",
       # `type` names the response distribution of a `drc` fit, and
-      # `"binomial"` marks a response on the proportion scale (T18)
+      # `"binomial"` marks a response on the proportion scale
       family = object$type,
       seed = seed
     )
@@ -306,7 +306,7 @@ build_meta <- function(
     resolution = length(x_vec),
     x_range = range(x_vec),
     # the lowest concentration in the data, not of the grid, which starts
-    # elsewhere when `x_range` is supplied (T21)
+    # elsewhere when `x_range` is supplied
     x_control = min(object$data[[x_var]]),
     family = family,
     realisation = realisation,
@@ -322,7 +322,7 @@ build_meta <- function(
 #' @return A list with `names`, the response names of a multivariate fit as
 #'   `posterior_epred()` names them, or `NULL` for a univariate fit; `family`,
 #'   one string for a univariate fit and a vector named by response for a
-#'   multivariate one (T26); and `trials_var`, the columns holding the trials
+#'   multivariate one; and `trials_var`, the columns holding the trials
 #'   of any binomial response, named by response for a multivariate fit, or
 #'   `NULL`.
 #'
@@ -347,7 +347,7 @@ brms_responses <- function(object) {
 #' The column holding the trials of a binomial response
 #'
 #' The trials are set to 1 in the prediction data, so that a binomial response
-#' is predicted as a proportion (T26). That needs them to be a single column:
+#' is predicted as a proportion. That needs them to be a single column:
 #' a constant, as in `trials(10)`, or an expression, as in `trials(n + m)`,
 #' cannot be set to 1.
 #'
@@ -408,7 +408,7 @@ brms_curves <- function(object, x_vec, x_var, group_var, responses) {
     if (is.null(responses$names)) {
       return(list(epred))
     }
-    # matched by name, not by position (T26)
+    # matched by name, not by position
     lapply(responses$names, function(response) {
       matrix(
         epred[, , response],
@@ -837,7 +837,7 @@ drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
 #'
 #' `drc` gives the limits of its mean function with `fct$lowerAs()` and
 #' `fct$upperAs()`, which also return a limit that `fct$fixed` fixes, such as
-#' the lower limit of 0 in `LL.3()` (T24). They take one parameter vector:
+#' the lower limit of 0 in `LL.3()`. They take one parameter vector:
 #' given a matrix, `lowerAs()` returns a wrong value with a warning, so they
 #' are applied row by row.
 #'
@@ -920,7 +920,7 @@ predict_grid <- function(x_range, x, resolution) {
 #' A grid value at which no realisation of a curve has a finite prediction lies
 #' outside where the model is defined, such as `x <= 0` for a formula with
 #' `log(x)`. That is a mismatch between `x_range` and the model, so it errors
-#' (T3) rather than returning `NA` estimates. A non-finite value in only some
+#' rather than returning `NA` estimates. A non-finite value in only some
 #' realisations is left for `find_crossings()`, which skips it.
 #'
 #' @param curves The list of realisation matrices.
@@ -987,7 +987,7 @@ chk_x_var <- function(x_var) {
 
 #' Check that no argument was left in `...`
 #'
-#' `...` follows `object`, so every other argument must be named in full (T39).
+#' `...` follows `object`, so every other argument must be named in full.
 #' A misspelt, abbreviated or unnamed argument lands in `...`, and would
 #' otherwise be dropped without a message.
 #'

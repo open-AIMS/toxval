@@ -1,18 +1,6 @@
-# Tests whose values or behaviour are expected to change during the refactor
-# have a `# EXPECTED-CHANGE` comment giving the reason and the issue. If a test
-# without one changes, the developer should double check the change was
-# intentional.
-#
-# Two changes are deliberately not marked, because each would alter almost every
-# test in this file: the phase-5 switch to a toxval tibble (#4), and the
-# replacement of the evaluation grid with root-finding (#40), which is not yet
-# in the refactor plan.
-
 # parameters --------------------------------------------------------------
 # The argument checks in the nsec() generic run before dispatch, so the error
-# tests in this section do not depend on the class of the fit. They were written
-# against bayesnec fits and rewritten to use brms_model_1 when the bnecfit method
-# was removed (#39). - done
+# tests in this section do not depend on the class of the fit.
 test_that("prob_vals warnings behave as expected", {
   expect_error(
     nsec(brms_model_1, x_var = "x", prob_vals = 0.9, resolution = 10),
@@ -39,8 +27,7 @@ test_that("prob_vals warnings behave as expected", {
   )
 })
 
-# EXPECTED-CHANGE hormesis_def removed, direction becomes a result column #20 - DONE
-test_that("hormesis_def is now deprecated and ignored", {
+test_that("hormesis_def is deprecated and ignored", {
   lifecycle::expect_deprecated(
     nsec(brms_model_3, x_var = "x", hormesis_def = "other")
   )
@@ -53,7 +40,6 @@ test_that("xform errors if function not passed ", {
   )
 })
 
-# EXPECTED-CHANGE x_range will be accepted as a range #10 - DONE
 test_that("x_range can be passed various values", {
   expect_error(
     nsec(nsec_drc_1, x_range = c(100), x_var = "x"),
@@ -84,8 +70,6 @@ test_that("nsec type = range changes ecnsec but not the NSEC", {
 
 # different model types ---------------------------------------------------
 
-# EXPECTED-CHANGE ecnsec reference redefined, ecnsec values change (nsec estimate unchanged) #49 - DONE
-# Values the same for est, conf, but not for the ecnsec because they used which were measured from the curves max
 test_that("additional examples brms 1", {
   output <- nsec(brms_model_3, x_var = "x", resolution = 1000)
   
@@ -120,7 +104,6 @@ test_that("additional examples brms 2", {
   })
 })
 
-# EXPECTED-CHANGE drc estimate changes (parametric bootstrap) #43; needs a seed - done
 test_that("nsec works for drc using continuous data", {
   model_LL4 <- drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::LL.4())
   output <- nsec(model_LL4, x_var = "x", seed = 1)
@@ -185,7 +168,6 @@ test_that("nsec for drc throws an error for an increasing function", {
   })
 })
 
-# EXPECTED-CHANGE drc bootstrap changes estimate; ecnsec redefined #49; needs a seed - done
 test_that("nsec drc additional example 1", {
   data <- bayesnec_herbicide[bayesnec_herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
@@ -207,7 +189,6 @@ test_that("nsec drc additional example 1", {
   })
 })
 
-# EXPECTED-CHANGE drc bootstrap changes estimate; ecnsec redefined #49; needs a seed - done
 test_that("nsec drc additional example 2", {
   data <- bayesnec_herbicide[bayesnec_herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
@@ -271,7 +252,6 @@ test_that("brms model errors without x_var", {
   )
 })
 
-# EXPECTED-CHANGE enable once x_var is validated before x_range #55 - done
   test_that("brms model errors if x_var isn't in the dataset", {
     expect_error(
       nsec(brms_model_1, x_var = "z"),
@@ -287,7 +267,6 @@ test_that("brms model errors if by_group is true but no group_var is supplied", 
   )
 })
 
-# EXPECTED-CHANGE cleaner error when extra predictors require group_var #56 - DONE
 test_that("brms model errors if there are additional groups but aren't specified", {
   expect_error(
     nsec(brms_model_2, x_var = "x"),
@@ -322,7 +301,6 @@ test_that("brms model errors if by_group is FALSE and a group_var is supplied", 
   )
 })
 
-# EXPECTED-CHANGE ecnsec reference redefined, ecnsec values change #49 - done
 test_that("brms model runs when multiple variables in data and group_var specified", {
   output <- suppressWarnings(nsec(
     brms_model_2, x_var = "x", group_var = "z", by_group = TRUE
@@ -335,8 +313,7 @@ test_that("brms model runs when multiple variables in data and group_var specifi
   )
   # In group 2, 9 decreasing and 8 increasing realisations start past the
   # reference, change away from the effect and pass to the other side without
-  # returning, so they are censored (T21, amended on #74). Before that
-  # amendment they took the control, giving 0.97893 and 0.92054.
+  # returning, so they are censored (#74).
   expect_equal(
     output$conf.low,
     c(NA_real_, 1.05, 1.003957, 0.941763),
@@ -357,15 +334,10 @@ test_that("brms model runs when multiple variables in data and group_var specifi
   )
 })
 
-# EXPECTED-CHANGE horme/hormesis_def removed, direction becomes a result column #20 - done
 test_that("brms model throws deprecated message for horme and argument is ignored", {
   lifecycle::expect_deprecated(nsec(brms_model_3, x_var = "x", horme = TRUE))
 })
 
-# Golden values updated when the hormetic reference was fixed to max over
-# draws (MARGIN = 1) rather than over x values (MARGIN = 2). The old
-# expectations were nsec_fct()'s max(x_vec) fallback, not estimates. - DONE
-# EXPECTED-CHANGE horme/hormesis_def removed #20; ecnsec redefined #49
 test_that("a hormetic fit gives a decreasing and an increasing NSEC", {
   output <- nsec(brms_model_5, x_var = "x")
   
@@ -375,14 +347,13 @@ test_that("a hormetic fit gives a decreasing and an increasing NSEC", {
 })
 
 # The expected values were computed outside toxval with quantile type 7 (#74).
-test_that("nsec censors the brms_model_1 realisations that show no effect (T21, #74)", {
+test_that("nsec censors the brms_model_1 realisations that show no effect (#74)", {
   pred <- toxval_predict(brms_model_1, x_var = "x")
   output <- suppressWarnings(nsec(pred, draws = TRUE))
 
   # 10 realisations start at or below the decreasing reference without
   # crossing it; 7 rise, away from the effect, and pass above it without
-  # returning. Before the amendment all 10 took the control, and the lower
-  # limit was 0.9847278.
+  # returning, so they are censored.
   past <- pred$curves[[1]][, 1] <= output$reference[[1]]
   expect_equal(sum(past), 10)
   expect_equal(sum(is.infinite(output$draws[[1]]$value.draw[past])), 7)
@@ -393,13 +364,12 @@ test_that("nsec censors the brms_model_1 realisations that show no effect (T21, 
   )
 })
 
-test_that("nsec censors the brms_model_6 realisations that show no effect (T21, #74)", {
+test_that("nsec censors the brms_model_6 realisations that show no effect (#74)", {
   pred <- toxval_predict(brms_model_6, x_var = "x")
   output <- suppressWarnings(nsec(pred, draws = TRUE))
 
   # all 10 realisations at or below the decreasing reference rise and pass
-  # above it without returning. Before the amendment they took the control,
-  # and the lower limit was 0.966905.
+  # above it without returning, so they are censored.
   past <- pred$curves[[1]][, 1] <= output$reference[[1]]
   expect_equal(sum(past), 10)
   expect_equal(sum(is.infinite(output$draws[[1]]$value.draw[past])), 10)
@@ -438,7 +408,6 @@ test_that("drc model can read x_var from the fit", {
   expect_no_error(nsec(nsec_drc_1))
 })
 
-# EXPECTED-CHANGE clearer error when x_var absent (curveid/columns by name) #34 - done
 test_that("drc model errors if wrong x_var is supplied", {
   expect_error(
     nsec(nsec_drc_1, x_var = "a"),
@@ -453,7 +422,6 @@ test_that("drc model errors if more then 1 sig val is passed", {
   )
 })
 
-# EXPECTED-CHANGE drc bootstrap changes estimate #43; ecnsec redefined #49; needs a seed
 test_that("drc model output attributes", {
   output <- nsec(nsec_drc_1, x_var = "x", seed = 1)
   output <- output[1,]
@@ -494,7 +462,6 @@ test_that("drc curveid must name the curveid column of the fit", {
   )
 })
 
-# EXPECTED-CHANGE drc bootstrap #43; ecnsec redefined #49; curveid selected by name #34; needs a seed
 test_that("drc model curveid switches attributes to have a matrix for ecnsec_relativeP", {
   output <- nsec(nsec_drc_1, x_var = "x", seed = 1)
   
@@ -515,10 +482,9 @@ test_that("drc model provides NA estimates when draws are excluded and not enoug
 
 # nsec.brmsfit — additional tests ------------------------------------------
 
-# The group 2 lower limits and draws 8 to 10 of group 1 decreasing changed when
-# realisations that start past the reference, change away from the effect and
-# pass to the other side were censored rather than placed at the control (T21,
-# amended on #74). Group 1 decreasing stays NA (T10).
+# Realisations that start past the reference, change away from the effect and
+# pass to the other side are censored (#74). No realisation of group 1 crosses
+# in the decreasing direction, so that row is NA.
 test_that("brms grouped nsec with draws has one row per group and direction", {
   output <- suppressWarnings(
     nsec(brms_model_2, x_var = "x", group_var = "z", draws = TRUE)
@@ -568,7 +534,6 @@ test_that("brmsfit nsec xform changes output values with grouping", {
 
 # nsec.drc — additional tests ---------------------------------------------
 
-# EXPECTED-CHANGE enable once output is the toxval tibble (uniform naming) #4
 test_that("nsec drc model has expected structure and shape", {
   output <- nsec(nsec_drc_1, x_var = "x", sig_val = 0.05, resolution = 600, seed = 1)
 
@@ -584,7 +549,6 @@ test_that("nsec drc model has expected structure and shape", {
   })
 })
 
-# EXPECTED-CHANGE enable once drc xform assignment is fixed #57 - done
 test_that("drc nsec xform changes output values", {
   output_1 <- nsec(nsec_drc_1, x_var = "x", seed = 1)
   output_2 <- nsec(nsec_drc_1, x_var = "x", xform = function(x) x * 2, seed = 1)
@@ -687,7 +651,7 @@ test_that("nsec gives rows for each response of a multivariate brmsfit", {
 
 test_that("nsec takes extra risk for a binomial response", {
   # predicted at one trial, a binomial response is a proportion bounded at 1,
-  # so its increasing reference and ecnsec are defined (T26)
+  # so its increasing reference and ecnsec are defined
   result <- suppressWarnings(
     nsec(brms_model_7, x_var = "x", resolution = 50)
   )
@@ -721,22 +685,19 @@ test_that("nsec relative takes ecnsec as a proportion of the span to the asympto
 
 # multivariate fits ------------------------------------------------------------
 
-# EXPECTED-CHANGE output is the nsec() toxval tibble (#4, T15); realisations
-# with no crossing are placed or censored rather than set to max(x_vec) (T21,
-# #60) - done
-# Pre-refactor nsec_multi() gave as :
+# The deprecated nsec_multi() gave, for this fit:
 #                          lower,     estimate,  upper      reference:
 #   sp_survival decreasing 0.2026466, 0.4624833, 0.6802316, 0.9208626
 #   sp_survival increasing 0.001,     1.5,       1.5,       1.0
 #   sp_growth   decreasing 0.4181719, 0.8688531, 1.5,       0.8209478
 #   sp_growth   increasing 1.5,       1.5,       1.5,       2.350757
-# The references are unchanged. sp_survival increasing has no realisation that
-# crosses its reference, so it is NA. In sp_growth decreasing, 10 realisations
-# start below the reference without crossing it. 5 rise, away from the effect,
-# and pass above the reference without returning, so they are censored (T21,
-# amended on #74); before that amendment all 10 took the control, giving
-# 0.8591841 (0.3908073 to 1.5).
-test_that("nsec of a multivariate fit against the pre-refactor nsec_multi", {
+# The references agree. nsec() places or censors a realisation with no crossing
+# rather than setting it to max(x_vec) (#60). sp_survival increasing has no
+# realisation that crosses its reference, so it is NA. In sp_growth decreasing,
+# 10 realisations start below the reference without crossing it. 5 rise, away
+# from the effect, and pass above the reference without returning, so they are
+# censored (#74).
+test_that("nsec of a multivariate fit against the deprecated nsec_multi", {
   output <- suppressWarnings(
     nsec(nsec_multi_model_2, x_var = "dose", resolution = 50)
   )

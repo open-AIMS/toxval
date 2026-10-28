@@ -141,8 +141,7 @@ test_that("summarise_metric returns NA where no realisation crosses, including o
   # The increasing NSEC reference is the 99% quantile of the controls, 9.98.
   # The first control, 10, already lies above it, but that realisation falls,
   # away from the increasing effect, and below the reference, so it is
-  # censored (T21, amended on #74). The other two never rise and are censored.
-  # None crosses (T10).
+  # censored (#74). The other two never rise and are censored. None crosses.
   pred <- compute_pred(
     list(rbind(10 - x_vec, 9 - x_vec, 8 - x_vec)),
     x_vec,
@@ -160,7 +159,7 @@ test_that("summarise_metric returns NA where no realisation crosses, including o
   )
 })
 
-test_that("summarise_metric places a realisation already past the reference at x_control (T21)", {
+test_that("summarise_metric places a realisation already past the reference at x_control", {
   x_vec <- 1:10
   # `direct` reference 5: the first crosses at 5, the second starts at 3.9
   pred <- compute_pred(
@@ -206,7 +205,7 @@ past_at_control <- function(x_vec) {
 }
 past_at_control_expected <- c(2.5, 3.5, rep(-1, 7), Inf, rep(2, 29))
 
-test_that("summarise_metric censors a decreasing NSEC realisation past the reference that changes away and leaves (T21, #74)", {
+test_that("summarise_metric censors a decreasing NSEC realisation past the reference that changes away and leaves (#74)", {
   x_vec <- 0:10
   pred <- compute_pred(list(past_at_control(x_vec)), x_vec, x_control = -1)
 
@@ -225,7 +224,7 @@ test_that("summarise_metric censors a decreasing NSEC realisation past the refer
   expect_equal(result$draws[[1]]$value.draw, past_at_control_expected)
 })
 
-test_that("summarise_metric censors an increasing NSEC realisation past the reference that changes away and leaves (T21, #74)", {
+test_that("summarise_metric censors an increasing NSEC realisation past the reference that changes away and leaves (#74)", {
   x_vec <- 0:10
   pred <- compute_pred(list(10 - past_at_control(x_vec)), x_vec, x_control = -1)
 
@@ -244,7 +243,7 @@ test_that("summarise_metric censors an increasing NSEC realisation past the refe
   expect_equal(result$draws[[2]]$value.draw, past_at_control_expected)
 })
 
-test_that("summarise_metric keeps T21 for an ECx of every type on the same curves (T21, #74)", {
+test_that("summarise_metric places an ECx realisation past the reference at x_control for every type (#74)", {
   x_vec <- 0:10
   curves <- past_at_control(x_vec)
   n <- nrow(curves)
@@ -292,7 +291,7 @@ test_that("summarise_metric keeps T21 for an ECx of every type on the same curve
   }
 })
 
-test_that("summarise_metric reports a censored quantile at the highest concentration (T21)", {
+test_that("summarise_metric reports a censored quantile at the highest concentration", {
   x_vec <- 0:10
   # the second realisation reaches its EC10 reference of 9 only at x = 20
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - x_vec / 20)), x_vec)
@@ -330,9 +329,9 @@ test_that("summarise_metric does not warn when no reported quantile is censored"
   expect_lt(result$conf.high, 10)
 })
 
-test_that("summarise_metric excludes a realisation with no reference and warns (T21, T25)", {
+test_that("summarise_metric excludes a realisation with no reference and warns", {
   x_vec <- 0:10
-  # the second control is negative, so its absolute reference is NA (T18)
+  # the second control is negative, so its absolute reference is NA
   pred <- compute_pred(list(rbind(10 - x_vec, rep(-1, 11))), x_vec)
 
   expect_warning(
@@ -413,7 +412,7 @@ test_that("summarise_metric gives NA control where every realisation is excluded
 
 test_that("summarise_metric censors a realisation with no span under range", {
   x_vec <- 0:10
-  # the second realisation is flat, so it never falls below its control (T38)
+  # the second realisation is flat, so it never falls below its control
   pred <- compute_pred(list(rbind(10 - x_vec, rep(10, 11))), x_vec)
 
   warnings <- character()
@@ -578,7 +577,7 @@ test_that("summarise_metric errors when xform is not a function", {
 
 # fitted models --------------------------------------------------------------
 
-test_that("summarise_metric matches today's decreasing EC10 on brms_model_1, less the excluded draws", {
+test_that("summarise_metric gives the decreasing EC10 on brms_model_1, less the excluded draws", {
   pred <- toxval_predict(brms_model_1, x_var = "x", resolution = 500)
 
   # the increasing direction is censored, and 8 of 1000 controls are negative
@@ -586,10 +585,8 @@ test_that("summarise_metric matches today's decreasing EC10 on brms_model_1, les
     summarise_metric(compute_ecx(pred), pred, "ecx")
   )
 
-  # `ecx(brms_model_1, x_var = "x", resolution = 500)` at a3f682f gives 0.8322880
-  # (0.8195822 to 1.05). The per-draw values agree; the difference is the 8
-  # draws with a negative control, whose reference is NA and which are excluded
-  # (T18, T21) rather than given a crossing of a reference above the control.
+  # the 8 draws with a negative control have an NA reference, so they are
+  # excluded rather than given a crossing of a reference above the control
   expect_equal(
     unlist(result[1, c("estimate", "conf.low", "conf.high")]),
     c(estimate = 0.832247, conf.low = 0.8197345, conf.high = 1.05),
@@ -597,7 +594,7 @@ test_that("summarise_metric matches today's decreasing EC10 on brms_model_1, les
   )
 })
 
-test_that("summarise_metric reports an absolute reference of 0.9 times the control on brms_model_1 (T34)", {
+test_that("summarise_metric reports an absolute reference of 0.9 times the control on brms_model_1", {
   pred <- toxval_predict(brms_model_1, x_var = "x", resolution = 500)
 
   # 8 of 1000 controls are negative and excluded from the row

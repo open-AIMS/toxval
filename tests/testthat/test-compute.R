@@ -59,7 +59,7 @@ test_that("compute_ecx takes the increasing absolute reference towards 1 for a p
 })
 
 test_that("compute_ecx takes the increasing absolute reference as a percentage of the control for an unbounded response", {
-  # relative deviation, the mirror of the decreasing form (T18)
+  # relative deviation, the mirror of the decreasing form
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(20 + x_vec, 10 + x_vec)), x_vec)
 
@@ -85,8 +85,6 @@ test_that("compute_ecx treats a binomial drc fit as a proportion", {
 })
 
 test_that("compute_ecx treats a binomial brmsfit as a proportion", {
-  # EXPECTED-CHANGE binomial brmsfit predicted at one trial (T26) - done
-  # was an NA increasing reference, when the trials were not recorded
   x_vec <- 0:10
   y <- 0.2 + 0.05 * x_vec
   pred <- compute_pred(list(rbind(y, y)), x_vec, family = "binomial")
@@ -123,7 +121,7 @@ test_that("compute_ecx takes the upper bound from the family of each response", 
 })
 
 test_that("compute_ecx returns an NA absolute reference where the control is at or below 0", {
-  # a span of zero or less gives no percentage, in either direction
+  # a span of zero or less gives no proportion, in either direction
   x_vec <- 0:10
   pred <- compute_pred(
     list(rbind(-1 - 0.1 * x_vec, 0 - 0.1 * x_vec, 2 - 0.1 * x_vec)),
@@ -236,8 +234,6 @@ test_that("compute_ecx errors when pred is not a toxval_pred", {
 })
 
 test_that("compute_ecx errors on the relative type without an asymptote", {
-  # EXPECTED-CHANGE relative type, measured to the asymptote (T24, T29) - done
-  # was refused as an unsupported type
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - x_vec)), x_vec)
 
@@ -305,7 +301,7 @@ test_that("compute_nsec returns one row per direction for an ungrouped fit", {
   expect_identical(result$type, c("absolute", "absolute"))
 })
 
-test_that("the first change and the no-effect side are found for each realisation (T21, #74)", {
+test_that("the first change and the no-effect side are found for each realisation (#74)", {
   # Reference 5. The first changes by round-off and then falls, the second is
   # flat, the third rises above the reference, and the fourth falls across a
   # missing value.
@@ -412,8 +408,8 @@ test_that("compute_nsec computes the absolute ecnsec against the control when in
   expect_equal(result$ecnsec[[2]], c(0.16667, 0.05, -0.04545), tolerance = 0.001)
 })
 
-# A span of zero or less gives no percentage, so `ecnsec` is NA rather than
-# Inf or NaN (RF, PR #62 review)
+# A span of zero or less gives no proportion, so `ecnsec` is NA rather than
+# Inf or NaN (#62)
 test_that("compute_nsec returns an NA ecnsec only for the draws of a proportion whose control is at or above 1 when increasing", {
   x_vec <- 0:10
   pred <- compute_pred(
@@ -428,7 +424,7 @@ test_that("compute_nsec returns an NA ecnsec only for the draws of a proportion 
   expect_equal(result$ecnsec[[2]], c(2, NA, NA))
 })
 
-# A span of zero or less gives no percentage (RF, PR #62 review)
+# A span of zero or less gives no proportion (#62)
 test_that("compute_nsec returns an NA ecnsec when the control is at or below 0 when decreasing", {
   x_vec <- 0:10
   pred <- compute_pred(
@@ -454,7 +450,7 @@ test_that("compute_nsec computes the range ecnsec against the minimum of the cur
   expect_equal(result$ecnsec[[1]], c(-0.05, 0.05, 0.15))
 })
 
-# A span of zero or less gives no percentage (RF, PR #62 review)
+# A span of zero or less gives no proportion (#62)
 test_that("compute_nsec returns an NA range ecnsec when the curve has no span in that direction", {
   x_vec <- 0:10
   pred <- compute_pred(
@@ -469,7 +465,7 @@ test_that("compute_nsec returns an NA range ecnsec when the curve has no span in
 })
 
 test_that("compute_nsec errors on the direct type", {
-  # its ecnsec would be the reference itself, already reported (T19)
+  # its ecnsec would be the reference itself, already reported
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(9 - x_vec, 10 - x_vec)), x_vec)
 
@@ -497,7 +493,7 @@ test_that("compute_nsec takes a separate reference for each group", {
 })
 
 # 0.5 and above would put the decreasing reference at or above the increasing
-# one (RF, PR #62 review)
+# one (#62)
 test_that("compute_nsec errors when sig_val is not below 0.5", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - x_vec)), x_vec)

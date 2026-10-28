@@ -1,11 +1,8 @@
 options(mc.cores = 1)
 
-# drc is only needed so bare predict() on drc objects dispatches to
-# predict.drc inside nsec.drc(); load its namespace (no attach, no startup
-# banner). No library(brms) is needed because no test makes a bare
-# (unqualified) brms call; all brms usage is namespace-qualified. (Imports
-# loads brms' namespace but does not attach it, so it would not rescue a bare
-# call anyway.)
+# drc is loaded, not attached, so that generics such as coef(), vcov() and
+# predict() dispatch to its methods for the stored drc fits. brms needs no such
+# call, since every brms call in the tests is namespace-qualified.
 requireNamespace("drc", quietly = TRUE)
 
 # Data the tests take from bayesnec are stored in fixtures/ and loaded by

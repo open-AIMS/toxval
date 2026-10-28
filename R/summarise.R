@@ -5,31 +5,31 @@
 #' an estimate and interval.
 #'
 #' A realisation with no crossing in a direction is placed where its crossing
-#' lies (T21):
+#' lies:
 #'
 #' - one whose control already lies beyond the reference in the direction
 #'   sought takes `meta$x_control`, the lowest concentration in the data. For
 #'   an NSEC, one whose first change in response is away from the effect and
 #'   which is on the no-effect side of the reference at a later grid value
 #'   shows no effect in the tested range and is censored instead. An ECx keeps
-#'   the first rule for every `type` (T21, amended on #74);
-#' - one whose reference is `NA`, a span of zero or less (T18), or whose
+#'   the first rule for every `type` (#74);
+#' - one whose reference is `NA`, a span of zero or less, or whose
 #'   control is not finite, such as a bootstrap draw outside the parameter
 #'   space, is excluded, except that under `range` a span of zero or less is
-#'   censored (T38), since the curve never leaves its control in that
+#'   censored, since the curve never leaves its control in that
 #'   direction;
 #' - any other has no crossing within the evaluated range. It ranks above
 #'   `max(x_vec)` and is given no value, so a quantile that falls among such
 #'   realisations is reported as `max(x_vec)`.
 #'
-#' A direction in which no realisation has a crossing returns `NA` (T10). The
+#' A direction in which no realisation has a crossing returns `NA`. The
 #' call warns once when a reported quantile is censored or a realisation is
-#' excluded (T25).
+#' excluded.
 #'
 #' `xform` is applied to the realisations before they are summarised. The
 #' `control` and `reference` columns are the central quantile of the
 #' realisations not excluded from that row, the same realisations as the
-#' estimate (T34). Each direction excludes its own, so `control` can differ
+#' estimate. Each direction excludes its own, so `control` can differ
 #' between the two rows of one curve, and it is `NA` where every realisation is
 #' excluded. `control` is also `NA` under `type = "direct"`, which does not use
 #' it. `asymptote` is summarised over the same realisations, and is `NA` unless
@@ -114,7 +114,7 @@ summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
 
   no_crossing <- is.na(values)
   # under `range`, a realisation with no span never leaves its control in this
-  # direction, so it is censored rather than excluded (T38)
+  # direction, so it is censored rather than excluded
   no_span <- if ("no_span" %in% names(row)) {
     row$no_span[[1]] & is.finite(control)
   } else {
@@ -132,9 +132,9 @@ summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
   # on the no-effect side at a later grid value is past the reference only
   # because its own control is in the tail. It shows no effect in the tested
   # range, so it is censored; either condition alone misplaces realisations.
-  # An ECx row has no such flags and keeps T21: under `direct` the reference is
-  # a level the user supplies, so a control past it is beyond that level (T21,
-  # amended on #74).
+  # An ECx row has no such flags, so a control past the reference takes
+  # `x_control`: under `direct` the reference is a level the user supplies, so
+  # a control past it is beyond that level (#74).
   no_effect <- if ("first_change_away" %in% names(row)) {
     row$first_change_away[[1]] & row$on_no_effect_side[[1]]
   } else {
