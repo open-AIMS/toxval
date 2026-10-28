@@ -741,9 +741,10 @@ not.
 
 Each direction excludes its own realisations, so `control` can differ between
 the two rows of one curve. Where every realisation of a row is excluded,
-`control` is `NA`. Under `range` that is the usual increasing row of a
-monotone decreasing curve, which has no estimate (T10) and no reference
-either. `nsec()` is unaffected: its reference is one finite value per curve,
+`control` is `NA`. Under `relative` that is the row of a direction with no
+asymptote, which has no estimate and no reference either. Under `range` a
+realisation with no span is censored rather than excluded (T38), so the
+increasing row of a monotone decreasing curve keeps its `control`. `nsec()` is unaffected: its reference is one finite value per curve,
 so no realisation is excluded.
 
 ## T36 — a grid value with no finite prediction is an error (T3)
