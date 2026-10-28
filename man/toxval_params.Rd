@@ -3,6 +3,47 @@
 \name{toxval_params}
 \alias{toxval_params}
 \title{Parameters common to multiple toxval functions}
+\arguments{
+\item{object}{A fitted model with a \code{\link[=toxval_predict]{toxval_predict()}} method, or a
+\link{toxval_pred}.}
+
+\item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.
+These and every argument after \code{...} must be named in full; an argument
+no method uses is an error.}
+
+\item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
+where the class of \code{object} records which of its variables is the
+predictor. Each method states whether it accepts \code{NULL}.}
+
+\item{group_var}{A string naming the grouping variable in \code{object}, or \code{NULL}
+for a single curve.}
+
+\item{resolution}{A whole number giving the number of predictor values to
+evaluate the curve at. Larger values estimate a metric more precisely.}
+
+\item{x_range}{A numeric vector of length 2 giving the range of predictor
+values to evaluate over, or \code{NULL} to use the range in the model data.}
+
+\item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
+per-realisation values of each row.}
+
+\item{prob_vals}{A numeric vector of the central, lower and upper quantiles
+to summarise the realisations by, in that order.}
+
+\item{xform}{A function applied to the per-realisation concentrations before
+they are summarised, such as \code{exp} for a model fitted on log
+concentration.}
+
+\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Supplying it is an
+error. Use \code{draws}.}
+
+\item{hormesis_def, horme}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Both
+directions are now always estimated, so these are ignored.}
+
+\item{by_group}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Supplying \code{group_var}
+gives one estimate per level.}
+}
 \description{
 This is a documentation-only object whose parameter definitions are shared
 across the package via \verb{@inheritParams toxval_params}. It is not

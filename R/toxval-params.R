@@ -4,6 +4,35 @@
 #' across the package via `@inheritParams toxval_params`. It is not
 #' intended to be called directly.
 #'
+#' @param object A fitted model with a [toxval_predict()] method, or a
+#'   [toxval_pred].
+#' @param ... Additional arguments passed to [toxval_predict()], such as
+#'   `n_boot` and `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
+#'   These and every argument after `...` must be named in full; an argument
+#'   no method uses is an error.
+#' @param x_var A string naming the predictor variable in `object`, or `NULL`
+#'   where the class of `object` records which of its variables is the
+#'   predictor. Each method states whether it accepts `NULL`.
+#' @param group_var A string naming the grouping variable in `object`, or `NULL`
+#'   for a single curve.
+#' @param resolution A whole number giving the number of predictor values to
+#'   evaluate the curve at. Larger values estimate a metric more precisely.
+#' @param x_range A numeric vector of length 2 giving the range of predictor
+#'   values to evaluate over, or `NULL` to use the range in the model data.
+#' @param draws A flag. If `TRUE`, a `draws` list column holds the
+#'   per-realisation values of each row.
+#' @param prob_vals A numeric vector of the central, lower and upper quantiles
+#'   to summarise the realisations by, in that order.
+#' @param xform A function applied to the per-realisation concentrations before
+#'   they are summarised, such as `exp` for a model fitted on log
+#'   concentration.
+#' @param posterior `r lifecycle::badge("deprecated")` Supplying it is an
+#'   error. Use `draws`.
+#' @param hormesis_def,horme `r lifecycle::badge("deprecated")` Both
+#'   directions are now always estimated, so these are ignored.
+#' @param by_group `r lifecycle::badge("deprecated")` Supplying `group_var`
+#'   gives one estimate per level.
+#'
 #' @name toxval_params
 #' @keywords internal
 NULL

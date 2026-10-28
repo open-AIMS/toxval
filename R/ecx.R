@@ -40,8 +40,7 @@
 #' realisation with nothing to take the proportion of, such as a control at or
 #' below 0 or a missing asymptote, is excluded from the summary, with a warning.
 #'
-#' @param object A fitted model with a [toxval_predict()] method, or a
-#'   [toxval_pred].
+#' @inheritParams toxval_params
 #' @param proportion A numeric vector of effects, as proportions of the span
 #'   named by `type`; 0.1 is the EC10. Each value gives its own rows. Not
 #'   supplied under `type = "direct"`.
@@ -49,26 +48,8 @@
 #'   Details.
 #' @param reference A number, the response value whose crossing is sought under
 #'   `type = "direct"`. Supplied only under `"direct"`.
-#' @inheritParams toxval_predict
-#' @param draws A flag. If `TRUE`, a `draws` list column holds the
-#'   per-realisation values of each row.
-#' @param prob_vals A numeric vector of the central, lower and upper quantiles
-#'   to summarise the realisations by, in that order.
-#' @param xform A function applied to the per-realisation concentrations before
-#'   they are summarised, such as `exp` for a model fitted on log
-#'   concentration.
-#' @param ... Additional arguments passed to [toxval_predict()], such as
-#'   `n_boot` and `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
-#'   These and every argument after `...` must be named in full; an argument
-#'   no method uses is an error.
 #' @param ecx_val `r lifecycle::badge("deprecated")` Use `proportion`, or
 #'   `reference` under `type = "direct"`.
-#' @param posterior `r lifecycle::badge("deprecated")` Supplying it is an
-#'   error. Use `draws`.
-#' @param hormesis_def,horme `r lifecycle::badge("deprecated")` Both
-#'   directions are now always estimated, so these are ignored.
-#' @param by_group `r lifecycle::badge("deprecated")` Supplying `group_var`
-#'   gives one estimate per level.
 #'
 #' @return A `toxval` tibble with one row per curve, proportion and direction.
 #'

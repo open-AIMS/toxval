@@ -63,7 +63,7 @@
 #' crossing, and an excluded one is `NA`. A row whose estimate is `NA` has no
 #' crossing in that direction, so it is dropped before choosing.
 #'
-#' @inheritParams ecx
+#' @inheritParams toxval_params
 #' @param sig_val A number between 0 and 0.5, the quantile of the control
 #'   realisations that sets the decreasing reference; `1 - sig_val` sets the
 #'   increasing one.

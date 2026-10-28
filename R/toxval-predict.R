@@ -35,17 +35,9 @@
 #' factor, and otherwise the sorted order of the levels. Each method states
 #' what `group_var` must name.
 #'
+#' @inheritParams toxval_params
 #' @param object A fitted model object. Methods are provided for [brms::brmsfit]
 #'   and `drc` fits.
-#' @param x_var A string naming the predictor variable in `object`, or `NULL`
-#'   where the class of `object` records which of its variables is the
-#'   predictor. Each method states whether it accepts `NULL`.
-#' @param group_var A string naming the grouping variable in `object`, or `NULL`
-#'   for a single curve.
-#' @param resolution A whole number giving the number of predictor values to
-#'   evaluate the curve at. Larger values estimate a metric more precisely.
-#' @param x_range A numeric vector of length 2 giving the range of predictor
-#'   values to evaluate over, or `NULL` to use the range in the model data.
 #' @param ... Additional arguments passed to methods. These and every argument
 #'   after `...` must be named in full; an argument the method does not use is
 #'   an error.
