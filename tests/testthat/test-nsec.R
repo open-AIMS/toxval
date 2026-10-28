@@ -226,12 +226,10 @@ test_that("nsec drc additional example 2", {
     tolerance = 0.01
   )
 
-  # the third significant figure differs between platforms (R-CMD-check on
-  # ubuntu-24.04 gives a conf.high of 0.440, not 0.441) so set to 2 sig figs
-  withr::local_options(pillar.sigfig = 2)
-  expect_snapshot({
-    print(output, width = Inf)
-  })
+  # the bootstrap quantiles differ between platforms in the third significant
+  # figure (conf.high 0.440 on ubuntu-24.04, 0.441 on macOS), so the values are
+  # snapshot and compared with a tolerance rather than printed
+  expect_snapshot_value(output, style = "json2", tolerance = 0.01)
 })
 
 test_that("nsec accepts a toxval_pred", {

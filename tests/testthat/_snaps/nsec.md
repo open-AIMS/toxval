@@ -117,20 +117,130 @@
 
 # nsec drc additional example 2
 
-    Code
-      print(output, width = Inf)
-    Output
-      # A tibble: 2 x 14
-      # Model:    drc
-      # Settings: resolution 500 | 1000 bootstrap realisations
-        metric direction  estimate conf.low conf.high sig_val type     anchor control
-        <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>    <dbl>
-      1 nsec   decreasing     0.40     0.34      0.44    0.01 absolute model     0.68
-      2 nsec   increasing    NA       NA        NA       0.01 absolute model     0.68
-        reference asymptote ecnsec ecnsec.low ecnsec.high
-            <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1      0.66        NA  0.022     0.0035       0.038
-      2      0.69        NA  0.019     0.0018       0.038
+    {
+      "type": "list",
+      "attributes": {
+        "settings": {
+          "type": "list",
+          "attributes": {
+            "names": {
+              "type": "character",
+              "attributes": {},
+              "value": ["source_class", "resolution", "realisation", "n_realisation"]
+            }
+          },
+          "value": [
+            {
+              "type": "character",
+              "attributes": {},
+              "value": ["drc"]
+            },
+            {
+              "type": "integer",
+              "attributes": {},
+              "value": [500]
+            },
+            {
+              "type": "character",
+              "attributes": {},
+              "value": ["bootstrap"]
+            },
+            {
+              "type": "integer",
+              "attributes": {},
+              "value": [1000]
+            }
+          ]
+        },
+        "names": {
+          "type": "character",
+          "attributes": {},
+          "value": ["metric", "direction", "estimate", "conf.low", "conf.high", "sig_val", "type", "anchor", "control", "reference", "asymptote", "ecnsec", "ecnsec.low", "ecnsec.high"]
+        },
+        "row.names": {
+          "type": "integer",
+          "attributes": {},
+          "value": [1, 2]
+        },
+        "class": {
+          "type": "character",
+          "attributes": {},
+          "value": ["toxval", "tbl_df", "tbl", "data.frame"]
+        }
+      },
+      "value": [
+        {
+          "type": "character",
+          "attributes": {},
+          "value": ["nsec", "nsec"]
+        },
+        {
+          "type": "character",
+          "attributes": {},
+          "value": ["decreasing", "increasing"]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0.40189111, "NA"]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0.33808349, "NA"]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0.44056379, "NA"]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0.01, 0.01]
+        },
+        {
+          "type": "character",
+          "attributes": {},
+          "value": ["absolute", "absolute"]
+        },
+        {
+          "type": "character",
+          "attributes": {},
+          "value": ["model", "model"]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0.67689706, 0.67689706]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0.66231011, 0.68973451]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": ["NA", "NA"]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0.02154973, 0.01896514]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0.00354905, 0.00179299]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0.0380391, 0.03771118]
+        }
+      ]
+    }
 
 # nsec accepts a toxval_pred
 
