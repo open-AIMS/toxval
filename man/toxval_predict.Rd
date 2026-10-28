@@ -146,8 +146,8 @@ of the fitted function, from \code{fct$lowerAs()} and \code{fct$upperAs()}.
 \section{Supplying the predictor}{
 
 \code{x_var} is optional in the generic because some classes record which of
-their variables is the predictor: a \code{bayesnec} fit carries it on its
-\code{bayesnecformula}, and a \code{drc} fit in \code{dataList$names$dName}. Requiring it
+their variables is the predictor, such as a \code{drc} fit in
+\code{dataList$names$dName}. Requiring it
 here would force a caller of such a class to repeat what the object already
 knows, and no method could relax it, because the generic validates before
 dispatch. A method that cannot identify the predictor -- a \code{brmsfit} may have

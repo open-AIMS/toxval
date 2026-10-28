@@ -21,8 +21,8 @@
 #'
 #' @section Supplying the predictor:
 #' `x_var` is optional in the generic because some classes record which of
-#' their variables is the predictor: a `bayesnec` fit carries it on its
-#' `bayesnecformula`, and a `drc` fit in `dataList$names$dName`. Requiring it
+#' their variables is the predictor, such as a `drc` fit in
+#' `dataList$names$dName`. Requiring it
 #' here would force a caller of such a class to repeat what the object already
 #' knows, and no method could relax it, because the generic validates before
 #' dispatch. A method that cannot identify the predictor -- a `brmsfit` may have
