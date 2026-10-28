@@ -216,7 +216,7 @@ outside the parameter space gives non-finite predictions: on `nsec_drc_2`,
 24.6% of replicates have `e < 0`. Such a replicate is excluded from the summary
 with a warning, in `ecx()` and `nsec()` alike. The remedies, dropping invalid
 replicates in `toxval_predict.drc()` or bootstrapping on a transformed scale,
-amend this entry and need their own evidence: #TBD.
+amend this entry and need their own evidence: #76.
 
 This is an approach rather than a definition, so it did not gate phase 0.
 
