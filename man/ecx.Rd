@@ -14,6 +14,7 @@ ecx(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
@@ -53,8 +54,14 @@ for a single curve.}
 \item{resolution}{A whole number giving the number of predictor values to
 evaluate the curve at. Larger values estimate a metric more precisely.}
 
-\item{x_range}{A numeric vector of length 2 giving the range of predictor
-values to evaluate over, or \code{NULL} to use the range in the model data.}
+\item{x_range}{A numeric vector of length 2 whose second value ends the
+grid, or \code{NULL} to end it at the highest predictor value in the data. The
+grid starts at the control concentration, so the first value must equal
+it; supply \code{x_control} to name a different one.}
+
+\item{x_control}{A number, the control concentration, at which the control
+response is predicted and the grid starts, or \code{NULL} for the lowest
+predictor value in the data. A value outside the range of the data warns.}
 
 \item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
 per-realisation values of each row.}
@@ -97,7 +104,8 @@ crossing, and each direction is a row of the result. A direction in which no
 realisation crosses is returned with \code{NA} estimates.
 
 \code{type} names what \code{proportion} is taken of, from the control, the predicted
-response at the lowest concentration:
+response at the control concentration, by default the lowest concentration
+in the data (see \code{\link[=toxval_predict]{toxval_predict()}}):
 \itemize{
 \item \code{"absolute"} (the default): decreasing, the control down to 0; increasing,
 the control up to 1 for a response on the proportion scale, and otherwise

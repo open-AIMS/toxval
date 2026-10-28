@@ -227,30 +227,39 @@ test_that("check type = range and absolute arguments behave as expeceted", {
 test_that("type = absolute and value passed to trigger NAN catch and throws error", {
   expect_error(
     expect_warning(
-      ecx(brms_model_1, x_var = "x", type = "absolute", x_range = c(-1, 1.05)),
+      expect_warning(
+        ecx(brms_model_1, x_var = "x", type = "absolute", x_control = -1),
+        regexp = "lies outside the range of the data"
+      ),
       regexp = "NaNs produced"
     ),
-    regexp = "`object` gives no finite prediction at 244 of 500 grid values, between -1 and -0.001703; `x_range` must lie where the model is defined"
+    regexp = "`object` gives no finite prediction at 244 of 500 grid values, between -1 and -0.001703; `x_control` and `x_range` must lie where the model is defined"
   )
 })
 
 test_that("type = range and value passed to trigger NAN catch and throws error", {
   expect_error(
     expect_warning(
-      ecx(brms_model_1, x_var = "x", type = "range", x_range = c(-1, 1.05)),
+      expect_warning(
+        ecx(brms_model_1, x_var = "x", type = "range", x_control = -1),
+        regexp = "lies outside the range of the data"
+      ),
       regexp = "NaNs produced"
     ),
-    regexp = "`object` gives no finite prediction at 244 of 500 grid values, between -1 and -0.001703; `x_range` must lie where the model is defined"
+    regexp = "`object` gives no finite prediction at 244 of 500 grid values, between -1 and -0.001703; `x_control` and `x_range` must lie where the model is defined"
   )
 })
 
 test_that("type = direct and value passed to trigger NAN catch", {
   expect_error(
     expect_warning(
-      ecx(brms_model_1, x_var = "x", type = "direct", x_range = c(-1, 1.05)),
+      expect_warning(
+        ecx(brms_model_1, x_var = "x", type = "direct", x_control = -1),
+        regexp = "lies outside the range of the data"
+      ),
       regexp = "NaNs produced"
     ),
-    regexp = "`object` gives no finite prediction at 244 of 500 grid values, between -1 and -0.001703; `x_range` must lie where the model is defined"
+    regexp = "`object` gives no finite prediction at 244 of 500 grid values, between -1 and -0.001703; `x_control` and `x_range` must lie where the model is defined"
   )
 })
 
@@ -855,5 +864,23 @@ test_that("ecx errors when asymptote is supplied for a multivariate brmsfit", {
   expect_error(
     ecx(nsec_multi_model_2, x_var = "dose", asymptote = c(decreasing = 0)),
     "`asymptote` must be NULL for a multivariate `brmsfit`"
+  )
+})
+
+test_that("ecx reports the control at the lowest concentration in the data", {
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+  pred <- toxval_predict(fit, n_boot = 50, seed = 1)
+  at_zero <- stats::median(pred$curves[[1]][, 1])
+
+  expect_equal(pred$x_vec[1], 0)
+  expect_equal(ecx(fit, n_boot = 50, seed = 1)$control, c(at_zero, at_zero))
+  expect_equal(
+    ecx(fit, x_range = c(0, 30), n_boot = 50, seed = 1)$control,
+    c(at_zero, at_zero)
+  )
+  expect_error(
+    ecx(fit, x_range = c(1, 30), n_boot = 50, seed = 1),
+    "`x_range` must start at the control concentration, 0, not 1; supply `x_control`",
+    fixed = TRUE
   )
 })

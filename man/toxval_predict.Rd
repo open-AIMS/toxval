@@ -13,7 +13,8 @@ toxval_predict(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 )
 
 \method{toxval_predict}{default}(
@@ -22,7 +23,8 @@ toxval_predict(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 )
 
 \method{toxval_predict}{brmsfit}(
@@ -32,6 +34,7 @@ toxval_predict(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   asymptote = NULL
 )
 
@@ -42,6 +45,7 @@ toxval_predict(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   n_boot = 1000,
   seed = NULL
 )
@@ -64,8 +68,14 @@ for a single curve.}
 \item{resolution}{A whole number giving the number of predictor values to
 evaluate the curve at. Larger values estimate a metric more precisely.}
 
-\item{x_range}{A numeric vector of length 2 giving the range of predictor
-values to evaluate over, or \code{NULL} to use the range in the model data.}
+\item{x_range}{A numeric vector of length 2 whose second value ends the
+grid, or \code{NULL} to end it at the highest predictor value in the data. The
+grid starts at the control concentration, so the first value must equal
+it; supply \code{x_control} to name a different one.}
+
+\item{x_control}{A number, the control concentration, at which the control
+response is predicted and the grid starts, or \code{NULL} for the lowest
+predictor value in the data. A value outside the range of the data warns.}
 
 \item{asymptote}{\code{NULL}, or a vector named \code{decreasing}, \code{increasing} or
 both, giving the lower and upper asymptotes of a \code{brmsfit} for
@@ -161,6 +171,18 @@ Supply \code{group_var} to get one curve per level rather than a single curve
 marginalised across levels. The curves follow the declared order of a
 factor, and otherwise the sorted order of the levels. Each method states
 what \code{group_var} must name.
+}
+
+\section{The control concentration}{
+
+The control response is the predicted response at the control
+concentration, and every reference, ECx and NSEC is measured from it. The
+grid starts there. By default it is the lowest predictor value in the data.
+\code{x_control} names another, such as 0 for a predictor measured as the
+reduction from an ambient level, where some observations lie below 0. A
+value outside the range of the data is predicted at a concentration that was
+not tested, and warns. A grouped fit has one control concentration for every
+curve.
 }
 
 \examples{

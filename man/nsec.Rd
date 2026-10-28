@@ -14,6 +14,7 @@ nsec(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
@@ -55,8 +56,14 @@ for a single curve.}
 \item{resolution}{A whole number giving the number of predictor values to
 evaluate the curve at. Larger values estimate a metric more precisely.}
 
-\item{x_range}{A numeric vector of length 2 giving the range of predictor
-values to evaluate over, or \code{NULL} to use the range in the model data.}
+\item{x_range}{A numeric vector of length 2 whose second value ends the
+grid, or \code{NULL} to end it at the highest predictor value in the data. The
+grid starts at the control concentration, so the first value must equal
+it; supply \code{x_control} to name a different one.}
+
+\item{x_control}{A number, the control concentration, at which the control
+response is predicted and the grid starts, or \code{NULL} for the lowest
+predictor value in the data. A value outside the range of the data warns.}
 
 \item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
 per-realisation values of each row.}
@@ -94,7 +101,8 @@ by \code{\link[=toxval_predict]{toxval_predict()}}: once per posterior draw for 
 per parametric bootstrap replicate for a frequentist one.
 
 The reference for the decreasing direction is the \code{sig_val} quantile of the
-control realisations, the predicted response at the lowest concentration,
+control realisations, the predicted response at the control concentration
+(by default the lowest concentration in the data; see \code{\link[=toxval_predict]{toxval_predict()}}),
 and for the increasing direction the \code{1 - sig_val} quantile. The NSEC is
 found for each realisation against that reference, and the realisations are
 summarised by \code{prob_vals}. A direction in which no realisation crosses is
@@ -107,7 +115,7 @@ as concentration rises from the control (rising, for a decreasing NSEC;
 falling, for an increasing one), and which passes to the other side of the
 reference without returning, shows no effect in the tested range. It is
 treated as a realisation that does not reach the reference. The rest are
-placed at the lowest concentration in the data. A
+placed at the control concentration. A
 realisation that does not reach the reference within the evaluated range
 ranks above the highest concentration, and an interval limit that falls
 among such realisations is reported as the highest concentration, with a

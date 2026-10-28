@@ -8,7 +8,7 @@
 #' lies (T21):
 #'
 #' - one whose control already lies beyond the reference in the direction
-#'   sought takes `meta$x_control`, the lowest concentration in the data. For
+#'   sought takes `meta$x_control`, the control concentration. For
 #'   an NSEC, one whose first change in response is away from the effect and
 #'   which is on the no-effect side of the reference at a later grid value
 #'   shows no effect in the tested range and is censored instead. An ECx keeps

@@ -86,10 +86,11 @@
 #'     and `NULL` otherwise.}
 #'   \item{`resolution`}{Whole number, the number of values in `x_vec`.}
 #'   \item{`x_range`}{Numeric of length 2, the range of `x_vec`.}
-#'   \item{`x_control`}{Number, the lowest predictor value in the data the
-#'     model was fitted to, taken to be the control. It differs from the first
-#'     value of `x_vec` when `x_range` is supplied. A realisation whose control
-#'     response already lies beyond the reference is placed here. In `nsec()`,
+#'   \item{`x_control`}{Number, the control concentration, at which the
+#'     control response is predicted: the lowest predictor value in the data,
+#'     unless the caller names another. It must be the first value of `x_vec`.
+#'     A realisation whose control response already lies beyond the reference is
+#'     placed here. In `nsec()`,
 #'     one whose response first changes away from the effect and passes to the
 #'     other side of the reference without returning is censored instead (T21).}
 #'   \item{`family`}{String naming the response distribution, such as the
@@ -409,7 +410,17 @@ chk_x_vec <- function(x_vec) {
 chk_settings <- function(x_vec, meta) {
   # `resolution` and `x_range` are the settings the grid was built from and are
   # reported as such, so an object where they disagree with `x_vec` describes
-  # itself wrongly
+  # itself wrongly. The compute functions read the control from the first grid
+  # value, and T21 places realisations at `x_control`, so the two must agree.
+  if (!isTRUE(all.equal(x_vec[1], meta$x_control))) {
+    chk::abort_chk(
+      "`x_vec` must start at `meta$x_control`, the control concentration (",
+      format(meta$x_control),
+      "), not ",
+      format(x_vec[1]),
+      "."
+    )
+  }
   if (!isTRUE(all.equal(as.numeric(meta$x_range), range(x_vec)))) {
     chk::abort_chk(
       "`meta$x_range` must be the range of `x_vec` (",

@@ -11,7 +11,8 @@
 #' per parametric bootstrap replicate for a frequentist one.
 #'
 #' The reference for the decreasing direction is the `sig_val` quantile of the
-#' control realisations, the predicted response at the lowest concentration,
+#' control realisations, the predicted response at the control concentration
+#' (by default the lowest concentration in the data; see [toxval_predict()]),
 #' and for the increasing direction the `1 - sig_val` quantile. The NSEC is
 #' found for each realisation against that reference, and the realisations are
 #' summarised by `prob_vals`. A direction in which no realisation crosses is
@@ -24,7 +25,7 @@
 #' falling, for an increasing one), and which passes to the other side of the
 #' reference without returning, shows no effect in the tested range. It is
 #' treated as a realisation that does not reach the reference. The rest are
-#' placed at the lowest concentration in the data. A
+#' placed at the control concentration. A
 #' realisation that does not reach the reference within the evaluated range
 #' ranks above the highest concentration, and an interval limit that falls
 #' among such realisations is reported as the highest concentration, with a
@@ -96,6 +97,7 @@ nsec <- function(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
@@ -111,6 +113,7 @@ nsec <- function(
     group_var = !missing(group_var),
     resolution = !missing(resolution),
     x_range = !missing(x_range),
+    x_control = !missing(x_control),
     ... = ...length() > 0
   )
 
@@ -194,6 +197,7 @@ nsec <- function(
       group_var = group_var,
       resolution = resolution,
       x_range = x_range,
+      x_control = x_control,
       ...
     )
   }

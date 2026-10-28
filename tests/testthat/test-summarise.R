@@ -143,11 +143,7 @@ test_that("summarise_metric returns NA where no realisation crosses, including o
   # away from the increasing effect, and below the reference, so it is
   # censored (T21, amended on #74). The other two never rise and are censored.
   # None crosses (T10).
-  pred <- compute_pred(
-    list(rbind(10 - x_vec, 9 - x_vec, 8 - x_vec)),
-    x_vec,
-    x_control = -1
-  )
+  pred <- compute_pred(list(rbind(10 - x_vec, 9 - x_vec, 8 - x_vec)), x_vec)
 
   expect_no_warning(
     result <- summarise_metric(compute_nsec(pred), pred, "nsec", draws = TRUE)
@@ -163,11 +159,7 @@ test_that("summarise_metric returns NA where no realisation crosses, including o
 test_that("summarise_metric places a realisation already past the reference at x_control (T21)", {
   x_vec <- 1:10
   # `direct` reference 5: the first crosses at 5, the second starts at 3.9
-  pred <- compute_pred(
-    list(rbind(10 - x_vec, 4 - x_vec / 10)),
-    x_vec,
-    x_control = 0
-  )
+  pred <- compute_pred(list(rbind(10 - x_vec, 4 - x_vec / 10)), x_vec)
 
   result <- summarise_metric(
     compute_ecx(pred, reference = 5, type = "direct"),
@@ -178,7 +170,7 @@ test_that("summarise_metric places a realisation already past the reference at x
 
   expect_equal(
     unlist(result[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 2.5, conf.low = 0, conf.high = 5)
+    c(estimate = 3, conf.low = 1, conf.high = 5)
   )
 })
 
@@ -204,11 +196,11 @@ past_at_control <- function(x_vec) {
     matrix(6 - x_vec / 2, nrow = 29, ncol = length(x_vec), byrow = TRUE)
   )
 }
-past_at_control_expected <- c(2.5, 3.5, rep(-1, 7), Inf, rep(2, 29))
+past_at_control_expected <- c(2.5, 3.5, rep(0, 7), Inf, rep(2, 29))
 
 test_that("summarise_metric censors a decreasing NSEC realisation past the reference that changes away and leaves (T21, #74)", {
   x_vec <- 0:10
-  pred <- compute_pred(list(past_at_control(x_vec)), x_vec, x_control = -1)
+  pred <- compute_pred(list(past_at_control(x_vec)), x_vec)
 
   expect_warning(
     result <- summarise_metric(
@@ -227,7 +219,7 @@ test_that("summarise_metric censors a decreasing NSEC realisation past the refer
 
 test_that("summarise_metric censors an increasing NSEC realisation past the reference that changes away and leaves (T21, #74)", {
   x_vec <- 0:10
-  pred <- compute_pred(list(10 - past_at_control(x_vec)), x_vec, x_control = -1)
+  pred <- compute_pred(list(10 - past_at_control(x_vec)), x_vec)
 
   expect_warning(
     result <- summarise_metric(
@@ -252,13 +244,11 @@ test_that("summarise_metric keeps T21 for an ECx of every type on the same curve
   pred <- compute_pred(
     list(curves),
     x_vec,
-    x_control = -1,
     asymptote = asymptote
   )
   mirror <- compute_pred(
     list(10 - curves),
     x_vec,
-    x_control = -1,
     asymptote = asymptote
   )
 
@@ -273,7 +263,7 @@ test_that("summarise_metric keeps T21 for an ECx of every type on the same curve
     ))
     expect_equal(
       result$draws[[case[[2]]]]$value.draw,
-      c(2.5, 3.5, rep(-1, 8), rep(2, 29))
+      c(2.5, 3.5, rep(0, 8), rep(2, 29))
     )
   }
 

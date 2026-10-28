@@ -15,7 +15,8 @@
 #' realisation crosses is returned with `NA` estimates.
 #'
 #' `type` names what `proportion` is taken of, from the control, the predicted
-#' response at the lowest concentration:
+#' response at the control concentration, by default the lowest concentration
+#' in the data (see [toxval_predict()]):
 #'
 #' - `"absolute"` (the default): decreasing, the control down to 0; increasing,
 #'   the control up to 1 for a response on the proportion scale, and otherwise
@@ -91,6 +92,7 @@ ecx <- function(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
@@ -106,6 +108,7 @@ ecx <- function(
     group_var = !missing(group_var),
     resolution = !missing(resolution),
     x_range = !missing(x_range),
+    x_control = !missing(x_control),
     ... = ...length() > 0
   )
 
@@ -196,6 +199,7 @@ ecx <- function(
       group_var = group_var,
       resolution = resolution,
       x_range = x_range,
+      x_control = x_control,
       ...
     )
   }
