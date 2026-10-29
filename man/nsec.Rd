@@ -9,7 +9,7 @@ nsec(
   ...,
   sig_val = 0.01,
   type = "absolute",
-  anchor = "model",
+  anchor = NULL,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
@@ -41,10 +41,15 @@ increasing one.}
 \item{type}{One of \code{"absolute"}, \code{"relative"} or \code{"range"}, naming the span
 \code{ecnsec} is a proportion of. See \code{\link[=ecx]{ecx()}}.}
 
-\item{anchor}{One of \code{"model"} (the default) or \code{"component"}, where the
-reference is taken from for a model-averaged fit: the averaged control,
-or each component model's own control. The two coincide for a fit that is
-not model-averaged.}
+\item{anchor}{One of \code{"model"} or \code{"component"}, where the reference is
+taken from for a model-averaged fit: the averaged control, or each
+component model's own control over every draw of that model's fit.
+\code{"component"} is the default for a \code{bayesmanecfit}, matching
+\code{bayesnec::nsec()}; \code{"model"} is the default otherwise. The two coincide
+for a fit that is not model-averaged. Under
+\code{"component"} the references of the models differ, and the \code{reference}
+column reports their \code{prob_vals[1]} quantile across realisations, as
+\code{control} does.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -119,7 +124,8 @@ placed at the control concentration. A
 realisation that does not reach the reference within the evaluated range
 ranks above the highest concentration, and an interval limit that falls
 among such realisations is reported as the highest concentration, with a
-warning.
+warning. When any realisation is censored, the reported quantiles are
+observed order statistics.
 
 \code{ecnsec} is the effect at the NSEC, as a proportion of the span named by
 \code{type}: the inverse of the \code{\link[=ecx]{ecx()}} reference under the same \code{type}.
@@ -127,6 +133,15 @@ warning.
 NSECs are not estimated for \code{drc} NEC models, whose threshold is a parameter
 of the model rather than a feature of a smooth curve.
 }
+\section{Fits from bayesnec}{
+
+A \code{bayesnecfit} or \code{bayesmanecfit} from \code{bayesnec::bnec()} is accepted when
+\code{bayesnec} is installed; see \code{\link[=toxval_predict]{toxval_predict()}}. \code{bayesnec} also exports a
+function named \code{nsec()}, and whichever of the two packages is attached later
+masks the other's, without a warning. Call \code{toxval::nsec()} to be sure of
+reaching this function.
+}
+
 \section{Multivariate fits}{
 
 A multivariate \code{brmsfit} gives rows for each response, named in the

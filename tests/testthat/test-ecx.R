@@ -27,7 +27,7 @@ test_that("ecx_val changes when different value provided", {
   output_1 <- suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50))
 
   expect_equal(output_1$estimate[[1]], 0.975, tolerance = 0.001)
-  expect_equal(output_1$conf.low[[1]], 0.904, tolerance = 0.001)
+  expect_equal(output_1$conf.low[[1]], 0.9028335, tolerance = 1e-6)
   expect_equal(output_1$conf.high[[1]], 1.05, tolerance = 0.001)
   expect_equal(output_1$proportion, c(0.50, 0.50))
 
@@ -38,7 +38,7 @@ test_that("ecx_val changes when different value provided", {
   ))
 
   expect_equal(output_2$estimate[[1]], 0.975, tolerance = 0.001)
-  expect_equal(output_2$conf.low[[1]], 0.904, tolerance = 0.001)
+  expect_equal(output_2$conf.low[[1]], 0.9028335, tolerance = 1e-6)
   expect_equal(output_2$conf.high[[1]], 1.05, tolerance = 0.001)
   expect_equal(output_2$proportion, c(0.50, 0.50))
 
@@ -185,12 +185,12 @@ test_that("ecx under direct keeps the control for a realisation past the referen
 
   expect_equal(
     unlist(output[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 0.9538237, conf.low = 0.8, conf.high = 1.05),
+    c(estimate = 0.9537893, conf.low = 0.8, conf.high = 1.05),
     tolerance = 1e-6
   )
   expect_equal(
     unlist(output[2, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 0.8, conf.low = 0.8, conf.high = 1.05),
+    c(estimate = 0.8, conf.low = 0.8, conf.high = 1.0307254),
     tolerance = 1e-6
   )
 })

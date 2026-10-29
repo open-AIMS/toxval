@@ -365,7 +365,7 @@ test_that("brms model runs when multiple variables in data and group_var specifi
   # amendment they took the control, giving 0.97893 and 0.92054.
   expect_equal(
     output$conf.low,
-    c(NA_real_, 1.05, 1.003957, 0.941763),
+    c(NA_real_, 1.05, 1.0008581, 0.9415798),
     tolerance = 0.001
   )
   expect_equal(
@@ -400,7 +400,7 @@ test_that("a hormetic fit gives a decreasing and an increasing NSEC", {
   expect_equal(output$estimate[[2]], 0.1635, tolerance = 0.001)
 })
 
-# The expected values were computed outside toxval with quantile type 7 (#74).
+# The expected values use observed order statistics when draws are censored.
 test_that("nsec censors the brms_model_1 realisations that show no effect (T21, #74)", {
   pred <- toxval_predict(brms_model_1, x_var = "x")
   output <- suppressWarnings(nsec(pred, draws = TRUE))
@@ -414,7 +414,7 @@ test_that("nsec censors the brms_model_1 realisations that show no effect (T21, 
   expect_equal(sum(is.infinite(output$draws[[1]]$value.draw[past])), 7)
   expect_equal(
     unlist(output[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 1.05, conf.low = 0.991338, conf.high = 1.05),
+    c(estimate = 1.05, conf.low = 0.9911504, conf.high = 1.05),
     tolerance = 1e-6
   )
 })
@@ -431,7 +431,7 @@ test_that("nsec censors the brms_model_6 realisations that show no effect (T21, 
   expect_equal(sum(is.infinite(output$draws[[1]]$value.draw[past])), 10)
   expect_equal(
     unlist(output[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 1.05, conf.low = 0.9716878, conf.high = 1.05),
+    c(estimate = 1.05, conf.low = 0.9696808, conf.high = 1.05),
     tolerance = 1e-6
   )
 })
@@ -803,12 +803,12 @@ test_that("nsec of a multivariate fit against the pre-refactor nsec_multi", {
 
   expect_equal(
     output$estimate,
-    c(0.4615262, NA, 0.8671501, 1.5),
+    c(0.4615262, NA, 0.8663563, 1.5),
     tolerance = 1e-6
   )
   expect_equal(
     output$conf.low,
-    c(0.1559251, NA, 0.410851, 1.5),
+    c(0.1559251, NA, 0.4073518, 1.5),
     tolerance = 1e-6
   )
   expect_equal(

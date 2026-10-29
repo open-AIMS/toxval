@@ -21,6 +21,9 @@
 #' - any other has no crossing within the evaluated range. It ranks above
 #'   `max(x_vec)` and is given no value, so a quantile that falls among such
 #'   realisations is reported as `max(x_vec)`.
+#' Where any realisation is censored, the summary uses an observed order
+#' statistic, so it does not interpolate between a known concentration and an
+#' unknown one beyond the range.
 #'
 #' A direction in which no realisation has a crossing returns `NA` (T10). The
 #' call warns once when a reported quantile is censored or a realisation is
@@ -151,7 +154,12 @@ summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
   quantiles <- rep(NA_real_, 3)
   quantile_censored <- FALSE
   if (any(!no_crossing)) {
-    quantiles <- stats::quantile(placed[!excluded], prob_vals, names = FALSE)
+    quantiles <- stats::quantile(
+      placed[!excluded],
+      prob_vals,
+      names = FALSE,
+      type = if (any(censored)) 1 else 7
+    )
     quantile_censored <- any(is.infinite(quantiles))
     quantiles[is.infinite(quantiles)] <- xform(x_max)
   }

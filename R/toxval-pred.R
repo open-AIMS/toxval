@@ -104,7 +104,26 @@
 #'     realisations.}
 #'   \item{`n_realisation`}{Whole number, the number of realisations.}
 #'   \item{`seed`}{Whole number, the seed used to generate bootstrap
-#'     realisations, or `NULL`.}
+#'     realisations or to choose the realisations of a model average, or
+#'     `NULL`.}
+#' }
+#'
+#' The following elements are optional, and are checked when they are present.
+#' A model average records them.
+#'
+#' \describe{
+#'   \item{`model_weights`}{Named numeric, the weight of each model in a model
+#'     average, each between 0 and 1 and summing to 1. A model whose weight
+#'     gives it no realisation is still listed.}
+#'   \item{`draw_model`}{Character, one value per realisation, naming the model
+#'     the realisation came from. Each value is a name in `model_weights` when
+#'     that is present.}
+#'   \item{`model_control`}{An unnamed list, one element per row of `keys`, of
+#'     named lists of numeric vectors. Each vector holds the control response
+#'     of one model in every draw of its own fit, including draws left out of
+#'     the average, so its length can differ from `n_realisation`. It requires
+#'     `draw_model`, and every model named there has a vector. Under
+#'     `anchor = "component"`, [nsec()] takes each model's reference from it.}
 #' }
 #'
 #' @aliases toxval_pred
@@ -199,6 +218,9 @@ validate_toxval_pred <- function(x) {
   if (!is.null(x$asymptote)) {
     chk_asymptote(x$asymptote, x$keys, x$meta)
   }
+  if (!is.null(x$meta$model_control)) {
+    chk_model_control(x$meta$model_control, x$keys, x$meta)
+  }
 
   invisible(x)
 }
@@ -273,7 +295,87 @@ chk_meta <- function(meta) {
     vld = chk::vld_whole_number,
     x_name = "`meta$seed`"
   )
+
+  if (!is.null(meta$model_weights)) {
+    chk_model_weights(meta$model_weights)
+  }
+  if (!is.null(meta$draw_model)) {
+    chk_draw_model(meta$draw_model, meta)
+  }
   invisible(meta)
+}
+
+#' @noRd
+chk_model_weights <- function(model_weights) {
+  x_name <- "`meta$model_weights`"
+  chk::chk_numeric(model_weights, x_name = x_name)
+  chk::chk_not_any_na(model_weights, x_name = x_name)
+  nms <- names(model_weights)
+  if (is.null(nms) || anyNA(nms) || !all(nzchar(nms))) {
+    chk::abort_chk(
+      "`meta$model_weights` must be named, with a name for every model."
+    )
+  }
+  chk::chk_unique(nms, x_name = "names of `meta$model_weights`")
+  chk::chk_range(model_weights, c(0, 1), x_name = x_name)
+  if (!isTRUE(all.equal(sum(model_weights), 1))) {
+    chk::abort_chk(
+      "`meta$model_weights` must sum to 1, not ",
+      format(sum(model_weights)),
+      "."
+    )
+  }
+  invisible(model_weights)
+}
+
+#' @noRd
+chk_draw_model <- function(draw_model, meta) {
+  x_name <- "`meta$draw_model`"
+  chk::chk_character(draw_model, x_name = x_name)
+  chk::chk_not_any_na(draw_model, x_name = x_name)
+  chk::chk_length(draw_model, as.integer(meta$n_realisation), x_name = x_name)
+  if (!is.null(meta$model_weights)) {
+    unknown <- setdiff(draw_model, names(meta$model_weights))
+    if (length(unknown) > 0) {
+      chk::abort_chk(
+        "`meta$draw_model` must name only models in `meta$model_weights`, ",
+        "not ",
+        chk::cc(unknown, conj = " or "),
+        "."
+      )
+    }
+  }
+  invisible(draw_model)
+}
+
+#' @noRd
+chk_model_control <- function(model_control, keys, meta) {
+  if (is.null(meta$draw_model)) {
+    chk::abort_chk("`meta$model_control` requires `meta$draw_model`.")
+  }
+  chk_aligned_shape(model_control, "meta$model_control", keys)
+
+  for (i in seq_along(model_control)) {
+    nm <- element_name("meta$model_control", i)
+    chk::chk_list(model_control[[i]], x_name = nm)
+    chk::chk_named(model_control[[i]], x_name = nm)
+    unknown <- setdiff(meta$draw_model, names(model_control[[i]]))
+    if (length(unknown) > 0) {
+      chk::abort_chk(
+        nm,
+        " must have an element for every model in `meta$draw_model`, ",
+        "including ",
+        chk::cc(unknown, conj = " and "),
+        "."
+      )
+    }
+    for (m in names(model_control[[i]])) {
+      element <- paste0("`meta$model_control[[", i, "]]$", m, "`")
+      chk::chk_numeric(model_control[[i]][[m]], x_name = element)
+      chk::chk_vector(model_control[[i]][[m]], x_name = element)
+    }
+  }
+  invisible(model_control)
 }
 
 #' @noRd

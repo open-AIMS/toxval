@@ -41,8 +41,8 @@ including the No-Significant-Effect Concentration (NSEC) — from fitted Bayesia
 ([`brms`](https://cran.r-project.org/package=brms)) model objects, and of the
 NSEC from fitted frequentist ([`drc`](https://cran.r-project.org/package=drc))
 model objects. Models fitted with
-[`bayesnec`](https://open-aims.github.io/bayesnec/) are handled by that
-package's own `ecx()` and `nsec()`.
+[`bayesnec`](https://open-aims.github.io/bayesnec/) are supported as well, as
+described under [Models fitted with bayesnec](#models-fitted-with-bayesnec).
 
 For the theoretical basis of the NSEC, see [Fisher & Fox
 (2023)](https://doi.org/10.1002/etc.5610). For model-averaged N(S)EC estimation
@@ -114,6 +114,34 @@ estimates; both are planned
 Usage and further information about `toxval` can be seen on the [project
 page](https://open-aims.github.io/toxval/) and the [reference
 page](https://open-aims.github.io/toxval/reference/).
+
+## Models fitted with bayesnec
+
+`ecx()`, `nsec()` and `toxval_predict()` accept the two classes that
+`bayesnec::bnec()` returns in the CRAN release of `bayesnec`: a single fit
+(`bayesnecfit`) and a model average (`bayesmanecfit`). `bayesnec` must be
+installed, because it builds the data each curve is predicted at. Any other
+`bayesnec` class stops with a message naming it.
+
+```r
+toxval::ecx(bayesnec::manec_example, proportion = 0.1)
+toxval::nsec(bayesnec::manec_example)
+```
+
+Estimates are on the scale of the variable named inside `crf()`, so a fit to
+`crf(log(x), ...)` is reported in units of `x`. They differ from the estimates
+of `bayesnec::ecx()` and `bayesnec::nsec()` wherever the two packages define
+them differently. By default `nsec()` takes its reference from the
+model-averaged control (`anchor = "model"`), where `bayesnec` uses each
+equation's own control; `anchor = "component"` takes the reference as `bayesnec`
+does. Both packages place a realisation that never reaches
+the reference, but by different rules, which `?nsec` describes for `toxval`.
+`toxval` reports both directions, and evaluates 500 concentrations by default
+against 200 in `bayesnec`.
+
+`bayesnec` also exports functions named `ecx()` and `nsec()`. With both packages
+attached, the one attached later masks the other's, without a warning, so call
+`toxval::ecx()` and `toxval::nsec()`.
 
 ## Planned Development
 

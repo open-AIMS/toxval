@@ -45,8 +45,9 @@
 #' not tested, and warns. A grouped fit has one control concentration for every
 #' curve.
 #'
-#' @param object A fitted model object. Methods are provided for [brms::brmsfit]
-#'   and `drc` fits.
+#' @param object A fitted model object. Methods are provided for
+#'   [brms::brmsfit] and `drc` fits, and for the `bayesnecfit` and
+#'   `bayesmanecfit` fits of `bayesnec`.
 #' @param x_var A string naming the predictor variable in `object`, or `NULL`
 #'   where the class of `object` records which of its variables is the
 #'   predictor. Each method states whether it accepts `NULL`.
@@ -72,6 +73,9 @@
 #' if (requireNamespace("drc", quietly = TRUE)) {
 #'   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
 #'   toxval_predict(fit, x_var = "conc", resolution = 50, n_boot = 100, seed = 42)
+#' }
+#' if (requireNamespace("bayesnec", quietly = TRUE)) {
+#'   toxval_predict(bayesnec::manec_example, resolution = 50)
 #' }
 #' }
 #'
@@ -285,6 +289,180 @@ toxval_predict.drc <- function(
   )
 }
 
+#' @describeIn toxval_predict Method for a single model fitted by
+#'   `bayesnec::bnec()`, of class `bayesnecfit`, which requires `bayesnec` to
+#'   be installed. Realisations are the posterior draws of the `brmsfit` held in
+#'   `object$fit`, and group-level effects are marginalised out
+#'   (`re_formula = NA`). The grid spans the same concentrations as for a
+#'   `brmsfit`, and `bayesnec` builds the data to predict at, with a binomial
+#'   or beta-binomial response predicted for one trial, so that its curve is a
+#'   proportion. `x_var` is read from the `crf()`
+#'   term when `NULL`, and a supplied `x_var` must match it. `group_var` must be
+#'   `NULL`, since a `bnec()` fit has one curve. A predictor transformed inside
+#'   `crf()`, such as `crf(log(x), ...)`, is reported in units of the variable
+#'   itself, `x`, so `xform = exp` must not be supplied for it. The lower
+#'   asymptote is the `bot` parameter for an equation that has one, and
+#'   otherwise 0, the limit of its curve; the upper asymptote is 1 for a
+#'   proportion. An asymptote is `NA` where the family has no such bound, or
+#'   where the fit uses a link other than identity.
+#'
+#' @export
+toxval_predict.bayesnecfit <- function(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL
+) {
+  chk_dots_unused(..., source = "`bayesnecfit`")
+  check_bayesnec_installed(object)
+  chk_bayesnec_supported(object)
+  chk_no_group_var(group_var, object)
+
+  data <- object$fit$data
+  x_var <- bnec_x_var(object$bayesnecformula, data, x_var)
+  newdata <- bnec_grid(
+    object,
+    predict_grid(x_range, data[[x_var]], resolution, x_control)
+  )
+  x_vec <- newdata[[x_var]]
+  # Read from the stored brmsfit rather than through bayesnec's own
+  # posterior_epred() methods, which have none for the components of a model
+  # set, so that one call serves both bayesnec classes (BAYESNEC-claude.md §3.1)
+  curve <- posterior_epred(object$fit, newdata = newdata, re_formula = NA)
+  chk_defined_grid(list(curve), x_vec)
+
+  new_toxval_pred(
+    curves = list(curve),
+    keys = group_keys(),
+    x_vec = x_vec,
+    asymptote = list(bnec_asymptote(object$fit)),
+    meta = build_meta(
+      object = object,
+      x_vec = x_vec,
+      x_var = x_var,
+      curves = list(curve),
+      realisation = "draws",
+      family = object$fit$family$family
+    )
+  )
+}
+
+#' @describeIn toxval_predict Method for a model average fitted by
+#'   `bayesnec::bnec()`, of class `bayesmanecfit`, which requires `bayesnec` to
+#'   be installed. Each model in the set is predicted as for a `bayesnecfit`.
+#'   The realisations are the draws `bayesnec` keeps from each model in
+#'   proportion to its weight, the same draws its own estimates and plots use.
+#'   The model each realisation came from is recorded in `meta$draw_model`, the
+#'   weights in `meta$model_weights`, and the seed the draws were chosen with in
+#'   `meta$seed`. The random number state of the session is left unchanged.
+#'   Each realisation takes its asymptotes from its own model. The control
+#'   response of each model in every draw of its fit, including the draws left
+#'   out of the average, is recorded in `meta$model_control`.
+#'
+#' @export
+toxval_predict.bayesmanecfit <- function(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL
+) {
+  chk_dots_unused(..., source = "`bayesmanecfit`")
+  check_bayesnec_installed(object)
+  mod_fits <- object$mod_fits
+  for (component in mod_fits) {
+    chk_bayesnec_supported(component)
+  }
+  chk_one_family(mod_fits)
+  chk_no_group_var(group_var, object)
+
+  model_set <- names(mod_fits)
+  weights <- stats::setNames(object$mod_stats[model_set, "wi"], model_set)
+  # every model is fitted to the same data with the same crf() term
+  data <- mod_fits[[1]]$fit$data
+  x_var <- bnec_x_var(mod_fits[[1]]$bayesnecformula, data, x_var)
+  newdata <- bnec_grid(
+    object,
+    predict_grid(x_range, data[[x_var]], resolution, x_control)
+  )
+  x_vec <- newdata[[x_var]]
+
+  per_model <- lapply(mod_fits, function(component) {
+    posterior_epred(component$fit, newdata = newdata, re_formula = NA)
+  })
+  n <- min(vapply(per_model, nrow, integer(1)))
+  index <- bnec_draw_index(object, model_set, weights, n)
+  curve <- do.call(
+    rbind,
+    lapply(model_set, function(m) {
+      per_model[[m]][index$rows[[m]], , drop = FALSE]
+    })
+  )
+  chk_defined_grid(list(curve), x_vec)
+  per_model_asymptote <- lapply(mod_fits, function(component) {
+    bnec_asymptote(component$fit)
+  })
+  asymptote <- lapply(stats::setNames(nm = directions()), function(direction) {
+    unlist(
+      lapply(model_set, function(m) {
+        per_model_asymptote[[m]][[direction]][index$rows[[m]]]
+      }),
+      use.names = FALSE
+    )
+  })
+
+  new_toxval_pred(
+    curves = list(curve),
+    keys = group_keys(),
+    x_vec = x_vec,
+    asymptote = list(asymptote),
+    meta = build_meta(
+      object = object,
+      x_vec = x_vec,
+      x_var = x_var,
+      curves = list(curve),
+      realisation = "draws",
+      family = mod_fits[[1]]$fit$family$family,
+      seed = index$seed,
+      # a model with no realisation in the average stays in `model_weights`
+      draw_model = rep(model_set, lengths(index$rows)),
+      model_weights = weights,
+      # keep every draw, not only the rows of the index, so that each model's
+      # component reference is taken over its whole fit
+      model_control = list(lapply(per_model, function(p) unname(p[, 1])))
+    )
+  )
+}
+
+#' @describeIn toxval_predict Method for any other `bayesnec` fit, which
+#'   errors. Group fits, joint refits and hurdle pairs each hold more than one
+#'   curve, over concentrations that can differ between curves, which a
+#'   [toxval_pred] does not yet represent.
+#'
+#' @export
+toxval_predict.bnecfit <- function(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL
+) {
+  chk::abort_chk(
+    "`object` must be a ",
+    chk::cc(bnec_supported_classes(), conj = " or "),
+    " to be predicted by `toxval_predict()`, not a ",
+    chk::cc(class(object)[1]),
+    "."
+  )
+}
+
 #' Assemble the metadata of a toxval_pred
 #'
 #' Every method builds its `meta` here, so the contract is satisfied in one
@@ -303,6 +481,8 @@ toxval_predict.drc <- function(
 #'   response for a multivariate fit, the `type` of a `drc` fit, or `NULL`
 #'   where there is none.
 #' @param seed The bootstrap seed, or `NULL`.
+#' @param ... Optional elements of `meta`, such as `draw_model` and
+#'   `model_weights`, appended to the required ones.
 #'
 #' @return A named list satisfying the `meta` contract of [toxval_pred].
 #'
@@ -316,9 +496,10 @@ build_meta <- function(
   multi_var = NULL,
   realisation,
   family = NULL,
-  seed = NULL
+  seed = NULL,
+  ...
 ) {
-  list(
+  required <- list(
     source_class = class(object)[1],
     x_var = x_var,
     group_var = group_var,
@@ -332,6 +513,7 @@ build_meta <- function(
     n_realisation = nrow(curves[[1]]),
     seed = seed
   )
+  c(required, list(...))
 }
 
 #' The responses of a brmsfit, read from its formula

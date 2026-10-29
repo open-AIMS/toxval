@@ -40,9 +40,11 @@ shape they come in. Each has its own issue:
 §3.10 presumes §3.6. All are settled, and the `anchor` default was ratified on
 2026-09-05 (§3.8), so phase 0 is complete.
 
-**Sequencing constraint.** The `bayesnec` dependency untangle (#39) shares its
-central abstraction with this plan — see [3.3](#33-single-generic-architecture)
-— and has a hard ordering requirement against it. See
+**Sequencing constraint.** Support for `bayesnec` fits (phase 7) is built on
+this plan's central abstraction — see [3.3](#33-single-generic-architecture) —
+so it follows phases 2 to 5. The `bayesnec` dependency untangle (#39) placed
+those methods in `bayesnec` and required `toxval` to reach CRAN first. T35 (#68)
+places them in `toxval`, and that requirement no longer applies. See
 [4. Phased implementation](#4-phased-implementation).
 
 ## 3. Design decisions
@@ -227,11 +229,13 @@ toxval_predict.gam <- function(object, x_var, resolution, x_range, ...) {
 }
 ```
 
-**`toxval_pred` is public API.** It is not an internal convenience. Under #39
-the `bayesnec` classes are served by methods that live *in `bayesnec`*, which
-imports `toxval` and constructs a `toxval_pred` from outside this package. So
-the constructor (`new_toxval_pred()`), the slot contract, and the validator are
-all exported and documented, and changes to them are breaking changes.
+**`toxval_pred` is public API.** It is not an internal convenience. Another
+package may supply a `toxval_predict()` method, which constructs a
+`toxval_pred` from outside this one. So the constructor (`new_toxval_pred()`),
+the slot contract, and the validator are all exported and documented, and
+changes to them are breaking changes. Under #39 the `bayesnec` classes were to
+be the first such case, served by methods in `bayesnec` that imported `toxval`.
+T35 (#68) places those methods in `toxval`, and the contract stays public.
 
 This is also what makes #39 tractable: `toxval_pred` **is** the "plain-input
 API" that untangle needs. It should be built once, here, and not prototyped
@@ -452,14 +456,17 @@ constructed, and the amount of work depends on the quantity:
   drawn. `meta$draw_model` records the component per realisation, which is what
   lets `n(s)ec` label each draw a NEC or an NSEC. Tracked as `bayesnec` #216.
 
-**Both of these are `bayesnec` fixes**, implemented in
-`toxval_predict.bayesmanecfit()` and in `bayesnec`'s averaging helpers.
-`toxval` only states the invariant and tests it.
+Both are implemented in `toxval_predict.bayesmanecfit()`, which is in `toxval`
+(T35). It builds the one matrix from `bayesnec`'s own draw index and records
+`meta$draw_model` (`BAYESNEC-claude.md` §3.2). Under #39 both were to be
+`bayesnec` fixes, made in that method and in `bayesnec`'s averaging helpers,
+with `toxval` only stating the invariant and testing it.
 
-Note that moving to a single averaged curve matrix fixes *alignment* but not
-*reproducibility*: the one remaining resample in `bayesnec`'s averaging is still
-unseeded, and `toxval` never touches it. That half is `bayesnec` #216 and has to
-be fixed there — see [5. Notes](#5-notes).
+A single averaged curve matrix fixes *alignment* but not *reproducibility*. The
+resample in `bayesnec`'s averaging was unseeded until `bayesnec` #216 (closed
+2026-08-21). From `bayesnec` 2.1.3.7 the index is stored on the object or
+rebuilt from a seed, and `toxval_predict.bayesmanecfit()` follows the same rule
+(`BAYESNEC-claude.md` §3.2). See [5. Notes](#5-notes).
 
 ### 3.5 Draws
 
@@ -681,16 +688,20 @@ Specific defects to fold into this pass, each currently unguarded:
 
 #### Where class-specific guards go
 
-Two `bayesnec` checks have no obvious home under a class-agnostic estimator, and
-need one:
+Two `bayesnec` checks had no obvious home under a class-agnostic estimator:
 
 - **`dpar`** (hurdle families: choose `mu` vs `hu`/`zi`, invert the zero block).
   This determines *which curves are generated*, so it belongs on the predict
-  side: `toxval_predict.bayesnecfit(..., dpar = NULL)`.
-- **The gaussian + `type = "absolute"` + no-`bot` guard.** This is a metric-level
+  side: `toxval_predict.bayesnecfit(..., dpar = NULL)`. Under T35 that method is
+  in `toxval`. The first pull request of phase 7 refuses a two-part family, and
+  `dpar` waits for the hurdle pull request (`BAYESNEC-claude.md` §3.1, §3.3).
+- ~~**The gaussian + `type = "absolute"` + no-`bot` guard.** This is a metric-level
   check that depends on a class-level fact. The metric function can only apply it
   if `toxval_pred$meta` carries `family` — which is why `family` is in the meta
-  list in [3.4](#34-the-toxval_pred-intermediate-object).
+  list in [3.4](#34-the-toxval_pred-intermediate-object).~~ Deleted (T35,
+  `BAYESNEC-claude.md` §3.5). `bayesnec` has removed its own guard, following
+  OECD TG 201, which agrees with §3.10. `family` stays in `meta`, where
+  `response_upper_bound()` reads it (T26).
 
 #### Group-level effects in a `brmsfit`  (T16)
 
@@ -738,8 +749,8 @@ nsec(fit, anchor = c("model", "component", "control"))
 
 | `anchor` | threshold from | reading |
 |---|---|---|
-| `"model"` *(default)* | the `sig_val` quantile of the **model-averaged** control posterior | where the averaged curve departs from the averaged control |
-| `"component"` | the same quantile of **each component model's** control, applied to that model's own realisations | pick a model, compute its NSEC, repeat — the strict BMA mixture |
+| `"model"` *(default except for `bayesmanecfit`)* | the `sig_val` quantile of the **model-averaged** control posterior | where the averaged curve departs from the averaged control |
+| `"component"` *(default for `bayesmanecfit`)* | the same quantile of **each component model's** control, applied to that model's own realisations | pick a model, compute its NSEC, repeat — the strict BMA mixture |
 | `"control"` | a **control-only fit**, in the same family and framework | where the curve departs from the control estimated on its own |
 
 `anchor` is a descriptor column on the result, so the choice travels with the
@@ -748,7 +759,7 @@ estimate rather than being invisible in the number.
 For a single (non-averaged) fit `"model"` and `"component"` coincide — there is
 only one model — so the distinction is a model-averaging one.
 
-#### Why `"model"` is the default
+#### Why `"model"` was the original default
 
 **Ratified 2026-09-05 (RF)**; see decision T12.
 
@@ -774,8 +785,8 @@ carries only 17% of the weight**. Under `"component"` that minority model uses
 its own higher threshold, crosses it sooner, and single-handedly sets the
 reported lower bound.
 
-`"model"` is the default because the values it pools are all measured against
-the *same* y-threshold, so the estimate has a single interpretable reference
+The original `"model"` choice pooled values measured against the *same*
+y-threshold, so the estimate has a single interpretable reference
 that can be drawn on the plot. Under `"component"` some draws are "distance to
 2.035" and others "distance to 2.098", and the question "what response level
 does this NSEC correspond to?" has no single answer. It is the same fork as
@@ -783,14 +794,16 @@ does this NSEC correspond to?" has no single answer. It is the same fork as
 inversion work, resolved the same way: average the distributions, then derive
 the endpoint.
 
-`"component"` is kept rather than removed because it is the strict Bayesian
+`"component"` is available because it is the strict Bayesian
 model average — the weighted mixture of per-model posteriors — and because it
 reproduces what `bayesnec` returns today, which matters for anyone checking
 previously published values.
 
 Note `"model"` understates uncertainty about the control relative to
 `"component"`, by collapsing it to one pooled number. That is the cost of the
-default and should be documented, not glossed.
+original default and should be documented, not glossed. On 2026-10-29 RF chose
+`"component"` as the `bayesmanecfit` default to match `bayesnec` while retaining
+`"model"` as an explicit option (T12). Other classes still default to `"model"`.
 
 #### `anchor = "control"`
 
@@ -851,11 +864,13 @@ That is an inconsistency to remove, not an option to offer.
 
 Consequences elsewhere:
 
-- `bayesnec`'s `nsec.bayesmanecfit()` resampling machinery still goes (#39). The
-  `"component"` anchor does not need it: once realisations carry
-  `meta$draw_model` for `n(s)ec`, computing a per-component threshold is a
-  grouped operation on the aligned realisation set, not a separate sampling
-  path.
+- `toxval` does not reproduce the resampling machinery of `bayesnec`'s
+  `nsec.bayesmanecfit()`: every metric is computed on the one averaged matrix
+  (T35, `BAYESNEC-claude.md` §3.5). Under #39 that machinery was to be deleted
+  from `bayesnec`; whether `bayesnec` keeps it is now for `bayesnec` to decide.
+  The `"component"` anchor does not need it: `toxval_predict.bayesmanecfit()`
+  records `meta$draw_model`, so a per-component threshold is a grouped
+  operation on the aligned realisation set, not a separate sampling path.
 - `ecnsec` follows whichever anchor `nsec` used, so it stays paired.
 - `nec` and `n(s)ec` are unaffected. A NEC is a parameter, so it is inherently a
   `"component"`-style mixture; `n(s)ec` therefore combines a `"model"`-style and
@@ -1221,24 +1236,24 @@ The `nsec` half does **not** block, because
 than resolving it by fiat. Only the default had to be agreed, and a default can
 be revisited without invalidating anything.
 
-**`toxval` must reach CRAN before #39 can ship.** `bayesnec` is on CRAN;
-`toxval` is not. A CRAN package's `Imports` must resolve from CRAN, and
-`Remotes:` is ignored by CRAN, so `bayesnec` cannot release
-`Imports: toxval` until `toxval` is published there. CRAN-readiness is therefore
-a prerequisite of the untangle, not a follow-up to it.
+The second constraint is that the tibble change comes before the CRAN
+submission, because publishing an API that is about to be broken would force two
+breaking releases in succession.
 
-That in turn means **the tibble change belongs before the CRAN submission**,
-because publishing an API that is about to be broken would force two breaking
-releases in succession. `bayesnec` then relocates and adapts to the new shape in
-a single step.
+That order was first derived from a requirement now retired: `toxval` had to
+reach CRAN before #39 could ship. `bayesnec` is on CRAN and `toxval` is not. A
+CRAN package's `Imports` must resolve from CRAN, and CRAN ignores `Remotes:`, so
+`bayesnec` could not release `Imports: toxval` until `toxval` was published.
+`bayesnec` was then to relocate the methods and adapt to the new shape in one
+step. Its `plot.R`, `autoplot.R`, `summary.R` and hurdle methods read `ecx()`
+positionally as a length-3 vector, so the shape change would have made them stop
+with an error rather than return wrong values. The change of numbers was to be
+verified inside `toxval` before the `bayesnec` PR.
 
-This is safer than it sounds. `bayesnec` consumes `ecx()` positionally as a
-length-3 vector in `plot.R`, `autoplot.R`, `summary.R` and the hurdle methods
-(`bind_ecx()` uses `ecx_vals[[1]]`, `[[2]]`, `[[3]]` and
-`attr(ecx_vals, "ecx_val")`), so a shape change **breaks loudly** rather than
-silently. The dangerous axis is the numbers, and those move at import time under
-any ordering — so they are verified in isolation inside `toxval`, before the
-`bayesnec` PR.
+T35 (#68) places the `toxval_predict()` methods for `bayesnec` fits in `toxval`,
+with `bayesnec` in `Suggests`. `bayesnec` does not import `toxval`, so phase 7
+no longer waits for phase 6, and `bayesnec`'s plots and summaries keep calling
+its own `ecx()`.
 
 | # | phase | numbers |
 |---|---|---|
@@ -1248,14 +1263,14 @@ any ordering — so they are verified in isolation inside `toxval`, before the
 | 3 | **toxval sheds `bayesnec`.** Drop the `bnecfit` and `predict` methods and `newdata_eval()`, with their tests. Store what the remaining tests and examples read from `bayesnec` as fixtures, so the suite passes with `bayesnec` not installed, and remove `bayesnec` from `Imports`. See [Phase 3 without `bayesnec`](#phase-3-without-bayesnec). | none in `toxval`. `ecx` and `nsec` on a `bnecfit` are no longer computed here, and `bayesnec` objects receive the #19 answer at phase 7 |
 | 4 | **Move metrics onto the spine** (`ecx`, then `nsec`), each gaining `draws`, with `posterior` defunct. `nsec_multi()` is defunct in favour of `nsec()` (T15, T37), which needs `toxval_predict.brmsfit()` to return one curve per response first. #60 is answered (T21). Adds `type = "relative"`, with the asymptote stored on `toxval_pred`, and the `anchor` argument, both left out of phase 2 (RF, 2026-10-17). Its rulings are T21–T33. It is done with phase 5 (T33). | per #19/#20, and #60 |
 | 5 | **Swap outputs and clean up.** The `toxval` tibble, `tbl_sum()`, and `vctrs` methods so that `bind_rows()` combines only matching settings (T40). `ecx_val` becomes `proportion` (#3, T32). Done with phase 4 (T33). Update tests to the new shapes. Remove `posterior`, the old code and the dead blocks last. | shape changes |
-| 6 | **`toxval` to CRAN**, carrying the final API. | — |
-| 7 | **`bayesnec`.** One PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble. Then CRAN. | shape + the #19 answer |
+| 6 | **`toxval` to CRAN**, with the final API. Not a prerequisite of phase 7 (T35). | — |
+| 7 | **Support for `bayesnec` fits.** `toxval_predict()` methods for `bayesnecfit` and `bayesmanecfit` in `toxval`, with `bayesnec` in `Suggests` (T35, `BAYESNEC-claude.md`). The other `bayesnec` classes follow in later pull requests. Under #39 this phase was one `bayesnec` PR: `Imports: toxval`, delete `R/ecx.R` and `R/nsec.R`, add the `toxval_predict` methods, adapt `bind_ecx()` / `plot` / `summary` to the tibble, then CRAN. | shape + the #19 answer |
 
 Phases 2–4 change *who owns the code* and what it computes; phase 5 changes
 *what it returns*. Phases 2 and 3 stay separate inside `toxval`, where each can
 be checked against the regression net. Phases 4 and 5 are done together, so no
-interim layer returns today's shapes from the spine (T33). All of them reach
-`bayesnec` as one finished API at phase 7.
+interim layer returns today's shapes from the spine (T33). Phase 7 builds the
+methods for `bayesnec` fits on the finished API, in `toxval` (T35).
 
 #### Phase 3 without `bayesnec`
 
@@ -1299,8 +1314,10 @@ in a session where the `bayesnec` namespace was not loaded; `brms` supplies the
 `step()` the NEC equations use. On the `nec4param` component of `manec_example`,
 `compute_ecx()` and `compute_nsec()` on that route reproduced `ecx.brmsfit()`
 and `nsec.brmsfit()` per draw to within 5e-7 (100 draws, 200-point grid). This
-covers a single `bayesnecfit`. A `bayesmanecfit` cannot be checked this way,
-because `bayesnec` builds the model average, so it is checked at phase 7.
+covers a single `bayesnecfit`. A `bayesmanecfit` could not be checked this way
+in phase 3, because only `bayesnec` built the model average. Phase 7 builds it
+in `toxval_predict.bayesmanecfit()` and checks the matrix against
+`bayesnec::posterior_epred()` (T35, `BAYESNEC-claude.md` §3.2).
 
 Phase 3 changes no number `toxval` computes on a `brmsfit` or `drc` fit.
 `toxval::ecx()` or `toxval::nsec()` on a `bnecfit` errors, since no method for
@@ -1330,28 +1347,29 @@ CMD check pass with `bayesnec` not installed.
   [3.4](#34-the-toxval_pred-intermediate-object); see #25 and #18. It is flagged now only so the vocabulary does not have to be
   reopened later. `drc` supports both model averaging and threshold models, so
   this is not permanently a Bayesian-only concern.
-- **Model-averaged results are not reproducible today** (`bayesnec` #216). The
-  component resampling is unseeded, so repeated calls disagree: over 6
+- **Model-averaged results were not reproducible** (`bayesnec` #216). The
+  component resampling was unseeded, so repeated calls disagreed: over 6
   replicates on `manec_example` the `nsec` lower bound spanned 0.907–1.006 in
   `toxval` and 0.702–0.954 in `bayesnec`, against medians stable to ~0.5%.
-  `predict()` on a `bayesmanecfit` is affected too, so this is not specific to
-  the metrics. Note this is **not** resolved by the plan: moving to a single
-  averaged curve matrix fixes alignment, but the one remaining `sample()` in
-  `bayesnec`'s averaging is still unseeded and `toxval` never touches it. It has
-  to be fixed before model-averaged output can be regression-tested by equality,
-  which the #39 relocation depends on.
+  `predict()` on a `bayesmanecfit` was affected too, so this was not specific to
+  the metrics. `bayesnec` has since fixed it: from 2.1.3.7 the draw index is
+  stored on the object or rebuilt from a seed, while the CRAN release 2.1.3.1
+  still resamples unseeded (`BAYESNEC-claude.md` §3.2).
+  `toxval_predict.bayesmanecfit()`, in `toxval` under T35, uses the stored index
+  or rebuilds it by `bayesnec`'s rule, so model-averaged output can be
+  regression-tested by equality.
 - **`anchor = "control"` cannot be computed from a fitted object alone.** It
   needs a control-only fit, which is why it takes `control_fit` rather than
   deriving one ([3.8](#38-the-nsec-reference-the-anchor-argument)). That is a
   genuine argument for fitting wrappers (#22) as a convenience layer. It is
   left out of phase 4, and probably to be replaced (T23).
 
-  It does **not** threaten #39. An intercept-only fit needs `brms`, which
-  `toxval` imports directly and keeps after the untangle; `bayesnec`'s
-  contribution is NEC formulas, priors, model sets and averaging, none of which
-  exist for `y ~ 1`. Where the control data live inside a `bayesnec` object,
-  `toxval_predict.bayesnecfit()` — which lives in `bayesnec` — populates
-  `toxval_pred$control`, so the dependency arrow is unchanged.
+  It needs no import of `bayesnec`. An intercept-only fit needs `brms`, which
+  `toxval` imports directly; `bayesnec`'s contribution is NEC formulas, priors,
+  model sets and averaging, none of which exist for `y ~ 1`. Where the control
+  data live inside a `bayesnec` object, `toxval_predict.bayesnecfit()` would
+  populate `toxval_pred$control`. Under #39 that method was to be in `bayesnec`;
+  T35 places it in `toxval`.
 - **Do not adopt `bayesnec`'s automatic back-transformation.** `toxval` takes
   `xform` as a user-supplied function; `bayesnec` derives it from the parsed
   `crf()` call and drops offsets (`bayesnec` #196). Keep `xform` user-supplied.
