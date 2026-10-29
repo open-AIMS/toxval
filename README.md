@@ -56,10 +56,11 @@ remotes::install_github("open-aims/toxval")
 
 ## Usage
 
-The examples estimate the EC10, EC50 and NSEC of ryegrass root length
-from the `ryegrass` data in `drc`.
-
-### A frequentist fit
+`ecx()` and `nsec()` take a fitted model and return a `toxval` tibble,
+whichever framework the model was fitted with. The examples estimate the
+EC10, EC50 and NSEC of ryegrass root length from the `ryegrass` data in
+`drc`, first from a three-parameter log-logistic curve fitted with
+`drc`:
 
 ``` r
 library(toxval)
@@ -96,9 +97,8 @@ header records the model class and the settings the estimates were
 computed with. The realisations of a `drc` fit are parametric bootstrap
 replicates, so `seed` makes the results reproducible.
 
-### A Bayesian fit
-
-The same three-parameter log-logistic curve, fitted with `brms`:
+The same curve fitted with `brms` gives estimates in the same form,
+summarised over the posterior draws:
 
 ``` r
 fit_brms <- brms::brm(
@@ -134,24 +134,25 @@ nsec(fit_brms, x_var = "conc")
 #> # ℹ 4 more variables: asymptote <dbl>, ecnsec <dbl>, ecnsec.low <dbl>, ecnsec.high <dbl>
 ```
 
-The realisations are the posterior draws. `x_var` is required for a
-`brmsfit`, since a `brms` model may have several predictors.
+`x_var` is required for a `brmsfit`, since a `brms` model may have
+several predictors.
 
-### A bayesnec fit
-
-`ecx()` and `nsec()` accept a single fit (`bayesnecfit`) or a model
-average (`bayesmanecfit`) from `bayesnec::bnec()` when `bayesnec` is
-installed.
+Single fits and model averages from `bayesnec::bnec()` are accepted when
+`bayesnec` is installed, here the model average `manec_example`.
+`bayesnec` also exports functions named `ecx()` and `nsec()`, so call
+them with `toxval::`:
 
 ``` r
-toxval::ecx(bayesnec::manec_example, proportion = 0.1)
-#> # A tibble: 2 × 10
+toxval::ecx(bayesnec::manec_example, proportion = c(0.1, 0.5))
+#> # A tibble: 4 × 10
 #> # Model:    bayesmanecfit
 #> # Settings: resolution 500 | 100 posterior draws
 #>   metric direction  estimate conf.low conf.high proportion type     control reference
 #>   <chr>  <chr>         <dbl>    <dbl>     <dbl>      <dbl> <chr>      <dbl>     <dbl>
 #> 1 ecx    decreasing     1.49    0.940      1.56        0.1 absolute    2.18      1.96
 #> 2 ecx    increasing    NA      NA         NA           0.1 absolute    2.18      2.40
+#> 3 ecx    decreasing     1.67    1.60       1.72        0.5 absolute    2.18      1.09
+#> 4 ecx    increasing    NA      NA         NA           0.5 absolute    2.18      3.27
 #> # ℹ 1 more variable: asymptote <dbl>
 
 toxval::nsec(bayesnec::manec_example)
@@ -165,25 +166,9 @@ toxval::nsec(bayesnec::manec_example)
 #> # ℹ 4 more variables: asymptote <dbl>, ecnsec <dbl>, ecnsec.low <dbl>, ecnsec.high <dbl>
 ```
 
-`bayesnec` also exports functions named `ecx()` and `nsec()`, and
-whichever package is attached later masks the other’s, so call them with
-`toxval::`. Estimates are on the scale of the variable named inside
-`crf()`, so a fit to `crf(log(x), ...)` is reported in units of `x`. For
-a model average, `nsec()` takes the reference from the control of each
-component model, as `bayesnec::nsec()` does; `anchor = "model"` takes it
-from the model-averaged control. Estimates can differ from those of
-`bayesnec`, which evaluates 200 concentrations rather than 500 and
-places a realisation that never reaches the reference by different
-rules.
-
-`type` sets what the ECx effect is a proportion of, measured from the
-control: `"absolute"` (towards 0, or towards 1 or twice the control when
-increasing), `"relative"` (towards the asymptote of the fitted curve),
-`"range"` (towards the lowest or highest response the curve predicts),
-or `"direct"` (a response value supplied as `reference`). Supply
-`draws = TRUE` to keep the per-realisation values in a list column, and
-`group_var` to get one row per level of a grouping variable. A
-multivariate `brms` fit gives one row per response.
+See `?ecx` and `?nsec` for how the effect is defined (`type`), the
+per-realisation values (`draws`), one row per group (`group_var`), and
+multivariate fits.
 
 Further documentation is on the [project
 page](https://open-aims.github.io/toxval/) and the [reference

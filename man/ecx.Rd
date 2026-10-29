@@ -94,8 +94,8 @@ and the columns:
 quantiles of the realisations, after \code{xform}.
 \item \code{proportion}, \code{type}: the arguments of the call. \code{proportion} is \code{NA}
 under \code{type = "direct"}.
-\item \code{control}: the predicted response at the lowest concentration, or \code{NA}
-under \code{type = "direct"}.
+\item \code{control}: the predicted response at the control concentration, or
+\code{NA} under \code{type = "direct"}.
 \item \code{reference}: the response whose crossing is the ECx.
 \item \code{asymptote}: the asymptote the span is measured to, or \code{NA} unless \code{type}
 is \code{"relative"}.
@@ -154,11 +154,12 @@ below 0 or a missing asymptote, is excluded from the summary, with a warning.
 }
 \section{Fits from bayesnec}{
 
-A \code{bayesnecfit} or \code{bayesmanecfit} from \code{bayesnec::bnec()} is accepted when
-\code{bayesnec} is installed; see \code{\link[=toxval_predict]{toxval_predict()}}. \code{bayesnec} also exports a
-function named \code{ecx()}, and whichever of the two packages is attached later
-masks the other's, without a warning. Call \code{toxval::ecx()} to be sure of
-reaching this function.
+\code{ecx()} also accepts a \code{bayesnecfit} or \code{bayesmanecfit} from
+\code{bayesnec::bnec()} when \code{bayesnec} is installed. \code{bayesnec} has its own
+\code{ecx()}, and when both packages are loaded with \code{library()}, the one loaded
+last is used. Call \code{toxval::ecx()} to make sure this function runs.
+The two functions can give different estimates for the same fit, because
+they evaluate the curve at different concentrations.
 }
 
 \examples{

@@ -33,11 +33,13 @@
 #' of the model rather than a feature of a smooth curve.
 #'
 #' @section Fits from bayesnec:
-#' A `bayesnecfit` or `bayesmanecfit` from `bayesnec::bnec()` is accepted when
-#' `bayesnec` is installed; see [toxval_predict()]. `bayesnec` also exports a
-#' function named `nsec()`, and whichever of the two packages is attached later
-#' masks the other's, without a warning. Call `toxval::nsec()` to be sure of
-#' reaching this function.
+#' `nsec()` also accepts a `bayesnecfit` or `bayesmanecfit` from
+#' `bayesnec::bnec()` when `bayesnec` is installed. `bayesnec` has its own
+#' `nsec()`, and when both packages are loaded with `library()`, the one loaded
+#' last is used. Call `toxval::nsec()` to make sure this function runs.
+#' The two functions can give different estimates for the same fit, because
+#' they evaluate the curve at different concentrations and handle realisations
+#' that never reach the reference differently.
 #'
 #' @section Multivariate fits:
 #' A multivariate fit gives rows for each response, named in the `response`
@@ -70,7 +72,7 @@
 #'   - `estimate`, `conf.low`, `conf.high`: the NSEC, as the `prob_vals`
 #'     quantiles of the realisations, after `xform`.
 #'   - `sig_val`, `type`, `anchor`: the arguments of the call.
-#'   - `control`: the predicted response at the lowest concentration.
+#'   - `control`: the predicted response at the control concentration.
 #'   - `reference`: the `sig_val` (decreasing) or `1 - sig_val` (increasing)
 #'     quantile of the control realisations, whose crossing is the NSEC.
 #'   - `asymptote`: the asymptote `ecnsec` is measured to, or `NA` unless `type`

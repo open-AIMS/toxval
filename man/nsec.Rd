@@ -98,7 +98,7 @@ columns:
 \item \code{estimate}, \code{conf.low}, \code{conf.high}: the NSEC, as the \code{prob_vals}
 quantiles of the realisations, after \code{xform}.
 \item \code{sig_val}, \code{type}, \code{anchor}: the arguments of the call.
-\item \code{control}: the predicted response at the lowest concentration.
+\item \code{control}: the predicted response at the control concentration.
 \item \code{reference}: the \code{sig_val} (decreasing) or \code{1 - sig_val} (increasing)
 quantile of the control realisations, whose crossing is the NSEC.
 \item \code{asymptote}: the asymptote \code{ecnsec} is measured to, or \code{NA} unless \code{type}
@@ -150,11 +150,13 @@ of the model rather than a feature of a smooth curve.
 }
 \section{Fits from bayesnec}{
 
-A \code{bayesnecfit} or \code{bayesmanecfit} from \code{bayesnec::bnec()} is accepted when
-\code{bayesnec} is installed; see \code{\link[=toxval_predict]{toxval_predict()}}. \code{bayesnec} also exports a
-function named \code{nsec()}, and whichever of the two packages is attached later
-masks the other's, without a warning. Call \code{toxval::nsec()} to be sure of
-reaching this function.
+\code{nsec()} also accepts a \code{bayesnecfit} or \code{bayesmanecfit} from
+\code{bayesnec::bnec()} when \code{bayesnec} is installed. \code{bayesnec} has its own
+\code{nsec()}, and when both packages are loaded with \code{library()}, the one loaded
+last is used. Call \code{toxval::nsec()} to make sure this function runs.
+The two functions can give different estimates for the same fit, because
+they evaluate the curve at different concentrations and handle realisations
+that never reach the reference differently.
 }
 
 \section{Multivariate fits}{

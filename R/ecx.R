@@ -43,11 +43,12 @@
 #' below 0 or a missing asymptote, is excluded from the summary, with a warning.
 #'
 #' @section Fits from bayesnec:
-#' A `bayesnecfit` or `bayesmanecfit` from `bayesnec::bnec()` is accepted when
-#' `bayesnec` is installed; see [toxval_predict()]. `bayesnec` also exports a
-#' function named `ecx()`, and whichever of the two packages is attached later
-#' masks the other's, without a warning. Call `toxval::ecx()` to be sure of
-#' reaching this function.
+#' `ecx()` also accepts a `bayesnecfit` or `bayesmanecfit` from
+#' `bayesnec::bnec()` when `bayesnec` is installed. `bayesnec` has its own
+#' `ecx()`, and when both packages are loaded with `library()`, the one loaded
+#' last is used. Call `toxval::ecx()` to make sure this function runs.
+#' The two functions can give different estimates for the same fit, because
+#' they evaluate the curve at different concentrations.
 #'
 #' @inheritParams toxval_params
 #' @param proportion A numeric vector of effects, as proportions of the span
@@ -71,8 +72,8 @@
 #'     quantiles of the realisations, after `xform`.
 #'   - `proportion`, `type`: the arguments of the call. `proportion` is `NA`
 #'     under `type = "direct"`.
-#'   - `control`: the predicted response at the lowest concentration, or `NA`
-#'     under `type = "direct"`.
+#'   - `control`: the predicted response at the control concentration, or
+#'     `NA` under `type = "direct"`.
 #'   - `reference`: the response whose crossing is the ECx.
 #'   - `asymptote`: the asymptote the span is measured to, or `NA` unless `type`
 #'     is `"relative"`.
