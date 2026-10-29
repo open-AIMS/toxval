@@ -3,7 +3,7 @@
 #' Estimates the No-Significant-Effect Concentration (NSEC), the concentration
 #' at which the fitted response departs from the control by more than its
 #' uncertainty allows, in each direction, for a fitted concentration-response
-#' model or for a [toxval_pred] built from one.
+#' model.
 #'
 #' @details
 #' The model is evaluated over a grid of concentrations once per realisation,
@@ -17,18 +17,12 @@
 #' summarised by `prob_vals`. A direction in which no realisation crosses is
 #' returned with `NA` estimates.
 #'
-#' A fraction `sig_val` of the realisations have a control already beyond the
-#' reference. One of these that crosses the reference in the direction sought
-#' takes that crossing. One whose response first changes away from the effect
-#' as concentration rises from the control (rising, for a decreasing NSEC;
-#' falling, for an increasing one), and which passes to the other side of the
-#' reference without returning, shows no effect in the tested range. It is
-#' treated as a realisation that does not reach the reference. The rest are
-#' placed at the lowest concentration in the data. A
-#' realisation that does not reach the reference within the evaluated range
-#' ranks above the highest concentration, and an interval limit that falls
-#' among such realisations is reported as the highest concentration, with a
-#' warning.
+#' By construction, about `sig_val` of the realisations have a control already
+#' past the reference. These are placed at the lowest concentration in the
+#' data, unless they show no effect in the tested range. A realisation that
+#' does not reach the reference within the evaluated range ranks above the
+#' highest concentration, and an interval limit that falls among such
+#' realisations is reported as the highest concentration, with a warning.
 #'
 #' `ecnsec` is the effect at the NSEC, as a proportion of the span named by
 #' `type`: the inverse of the [ecx()] reference under the same `type`.
@@ -37,42 +31,20 @@
 #' of the model rather than a feature of a smooth curve.
 #'
 #' @section Multivariate fits:
-#' A multivariate `brmsfit` gives rows for each response, named in the
-#' `response` column as `brms` names them; see [toxval_predict()]. This
-#' replaces [nsec_multi()]. To keep, for each response, only the direction
-#' whose NSEC is lower at the 0.8 quantile of its realisations, as
-#' `nsec_multi(type = "lower")` did, filter the result returned with
-#' `draws = TRUE`:
-#'
-#' ```r
-#' nsec(fit, x_var = "dose", draws = TRUE) |>
-#'   dplyr::mutate(
-#'     at_criterion = vapply(
-#'       draws,
-#'       \(d) quantile(d$value.draw, 0.8, na.rm = TRUE),
-#'       numeric(1)
-#'     )
-#'   ) |>
-#'   dplyr::filter(!is.na(estimate)) |>
-#'   dplyr::group_by(response) |>
-#'   dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
-#'   dplyr::ungroup()
-#' ```
-#'
-#' A censored realisation is `Inf` in `value.draw`, so it ranks above every
-#' crossing, and an excluded one is `NA`. A row whose estimate is `NA` has no
-#' crossing in that direction, so it is dropped before choosing.
+#' A multivariate fit gives rows for each response, named in the `response`
+#' column. This replaces [nsec_multi()], whose help page shows how to convert
+#' existing calls.
 #'
 #' @inheritParams toxval_params
-#' @param sig_val A number between 0 and 0.5, the quantile of the control
+#' @param sig_val A number strictly between 0 and 0.5, the quantile of the control
 #'   realisations that sets the decreasing reference; `1 - sig_val` sets the
 #'   increasing one.
 #' @param type One of `"absolute"`, `"relative"` or `"range"`, naming the span
 #'   `ecnsec` is a proportion of. See [ecx()].
-#' @param anchor One of `"model"` (the default) or `"component"`, where the
-#'   reference is taken from for a model-averaged fit: the averaged control,
-#'   or each component model's own control. The two coincide for a fit that is
-#'   not model-averaged.
+#' @param anchor For a model-averaged fit, the control the reference is taken
+#'   from: `"model"` (the default) uses the control of the averaged model, and
+#'   `"component"` uses the control of each component model. Both give the same
+#'   result for a single model.
 #' @param curveid `r lifecycle::badge("deprecated")` Use `group_var`.
 #'
 #' @return A `toxval` tibble with one row per curve and direction, and the
@@ -101,12 +73,28 @@
 #'   central `prob_vals` quantile of the realisations. The tibble prints the
 #'   model class and the number of realisations above the rows.
 #'
-#' @examples
+#' @examplesIf requireNamespace("drc", quietly = TRUE)
 #' \donttest{
-#' if (requireNamespace("drc", quietly = TRUE)) {
-#'   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
-#'   nsec(fit, seed = 42)
-#' }
+#' fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+#' nsec(fit, seed = 42)
+#'
+#' nsec(fit, sig_val = 0.05, seed = 42)
+#'
+#' nsec(fit, type = "range", seed = 42)
+#'
+#' # 80% interval
+#' nsec(fit, prob_vals = c(0.5, 0.1, 0.9), seed = 42)
+#'
+#' res <- nsec(fit, draws = TRUE, seed = 42)
+#' res$draws[[1]]
+#'
+#' fit_group <- drc::drm(
+#'   DryMatter ~ Dose,
+#'   curveid = Herbicide,
+#'   data = drc::S.alba,
+#'   fct = drc::LL.4()
+#' )
+#' nsec(fit_group, group_var = "Herbicide", seed = 42)
 #' }
 #'
 #' @export

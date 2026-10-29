@@ -41,7 +41,6 @@
 #' below 0 or a missing asymptote, is excluded from the summary, with a warning.
 #'
 #' @inheritParams toxval_params
-#' @param object A model fitted with brms or drc, or a [toxval_pred] object.
 #' @param proportion A numeric vector of effects, as proportions of the span
 #'   named by `type`; 0.1 is the EC10. Each value gives its own rows. Not
 #'   supplied under `type = "direct"`.

@@ -25,25 +25,22 @@ nsec(
 )
 }
 \arguments{
-\item{object}{A fitted model with a \code{\link[=toxval_predict]{toxval_predict()}} method, or a
-\link{toxval_pred}.}
+\item{object}{A model fitted with brms or drc, or a \link{toxval_pred} object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.
-These and every argument after \code{...} must be named in full; an argument
-no method uses is an error.}
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
-\item{sig_val}{A number between 0 and 0.5, the quantile of the control
+\item{sig_val}{A number strictly between 0 and 0.5, the quantile of the control
 realisations that sets the decreasing reference; \code{1 - sig_val} sets the
 increasing one.}
 
 \item{type}{One of \code{"absolute"}, \code{"relative"} or \code{"range"}, naming the span
 \code{ecnsec} is a proportion of. See \code{\link[=ecx]{ecx()}}.}
 
-\item{anchor}{One of \code{"model"} (the default) or \code{"component"}, where the
-reference is taken from for a model-averaged fit: the averaged control,
-or each component model's own control. The two coincide for a fit that is
-not model-averaged.}
+\item{anchor}{For a model-averaged fit, the control the reference is taken
+from: \code{"model"} (the default) uses the control of the averaged model, and
+\code{"component"} uses the control of each component model. Both give the same
+result for a single model.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -111,7 +108,7 @@ model class and the number of realisations above the rows.
 Estimates the No-Significant-Effect Concentration (NSEC), the concentration
 at which the fitted response departs from the control by more than its
 uncertainty allows, in each direction, for a fitted concentration-response
-model or for a \link{toxval_pred} built from one.
+model.
 }
 \details{
 The model is evaluated over a grid of concentrations once per realisation,
@@ -125,18 +122,12 @@ found for each realisation against that reference, and the realisations are
 summarised by \code{prob_vals}. A direction in which no realisation crosses is
 returned with \code{NA} estimates.
 
-A fraction \code{sig_val} of the realisations have a control already beyond the
-reference. One of these that crosses the reference in the direction sought
-takes that crossing. One whose response first changes away from the effect
-as concentration rises from the control (rising, for a decreasing NSEC;
-falling, for an increasing one), and which passes to the other side of the
-reference without returning, shows no effect in the tested range. It is
-treated as a realisation that does not reach the reference. The rest are
-placed at the lowest concentration in the data. A
-realisation that does not reach the reference within the evaluated range
-ranks above the highest concentration, and an interval limit that falls
-among such realisations is reported as the highest concentration, with a
-warning.
+By construction, about \code{sig_val} of the realisations have a control already
+past the reference. These are placed at the lowest concentration in the
+data, unless they show no effect in the tested range. A realisation that
+does not reach the reference within the evaluated range ranks above the
+highest concentration, and an interval limit that falls among such
+realisations is reported as the highest concentration, with a warning.
 
 \code{ecnsec} is the effect at the NSEC, as a proportion of the span named by
 \code{type}: the inverse of the \code{\link[=ecx]{ecx()}} reference under the same \code{type}.
@@ -146,38 +137,34 @@ of the model rather than a feature of a smooth curve.
 }
 \section{Multivariate fits}{
 
-A multivariate \code{brmsfit} gives rows for each response, named in the
-\code{response} column as \code{brms} names them; see \code{\link[=toxval_predict]{toxval_predict()}}. This
-replaces \code{\link[=nsec_multi]{nsec_multi()}}. To keep, for each response, only the direction
-whose NSEC is lower at the 0.8 quantile of its realisations, as
-\code{nsec_multi(type = "lower")} did, filter the result returned with
-\code{draws = TRUE}:
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{nsec(fit, x_var = "dose", draws = TRUE) |>
-  dplyr::mutate(
-    at_criterion = vapply(
-      draws,
-      \\(d) quantile(d$value.draw, 0.8, na.rm = TRUE),
-      numeric(1)
-    )
-  ) |>
-  dplyr::filter(!is.na(estimate)) |>
-  dplyr::group_by(response) |>
-  dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
-  dplyr::ungroup()
-}\if{html}{\out{</div>}}
-
-A censored realisation is \code{Inf} in \code{value.draw}, so it ranks above every
-crossing, and an excluded one is \code{NA}. A row whose estimate is \code{NA} has no
-crossing in that direction, so it is dropped before choosing.
+A multivariate fit gives rows for each response, named in the \code{response}
+column. This replaces \code{\link[=nsec_multi]{nsec_multi()}}, whose help page shows how to convert
+existing calls.
 }
 
 \examples{
+\dontshow{if (requireNamespace("drc", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{
-if (requireNamespace("drc", quietly = TRUE)) {
-  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
-  nsec(fit, seed = 42)
-}
-}
+fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+nsec(fit, seed = 42)
 
+nsec(fit, sig_val = 0.05, seed = 42)
+
+nsec(fit, type = "range", seed = 42)
+
+# 80\% interval
+nsec(fit, prob_vals = c(0.5, 0.1, 0.9), seed = 42)
+
+res <- nsec(fit, draws = TRUE, seed = 42)
+res$draws[[1]]
+
+fit_group <- drc::drm(
+  DryMatter ~ Dose,
+  curveid = Herbicide,
+  data = drc::S.alba,
+  fct = drc::LL.4()
+)
+nsec(fit_group, group_var = "Herbicide", seed = 42)
+}
+\dontshow{\}) # examplesIf}
 }

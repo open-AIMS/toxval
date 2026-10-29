@@ -28,9 +28,7 @@ ecx(
 \item{object}{A model fitted with brms or drc, or a \link{toxval_pred} object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.
-These and every argument after \code{...} must be named in full; an argument
-no method uses is an error.}
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{proportion}{A numeric vector of effects, as proportions of the span
 named by \code{type}; 0.1 is the EC10. Each value gives its own rows. Not
