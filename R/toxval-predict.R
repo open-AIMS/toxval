@@ -11,8 +11,15 @@
 #' Supply `group_var` to get one curve per level rather than a single curve. The curves follow the order of the levels of a factor, and
 #' otherwise their sorted order. Each method states what `group_var` must name.
 #'
+#' The grid starts at the control concentration, where the control response is
+#' predicted, and every reference, ECx and NSEC is measured from that response.
+#' By default the control concentration is the lowest predictor value in the
+#' data. Use `x_control` to name another, such as 0 for a predictor measured as
+#' the reduction from an ambient level. A value outside the range of the data
+#' warns. A grouped fit has one control concentration for every curve.
+#'
 #' @inheritParams toxval_params
-#' @param object A model fitted with brms or drc.
+#' @param object A model fitted with brms, drc or bayesnec.
 #' @param ... Additional arguments passed to methods, such as `n_boot` and
 #'   `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
 #'
@@ -22,6 +29,9 @@
 #' \donttest{
 #' fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
 #' toxval_predict(fit, seed = 42)
+#' if (requireNamespace("bayesnec", quietly = TRUE)) {
+#'   toxval_predict(bayesnec::manec_example)
+#' }
 #' }
 #'
 #' @export
@@ -31,13 +41,15 @@ toxval_predict <- function(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 ) {
   chk_x_var(x_var)
   chk::chk_null_or(group_var, vld = chk::vld_string)
   chk::chk_whole_number(resolution)
   chk::chk_gt(resolution, 1)
   chk_x_range(x_range)
+  chk_x_control(x_control)
   # Grouping by the predictor would set the grid column to one level per curve,
   # giving a constant curve for each (#15). Checked here rather than in each
   # method, since both methods would otherwise return without error.
@@ -61,7 +73,8 @@ toxval_predict.default <- function(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 ) {
   chk::abort_chk(
     "`object` must be a fitted model with a `toxval_predict()` method, ",
@@ -101,6 +114,7 @@ toxval_predict.brmsfit <- function(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   asymptote = NULL
 ) {
   chk_dots_unused(..., source = "`brmsfit`")
@@ -113,7 +127,7 @@ toxval_predict.brmsfit <- function(
   responses <- brms_responses(object)
   chk_brms_asymptote(asymptote, object, responses)
 
-  x_vec <- predict_grid(x_range, data[[x_var]], resolution)
+  x_vec <- predict_grid(x_range, data[[x_var]], resolution, x_control)
   curve_set <- brms_curves(object, x_vec, x_var, group_var, responses)
   chk_defined_grid(curve_set$curves, x_vec)
   chk_population_level(curve_set$curves, max(1L, length(responses$names)))
@@ -167,6 +181,7 @@ toxval_predict.drc <- function(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   n_boot = 1000,
   seed = NULL
 ) {
@@ -192,7 +207,7 @@ toxval_predict.drc <- function(
     chk_var_in_data(group_var, data, "group_var")
   }
 
-  x_vec <- predict_grid(x_range, data[[x_var]], resolution)
+  x_vec <- predict_grid(x_range, data[[x_var]], resolution, x_control)
   curve_set <- drc_curves(object, x_vec, group_var, n_boot, seed)
   chk_defined_grid(curve_set$curves, x_vec)
 
@@ -216,6 +231,171 @@ toxval_predict.drc <- function(
   )
 }
 
+#' @describeIn toxval_predict Method for a single fit from
+#'   `bayesnec::bnec()`, of class `bayesnecfit`, which requires `bayesnec` to
+#'   be installed. Realisations are the posterior draws, with group-level
+#'   effects excluded. `x_var` is read from the `crf()` term if not supplied.
+#'   `group_var` must be `NULL`. A predictor transformed inside `crf()`, such
+#'   as `crf(log(x), ...)`, is reported in units of `x`, so `xform = exp` must
+#'   not be supplied. A binomial or beta-binomial response is predicted at one
+#'   trial, so its curve is a proportion. The asymptotes used by `type = "relative"`
+#'   are the `bot` parameter, or 0 for an equation without one, and 1 for a
+#'   proportion. An asymptote is `NA` where the family has no such bound or
+#'   the link is not identity.
+#'
+#' @export
+toxval_predict.bayesnecfit <- function(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL
+) {
+  chk_dots_unused(..., source = "`bayesnecfit`")
+  check_bayesnec_installed(object)
+  chk_bayesnec_supported(object)
+  chk_no_group_var(group_var, object)
+
+  data <- object$fit$data
+  x_var <- bnec_x_var(object$bayesnecformula, data, x_var)
+  newdata <- bnec_grid(
+    object,
+    predict_grid(x_range, data[[x_var]], resolution, x_control)
+  )
+  x_vec <- newdata[[x_var]]
+  # Read from the stored brmsfit rather than through bayesnec's own
+  # posterior_epred() methods, which have none for the components of a model
+  # set, so that one call serves both bayesnec classes
+  curve <- posterior_epred(object$fit, newdata = newdata, re_formula = NA)
+  chk_defined_grid(list(curve), x_vec)
+
+  new_toxval_pred(
+    curves = list(curve),
+    keys = group_keys(),
+    x_vec = x_vec,
+    asymptote = list(bnec_asymptote(object$fit)),
+    meta = build_meta(
+      object = object,
+      x_vec = x_vec,
+      x_var = x_var,
+      curves = list(curve),
+      realisation = "draws",
+      family = object$fit$family$family
+    )
+  )
+}
+
+#' @describeIn toxval_predict Method for a model average from
+#'   `bayesnec::bnec()`, of class `bayesmanecfit`, which requires `bayesnec` to
+#'   be installed. Each model is predicted as for a `bayesnecfit`. Realisations
+#'   are the draws `bayesnec` keeps from each model in proportion to its
+#'   weight, the same draws its own estimates use, and each takes its
+#'   asymptotes from its own model. The random number state of the session is
+#'   left unchanged.
+#'
+#' @export
+toxval_predict.bayesmanecfit <- function(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL
+) {
+  chk_dots_unused(..., source = "`bayesmanecfit`")
+  check_bayesnec_installed(object)
+  mod_fits <- object$mod_fits
+  for (component in mod_fits) {
+    chk_bayesnec_supported(component)
+  }
+  chk_one_family(mod_fits)
+  chk_no_group_var(group_var, object)
+
+  model_set <- names(mod_fits)
+  weights <- stats::setNames(object$mod_stats[model_set, "wi"], model_set)
+  # every model is fitted to the same data with the same crf() term
+  data <- mod_fits[[1]]$fit$data
+  x_var <- bnec_x_var(mod_fits[[1]]$bayesnecformula, data, x_var)
+  newdata <- bnec_grid(
+    object,
+    predict_grid(x_range, data[[x_var]], resolution, x_control)
+  )
+  x_vec <- newdata[[x_var]]
+
+  per_model <- lapply(mod_fits, function(component) {
+    posterior_epred(component$fit, newdata = newdata, re_formula = NA)
+  })
+  n <- min(vapply(per_model, nrow, integer(1)))
+  index <- bnec_draw_index(object, model_set, weights, n)
+  curve <- do.call(
+    rbind,
+    lapply(model_set, function(m) {
+      per_model[[m]][index$rows[[m]], , drop = FALSE]
+    })
+  )
+  chk_defined_grid(list(curve), x_vec)
+  per_model_asymptote <- lapply(mod_fits, function(component) {
+    bnec_asymptote(component$fit)
+  })
+  asymptote <- lapply(stats::setNames(nm = directions()), function(direction) {
+    unlist(
+      lapply(model_set, function(m) {
+        per_model_asymptote[[m]][[direction]][index$rows[[m]]]
+      }),
+      use.names = FALSE
+    )
+  })
+
+  new_toxval_pred(
+    curves = list(curve),
+    keys = group_keys(),
+    x_vec = x_vec,
+    asymptote = list(asymptote),
+    meta = build_meta(
+      object = object,
+      x_vec = x_vec,
+      x_var = x_var,
+      curves = list(curve),
+      realisation = "draws",
+      family = mod_fits[[1]]$fit$family$family,
+      seed = index$seed,
+      # a model with no realisation in the average stays in `model_weights`
+      draw_model = rep(model_set, lengths(index$rows)),
+      model_weights = weights,
+      # keep every draw, not only the rows of the index, so that each model's
+      # component reference is taken over its whole fit
+      model_control = list(lapply(per_model, function(p) unname(p[, 1])))
+    )
+  )
+}
+
+#' @describeIn toxval_predict Method for any other `bayesnec` fit, which
+#'   errors. Group fits, joint refits and hurdle pairs each hold more than one
+#'   curve, over concentrations that can differ between curves, which a
+#'   [toxval_pred] does not yet represent.
+#'
+#' @export
+toxval_predict.bnecfit <- function(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL
+) {
+  chk::abort_chk(
+    "`object` must be a ",
+    chk::cc(bnec_supported_classes(), conj = " or "),
+    " to be predicted by `toxval_predict()`, not a ",
+    chk::cc(class(object)[1]),
+    "."
+  )
+}
+
 #' Assemble the metadata of a toxval_pred
 #'
 #' Every method builds its `meta` here. `resolution` and `x_range` are taken
@@ -232,6 +412,8 @@ toxval_predict.drc <- function(
 #'   response for a multivariate fit, the `type` of a `drc` fit, or `NULL`
 #'   where there is none.
 #' @param seed The bootstrap seed, or `NULL`.
+#' @param ... Optional elements of `meta`, such as `draw_model` and
+#'   `model_weights`, appended to the required ones.
 #'
 #' @return A named list satisfying the `meta` contract of [toxval_pred].
 #'
@@ -245,23 +427,24 @@ build_meta <- function(
   multi_var = NULL,
   realisation,
   family = NULL,
-  seed = NULL
+  seed = NULL,
+  ...
 ) {
-  list(
+  required <- list(
     source_class = class(object)[1],
     x_var = x_var,
     group_var = group_var,
     multi_var = multi_var,
     resolution = length(x_vec),
     x_range = range(x_vec),
-    # the lowest concentration in the data, not of the grid, which starts
-    # elsewhere when `x_range` is supplied
-    x_control = min(object$data[[x_var]]),
+    # predict_grid() starts the grid at the control concentration
+    x_control = x_vec[1],
     family = family,
     realisation = realisation,
     n_realisation = nrow(curves[[1]]),
     seed = seed
   )
+  c(required, list(...))
 }
 
 #' The responses of a brmsfit, read from its formula
@@ -360,7 +543,7 @@ brms_curves <- function(object, x_vec, x_var, group_var, responses) {
     # matched by name, not by position
     lapply(responses$names, function(response) {
       matrix(
-        epred[, , response],
+        epred[,, response],
         nrow = dim(epred)[1],
         ncol = dim(epred)[2]
       )
@@ -842,31 +1025,68 @@ drc_curve_cols <- function(split, is_shared, id) {
 
 #' Build the predictor grid
 #'
-#' @param x_range The requested range, or `NULL` to take it from `x`.
+#' The grid starts at the control concentration, so the first value of every
+#' curve is the control response. `x_range` sets only the upper end.
+#'
+#' @param x_range The requested range, or `NULL` to end the grid at `max(x)`.
 #' @param x The predictor values in the model data.
 #' @param resolution Number of grid values.
+#' @param x_control The control concentration, or `NULL` for `min(x)`.
 #'
 #' @return A numeric vector of length `resolution`.
 #'
 #' @noRd
-predict_grid <- function(x_range, x, resolution) {
-  if (is.null(x_range)) {
-    x_range <- range(x)
-    if (x_range[1] == x_range[2]) {
-      chk::abort_chk(
-        "`object` must have more than one value of the predictor, or ",
-        "`x_range` must be supplied."
-      )
-    }
+predict_grid <- function(x_range, x, resolution, x_control = NULL) {
+  data_range <- range(x)
+  if (is.null(x_range) && is.null(x_control) && diff(data_range) == 0) {
+    chk::abort_chk(
+      "`object` must have more than one value of the predictor, or ",
+      "`x_range` must be supplied."
+    )
   }
-  seq(x_range[1], x_range[2], length.out = resolution)
+  if (is.null(x_control)) {
+    x_control <- data_range[1]
+  }
+  if (!is.null(x_range) && !isTRUE(all.equal(x_range[1], x_control))) {
+    chk::abort_chk(
+      "`x_range` must start at the control concentration, ",
+      format(x_control),
+      ", not ",
+      format(x_range[1]),
+      "; supply `x_control` to name a different control concentration."
+    )
+  }
+  upper <- if (is.null(x_range)) data_range[2] else x_range[2]
+  if (x_control >= upper) {
+    chk::abort_chk(
+      "`x_control` must be below the upper end of the grid, ",
+      format(upper),
+      ", not ",
+      format(x_control),
+      "."
+    )
+  }
+  if (x_control < data_range[1] || x_control > data_range[2]) {
+    warning(
+      "`x_control`, ",
+      format(x_control),
+      ", lies outside the range of the data, ",
+      format(data_range[1]),
+      " to ",
+      format(data_range[2]),
+      ", so the control response is predicted at a concentration that was ",
+      "not tested.",
+      call. = FALSE
+    )
+  }
+  seq(x_control, upper, length.out = resolution)
 }
 
 #' Check that the model is defined over the whole grid
 #'
 #' A grid value at which no realisation of a curve has a finite prediction lies
 #' outside where the model is defined, such as `x <= 0` for a formula with
-#' `log(x)`. That is a mismatch between `x_range` and the model, so it errors
+#' `log(x)`. That is a mismatch between the grid and the model, so it errors
 #' rather than returning `NA` estimates. A non-finite value in only some
 #' realisations is left for `find_crossings()`, which skips it.
 #'
@@ -891,7 +1111,7 @@ chk_defined_grid <- function(curves, x_vec) {
       format(min(x_vec[undefined]), digits = 4),
       " and ",
       format(max(x_vec[undefined]), digits = 4),
-      "; `x_range` must lie where the model is defined."
+      "; `x_control` and `x_range` must lie where the model is defined."
     )
   }
   invisible(curves)
@@ -912,6 +1132,18 @@ chk_x_range <- function(x_range) {
     chk::abort_chk("`x_range` must be increasing.")
   }
   invisible(x_range)
+}
+
+#' @noRd
+chk_x_control <- function(x_control) {
+  if (is.null(x_control)) {
+    return(invisible(x_control))
+  }
+  chk::chk_number(x_control, x_name = "`x_control`")
+  if (!is.finite(x_control)) {
+    chk::abort_chk("`x_control` must be finite.")
+  }
+  invisible(x_control)
 }
 
 #' Check the type of `x_var` in the generic

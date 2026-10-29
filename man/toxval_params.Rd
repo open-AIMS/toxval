@@ -4,7 +4,8 @@
 \alias{toxval_params}
 \title{Parameters common to multiple toxval functions}
 \arguments{
-\item{object}{A model fitted with brms or drc, or a \link{toxval_pred} object.}
+\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
+object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
 \code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
@@ -20,7 +21,12 @@ for a single curve.}
 evaluate the curve at. Larger values estimate a metric more precisely.}
 
 \item{x_range}{A numeric vector of length 2 giving the range of predictor
-values to evaluate over, or \code{NULL} to use the range in the model data.}
+values to evaluate over, or \code{NULL} to use the range in the model data. The
+first value must equal the control concentration.}
+
+\item{x_control}{A number, the control concentration, at which the control
+response is predicted and the grid starts, or \code{NULL} for the lowest
+predictor value in the data. A value outside the range of the data warns.}
 
 \item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
 per-realisation values of each row.}

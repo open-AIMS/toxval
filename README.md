@@ -24,11 +24,12 @@ concentrations (ECx) with `ecx()` and No-Significant-Effect
 Concentrations (NSEC) with `nsec()`.
 
 `toxval` currently has methods for Bayesian models fitted with
-[`brms`](https://cran.r-project.org/package=brms) and frequentist models
-fitted with [`drc`](https://cran.r-project.org/package=drc). The package
-is designed so that more model classes can be easily added, letting users
-estimate toxicity metrics from whichever modelling framework they work
-in.
+[`brms`](https://cran.r-project.org/package=brms) or
+[`bayesnec`](https://open-aims.github.io/bayesnec/) and frequentist
+models fitted with [`drc`](https://cran.r-project.org/package=drc). The
+package is designed so that more model classes can be easily added,
+letting users estimate toxicity metrics from whichever modelling
+framework they work in.
 
 For every model class, the fitted curve is evaluated over a grid of
 concentrations once per realisation of the fit (once per posterior draw
@@ -136,6 +137,45 @@ nsec(fit_brms, x_var = "conc")
 The realisations are the posterior draws. `x_var` is required for a
 `brmsfit`, since a `brms` model may have several predictors.
 
+### A bayesnec fit
+
+`ecx()` and `nsec()` accept a single fit (`bayesnecfit`) or a model
+average (`bayesmanecfit`) from `bayesnec::bnec()` when `bayesnec` is
+installed.
+
+``` r
+toxval::ecx(bayesnec::manec_example, proportion = 0.1)
+#> # A tibble: 2 × 10
+#> # Model:    bayesmanecfit
+#> # Settings: resolution 500 | 100 posterior draws
+#>   metric direction  estimate conf.low conf.high proportion type     control reference
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>      <dbl> <chr>      <dbl>     <dbl>
+#> 1 ecx    decreasing     1.49    0.940      1.56        0.1 absolute    2.18      1.96
+#> 2 ecx    increasing    NA      NA         NA           0.1 absolute    2.18      2.40
+#> # ℹ 1 more variable: asymptote <dbl>
+
+toxval::nsec(bayesnec::manec_example)
+#> # A tibble: 2 × 14
+#> # Model:    bayesmanecfit
+#> # Settings: resolution 500 | 100 posterior draws
+#>   metric direction  estimate conf.low conf.high sig_val type     anchor  control reference
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>     <dbl>     <dbl>
+#> 1 nsec   decreasing     1.47    0.766      1.55    0.01 absolute compon…    2.18      2.04
+#> 2 nsec   increasing    NA      NA         NA       0.01 absolute compon…    2.18      2.33
+#> # ℹ 4 more variables: asymptote <dbl>, ecnsec <dbl>, ecnsec.low <dbl>, ecnsec.high <dbl>
+```
+
+`bayesnec` also exports functions named `ecx()` and `nsec()`, and
+whichever package is attached later masks the other’s, so call them with
+`toxval::`. Estimates are on the scale of the variable named inside
+`crf()`, so a fit to `crf(log(x), ...)` is reported in units of `x`. For
+a model average, `nsec()` takes the reference from the control of each
+component model, as `bayesnec::nsec()` does; `anchor = "model"` takes it
+from the model-averaged control. Estimates can differ from those of
+`bayesnec`, which evaluates 200 concentrations rather than 500 and
+places a realisation that never reaches the reference by different
+rules.
+
 `type` sets what the ECx effect is a proportion of, measured from the
 control: `"absolute"` (towards 0, or towards 1 or twice the control when
 increasing), `"relative"` (towards the asymptote of the fitted curve),
@@ -177,9 +217,9 @@ written for toxval 1.0.0 needs the following changes.
 - `ecx()` supports `drc` fits. The realisations of a `drc` fit are
   parametric bootstrap replicates, so supply `seed` for reproducible
   results.
-- `ecx()` and `nsec()` no longer have methods for `bayesnec` fits, and
-  `toxval` no longer depends on `bayesnec`. Use `bayesnec`’s own `ecx()`
-  and `nsec()` for its fits.
+- `bayesnec` is suggested rather than imported. `ecx()` and `nsec()`
+  accept model averages (`bayesmanecfit`) as well as single fits
+  (`bayesnecfit`) when `bayesnec` is installed.
 
 Support for a new model class is added by writing a `toxval_predict()`
 method that returns a `toxval_pred`, the object every metric computes

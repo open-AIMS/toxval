@@ -9,11 +9,12 @@ nsec(
   ...,
   sig_val = 0.01,
   type = "absolute",
-  anchor = "model",
+  anchor = NULL,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
@@ -25,7 +26,8 @@ nsec(
 )
 }
 \arguments{
-\item{object}{A model fitted with brms or drc, or a \link{toxval_pred} object.}
+\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
+object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
 \code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
@@ -38,9 +40,13 @@ increasing one.}
 \code{ecnsec} is a proportion of. See \code{\link[=ecx]{ecx()}}.}
 
 \item{anchor}{For a model-averaged fit, the control the reference is taken
-from: \code{"model"} (the default) uses the control of the averaged model, and
-\code{"component"} uses the control of each component model. Both give the same
-result for a single model.}
+from: \code{"model"} uses the control of the averaged model, and \code{"component"}
+uses the control of each component model over every draw of its fit. The
+default is \code{"component"} for a \code{bayesmanecfit}, matching
+\code{bayesnec::nsec()}, and \code{"model"} otherwise. Both give the same result for
+a single model. Under \code{"component"} the \code{reference} column reports the
+\code{prob_vals[1]} quantile of the component references across realisations,
+as \code{control} does.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -53,7 +59,12 @@ for a single curve.}
 evaluate the curve at. Larger values estimate a metric more precisely.}
 
 \item{x_range}{A numeric vector of length 2 giving the range of predictor
-values to evaluate over, or \code{NULL} to use the range in the model data.}
+values to evaluate over, or \code{NULL} to use the range in the model data. The
+first value must equal the control concentration.}
+
+\item{x_control}{A number, the control concentration, at which the control
+response is predicted and the grid starts, or \code{NULL} for the lowest
+predictor value in the data. A value outside the range of the data warns.}
 
 \item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
 per-realisation values of each row.}
@@ -116,18 +127,20 @@ by \code{\link[=toxval_predict]{toxval_predict()}}: once per posterior draw for 
 per parametric bootstrap replicate for a frequentist one.
 
 The reference for the decreasing direction is the \code{sig_val} quantile of the
-control realisations, the predicted response at the lowest concentration,
+control realisations, the predicted response at the control concentration
+(by default the lowest concentration in the data; see \code{\link[=toxval_predict]{toxval_predict()}}),
 and for the increasing direction the \code{1 - sig_val} quantile. The NSEC is
 found for each realisation against that reference, and the realisations are
 summarised by \code{prob_vals}. A direction in which no realisation crosses is
 returned with \code{NA} estimates.
 
 By construction, about \code{sig_val} of the realisations have a control already
-past the reference. These are placed at the lowest concentration in the
-data, unless they show no effect in the tested range. A realisation that
-does not reach the reference within the evaluated range ranks above the
-highest concentration, and an interval limit that falls among such
-realisations is reported as the highest concentration, with a warning.
+past the reference. These are placed at the control concentration, unless
+they show no effect in the tested range. A realisation that does not reach
+the reference within the evaluated range ranks above the highest
+concentration, and an interval limit that falls among such realisations is
+reported as the highest concentration, with a warning. When any realisation
+is censored, the reported quantiles are observed order statistics.
 
 \code{ecnsec} is the effect at the NSEC, as a proportion of the span named by
 \code{type}: the inverse of the \code{\link[=ecx]{ecx()}} reference under the same \code{type}.
@@ -135,6 +148,15 @@ realisations is reported as the highest concentration, with a warning.
 NSECs are not estimated for \code{drc} NEC models, whose threshold is a parameter
 of the model rather than a feature of a smooth curve.
 }
+\section{Fits from bayesnec}{
+
+A \code{bayesnecfit} or \code{bayesmanecfit} from \code{bayesnec::bnec()} is accepted when
+\code{bayesnec} is installed; see \code{\link[=toxval_predict]{toxval_predict()}}. \code{bayesnec} also exports a
+function named \code{nsec()}, and whichever of the two packages is attached later
+masks the other's, without a warning. Call \code{toxval::nsec()} to be sure of
+reaching this function.
+}
+
 \section{Multivariate fits}{
 
 A multivariate fit gives rows for each response, named in the \code{response}

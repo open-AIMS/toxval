@@ -5,6 +5,9 @@
 \alias{toxval_predict.default}
 \alias{toxval_predict.brmsfit}
 \alias{toxval_predict.drc}
+\alias{toxval_predict.bayesnecfit}
+\alias{toxval_predict.bayesmanecfit}
+\alias{toxval_predict.bnecfit}
 \title{Generate realisations of a fitted curve over a predictor grid}
 \usage{
 toxval_predict(
@@ -13,7 +16,8 @@ toxval_predict(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 )
 
 \method{toxval_predict}{default}(
@@ -22,7 +26,8 @@ toxval_predict(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 )
 
 \method{toxval_predict}{brmsfit}(
@@ -32,6 +37,7 @@ toxval_predict(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   asymptote = NULL
 )
 
@@ -42,12 +48,43 @@ toxval_predict(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   n_boot = 1000,
   seed = NULL
 )
+
+\method{toxval_predict}{bayesnecfit}(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL
+)
+
+\method{toxval_predict}{bayesmanecfit}(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL
+)
+
+\method{toxval_predict}{bnecfit}(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL
+)
 }
 \arguments{
-\item{object}{A model fitted with brms or drc.}
+\item{object}{A model fitted with brms, drc or bayesnec.}
 
 \item{...}{Additional arguments passed to methods, such as \code{n_boot} and
 \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
@@ -63,7 +100,12 @@ for a single curve.}
 evaluate the curve at. Larger values estimate a metric more precisely.}
 
 \item{x_range}{A numeric vector of length 2 giving the range of predictor
-values to evaluate over, or \code{NULL} to use the range in the model data.}
+values to evaluate over, or \code{NULL} to use the range in the model data. The
+first value must equal the control concentration.}
+
+\item{x_control}{A number, the control concentration, at which the control
+response is predicted and the grid starts, or \code{NULL} for the lowest
+predictor value in the data. A value outside the range of the data warns.}
 
 \item{asymptote}{The lower and upper asymptotes of a \code{brmsfit}, for
 \code{type = "relative"}, as a vector named \code{decreasing}, \code{increasing} or
@@ -91,6 +133,13 @@ replicates for a frequentist one.
 
 Supply \code{group_var} to get one curve per level rather than a single curve. The curves follow the order of the levels of a factor, and
 otherwise their sorted order. Each method states what \code{group_var} must name.
+
+The grid starts at the control concentration, where the control response is
+predicted, and every reference, ECx and NSEC is measured from that response.
+By default the control concentration is the lowest predictor value in the
+data. Use \code{x_control} to name another, such as 0 for a predictor measured as
+the reduction from an ambient level. A value outside the range of the data
+warns. A grouped fit has one control concentration for every curve.
 }
 \section{Methods (by class)}{
 \itemize{
@@ -119,12 +168,40 @@ supplied. \code{group_var} must name the column passed as \code{curveid}. The
 asymptotes used by \code{type = "relative"} are the lower and upper limits of
 the fitted function.
 
+\item \code{toxval_predict(bayesnecfit)}: Method for a single fit from
+\code{bayesnec::bnec()}, of class \code{bayesnecfit}, which requires \code{bayesnec} to
+be installed. Realisations are the posterior draws, with group-level
+effects excluded. \code{x_var} is read from the \code{crf()} term if not supplied.
+\code{group_var} must be \code{NULL}. A predictor transformed inside \code{crf()}, such
+as \code{crf(log(x), ...)}, is reported in units of \code{x}, so \code{xform = exp} must
+not be supplied. A binomial or beta-binomial response is predicted at one
+trial, so its curve is a proportion. The asymptotes used by \code{type = "relative"}
+are the \code{bot} parameter, or 0 for an equation without one, and 1 for a
+proportion. An asymptote is \code{NA} where the family has no such bound or
+the link is not identity.
+
+\item \code{toxval_predict(bayesmanecfit)}: Method for a model average from
+\code{bayesnec::bnec()}, of class \code{bayesmanecfit}, which requires \code{bayesnec} to
+be installed. Each model is predicted as for a \code{bayesnecfit}. Realisations
+are the draws \code{bayesnec} keeps from each model in proportion to its
+weight, the same draws its own estimates use, and each takes its
+asymptotes from its own model. The random number state of the session is
+left unchanged.
+
+\item \code{toxval_predict(bnecfit)}: Method for any other \code{bayesnec} fit, which
+errors. Group fits, joint refits and hurdle pairs each hold more than one
+curve, over concentrations that can differ between curves, which a
+\link{toxval_pred} does not yet represent.
+
 }}
 \examples{
 \dontshow{if (requireNamespace("drc", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{
 fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
 toxval_predict(fit, seed = 42)
+if (requireNamespace("bayesnec", quietly = TRUE)) {
+  toxval_predict(bayesnec::manec_example)
+}
 }
 \dontshow{\}) # examplesIf}
 }

@@ -131,6 +131,182 @@ test_that("new_toxval_pred accepts extra meta elements", {
   expect_identical(result$meta$dpar, "hu")
 })
 
+test_that("new_toxval_pred accepts the meta elements of a model average", {
+  result <- new_toxval_pred(
+    curves = list(pred_curve()),
+    keys = pred_keys(),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(
+      draw_model = c("nec4param", "ecx4param"),
+      model_weights = c(nec4param = 0.6, ecx4param = 0.3, nec3param = 0.1)
+    )
+  )
+
+  expect_identical(result$meta$draw_model, c("nec4param", "ecx4param"))
+  expect_named(
+    result$meta$model_weights,
+    c("nec4param", "ecx4param", "nec3param")
+  )
+})
+
+test_that("new_toxval_pred accepts model_control of another length than the realisations", {
+  result <- new_toxval_pred(
+    curves = list(pred_curve()),
+    keys = pred_keys(),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(
+      draw_model = c("nec4param", "ecx4param"),
+      model_control = list(list(nec4param = c(10, 11, 12), ecx4param = 9))
+    )
+  )
+
+  expect_identical(
+    result$meta$model_control,
+    list(list(nec4param = c(10, 11, 12), ecx4param = 9))
+  )
+})
+
+test_that("new_toxval_pred errors on model_control without draw_model", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(model_control = list(list(nec4param = c(10, 11))))
+    ),
+    "`meta$model_control` requires `meta$draw_model`.",
+    fixed = TRUE
+  )
+})
+
+test_that("new_toxval_pred errors when model_control does not match the keys", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(
+        draw_model = c("nec4param", "nec4param"),
+        model_control = list(list(nec4param = 10), list(nec4param = 10))
+      )
+    ),
+    "`meta$model_control` must have 1 element to match the rows of `keys`, not 2.",
+    fixed = TRUE
+  )
+})
+
+test_that("new_toxval_pred errors when model_control omits a model of draw_model", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(
+        draw_model = c("nec4param", "ecx4param"),
+        model_control = list(list(nec4param = c(10, 11)))
+      )
+    ),
+    paste0(
+      "`meta$model_control[[1]]` must have an element for every model in ",
+      "`meta$draw_model`, including 'ecx4param'."
+    ),
+    fixed = TRUE
+  )
+})
+
+test_that("new_toxval_pred errors on a non-numeric model_control", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(
+        draw_model = c("nec4param", "nec4param"),
+        model_control = list(list(nec4param = "10"))
+      )
+    ),
+    regexp = "`meta\\$model_control\\[\\[1\\]\\]\\$nec4param` must be numeric"
+  )
+})
+
+test_that("new_toxval_pred errors when draw_model does not have one value per realisation", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(draw_model = "nec4param")
+    ),
+    regexp = "`meta\\$draw_model` must be length 2"
+  )
+})
+
+test_that("new_toxval_pred errors on a missing value in draw_model", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(draw_model = c("nec4param", NA))
+    ),
+    regexp = "`meta\\$draw_model` must not have any missing values"
+  )
+})
+
+test_that("new_toxval_pred errors when draw_model names a model without a weight", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(
+        draw_model = c("nec4param", "nec3param"),
+        model_weights = c(nec4param = 0.6, ecx4param = 0.4)
+      )
+    ),
+    "`meta$draw_model` must name only models in `meta$model_weights`, not 'nec3param'.",
+    fixed = TRUE
+  )
+})
+
+test_that("new_toxval_pred errors when model_weights do not sum to 1", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(model_weights = c(nec4param = 0.6, ecx4param = 0.3))
+    ),
+    "`meta$model_weights` must sum to 1, not 0.9.",
+    fixed = TRUE
+  )
+})
+
+test_that("new_toxval_pred errors on unnamed model_weights", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(model_weights = c(0.6, 0.4))
+    ),
+    "`meta$model_weights` must be named, with a name for every model.",
+    fixed = TRUE
+  )
+})
+
+test_that("new_toxval_pred errors on a model weight outside 0 to 1", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(model_weights = c(nec4param = 1.2, ecx4param = -0.2))
+    ),
+    regexp = "`meta\\$model_weights` must have values between 0 and 1"
+  )
+})
+
 test_that("new_toxval_pred accepts a bootstrap source with a seed", {
   result <- new_toxval_pred(
     curves = list(pred_curve()),
@@ -225,6 +401,21 @@ test_that("new_toxval_pred errors when x_control is not finite", {
       meta = pred_meta(x_control = Inf)
     ),
     regexp = "`meta\\$x_control` must be finite"
+  )
+})
+
+test_that("new_toxval_pred errors when x_vec does not start at x_control", {
+  # the compute functions read the control at the first grid value, and
+  # summarise_metric() places realisations at x_control
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(x_control = -1)
+    ),
+    regexp = "`x_vec` must start at `meta$x_control`, the control concentration (-1), not 0.",
+    fixed = TRUE
   )
 })
 
@@ -561,7 +752,10 @@ test_that("new_toxval_pred errors when a univariate fit has several families", {
 })
 
 test_that("new_toxval_pred accepts an asymptote", {
-  asymptote <- list(list(decreasing = c(0, 0), increasing = c(NA_real_, NA_real_)))
+  asymptote <- list(list(
+    decreasing = c(0, 0),
+    increasing = c(NA_real_, NA_real_)
+  ))
   result <- new_toxval_pred(
     curves = list(pred_curve()),
     keys = pred_keys(),

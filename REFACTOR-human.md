@@ -69,12 +69,12 @@ direction was looked for and not found, which is information. Decision T10 and
 
 All three are settled. Section 4's phase 0 also required agreeing the default for
 the `nsec` reference, which is exposed as the `anchor` argument rather than fixed
-by the plan (section 3.8). That default was ratified as `"model"` on 5 September,
-so phase 0 is complete and phase 1 can begin.
+by the plan (section 3.8). That default was ratified as `"model"` on 5 September
+and amended for `bayesmanecfit` on 29 October (T12).
 
 The `nsec` reference does **not** block, because §3.8 exposes it as an argument
 rather than settling it, so only the default had to be agreed. It was ratified as
-`"model"` on 5 September, and a default can be revisited later.
+`"model"` on 5 September, then revised on 29 October for `bayesmanecfit` (T12).
 
 ## 3. Design decisions
 
@@ -210,9 +210,10 @@ toxval_predict.gam <- function(object, x_var, resolution, x_range, ...) {
 }
 ```
 
-`toxval_pred` is **public API**, not an internal convenience: under #39 the
-`bayesnec` classes are served by methods living in `bayesnec`, which constructs
-a `toxval_pred` from outside this package.
+`toxval_pred` is **public API**, not an internal convenience: another package
+may supply a `toxval_predict()` method, which then constructs a `toxval_pred`
+from outside this one. The methods for `bayesnec` fits are in `toxval`
+(decision T35), not in `bayesnec` as #39 planned.
 
 ### 3.4 The `toxval_pred` intermediate object
 
@@ -363,16 +364,18 @@ hard-coded rule:
 nsec(fit, anchor = c("model", "component", "control"))
 ```
 
-`"model"` is the default: the threshold comes from the model-averaged control
-posterior, so every pooled value is measured against the same response level.
-`"component"` uses each component model's own control, which is the strict
-Bayesian model average and reproduces what `bayesnec` returns today. `"control"`
+`"model"` takes the threshold from the model-averaged control posterior, so
+every pooled value is measured against the same response level. `"component"`
+uses each component model's own control, which is the strict Bayesian model
+average and reproduces what `bayesnec` returns. It is now the default for a
+`bayesmanecfit`; `"model"` remains the default for other classes (T12).
+`"control"`
 would use a separate control-only fit supplied by the user. It is left out of
 phase 4 and will probably be replaced, because it does not reproduce the LECx of
 de Bruyn and Elphick (2013), which it was meant to match (decision T23).
 
 `anchor` is a column on the result, so the choice travels with the estimate. The
-measurements behind the default, and the cost of choosing it, are in
+measurements behind the original `"model"` default, and the tradeoff, are in
 `REFACTOR-claude.md` §3.8.
 
 ## 4. Phased implementation
@@ -384,10 +387,12 @@ estimators. Phase 1 locks the current numbers; #19 decides which should move.
 Answered afterwards, a refactor bug cannot be told apart from an intended change
 of definition.
 
-**`toxval` must reach CRAN before `bayesnec` can depend on it.** A CRAN package's
-dependencies must resolve from CRAN, and `toxval` is not published. That puts the
-change of output shape *before* the submission, since publishing an API about to
-break would force two breaking releases in a row.
+The second is that the change of output shape comes before the CRAN submission,
+since publishing an API about to break would force two breaking releases in a
+row. It was first set because `bayesnec` was to import `toxval`, and a CRAN
+package's dependencies must resolve from CRAN. Under decision T35 the methods
+for `bayesnec` fits are in `toxval` and `bayesnec` does not import it. Support
+for `bayesnec` fits therefore no longer waits for `toxval` to reach CRAN.
 
 0. **Decide #19, #20 and #49, and agree the `anchor` default.** No code. Fixes
    what the numbers should be before anything locks them. Done when the answers
@@ -428,15 +433,22 @@ break would force two breaking releases in a row.
    `reference` (decision T32);
    update the tests; remove `posterior` and the dead blocks last. Done when every
    metric returns a tibble and the tests assert the new shapes.
-6. **`toxval` to CRAN**, carrying the final API. Unblocks #39. Done when
-   published.
-7. **`bayesnec`.** One PR: `Imports: toxval`, delete its copies of `ecx` and
-   `nsec`, add the `toxval_predict` methods, adapt to the tibble. Then CRAN.
+6. **`toxval` to CRAN**, with the final API. Done when published. It is no
+   longer a prerequisite of phase 7 (decision T35).
+7. **Support for `bayesnec` fits.** `toxval_predict()` methods for
+   `bayesnecfit` and `bayesmanecfit`, in `toxval`, with `bayesnec` in
+   `Suggests`, so `ecx()` and `nsec()` accept a `bnec()` fit again (decision
+   T35, `BAYESNEC-human.md`). Done when R CMD check passes with and without
+   `bayesnec` installed. The other `bayesnec` classes follow in later pull
+   requests. Under #39 this phase was a `bayesnec` pull request that added
+   `toxval` to the `Imports` of `bayesnec`, deleted its copies of `ecx` and
+   `nsec`, and added the methods there.
 
 Phases 2 to 4 change who owns the code and what it computes; phase 5 changes what
 it returns. Phases 2 and 3 are kept separate, so each can be checked against the
-regression net. Phases 4 and 5 are done together (decision T33). `bayesnec` sees
-one finished API at phase 7.
+regression net. Phases 4 and 5 are done together (decision T33). Phase 7 adds
+the methods for `bayesnec` fits to `toxval`, on the API that phases 4 and 5
+complete (decision T35).
 
 ## 5. Notes
 
@@ -453,9 +465,11 @@ one finished API at phase 7.
 - **`anchor = "control"` is left out of phase 4** (decision T23). It would need
   a control-only fit supplied by the user, and it does not reproduce the LECx it
   was meant to match. Fitting wrappers (#22) are not planned at this stage.
-- **Model-averaged results are not reproducible today** (`bayesnec` #216): the
-  component resampling is unseeded. Not fixed by this plan, and it blocks
-  regression-testing model-averaged output by equality.
+- **Model-averaged results were not reproducible** while `bayesnec` resampled
+  the components unseeded (`bayesnec` #216, closed 2026-08-21). From `bayesnec`
+  2.1.3.7 the draw index is stored on the object or rebuilt from a seed, and
+  `toxval_predict.bayesmanecfit()` follows the same rule, so model-averaged
+  output can be tested by equality (`REFACTOR-claude.md` §5).
 - **`xform` stays user-supplied, and applies to realisations before
   summarising.** Both are current behaviour; the second changes answers for any
   non-linear `xform`, so it belongs in the written contract.

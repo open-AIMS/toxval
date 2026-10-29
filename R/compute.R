@@ -62,6 +62,9 @@ compute_ecx <- function(
   rows <- lapply(seq_along(pred$curves), function(i) {
     upper <- response_upper_bound(pred$meta, pred$keys, i)
     asymptote <- curve_asymptote(pred, type, i)
+    if (type == "relative") {
+      warn_models_without_asymptote(asymptote, pred$meta$draw_model)
+    }
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
@@ -118,12 +121,17 @@ compute_ecx <- function(
 #'   `ecnsec` definition. `"direct"` is refused: its `ecnsec` would be the
 #'   reference itself, which the `reference` column already reports.
 #' @param anchor One of `"model"` or `"component"`, where the reference comes
-#'   from under model averaging. The two coincide for a fit that is not
-#'   model-averaged, which is every class supported, so it is recorded only.
+#'   from under model averaging. Under `"component"` each model of a
+#'   model average, named per realisation by `meta$draw_model`, takes the
+#'   quantile of its own control: over every draw of its fit, from
+#'   `meta$model_control`, or over its realisations in the average where that
+#'   is absent. Without `meta$draw_model` the two coincide.
 #'
 #' @return A tibble with one row per curve and direction: the columns of
-#'   `keys`, `direction`, `sig_val`, `type`, `anchor`, `reference`, and the
-#'   list columns `control`, `asymptote` (`NA` unless `type` is `relative`),
+#'   `keys`, `direction`, `sig_val`, `type`, `anchor`, `reference` (a list
+#'   column of one value per realisation under `"component"` on a model
+#'   average), and the list columns `control`, `asymptote` (`NA` unless `type`
+#'   is `relative`),
 #'   `first_change_away`, `on_no_effect_side`, `draws` and `ecnsec`, each
 #'   holding one value per realisation. `ecnsec` is a proportion.
 #'
@@ -149,6 +157,9 @@ compute_nsec <- function(
   rows <- lapply(seq_along(pred$curves), function(i) {
     upper <- response_upper_bound(pred$meta, pred$keys, i)
     asymptote <- curve_asymptote(pred, type, i)
+    if (type == "relative") {
+      warn_models_without_asymptote(asymptote, pred$meta$draw_model)
+    }
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
@@ -160,17 +171,34 @@ compute_nsec <- function(
       decreasing = nsec_reference(finite_control, sig_val),
       increasing = nsec_reference(finite_control, 1 - sig_val)
     )
+    reference_by_row <- lapply(reference, rep, nrow(curve))
+    by_component <- anchor == "component" && !is.null(pred$meta$draw_model)
+    if (by_component) {
+      reference_by_row <- component_reference(
+        control,
+        sig_val,
+        pred$meta$draw_model,
+        pred$meta$model_control[[i]]
+      )
+    }
     draws <- lapply(directions(), function(direction) {
-      reference_by_row <- rep(reference[[direction]], nrow(curve))
-      crossings_by_row(curve, pred$x_vec, reference_by_row, direction)
+      crossings_by_row(
+        curve,
+        pred$x_vec,
+        reference_by_row[[direction]],
+        direction
+      )
     })
     first_change_away <- lapply(directions(), function(direction) {
       first_change_away_by_row(curve, direction)
     })
     on_no_effect_side <- lapply(directions(), function(direction) {
-      on_no_effect_side_by_row(curve, reference[[direction]], direction)
+      on_no_effect_side_by_row(curve, reference_by_row[[direction]], direction)
     })
-    ecnsec <- ecnsec_value(curve, reference, type, upper, asymptote)
+    ecnsec <- ecnsec_value(curve, reference_by_row, type, upper, asymptote)
+    if (by_component) {
+      reference <- reference_by_row
+    }
 
     dplyr::bind_cols(
       keys_by_direction(pred$keys, i),
@@ -214,6 +242,40 @@ chk_asymptote_supplied <- function(pred, type) {
   invisible(pred)
 }
 
+#' Warn which models of a model average have no asymptote
+#'
+#' The realisations of such a model have no span under `relative` and are
+#' excluded, which leaves the average of the other models with their weights
+#' renormalised. A direction in which no model has an asymptote is excluded
+#' for every realisation and is reported by the summary instead.
+#'
+#' @param asymptote The asymptotes of the curve, from `curve_asymptote()`.
+#' @param draw_model The model of each realisation, or `NULL`.
+#'
+#' @noRd
+warn_models_without_asymptote <- function(asymptote, draw_model) {
+  if (is.null(draw_model)) {
+    return(invisible())
+  }
+  for (direction in directions()) {
+    undefined <- tapply(is.na(asymptote[[direction]]), draw_model, all)
+    dropped <- names(undefined)[undefined]
+    if (length(dropped) > 0 && length(dropped) < length(undefined)) {
+      warning(
+        "Under `type = \"relative\"` the ",
+        direction,
+        " asymptote is undefined for ",
+        chk::cc(dropped, conj = " and "),
+        ", so ",
+        if (length(dropped) == 1) "its" else "their",
+        " realisations are excluded and the other models are averaged.",
+        call. = FALSE
+      )
+    }
+  }
+  invisible()
+}
+
 #' The asymptotes of curve `i`, or `NA` where `type` does not use them
 #'
 #' @return A list of two numeric vectors, `decreasing` and `increasing`, one
@@ -236,6 +298,43 @@ nsec_reference <- function(control, prob) {
     return(NA_real_)
   }
   unname(stats::quantile(control, prob))
+}
+
+#' The NSEC reference of each realisation under `anchor = "component"`
+#'
+#' Each model of a model average takes the quantile of its finite control, so
+#' the reference is constant within a model.
+#'
+#' @param control The control of each realisation.
+#' @param sig_val The quantile that sets the decreasing reference.
+#' @param draw_model The model of each realisation.
+#' @param model_control A named list of the control of each model in every
+#'   draw of its fit, or `NULL` to take each model's quantile over its
+#'   realisations in `control`.
+#'
+#' @return A list of two numeric vectors with one value per realisation, named
+#'   `decreasing` and `increasing`.
+#'
+#' @noRd
+component_reference <- function(
+  control,
+  sig_val,
+  draw_model,
+  model_control = NULL
+) {
+  if (is.null(model_control)) {
+    model_control <- split(control, draw_model)
+  }
+  model_control <- model_control[unique(draw_model)]
+  probs <- c(decreasing = sig_val, increasing = 1 - sig_val)
+  lapply(probs, function(prob) {
+    by_model <- vapply(
+      model_control,
+      function(x) nsec_reference(x[is.finite(x)], prob),
+      numeric(1)
+    )
+    unname(by_model[draw_model])
+  })
 }
 
 #' @noRd
@@ -352,8 +451,9 @@ response_upper_bound <- function(meta, keys, i) {
     beta = ,
     zero_inflated_beta = ,
     zero_one_inflated_beta = ,
-    # predicted at one trial by `toxval_predict.brmsfit()`, so a proportion
-    # whatever the trials in the data
+    # predicted at one trial by `toxval_predict()`, so a proportion whatever
+    # the trials in the data; `bnec_newdata()` sets them to 1 for a
+    # `bayesnec` fit
     binomial = ,
     beta_binomial = ,
     zero_inflated_binomial = 1,

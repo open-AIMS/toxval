@@ -11,24 +11,33 @@
 #' per parametric bootstrap replicate for a frequentist one.
 #'
 #' The reference for the decreasing direction is the `sig_val` quantile of the
-#' control realisations, the predicted response at the lowest concentration,
+#' control realisations, the predicted response at the control concentration
+#' (by default the lowest concentration in the data; see [toxval_predict()]),
 #' and for the increasing direction the `1 - sig_val` quantile. The NSEC is
 #' found for each realisation against that reference, and the realisations are
 #' summarised by `prob_vals`. A direction in which no realisation crosses is
 #' returned with `NA` estimates.
 #'
 #' By construction, about `sig_val` of the realisations have a control already
-#' past the reference. These are placed at the lowest concentration in the
-#' data, unless they show no effect in the tested range. A realisation that
-#' does not reach the reference within the evaluated range ranks above the
-#' highest concentration, and an interval limit that falls among such
-#' realisations is reported as the highest concentration, with a warning.
+#' past the reference. These are placed at the control concentration, unless
+#' they show no effect in the tested range. A realisation that does not reach
+#' the reference within the evaluated range ranks above the highest
+#' concentration, and an interval limit that falls among such realisations is
+#' reported as the highest concentration, with a warning. When any realisation
+#' is censored, the reported quantiles are observed order statistics.
 #'
 #' `ecnsec` is the effect at the NSEC, as a proportion of the span named by
 #' `type`: the inverse of the [ecx()] reference under the same `type`.
 #'
 #' NSECs are not estimated for `drc` NEC models, whose threshold is a parameter
 #' of the model rather than a feature of a smooth curve.
+#'
+#' @section Fits from bayesnec:
+#' A `bayesnecfit` or `bayesmanecfit` from `bayesnec::bnec()` is accepted when
+#' `bayesnec` is installed; see [toxval_predict()]. `bayesnec` also exports a
+#' function named `nsec()`, and whichever of the two packages is attached later
+#' masks the other's, without a warning. Call `toxval::nsec()` to be sure of
+#' reaching this function.
 #'
 #' @section Multivariate fits:
 #' A multivariate fit gives rows for each response, named in the `response`
@@ -42,9 +51,13 @@
 #' @param type One of `"absolute"`, `"relative"` or `"range"`, naming the span
 #'   `ecnsec` is a proportion of. See [ecx()].
 #' @param anchor For a model-averaged fit, the control the reference is taken
-#'   from: `"model"` (the default) uses the control of the averaged model, and
-#'   `"component"` uses the control of each component model. Both give the same
-#'   result for a single model.
+#'   from: `"model"` uses the control of the averaged model, and `"component"`
+#'   uses the control of each component model over every draw of its fit. The
+#'   default is `"component"` for a `bayesmanecfit`, matching
+#'   `bayesnec::nsec()`, and `"model"` otherwise. Both give the same result for
+#'   a single model. Under `"component"` the `reference` column reports the
+#'   `prob_vals[1]` quantile of the component references across realisations,
+#'   as `control` does.
 #' @param curveid `r lifecycle::badge("deprecated")` Use `group_var`.
 #'
 #' @return A `toxval` tibble with one row per curve and direction, and the
@@ -103,11 +116,12 @@ nsec <- function(
   ...,
   sig_val = 0.01,
   type = "absolute",
-  anchor = "model",
+  anchor = NULL,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
@@ -123,6 +137,7 @@ nsec <- function(
     group_var = !missing(group_var),
     resolution = !missing(resolution),
     x_range = !missing(x_range),
+    x_control = !missing(x_control),
     ... = ...length() > 0
   )
 
@@ -206,8 +221,17 @@ nsec <- function(
       group_var = group_var,
       resolution = resolution,
       x_range = x_range,
+      x_control = x_control,
       ...
     )
+  }
+
+  if (is.null(anchor)) {
+    anchor <- if (identical(pred$meta$source_class, "bayesmanecfit")) {
+      "component"
+    } else {
+      "model"
+    }
   }
 
   rows <- compute_nsec(pred, sig_val = sig_val, type = type, anchor = anchor)

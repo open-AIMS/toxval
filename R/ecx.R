@@ -15,7 +15,8 @@
 #' realisation crosses is returned with `NA` estimates.
 #'
 #' `type` names what `proportion` is taken of, from the control, the predicted
-#' response at the lowest concentration:
+#' response at the control concentration, by default the lowest concentration
+#' in the data (see [toxval_predict()]):
 #'
 #' - `"absolute"` (the default): decreasing, the control down to 0; increasing,
 #'   the control up to 1 for a response on the proportion scale, and otherwise
@@ -35,10 +36,18 @@
 #' A realisation that does not reach the reference within the evaluated range
 #' ranks above the highest concentration, and an interval limit that falls
 #' among such realisations is reported as the highest concentration, with a
-#' warning. Under `"range"` this includes a realisation that never falls below,
+#' warning. When any realisation is censored, the reported quantiles are
+#' observed order statistics. Under `"range"` this includes a realisation that never falls below,
 #' or rises above, its control. Under `"absolute"` and `"relative"`, a
 #' realisation with nothing to take the proportion of, such as a control at or
 #' below 0 or a missing asymptote, is excluded from the summary, with a warning.
+#'
+#' @section Fits from bayesnec:
+#' A `bayesnecfit` or `bayesmanecfit` from `bayesnec::bnec()` is accepted when
+#' `bayesnec` is installed; see [toxval_predict()]. `bayesnec` also exports a
+#' function named `ecx()`, and whichever of the two packages is attached later
+#' masks the other's, without a warning. Call `toxval::ecx()` to be sure of
+#' reaching this function.
 #'
 #' @inheritParams toxval_params
 #' @param proportion A numeric vector of effects, as proportions of the span
@@ -116,6 +125,7 @@ ecx <- function(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
@@ -131,6 +141,7 @@ ecx <- function(
     group_var = !missing(group_var),
     resolution = !missing(resolution),
     x_range = !missing(x_range),
+    x_control = !missing(x_control),
     ... = ...length() > 0
   )
 
@@ -221,6 +232,7 @@ ecx <- function(
       group_var = group_var,
       resolution = resolution,
       x_range = x_range,
+      x_control = x_control,
       ...
     )
   }

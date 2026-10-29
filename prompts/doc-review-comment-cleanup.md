@@ -65,3 +65,24 @@ Ran `devtools::document()` (reverted the unrelated local roxygen version bump in
 **Claude:** In the "Supplying the predictor" section of `?toxval_predict`, replaced the `bayesnec` and `drc` examples with the `drc` one alone ("such as a `drc` fit in `dataList$names$dName`"). Re-rendered `man/toxval_predict.Rd`; reverted the roxygen version bump in `DESCRIPTION`. Nothing committed.
 
 ---
+
+## Session: doc-review-comment-cleanup (merge phase-2)
+Date: 2026-10-29
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:** Get up to speed. All development is done; bring doc-review into line with the phase-2 changes of the last few days (#66 squash, #78 control concentration, #81 bayesnec methods, dependency fix). Keep this branch's formatting and changes, and go through anything newly changed.
+
+**Claude:** Merged `origin/phase-2` into `doc-review` with `--no-commit` and resolved 13 conflicting files, keeping this branch's shortened docs and adding the new content in the same style:
+
+- `x_control` (#73) documented once in `R/toxval-params.R`; `x_range` notes that its first value must equal the control concentration; the control concentration paragraph added to `?toxval_predict` details; `x_control` in `?new_toxval_pred` kept short.
+- bayesnec: `object` in the params file names bayesnec; "Fits from bayesnec" sections kept in `?ecx` and `?nsec`; the `bayesnecfit` and `bayesmanecfit` method docs shortened to match the `brmsfit` and `drc` ones; the bayesnec example restored in `?toxval_predict`.
+- `anchor` documented with the class-dependent default (`"component"` for a `bayesmanecfit`).
+- README: bayesnec added to the overview and a "A bayesnec fit" usage section (live `manec_example` chunk); the Changes bullet that said bayesnec methods were removed now says bayesnec is suggested and model averages are accepted. The phase-2 README text saying `nsec()` defaults to `anchor = "model"` was stale and was not carried over.
+- Stripped new plan tags (`T##`, `BAYESNEC-claude.md §3.1`) from `R/` and `tests/testthat/`; `tests/local/` and `data-raw/` left as they are.
+- Ran `devtools::document()` and `devtools::build_readme()` (reverted the roxygen version bump). `devtools::test()`: only four model-average comparisons in `test-toxval-predict-bayesnec.R` fail; they fail identically on a clean `origin/phase-2` with CRAN bayesnec 2.1.3.1 installed (DESCRIPTION pins `bayesnec@predev`).
+
+Merge staged, not committed.
+
+---

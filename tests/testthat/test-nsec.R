@@ -16,7 +16,7 @@ test_that("prob_vals warnings behave as expected", {
     ),
     regexp = "`prob_vals` must be the central, lower and upper quantiles, in that order, not 0.6, 0.9 and 0.1"
   )
-  
+
   expect_error(
     nsec(
       brms_model_1,
@@ -45,25 +45,36 @@ test_that("x_range can be passed various values", {
     nsec(nsec_drc_1, x_range = c(100), x_var = "x"),
     regexp = "`x_range` must be length 2 not 1"
   )
-  
-  output_1 <- nsec(nsec_drc_1, x_range = c(0.5, 100), x_var = "x", seed = 1)
+
+  output_1 <- nsec(
+    nsec_drc_1,
+    x_control = 0.5,
+    x_range = c(0.5, 100),
+    x_var = "x",
+    seed = 1
+  )
   expect_equal(output_1$estimate, c(1.158826, NA_real_), tolerance = 0.001)
-  
-  output_2 <- nsec(brms_model_3, x_range = c(0.5, 100), x_var = "x")
+
+  output_2 <- nsec(
+    brms_model_3,
+    x_control = 0.5,
+    x_range = c(0.5, 100),
+    x_var = "x"
+  )
   expect_equal(output_2$estimate, c(1.3688852, 0.6452353), tolerance = 0.001)
 })
 
 test_that("nsec type = range changes ecnsec but not the NSEC", {
   absolute <- nsec(brms_model_3, x_var = "x")
   range <- nsec(brms_model_3, x_var = "x", type = "range")
-  
+
   expect_equal(range$type, c("range", "range"))
   expect_equal(range$estimate, absolute$estimate)
   expect_equal(range$reference, absolute$reference)
   expect_equal(range$ecnsec[[1]], 0.037344, tolerance = 0.001)
   expect_equal(range$ecnsec.low[[1]], 0.006111, tolerance = 0.001)
   expect_equal(range$ecnsec.high[[1]], 0.062751, tolerance = 0.001)
-  
+
   ecnsec_cols <- c("ecnsec", "ecnsec.low", "ecnsec.high")
   expect_false(isTRUE(all.equal(range[ecnsec_cols], absolute[ecnsec_cols])))
 })
@@ -72,22 +83,23 @@ test_that("nsec type = range changes ecnsec but not the NSEC", {
 
 test_that("additional examples brms 1", {
   output <- nsec(brms_model_3, x_var = "x", resolution = 1000)
-  
+
   expect_type(output$estimate, "double")
   expect_equal(output$estimate[[1]], 0.2576897, tolerance = 0.001)
-  expect_equal(output$conf.low[[1]], 0.1164777, tolerance = 0.001) 
+  expect_equal(output$conf.low[[1]], 0.1164777, tolerance = 0.001)
   expect_equal(output$conf.high[[1]], 1.2818, tolerance = 0.001)
   expect_equal(output$metric, c("nsec", "nsec"))
   expect_equal(output$sig_val, c(0.01, 0.01))
   expect_equal(output$direction, c("decreasing", "increasing"))
   expect_equal(output$ecnsec[[1]], 0.03685049, tolerance = 0.001)
-  expect_equal(output$ecnsec.low[[1]], 0.006062251, tolerance = 0.001) 
+  expect_equal(output$ecnsec.low[[1]], 0.006062251, tolerance = 0.001)
   expect_equal(output$ecnsec.high[[1]], 0.06172548, tolerance = 0.001)
-  
-  expect_equal(pillar::tbl_sum(output)[["Settings"]], "resolution 1000 | 1000 posterior draws")
+
+  expect_equal(
+    pillar::tbl_sum(output)[["Settings"]],
+    "resolution 1000 | 1000 posterior draws"
+  )
 })
-
-
 
 
 test_that("additional examples brms 2", {
@@ -107,13 +119,16 @@ test_that("additional examples brms 2", {
 test_that("nsec works for drc using continuous data", {
   model_LL4 <- drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::LL.4())
   output <- nsec(model_LL4, x_var = "x", seed = 1)
-  
+
   expect_snapshot({
     print(output, width = Inf)
   })
-  
+
   expect_equal(
-    round(c(output$estimate[[1]], output$conf.low[[1]], output$conf.high[[1]]), 1), 
+    round(
+      c(output$estimate[[1]], output$conf.low[[1]], output$conf.high[[1]]),
+      1
+    ),
     c(1.2, 1.0, 1.3)
   )
 })
@@ -130,7 +145,7 @@ test_that("nsec for drc works for curveid and binomial data", {
   lifecycle::expect_deprecated(
     output <- nsec(daphnids_m2, x_var = "dose", curveid = "time", seed = 1)
   )
-  
+
   expect_snapshot({
     print(output, width = Inf)
   })
@@ -157,12 +172,16 @@ test_that("nsec for drc throws an error for an increasing function", {
     fct = drc::LL.2(),
     type = "binomial"
   )
-  
+
   output <- nsec(daphnids_m1, group_var = "time", seed = 1)
-  
+
   expect_equal(output$estimate[c(1, 3)], c(NA_real_, NA_real_))
-  expect_equal(output$estimate[c(2, 4)], c(513.0672, 274.9758), tolerance = 0.001)
-  
+  expect_equal(
+    output$estimate[c(2, 4)],
+    c(513.0672, 274.9758),
+    tolerance = 0.001
+  )
+
   expect_snapshot({
     print(output, width = Inf)
   })
@@ -183,7 +202,7 @@ test_that("nsec drc additional example 1", {
     c(0.38956, 0.33727, 0.42759),
     tolerance = 0.01
   )
-  
+
   expect_snapshot({
     print(output, width = Inf)
   })
@@ -215,7 +234,7 @@ test_that("nsec drc additional example 2", {
 
 test_that("nsec accepts a toxval_pred", {
   output <- toxval_predict(brms_model_3, x_var = "x")
-  
+
   expect_snapshot(print(nsec(output), width = Inf))
 })
 
@@ -224,7 +243,7 @@ test_that("nsec gives NA when no realisation has a finite control", {
   y <- 10 - x_vec
   y[1] <- NaN
   pred <- compute_pred(list(rbind(y, y)), x_vec)
-  
+
   expect_warning(output <- nsec(pred), "decreasing: 100.0% excluded")
   expect_equal(output$reference, c(NA_real_, NA_real_))
   expect_equal(output$estimate, c(NA_real_, NA_real_))
@@ -232,12 +251,16 @@ test_that("nsec gives NA when no realisation has a finite control", {
 
 test_that("a toxval_pred with no family has no upper bound on the response", {
   x_vec <- 0:10
-  # This can't occur through the methods created inside the package but if 
+  # This can't occur through the methods created inside the package but if
   # externals build a toxval_pred this helps to check that behaviour
-  pred <- compute_pred(list(rbind(10 + x_vec, 10 + x_vec)), x_vec, family = NULL)
-  
+  pred <- compute_pred(
+    list(rbind(10 + x_vec, 10 + x_vec)),
+    x_vec,
+    family = NULL
+  )
+
   output <- ecx(pred)
-  
+
   # relative deviation: a 10 per cent increase from a control of 10 is 11
   expect_equal(output$reference[[2]], 11)
   expect_equal(output$estimate[[2]], 1)
@@ -252,12 +275,12 @@ test_that("brms model errors without x_var", {
   )
 })
 
-  test_that("brms model errors if x_var isn't in the dataset", {
-    expect_error(
-      nsec(brms_model_1, x_var = "z"),
-      regexp = "`x_var` must name a column of the data in `object`, not 'z'"
-    )
-  })
+test_that("brms model errors if x_var isn't in the dataset", {
+  expect_error(
+    nsec(brms_model_1, x_var = "z"),
+    regexp = "`x_var` must name a column of the data in `object`, not 'z'"
+  )
+})
 
 
 test_that("brms model errors if by_group is true but no group_var is supplied", {
@@ -303,7 +326,10 @@ test_that("brms model errors if by_group is FALSE and a group_var is supplied", 
 
 test_that("brms model runs when multiple variables in data and group_var specified", {
   output <- suppressWarnings(nsec(
-    brms_model_2, x_var = "x", group_var = "z", by_group = TRUE
+    brms_model_2,
+    x_var = "x",
+    group_var = "z",
+    by_group = TRUE
   ))
 
   expect_equal(
@@ -316,7 +342,7 @@ test_that("brms model runs when multiple variables in data and group_var specifi
   # returning, so they are censored (#74).
   expect_equal(
     output$conf.low,
-    c(NA_real_, 1.05, 1.003957, 0.941763),
+    c(NA_real_, 1.05, 1.0008581, 0.9415798),
     tolerance = 0.001
   )
   expect_equal(
@@ -340,13 +366,13 @@ test_that("brms model throws deprecated message for horme and argument is ignore
 
 test_that("a hormetic fit gives a decreasing and an increasing NSEC", {
   output <- nsec(brms_model_5, x_var = "x")
-  
+
   expect_equal(output$direction, c("decreasing", "increasing"))
   expect_equal(output$estimate[[1]], 2.2916, tolerance = 0.001)
   expect_equal(output$estimate[[2]], 0.1635, tolerance = 0.001)
 })
 
-# The expected values were computed outside toxval with quantile type 7 (#74).
+# The expected values use observed order statistics when draws are censored.
 test_that("nsec censors the brms_model_1 realisations that show no effect (#74)", {
   pred <- toxval_predict(brms_model_1, x_var = "x")
   output <- suppressWarnings(nsec(pred, draws = TRUE))
@@ -359,7 +385,7 @@ test_that("nsec censors the brms_model_1 realisations that show no effect (#74)"
   expect_equal(sum(is.infinite(output$draws[[1]]$value.draw[past])), 7)
   expect_equal(
     unlist(output[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 1.05, conf.low = 0.991338, conf.high = 1.05),
+    c(estimate = 1.05, conf.low = 0.9911504, conf.high = 1.05),
     tolerance = 1e-6
   )
 })
@@ -375,7 +401,7 @@ test_that("nsec censors the brms_model_6 realisations that show no effect (#74)"
   expect_equal(sum(is.infinite(output$draws[[1]]$value.draw[past])), 10)
   expect_equal(
     unlist(output[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 1.05, conf.low = 0.9716878, conf.high = 1.05),
+    c(estimate = 1.05, conf.low = 0.9696808, conf.high = 1.05),
     tolerance = 1e-6
   )
 })
@@ -424,8 +450,8 @@ test_that("drc model errors if more then 1 sig val is passed", {
 
 test_that("drc model output attributes", {
   output <- nsec(nsec_drc_1, x_var = "x", seed = 1)
-  output <- output[1,]
-  
+  output <- output[1, ]
+
   expect_equal(
     c(output$estimate, output$conf.low, output$conf.high),
     c(1.183707, 0.99448, 1.2846),
@@ -448,7 +474,7 @@ test_that("drc curveid is translated to group_var", {
     fct = drc::LL.2(),
     type = "binomial"
   )
-  
+
   lifecycle::expect_deprecated(
     output <- nsec(fit, curveid = "time", seed = 1)
   )
@@ -464,7 +490,7 @@ test_that("drc curveid must name the curveid column of the fit", {
 
 test_that("drc model curveid switches attributes to have a matrix for ecnsec_relativeP", {
   output <- nsec(nsec_drc_1, x_var = "x", seed = 1)
-  
+
   expect_equal(output$estimate[[1]], 1.183707, tolerance = 0.001)
   expect_equal(output$conf.low[[1]], 0.994483, tolerance = 0.001)
   expect_equal(output$conf.high[[1]], 1.284687, tolerance = 0.001)
@@ -473,9 +499,14 @@ test_that("drc model curveid switches attributes to have a matrix for ecnsec_rel
 
 test_that("drc model provides NA estimates when draws are excluded and not enough info to generate", {
   warnings <- capture_warnings(output <- nsec(nsec_drc_2, seed = 1))
-  
+
   expect_match(warnings, "NaNs produced", all = FALSE)
-  expect_match(warnings, "increasing: 24.6% excluded", all = FALSE, fixed = TRUE)
+  expect_match(
+    warnings,
+    "increasing: 24.6% excluded",
+    all = FALSE,
+    fixed = TRUE
+  )
   expect_equal(output$direction, c("decreasing", "increasing"))
   expect_equal(output$estimate[[2]], NA_real_)
 })
@@ -489,7 +520,7 @@ test_that("brms grouped nsec with draws has one row per group and direction", {
   output <- suppressWarnings(
     nsec(brms_model_2, x_var = "x", group_var = "z", draws = TRUE)
   )
-  
+
   expect_snapshot({
     print(output, width = Inf)
     output$draws[[1]]
@@ -499,13 +530,16 @@ test_that("brms grouped nsec with draws has one row per group and direction", {
 test_that("brmsfit nsec resolution is stored correctly", {
   output <- nsec(brms_model_3, x_var = "x", resolution = 600)
 
-  expect_equal(pillar::tbl_sum(output)[["Settings"]], "resolution 600 | 1000 posterior draws")
+  expect_equal(
+    pillar::tbl_sum(output)[["Settings"]],
+    "resolution 600 | 1000 posterior draws"
+  )
 })
 
 test_that("a larger sig_val moves the decreasing reference towards the control", {
   strict <- nsec(brms_model_3, x_var = "x", sig_val = 0.001)
   loose <- suppressWarnings(nsec(brms_model_3, x_var = "x", sig_val = 0.1))
-  
+
   expect_gt(loose$reference[[1]], strict$reference[[1]])
   expect_lt(loose$estimate[[1]], strict$estimate[[1]])
 })
@@ -522,10 +556,10 @@ test_that("brmsfit nsec xform changes output values with grouping", {
     xform = function(x) x * 10
   ))
 
-  expect_equal(output_1$estimate*10, output_2$estimate)
-  expect_equal(output_1$conf.low*10, output_2$conf.low)
-  expect_equal(output_1$conf.high*10, output_2$conf.high)
-  
+  expect_equal(output_1$estimate * 10, output_2$estimate)
+  expect_equal(output_1$conf.low * 10, output_2$conf.low)
+  expect_equal(output_1$conf.high * 10, output_2$conf.high)
+
   expect_equal(output_1$reference, output_2$reference)
   expect_equal(output_1$ecnsec, output_2$ecnsec)
   expect_equal(output_1$ecnsec.low, output_2$ecnsec.low)
@@ -535,15 +569,34 @@ test_that("brmsfit nsec xform changes output values with grouping", {
 # nsec.drc — additional tests ---------------------------------------------
 
 test_that("nsec drc model has expected structure and shape", {
-  output <- nsec(nsec_drc_1, x_var = "x", sig_val = 0.05, resolution = 600, seed = 1)
+  output <- nsec(
+    nsec_drc_1,
+    x_var = "x",
+    sig_val = 0.05,
+    resolution = 600,
+    seed = 1
+  )
 
   expect_named(
     output,
-    c("metric", "direction", "estimate", "conf.low", "conf.high", "sig_val",
-      "type", "anchor", "control", "reference", "asymptote", "ecnsec",
-      "ecnsec.low", "ecnsec.high")
+    c(
+      "metric",
+      "direction",
+      "estimate",
+      "conf.low",
+      "conf.high",
+      "sig_val",
+      "type",
+      "anchor",
+      "control",
+      "reference",
+      "asymptote",
+      "ecnsec",
+      "ecnsec.low",
+      "ecnsec.high"
+    )
   )
-  
+
   expect_snapshot({
     print(output, width = Inf)
   })
@@ -553,10 +606,10 @@ test_that("drc nsec xform changes output values", {
   output_1 <- nsec(nsec_drc_1, x_var = "x", seed = 1)
   output_2 <- nsec(nsec_drc_1, x_var = "x", xform = function(x) x * 2, seed = 1)
 
-  expect_equal(output_1$estimate*2, output_2$estimate)
-  expect_equal(output_1$conf.low*2, output_2$conf.low)
-  expect_equal(output_1$conf.high*2, output_2$conf.high)
-  
+  expect_equal(output_1$estimate * 2, output_2$estimate)
+  expect_equal(output_1$conf.low * 2, output_2$conf.low)
+  expect_equal(output_1$conf.high * 2, output_2$conf.high)
+
   expect_equal(output_1$reference, output_2$reference)
   expect_equal(output_1$ecnsec, output_2$ecnsec)
   expect_equal(output_1$ecnsec.low, output_2$ecnsec.low)
@@ -590,10 +643,14 @@ test_that("nsec input validation catches non-logical draws", {
 test_that("nsec errors when a toxval_pred is given predict-level arguments", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
-  
+
   expect_error(
     nsec(pred, resolution = 100, x_range = c(0, 5)),
     "so `resolution`, `x_range` must not be supplied"
+  )
+  expect_error(
+    nsec(pred, x_control = 1),
+    "so `x_control` must not be supplied"
   )
 })
 
@@ -607,12 +664,12 @@ test_that("curveid must not be supplied with group_var", {
 test_that("anchor is model or component and is recorded in the result", {
   model <- nsec(brms_model_3, x_var = "x")
   component <- nsec(brms_model_3, x_var = "x", anchor = "component")
-  
+
   expect_equal(model$anchor, c("model", "model"))
   expect_equal(component$anchor, c("component", "component"))
   # the two coincide for a fit that is not model-averaged
   expect_equal(component$estimate, model$estimate)
-  
+
   expect_error(
     nsec(brms_model_3, x_var = "x", anchor = "control"),
     "`anchor` must match 'component' or 'model', not 'control'"
@@ -623,11 +680,14 @@ test_that("nsec gives NA ecnsec when no realisation has a span", {
   x_vec <- 0:10
   # rising curves have no decreasing span under range
   pred <- compute_pred(list(rbind(10 + x_vec, 11 + x_vec)), x_vec)
-  
+
   output <- suppressWarnings(nsec(pred, type = "range"))
-  
+
   expect_equal(
-    unlist(output[1, c("ecnsec", "ecnsec.low", "ecnsec.high")], use.names = FALSE),
+    unlist(
+      output[1, c("ecnsec", "ecnsec.low", "ecnsec.high")],
+      use.names = FALSE
+    ),
     c(NA_real_, NA_real_, NA_real_)
   )
 })
@@ -704,12 +764,12 @@ test_that("nsec of a multivariate fit against the deprecated nsec_multi", {
 
   expect_equal(
     output$estimate,
-    c(0.4615262, NA, 0.8671501, 1.5),
+    c(0.4615262, NA, 0.8663563, 1.5),
     tolerance = 1e-6
   )
   expect_equal(
     output$conf.low,
-    c(0.1559251, NA, 0.410851, 1.5),
+    c(0.1559251, NA, 0.4073518, 1.5),
     tolerance = 1e-6
   )
   expect_equal(

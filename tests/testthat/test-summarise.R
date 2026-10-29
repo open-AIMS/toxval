@@ -107,6 +107,31 @@ test_that("summarise_metric takes quantiles of the crossings", {
   )
 })
 
+test_that("censored quantiles use observed order statistics", {
+  n <- 100L
+  row <- dplyr::tibble(
+    direction = "decreasing",
+    type = "absolute",
+    draws = list(c(1:9, rep(NA_real_, n - 9L))),
+    control = list(rep(10, n)),
+    reference = list(rep(5, n)),
+    asymptote = list(rep(NA_real_, n))
+  )
+
+  result <- toxval:::summarise_row(
+    row,
+    x_control = 0,
+    x_max = 10,
+    prob_vals = c(0.5, 0.025, 0.975),
+    xform = identity
+  )
+
+  expect_equal(result$estimates$conf.low, 3)
+  expect_equal(result$estimates$estimate, 10)
+  expect_true(result$censored)
+  expect_identical(result$n_censored, 91L)
+})
+
 test_that("summarise_metric reports the central control and reference", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 8 - x_vec)), x_vec)
@@ -142,11 +167,7 @@ test_that("summarise_metric returns NA where no realisation crosses, including o
   # The first control, 10, already lies above it, but that realisation falls,
   # away from the increasing effect, and below the reference, so it is
   # censored (#74). The other two never rise and are censored. None crosses.
-  pred <- compute_pred(
-    list(rbind(10 - x_vec, 9 - x_vec, 8 - x_vec)),
-    x_vec,
-    x_control = -1
-  )
+  pred <- compute_pred(list(rbind(10 - x_vec, 9 - x_vec, 8 - x_vec)), x_vec)
 
   expect_no_warning(
     result <- summarise_metric(compute_nsec(pred), pred, "nsec", draws = TRUE)
@@ -162,11 +183,7 @@ test_that("summarise_metric returns NA where no realisation crosses, including o
 test_that("summarise_metric places a realisation already past the reference at x_control", {
   x_vec <- 1:10
   # `direct` reference 5: the first crosses at 5, the second starts at 3.9
-  pred <- compute_pred(
-    list(rbind(10 - x_vec, 4 - x_vec / 10)),
-    x_vec,
-    x_control = 0
-  )
+  pred <- compute_pred(list(rbind(10 - x_vec, 4 - x_vec / 10)), x_vec)
 
   result <- summarise_metric(
     compute_ecx(pred, reference = 5, type = "direct"),
@@ -177,7 +194,7 @@ test_that("summarise_metric places a realisation already past the reference at x
 
   expect_equal(
     unlist(result[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 2.5, conf.low = 0, conf.high = 5)
+    c(estimate = 3, conf.low = 1, conf.high = 5)
   )
 })
 
@@ -203,11 +220,11 @@ past_at_control <- function(x_vec) {
     matrix(6 - x_vec / 2, nrow = 29, ncol = length(x_vec), byrow = TRUE)
   )
 }
-past_at_control_expected <- c(2.5, 3.5, rep(-1, 7), Inf, rep(2, 29))
+past_at_control_expected <- c(2.5, 3.5, rep(0, 7), Inf, rep(2, 29))
 
 test_that("summarise_metric censors a decreasing NSEC realisation past the reference that changes away and leaves (#74)", {
   x_vec <- 0:10
-  pred <- compute_pred(list(past_at_control(x_vec)), x_vec, x_control = -1)
+  pred <- compute_pred(list(past_at_control(x_vec)), x_vec)
 
   expect_warning(
     result <- summarise_metric(
@@ -226,7 +243,7 @@ test_that("summarise_metric censors a decreasing NSEC realisation past the refer
 
 test_that("summarise_metric censors an increasing NSEC realisation past the reference that changes away and leaves (#74)", {
   x_vec <- 0:10
-  pred <- compute_pred(list(10 - past_at_control(x_vec)), x_vec, x_control = -1)
+  pred <- compute_pred(list(10 - past_at_control(x_vec)), x_vec)
 
   expect_warning(
     result <- summarise_metric(
@@ -251,13 +268,11 @@ test_that("summarise_metric places an ECx realisation past the reference at x_co
   pred <- compute_pred(
     list(curves),
     x_vec,
-    x_control = -1,
     asymptote = asymptote
   )
   mirror <- compute_pred(
     list(10 - curves),
     x_vec,
-    x_control = -1,
     asymptote = asymptote
   )
 
@@ -272,7 +287,7 @@ test_that("summarise_metric places an ECx realisation past the reference at x_co
     ))
     expect_equal(
       result$draws[[case[[2]]]]$value.draw,
-      c(2.5, 3.5, rep(-1, 8), rep(2, 29))
+      c(2.5, 3.5, rep(0, 8), rep(2, 29))
     )
   }
 
@@ -291,7 +306,7 @@ test_that("summarise_metric places an ECx realisation past the reference at x_co
   }
 })
 
-test_that("summarise_metric reports a censored quantile at the highest concentration", {
+test_that("summarise_metric reports a censored upper quantile at the highest concentration", {
   x_vec <- 0:10
   # the second realisation reaches its EC10 reference of 9 only at x = 20
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - x_vec / 20)), x_vec)
@@ -308,7 +323,7 @@ test_that("summarise_metric reports a censored quantile at the highest concentra
 
   expect_equal(
     unlist(result[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 10, conf.low = 1, conf.high = 10)
+    c(estimate = 1, conf.low = 1, conf.high = 10)
   )
 })
 
@@ -396,7 +411,10 @@ test_that("summarise_metric gives NA control where every realisation is excluded
   pred <- compute_pred(
     list(rbind(10 - x_vec, 10 - 2 * x_vec)),
     x_vec,
-    asymptote = list(list(decreasing = c(0, 0), increasing = c(NA_real_, NA_real_)))
+    asymptote = list(list(
+      decreasing = c(0, 0),
+      increasing = c(NA_real_, NA_real_)
+    ))
   )
 
   result <- suppressWarnings(summarise_metric(
@@ -585,11 +603,11 @@ test_that("summarise_metric gives the decreasing EC10 on brms_model_1, less the 
     summarise_metric(compute_ecx(pred), pred, "ecx")
   )
 
-  # the 8 draws with a negative control have an NA reference, so they are
-  # excluded rather than given a crossing of a reference above the control
+  # Eight draws with a negative control are excluded. The remaining censored
+  # draws make the summary use observed order statistics.
   expect_equal(
     unlist(result[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 0.832247, conf.low = 0.8197345, conf.high = 1.05),
+    c(estimate = 0.8322456, conf.low = 0.8195841, conf.high = 1.05),
     tolerance = 1e-6
   )
 })

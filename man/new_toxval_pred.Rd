@@ -101,8 +101,9 @@ multivariate fit, including every level of \code{keys$response}. Required
 when \code{keys} has a \code{response} column, and \code{NULL} otherwise.}
 \item{\code{resolution}}{Whole number, the number of values in \code{x_vec}.}
 \item{\code{x_range}}{Numeric of length 2, the range of \code{x_vec}.}
-\item{\code{x_control}}{Number, the lowest predictor value in the data the
-model was fitted to, taken to be the control.}
+\item{\code{x_control}}{Number, the control concentration, at which the
+control response is predicted: the lowest predictor value in the data,
+unless the caller names another. It must be the first value of \code{x_vec}.}
 \item{\code{family}}{String naming the response distribution, such as the
 \code{brms} family or the \code{type} of a \code{drc} fit, or \code{NULL}. A multivariate
 fit whose responses differ in family gives a character vector named by
@@ -110,7 +111,26 @@ response. A binomial family is taken to be on the proportion scale.}
 \item{\code{realisation}}{Either \code{"draws"} or \code{"bootstrap"}.}
 \item{\code{n_realisation}}{Whole number, the number of realisations.}
 \item{\code{seed}}{Whole number, the seed used to generate bootstrap
-realisations, or \code{NULL}.}
+realisations or to choose the realisations of a model average, or
+\code{NULL}.}
+}
+
+The following elements are optional, and are checked when they are present.
+A model average records them.
+
+\describe{
+\item{\code{model_weights}}{Named numeric, the weight of each model in a model
+average, each between 0 and 1 and summing to 1. A model whose weight
+gives it no realisation is still listed.}
+\item{\code{draw_model}}{Character, one value per realisation, naming the model
+the realisation came from. Each value is a name in \code{model_weights} when
+that is present.}
+\item{\code{model_control}}{An unnamed list, one element per row of \code{keys}, of
+named lists of numeric vectors. Each vector holds the control response
+of one model in every draw of its own fit, including draws left out of
+the average, so its length can differ from \code{n_realisation}. It requires
+\code{draw_model}, and every model named there has a vector. Under
+\code{anchor = "component"}, \code{\link[=nsec]{nsec()}} takes each model's reference from it.}
 }
 }
 

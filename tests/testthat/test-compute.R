@@ -343,6 +343,89 @@ test_that("compute_nsec takes the reference from quantiles of the control realis
   expect_equal(result$reference, c(9.5, 10.5))
 })
 
+test_that("compute_nsec takes the component reference within each model", {
+  x_vec <- 0:10
+  pred <- compute_pred(
+    list(rbind(9 - x_vec, 10 - x_vec, 11 - x_vec, 12 - x_vec)),
+    x_vec
+  )
+  pred$meta$draw_model <- c("a", "a", "b", "b")
+
+  result <- toxval:::compute_nsec(pred, anchor = "component")
+
+  expect_identical(result$anchor, c("component", "component"))
+  expect_equal(result$reference[[1]], c(9.01, 9.01, 11.01, 11.01))
+  expect_equal(result$reference[[2]], c(9.99, 9.99, 11.99, 11.99))
+  # each realisation crosses its own model's reference
+  expect_equal(result$draws[[1]][c(2, 4)], c(0.99, 0.99))
+})
+
+test_that("compute_nsec takes the component reference over every draw of each model", {
+  x_vec <- 0:10
+  pred <- compute_pred(
+    list(rbind(9 - x_vec, 10 - x_vec, 11 - x_vec, 12 - x_vec)),
+    x_vec
+  )
+  pred$meta$draw_model <- c("a", "a", "b", "b")
+  # each model has a lower control in a draw left out of the average
+  pred$meta$model_control <- list(list(a = c(8, 9, 10), b = c(10, 11, 12)))
+
+  result <- toxval:::compute_nsec(pred, anchor = "component")
+
+  expect_equal(result$reference[[1]], c(8.02, 8.02, 10.02, 10.02))
+  expect_equal(result$reference[[2]], c(9.98, 9.98, 11.98, 11.98))
+  expect_equal(result$draws[[1]], c(0.98, 1.98, 0.98, 1.98))
+})
+
+test_that("compute_nsec pools the model reference over every model", {
+  x_vec <- 0:10
+  pred <- compute_pred(
+    list(rbind(9 - x_vec, 10 - x_vec, 11 - x_vec, 12 - x_vec)),
+    x_vec
+  )
+  pred$meta$draw_model <- c("a", "a", "b", "b")
+
+  result <- toxval:::compute_nsec(pred)
+
+  expect_identical(result$anchor, c("model", "model"))
+  expect_equal(result$reference, c(9.03, 11.97))
+  expect_equal(result$draws[[1]][c(2, 4)], c(0.97, 2.97))
+})
+
+test_that("the compute functions name a model with no asymptote under relative", {
+  x_vec <- 0:10
+  curve <- 10 - x_vec / 2
+  pred <- compute_pred(
+    list(rbind(curve, curve, curve)),
+    x_vec,
+    asymptote = list(list(
+      decreasing = c(0, 0, NA),
+      increasing = rep(NA_real_, 3)
+    ))
+  )
+  pred$meta$draw_model <- c("a", "a", "b")
+
+  for (compute in list(toxval:::compute_ecx, toxval:::compute_nsec)) {
+    warnings <- character()
+    withCallingHandlers(
+      compute(pred, type = "relative"),
+      warning = function(w) {
+        warnings <<- c(warnings, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    )
+    # no model has an increasing asymptote, so none is named for it
+    expect_identical(
+      warnings,
+      paste0(
+        "Under `type = \"relative\"` the decreasing asymptote is undefined ",
+        "for 'b', so its realisations are excluded and the other models are ",
+        "averaged."
+      )
+    )
+  }
+})
+
 test_that("compute_nsec finds the decreasing crossing of each realisation", {
   x_vec <- 0:10
   pred <- compute_pred(
@@ -393,7 +476,11 @@ test_that("compute_nsec computes the absolute ecnsec against 1 when increasing f
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_equal(result$ecnsec[[2]], c(0.16667, 0.0625, -0.07143), tolerance = 0.001)
+  expect_equal(
+    result$ecnsec[[2]],
+    c(0.16667, 0.0625, -0.07143),
+    tolerance = 0.001
+  )
 })
 
 test_that("compute_nsec computes the absolute ecnsec against the control when increasing for an unbounded response", {
@@ -405,7 +492,11 @@ test_that("compute_nsec computes the absolute ecnsec against the control when in
 
   result <- toxval:::compute_nsec(pred, sig_val = 0.25)
 
-  expect_equal(result$ecnsec[[2]], c(0.16667, 0.05, -0.04545), tolerance = 0.001)
+  expect_equal(
+    result$ecnsec[[2]],
+    c(0.16667, 0.05, -0.04545),
+    tolerance = 0.001
+  )
 })
 
 # A span of zero or less gives no proportion, so `ecnsec` is NA rather than

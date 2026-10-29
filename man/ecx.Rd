@@ -14,6 +14,7 @@ ecx(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   draws = FALSE,
   prob_vals = c(0.5, 0.025, 0.975),
   xform = identity,
@@ -25,7 +26,8 @@ ecx(
 )
 }
 \arguments{
-\item{object}{A model fitted with brms or drc, or a \link{toxval_pred} object.}
+\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
+object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
 \code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
@@ -51,7 +53,12 @@ for a single curve.}
 evaluate the curve at. Larger values estimate a metric more precisely.}
 
 \item{x_range}{A numeric vector of length 2 giving the range of predictor
-values to evaluate over, or \code{NULL} to use the range in the model data.}
+values to evaluate over, or \code{NULL} to use the range in the model data. The
+first value must equal the control concentration.}
+
+\item{x_control}{A number, the control concentration, at which the control
+response is predicted and the grid starts, or \code{NULL} for the lowest
+predictor value in the data. A value outside the range of the data warns.}
 
 \item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
 per-realisation values of each row.}
@@ -117,7 +124,8 @@ crossing, and each direction is a row of the result. A direction in which no
 realisation crosses is returned with \code{NA} estimates.
 
 \code{type} names what \code{proportion} is taken of, from the control, the predicted
-response at the lowest concentration:
+response at the control concentration, by default the lowest concentration
+in the data (see \code{\link[=toxval_predict]{toxval_predict()}}):
 \itemize{
 \item \code{"absolute"} (the default): decreasing, the control down to 0; increasing,
 the control up to 1 for a response on the proportion scale, and otherwise
@@ -138,11 +146,21 @@ value supplied as \code{reference}.
 A realisation that does not reach the reference within the evaluated range
 ranks above the highest concentration, and an interval limit that falls
 among such realisations is reported as the highest concentration, with a
-warning. Under \code{"range"} this includes a realisation that never falls below,
+warning. When any realisation is censored, the reported quantiles are
+observed order statistics. Under \code{"range"} this includes a realisation that never falls below,
 or rises above, its control. Under \code{"absolute"} and \code{"relative"}, a
 realisation with nothing to take the proportion of, such as a control at or
 below 0 or a missing asymptote, is excluded from the summary, with a warning.
 }
+\section{Fits from bayesnec}{
+
+A \code{bayesnecfit} or \code{bayesmanecfit} from \code{bayesnec::bnec()} is accepted when
+\code{bayesnec} is installed; see \code{\link[=toxval_predict]{toxval_predict()}}. \code{bayesnec} also exports a
+function named \code{ecx()}, and whichever of the two packages is attached later
+masks the other's, without a warning. Call \code{toxval::ecx()} to be sure of
+reaching this function.
+}
+
 \examples{
 \dontshow{if (requireNamespace("drc", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{

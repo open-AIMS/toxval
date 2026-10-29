@@ -4,7 +4,8 @@
 #' across the package via `@inheritParams toxval_params`. It is not
 #' intended to be called directly.
 #'
-#' @param object A model fitted with brms or drc, or a [toxval_pred] object.
+#' @param object A model fitted with brms, drc or bayesnec, or a [toxval_pred]
+#'   object.
 #' @param ... Additional arguments passed to [toxval_predict()], such as
 #'   `n_boot` and `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
 #' @param x_var A string naming the predictor variable in `object`, or `NULL`
@@ -15,7 +16,11 @@
 #' @param resolution A whole number giving the number of predictor values to
 #'   evaluate the curve at. Larger values estimate a metric more precisely.
 #' @param x_range A numeric vector of length 2 giving the range of predictor
-#'   values to evaluate over, or `NULL` to use the range in the model data.
+#'   values to evaluate over, or `NULL` to use the range in the model data. The
+#'   first value must equal the control concentration.
+#' @param x_control A number, the control concentration, at which the control
+#'   response is predicted and the grid starts, or `NULL` for the lowest
+#'   predictor value in the data. A value outside the range of the data warns.
 #' @param draws A flag. If `TRUE`, a `draws` list column holds the
 #'   per-realisation values of each row.
 #' @param prob_vals A numeric vector of the central, lower and upper quantiles
