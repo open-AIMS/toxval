@@ -26,30 +26,27 @@ nsec(
 )
 }
 \arguments{
-\item{object}{A fitted model with a \code{\link[=toxval_predict]{toxval_predict()}} method, or a
-\link{toxval_pred}.}
+\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
+object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.
-These and every argument after \code{...} must be named in full; an argument
-no method uses is an error.}
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
-\item{sig_val}{A number between 0 and 0.5, the quantile of the control
+\item{sig_val}{A number strictly between 0 and 0.5, the quantile of the control
 realisations that sets the decreasing reference; \code{1 - sig_val} sets the
 increasing one.}
 
 \item{type}{One of \code{"absolute"}, \code{"relative"} or \code{"range"}, naming the span
 \code{ecnsec} is a proportion of. See \code{\link[=ecx]{ecx()}}.}
 
-\item{anchor}{One of \code{"model"} or \code{"component"}, where the reference is
-taken from for a model-averaged fit: the averaged control, or each
-component model's own control over every draw of that model's fit.
-\code{"component"} is the default for a \code{bayesmanecfit}, matching
-\code{bayesnec::nsec()}; \code{"model"} is the default otherwise. The two coincide
-for a fit that is not model-averaged. Under
-\code{"component"} the references of the models differ, and the \code{reference}
-column reports their \code{prob_vals[1]} quantile across realisations, as
-\code{control} does.}
+\item{anchor}{For a model-averaged fit, the control the reference is taken
+from: \code{"model"} uses the control of the averaged model, and \code{"component"}
+uses the control of each component model over every draw of its fit. The
+default is \code{"component"} for a \code{bayesmanecfit}, matching
+\code{bayesnec::nsec()}, and \code{"model"} otherwise. Both give the same result for
+a single model. Under \code{"component"} the \code{reference} column reports the
+\code{prob_vals[1]} quantile of the component references across realisations,
+as \code{control} does.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -61,10 +58,9 @@ for a single curve.}
 \item{resolution}{A whole number giving the number of predictor values to
 evaluate the curve at. Larger values estimate a metric more precisely.}
 
-\item{x_range}{A numeric vector of length 2 whose second value ends the
-grid, or \code{NULL} to end it at the highest predictor value in the data. The
-grid starts at the control concentration, so the first value must equal
-it; supply \code{x_control} to name a different one.}
+\item{x_range}{A numeric vector of length 2 giving the range of predictor
+values to evaluate over, or \code{NULL} to use the range in the model data. The
+first value must equal the control concentration.}
 
 \item{x_control}{A number, the control concentration, at which the control
 response is predicted and the grid starts, or \code{NULL} for the lowest
@@ -80,7 +76,7 @@ to summarise the realisations by, in that order.}
 they are summarised, such as \code{exp} for a model fitted on log
 concentration.}
 
-\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Supplying it is an
+\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#defunct}{\figure{lifecycle-defunct.svg}{options: alt='[Defunct]'}}}{\strong{[Defunct]}} Supplying it is an
 error. Use \code{draws}.}
 
 \item{hormesis_def, horme}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Both
@@ -92,13 +88,38 @@ gives one estimate per level.}
 \item{curveid}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{group_var}.}
 }
 \value{
-A \code{toxval} tibble with one row per curve and direction.
+A \code{toxval} tibble with one row per curve and direction, and the
+columns:
+\itemize{
+\item \code{metric}: \code{"nsec"}.
+\item \code{direction}: \code{"decreasing"} or \code{"increasing"}.
+\item \code{group}: the level of \code{group_var}, where it is supplied.
+\item \code{response}: the response of a multivariate fit.
+\item \code{estimate}, \code{conf.low}, \code{conf.high}: the NSEC, as the \code{prob_vals}
+quantiles of the realisations, after \code{xform}.
+\item \code{sig_val}, \code{type}, \code{anchor}: the arguments of the call.
+\item \code{control}: the predicted response at the control concentration.
+\item \code{reference}: the \code{sig_val} (decreasing) or \code{1 - sig_val} (increasing)
+quantile of the control realisations, whose crossing is the NSEC.
+\item \code{asymptote}: the asymptote \code{ecnsec} is measured to, or \code{NA} unless \code{type}
+is \code{"relative"}.
+\item \code{ecnsec}, \code{ecnsec.low}, \code{ecnsec.high}: the effect at the NSEC, as a
+proportion of the span named by \code{type}, summarised by \code{prob_vals}.
+\item \code{draws}: where \code{draws = TRUE}, a tibble per row of \code{.draw},
+\code{value.draw}, the NSEC of each realisation, and \code{ecnsec.draw}. A
+realisation that does not reach the reference is \code{Inf} in \code{value.draw},
+and one excluded from the summary is \code{NA}.
+}
+
+\code{control}, \code{reference} and \code{asymptote} are on the response scale, as the
+central \code{prob_vals} quantile of the realisations. The tibble prints the
+model class and the number of realisations above the rows.
 }
 \description{
 Estimates the No-Significant-Effect Concentration (NSEC), the concentration
 at which the fitted response departs from the control by more than its
 uncertainty allows, in each direction, for a fitted concentration-response
-model or for a \link{toxval_pred} built from one.
+model.
 }
 \details{
 The model is evaluated over a grid of concentrations once per realisation,
@@ -113,19 +134,13 @@ found for each realisation against that reference, and the realisations are
 summarised by \code{prob_vals}. A direction in which no realisation crosses is
 returned with \code{NA} estimates.
 
-A fraction \code{sig_val} of the realisations have a control already beyond the
-reference. One of these that crosses the reference in the direction sought
-takes that crossing. One whose response first changes away from the effect
-as concentration rises from the control (rising, for a decreasing NSEC;
-falling, for an increasing one), and which passes to the other side of the
-reference without returning, shows no effect in the tested range. It is
-treated as a realisation that does not reach the reference. The rest are
-placed at the control concentration. A
-realisation that does not reach the reference within the evaluated range
-ranks above the highest concentration, and an interval limit that falls
-among such realisations is reported as the highest concentration, with a
-warning. When any realisation is censored, the reported quantiles are
-observed order statistics.
+By construction, about \code{sig_val} of the realisations have a control already
+past the reference. These are placed at the control concentration, unless
+they show no effect in the tested range. A realisation that does not reach
+the reference within the evaluated range ranks above the highest
+concentration, and an interval limit that falls among such realisations is
+reported as the highest concentration, with a warning. When any realisation
+is censored, the reported quantiles are observed order statistics.
 
 \code{ecnsec} is the effect at the NSEC, as a proportion of the span named by
 \code{type}: the inverse of the \code{\link[=ecx]{ecx()}} reference under the same \code{type}.
@@ -135,47 +150,46 @@ of the model rather than a feature of a smooth curve.
 }
 \section{Fits from bayesnec}{
 
-A \code{bayesnecfit} or \code{bayesmanecfit} from \code{bayesnec::bnec()} is accepted when
-\code{bayesnec} is installed; see \code{\link[=toxval_predict]{toxval_predict()}}. \code{bayesnec} also exports a
-function named \code{nsec()}, and whichever of the two packages is attached later
-masks the other's, without a warning. Call \code{toxval::nsec()} to be sure of
-reaching this function.
+\code{nsec()} also accepts a \code{bayesnecfit} or \code{bayesmanecfit} from
+\code{bayesnec::bnec()} when \code{bayesnec} is installed. \code{bayesnec} has its own
+\code{nsec()}, and when both packages are loaded with \code{library()}, the one loaded
+last is used. Call \code{toxval::nsec()} to make sure this function runs.
+
+The two functions can give different estimates for the same fit, because
+they evaluate the curve at different concentrations and handle realisations
+that never reach the reference differently.
 }
 
 \section{Multivariate fits}{
 
-A multivariate \code{brmsfit} gives rows for each response, named in the
-\code{response} column as \code{brms} names them; see \code{\link[=toxval_predict]{toxval_predict()}}. This
-replaces \code{\link[=nsec_multi]{nsec_multi()}}. To keep, for each response, only the direction
-whose NSEC is lower at the 0.8 quantile of its realisations, as
-\code{nsec_multi(type = "lower")} did, filter the result returned with
-\code{draws = TRUE}:
-
-\if{html}{\out{<div class="sourceCode r">}}\preformatted{nsec(fit, x_var = "dose", draws = TRUE) |>
-  dplyr::mutate(
-    at_criterion = vapply(
-      draws,
-      \\(d) quantile(d$value.draw, 0.8, na.rm = TRUE),
-      numeric(1)
-    )
-  ) |>
-  dplyr::filter(!is.na(estimate)) |>
-  dplyr::group_by(response) |>
-  dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
-  dplyr::ungroup()
-}\if{html}{\out{</div>}}
-
-A censored realisation is \code{Inf} in \code{value.draw}, so it ranks above every
-crossing, and an excluded one is \code{NA}. A row whose estimate is \code{NA} has no
-crossing in that direction, so it is dropped before choosing.
+A multivariate fit gives rows for each response, named in the \code{response}
+column. This replaces \code{\link[=nsec_multi]{nsec_multi()}}, whose help page shows how to convert
+existing calls.
 }
 
 \examples{
+\dontshow{if (requireNamespace("drc", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{
-if (requireNamespace("drc", quietly = TRUE)) {
-  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
-  nsec(fit, seed = 42)
-}
-}
+fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+nsec(fit, seed = 42)
 
+nsec(fit, sig_val = 0.05, seed = 42)
+
+nsec(fit, type = "range", seed = 42)
+
+# 80\% interval
+nsec(fit, prob_vals = c(0.5, 0.1, 0.9), seed = 42)
+
+res <- nsec(fit, draws = TRUE, seed = 42)
+res$draws[[1]]
+
+fit_group <- drc::drm(
+  DryMatter ~ Dose,
+  curveid = Herbicide,
+  data = drc::S.alba,
+  fct = drc::LL.4()
+)
+nsec(fit_group, group_var = "Herbicide", seed = 42)
+}
+\dontshow{\}) # examplesIf}
 }

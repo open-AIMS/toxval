@@ -1,5 +1,3 @@
-# EXPECTED-CHANGE move to a helper file when nsec and ecx also need a grouped
-# drc fit; test-nsec.R:347 already builds this same model inline
 # A grouped `drc` fit. Neither saved fixture has one: drc fills the curveid
 # columns with a constant named `1` when no curveid is given, so both are
 # single-curve fits that still have something in that position.
@@ -109,10 +107,8 @@ test_that("toxval_predict errors when resolution is 1 or less", {
 })
 
 test_that("toxval_predict errors when x_range is not length 2", {
-  # REVIEW-TEXT Remove comment after refactoring is done
   # a length-2 `x_range` must reach the comparisons below without being tested
-  # element-wise first, which is what `is.na(x_range)` did in the pre-refactor
-  # entry points
+  # element-wise first, as `is.na(x_range)` would
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", x_range = c(0, 1, 2)),
     "`x_range` must be length 2"
@@ -284,7 +280,7 @@ test_that("toxval_predict reads the trials of a binomial response from the fit",
 
 test_that("toxval_predict predicts a binomial response at one trial", {
   # the trials in the data vary from 16 to 20, so the curve is a proportion
-  # rather than a count at any one of them (T26)
+  # rather than a count at any one of them
   result <- toxval_predict(brms_model_7, x_var = "x", resolution = 6)
 
   expect_equal(
@@ -395,10 +391,8 @@ test_that("toxval_predict errors when a grouped drc fit is given no group_var", 
 })
 
 test_that("toxval_predict errors when an ungrouped drc fit is given a group_var", {
-  # REVIEW-TEXT remove this comment after re-factoring
   # the curves are read from the coefficient names, so a `group_var` that names
-  # a real column of a single-curve fit is still an error unlike issue (#34)
-  # in the original code, ie new code didn't code in that bug
+  # a real column of a single-curve fit is still an error (#34)
   expect_error(
     toxval_predict(
       nsec_drc_1,

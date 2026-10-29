@@ -148,8 +148,7 @@ test_that("find_crossings returns NA when the curve only reaches the reference a
 # The test above and the one below are not symmetric, and are not meant to be.
 # A value exactly on the reference is assigned to the left of its interval, so
 # the last grid point starts no interval and can never be a crossing, while the
-# first can. Settled 2026-09-08 (RF) on #59: the convention is kept because the
-# alternative returns NA for the two plateau curves below, which are the case
+# first can. The convention is kept (#59) because the alternative returns NA for the two plateau curves below, which are the case
 # nsec is defined to estimate.
 test_that("find_crossings returns increasing value when the curve only leaves the reference at the first point", {
   x_vec <- 0:2
@@ -195,10 +194,8 @@ test_that("find_crossings when reference is NA", {
   expect_identical(result$increasing, NA_real_)
 })
 
-# Settled 2026-09-08 (RF) on #59: an NA is not bridged. modify_posterior()
-# (deleted in phase 3) only ever wrote a leading block of NAs, so without it
-# an interior NA is a prediction failure, and interpolating across it
-# invents a value. On y = 10 * exp(-x) over 0:5 with x = 2 dropped and
+# An NA is not bridged (#59): an interior NA is a prediction failure, and
+# interpolating across it invents a value. On y = 10 * exp(-x) over 0:5 with x = 2 dropped and
 # reference = 1.5, bridging returns 2.369 against a true crossing of 1.897, an
 # error of 24.9 per cent where the same grid with no gap gives 2.0 per cent.
 test_that("find_crossings returns NA when an NA is adjacent to the crossing", {

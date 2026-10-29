@@ -2,7 +2,7 @@
 #'
 #' Estimates the concentration at which the fitted response changes by a given
 #' proportion from the control, in each direction, for a fitted
-#' concentration-response model or for a [toxval_pred] built from one.
+#' concentration-response model.
 #'
 #' @details
 #' The model is evaluated over a grid of concentrations once per realisation,
@@ -43,14 +43,14 @@
 #' below 0 or a missing asymptote, is excluded from the summary, with a warning.
 #'
 #' @section Fits from bayesnec:
-#' A `bayesnecfit` or `bayesmanecfit` from `bayesnec::bnec()` is accepted when
-#' `bayesnec` is installed; see [toxval_predict()]. `bayesnec` also exports a
-#' function named `ecx()`, and whichever of the two packages is attached later
-#' masks the other's, without a warning. Call `toxval::ecx()` to be sure of
-#' reaching this function.
+#' `ecx()` also accepts a `bayesnecfit` or `bayesmanecfit` from
+#' `bayesnec::bnec()` when `bayesnec` is installed. `bayesnec` has its own
+#' `ecx()`, and when both packages are loaded with `library()`, the one loaded
+#' last is used. Call `toxval::ecx()` to make sure this function runs.
+#' The two functions can give different estimates for the same fit, because
+#' they evaluate the curve at different concentrations.
 #'
-#' @param object A fitted model with a [toxval_predict()] method, or a
-#'   [toxval_pred].
+#' @inheritParams toxval_params
 #' @param proportion A numeric vector of effects, as proportions of the span
 #'   named by `type`; 0.1 is the EC10. Each value gives its own rows. Not
 #'   supplied under `type = "direct"`.
@@ -58,35 +58,61 @@
 #'   Details.
 #' @param reference A number, the response value whose crossing is sought under
 #'   `type = "direct"`. Supplied only under `"direct"`.
-#' @inheritParams toxval_predict
-#' @param draws A flag. If `TRUE`, a `draws` list column holds the
-#'   per-realisation values of each row.
-#' @param prob_vals A numeric vector of the central, lower and upper quantiles
-#'   to summarise the realisations by, in that order.
-#' @param xform A function applied to the per-realisation concentrations before
-#'   they are summarised, such as `exp` for a model fitted on log
-#'   concentration.
-#' @param ... Additional arguments passed to [toxval_predict()], such as
-#'   `n_boot` and `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
-#'   These and every argument after `...` must be named in full; an argument
-#'   no method uses is an error.
 #' @param ecx_val `r lifecycle::badge("deprecated")` Use `proportion`, or
 #'   `reference` under `type = "direct"`.
-#' @param posterior `r lifecycle::badge("deprecated")` Supplying it is an
-#'   error. Use `draws`.
-#' @param hormesis_def,horme `r lifecycle::badge("deprecated")` Both
-#'   directions are now always estimated, so these are ignored.
-#' @param by_group `r lifecycle::badge("deprecated")` Supplying `group_var`
-#'   gives one estimate per level.
 #'
-#' @return A `toxval` tibble with one row per curve, proportion and direction.
+#' @return A `toxval` tibble with one row per curve, proportion and direction,
+#'   and the columns:
 #'
-#' @examples
+#'   - `metric`: `"ecx"`.
+#'   - `direction`: `"decreasing"` or `"increasing"`.
+#'   - `group`: the level of `group_var`, where it is supplied.
+#'   - `response`: the response of a multivariate fit.
+#'   - `estimate`, `conf.low`, `conf.high`: the ECx, as the `prob_vals`
+#'     quantiles of the realisations, after `xform`.
+#'   - `proportion`, `type`: the arguments of the call. `proportion` is `NA`
+#'     under `type = "direct"`.
+#'   - `control`: the predicted response at the control concentration, or
+#'     `NA` under `type = "direct"`.
+#'   - `reference`: the response whose crossing is the ECx.
+#'   - `asymptote`: the asymptote the span is measured to, or `NA` unless `type`
+#'     is `"relative"`.
+#'   - `draws`: where `draws = TRUE`, a tibble per row of `.draw` and
+#'     `value.draw`, the ECx of each realisation. A realisation that does not
+#'     reach the reference is `Inf`, and one excluded from the summary is `NA`.
+#'
+#'   `control`, `reference` and `asymptote` are on the response scale, as the
+#'   central `prob_vals` quantile of the realisations. The tibble prints the
+#'   model class and the number of realisations above the rows.
+#'
+#' @examplesIf requireNamespace("drc", quietly = TRUE)
 #' \donttest{
-#' if (requireNamespace("drc", quietly = TRUE)) {
-#'   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
-#'   ecx(fit, proportion = c(0.1, 0.5), seed = 42)
-#' }
+#' fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+#'
+#' # EC10 and EC50, as proportions of the span from the control down to 0
+#' ecx(fit, proportion = c(0.1, 0.5), seed = 42)
+#'
+#' # EC10 of the span from the control to the lower asymptote
+#' ecx(fit, type = "relative", seed = 42)
+#'
+#' # EC10 of the span from the control to the lowest predicted response
+#' ecx(fit, type = "range", seed = 42)
+#'
+#' # concentration at which the predicted root length falls to 4
+#' ecx(fit, type = "direct", reference = 4, seed = 42)
+#'
+#' # per-realisation values of each row
+#' res <- ecx(fit, draws = TRUE, seed = 42)
+#' res$draws[[1]]
+#'
+#' # one estimate per herbicide
+#' fit_group <- drc::drm(
+#'   DryMatter ~ Dose,
+#'   curveid = Herbicide,
+#'   data = drc::S.alba,
+#'   fct = drc::LL.4()
+#' )
+#' ecx(fit_group, group_var = "Herbicide", seed = 42)
 #' }
 #'
 #' @export
@@ -120,7 +146,7 @@ ecx <- function(
     ... = ...length() > 0
   )
 
-  # arguments retired from the pre-refactor interface (T28, T32, §3.5)
+  # arguments deprecated in 2.0.0
   if (lifecycle::is_present(ecx_val)) {
     if (!missing(proportion) || !is.null(reference)) {
       chk::abort_chk(
@@ -228,10 +254,10 @@ ecx <- function(
   )
 }
 
-#' Whether an argument was left at a pre-refactor default of `NA`
+#' Whether an argument is `NULL` or `NA`
 #'
-#' `group_var = NA` and `x_range = NA` were the defaults before `NULL`, and are
-#' translated without a warning (T28).
+#' `group_var = NA` and `x_range = NA`, the defaults before toxval 2.0.0, are
+#' treated as `NULL` without a warning.
 #'
 #' @noRd
 is_missing_value <- function(x) {
@@ -241,7 +267,7 @@ is_missing_value <- function(x) {
 #' Warn that `relative` has changed meaning
 #'
 #' A plain warning on every call rather than a lifecycle deprecation, because
-#' `relative` is not deprecated (T29).
+#' `relative` is not deprecated.
 #'
 #' @noRd
 warn_relative <- function(type) {

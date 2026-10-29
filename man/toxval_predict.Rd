@@ -84,13 +84,10 @@ toxval_predict(
 )
 }
 \arguments{
-\item{object}{A fitted model object. Methods are provided for
-\link[brms:brmsfit]{brms::brmsfit} and \code{drc} fits, and for the \code{bayesnecfit} and
-\code{bayesmanecfit} fits of \code{bayesnec}.}
+\item{object}{A model fitted with brms, drc or bayesnec.}
 
-\item{...}{Additional arguments passed to methods. These and every argument
-after \code{...} must be named in full; an argument the method does not use is
-an error.}
+\item{...}{Additional arguments passed to methods, such as \code{n_boot} and
+\code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -102,118 +99,94 @@ for a single curve.}
 \item{resolution}{A whole number giving the number of predictor values to
 evaluate the curve at. Larger values estimate a metric more precisely.}
 
-\item{x_range}{A numeric vector of length 2 whose second value ends the
-grid, or \code{NULL} to end it at the highest predictor value in the data. The
-grid starts at the control concentration, so the first value must equal
-it; supply \code{x_control} to name a different one.}
+\item{x_range}{A numeric vector of length 2 giving the range of predictor
+values to evaluate over, or \code{NULL} to use the range in the model data. The
+first value must equal the control concentration.}
 
 \item{x_control}{A number, the control concentration, at which the control
 response is predicted and the grid starts, or \code{NULL} for the lowest
 predictor value in the data. A value outside the range of the data warns.}
 
-\item{asymptote}{\code{NULL}, or a vector named \code{decreasing}, \code{increasing} or
-both, giving the lower and upper asymptotes of a \code{brmsfit} for
-\code{type = "relative"}: as the names of non-linear parameters, such as
-\code{c(decreasing = "bot", increasing = "top")}, which are taken per posterior
-draw and transformed by the inverse link, or as numbers on the response
-scale. A direction not named has no asymptote.}
+\item{asymptote}{The lower and upper asymptotes of a \code{brmsfit}, for
+\code{type = "relative"}, as a vector named \code{decreasing}, \code{increasing} or
+both. Each is the name of a non-linear parameter, such as
+\code{c(decreasing = "bot", increasing = "top")}, or a number on the response
+scale.}
 
 \item{n_boot}{A whole number giving the number of parametric bootstrap
 replicates to draw.}
 
 \item{seed}{A whole number used to seed the bootstrap draw, or \code{NULL} to use
-the current random number state. The seed is recorded in the returned
-object.}
+the current random number state.}
 }
 \value{
-An object of class \link{toxval_pred}.
+A \link{toxval_pred} object.
 }
 \description{
-\code{toxval_predict()} is the single generic in this package. It evaluates a
-fitted concentration-response model over a grid of predictor values, once
-per realisation of the fit, and returns the result as a \link{toxval_pred}. The
-metric functions compute on that object, so adding support for a new model
-class means writing one \code{toxval_predict()} method and nothing else.
+Evaluates a fitted concentration-response model over a grid of predictor
+values, once per realisation of the fit. The result can be passed to \code{\link[=ecx]{ecx()}}
+and \code{\link[=nsec]{nsec()}} in place of the fitted model.
 }
 \details{
-Realisations are generated the same way for every model class: posterior
-draws for a Bayesian fit, and a parametric bootstrap of
-\code{MVN(coef(object), vcov(object))} for a frequentist one. A frequentist fit is
-therefore not summarised through the three columns of
-\code{predict(object, interval = "confidence")}: inverting a pointwise confidence
-band on the response does not give a valid interval on the predictor, and it
-degrades worst where the curve is flat, which is where NSEC sits.
+Realisations are posterior draws for a Bayesian fit and parametric bootstrap
+replicates for a frequentist one.
 
-Because the bootstrap draw is joint over the whole parameter vector, the
-replicates of one curve stay aligned with those of another in a fit with
-several curves, as posterior draws are.
+Supply \code{group_var} to get one curve per level rather than a single curve. The curves follow the order of the levels of a factor, and
+otherwise their sorted order. Each method states what \code{group_var} must name.
+
+The grid starts at the control concentration, where the control response is
+predicted, and every reference, ECx and NSEC is measured from that response.
+By default the control concentration is the lowest predictor value in the
+data. Use \code{x_control} to name another, such as 0 for a predictor measured as
+the reduction from an ambient level. A value outside the range of the data
+warns. A grouped fit has one control concentration for every curve.
 }
 \section{Methods (by class)}{
 \itemize{
 \item \code{toxval_predict(default)}: Method for any class without one, which errors.
 
-\item \code{toxval_predict(brmsfit)}: Method for a \code{brms} fit of class
-\link[brms:brmsfit]{brms::brmsfit}. Realisations are the posterior draws, and group-level
-effects are marginalised out (\code{re_formula = NA}). \code{x_var} is required,
-since a \code{brmsfit} may have several predictors. \code{group_var} must name a
-column of the model data that enters as a population-level effect: a
-variable that appears only in a group-level term, such as \code{site} in
-\code{y ~ x + (1 | site)}, gives every level the same curve and is an error.
+\item \code{toxval_predict(brmsfit)}: Method for a \link[brms:brmsfit]{brms::brmsfit}. Realisations are
+the posterior draws, with group-level effects excluded. \code{x_var} is
+required. \code{group_var} must name a population-level effect; a variable
+that appears only in a group-level term, such as \code{site} in
+\code{y ~ x + (1 | site)}, is an error.
 
-A multivariate fit gives one curve per response, and per level of
-\code{group_var} when it is supplied, so the responses are read from the fit
-rather than named. They are named as \code{brms} names them, for example
-\code{spsurvival} for a column \code{sp_survival}.
+A multivariate fit gives one curve per response, named as \code{brms} names
+them, for example \code{spsurvival} for a column \code{sp_survival}.
 
 A binomial response, such as \code{y | trials(n) ~ x}, is predicted at one
-trial, so its curves, \code{control} and \code{reference} are proportions rather
-than counts whatever the trials in the data. The trials are read from the
-fit and must name a single column of the data. An NSEC or ECx does not
-depend on the number of trials, so only the scale of \code{control} and
-\code{reference} differs from a prediction at the observed trials.
+trial, so \code{control} and \code{reference} are proportions. The NSEC and ECx do
+not depend on the number of trials.
 
-\code{type = "relative"} needs \code{asymptote}, since which parameter of a
-non-linear formula is an asymptote cannot be read from the fit. It is not
-supported for a multivariate fit.
+\code{type = "relative"} needs \code{asymptote}, and is not supported for a
+multivariate fit.
 
-\item \code{toxval_predict(drc)}: Method for a \code{drc} fit returned by \code{\link[drc:drm]{drc::drm()}}.
-Realisations are parametric bootstrap replicates, so results are stochastic
-unless \code{seed} is supplied. \code{x_var} is read from the fit when \code{NULL}, and a
-supplied \code{x_var} must match the dose variable of the fit, so another
-column, such as the response, cannot be passed as the predictor.
-\code{group_var} must name the column passed as \code{curveid}, and the levels are
-read from the coefficient names rather than from a column position. The
-asymptotes \code{type = "relative"} measures to are the lower and upper limits
-of the fitted function, from \code{fct$lowerAs()} and \code{fct$upperAs()}.
+\item \code{toxval_predict(drc)}: Method for a fit from \code{\link[drc:drm]{drc::drm()}}.
+Realisations are parametric bootstrap replicates, so results vary between
+calls unless \code{seed} is supplied. \code{x_var} is read from the fit if not
+supplied. \code{group_var} must name the column passed as \code{curveid}. The
+asymptotes used by \code{type = "relative"} are the lower and upper limits of
+the fitted function.
 
-\item \code{toxval_predict(bayesnecfit)}: Method for a single model fitted by
+\item \code{toxval_predict(bayesnecfit)}: Method for a single fit from
 \code{bayesnec::bnec()}, of class \code{bayesnecfit}, which requires \code{bayesnec} to
-be installed. Realisations are the posterior draws of the \code{brmsfit} held in
-\code{object$fit}, and group-level effects are marginalised out
-(\code{re_formula = NA}). The grid spans the same concentrations as for a
-\code{brmsfit}, and \code{bayesnec} builds the data to predict at, with a binomial
-or beta-binomial response predicted for one trial, so that its curve is a
-proportion. \code{x_var} is read from the \code{crf()}
-term when \code{NULL}, and a supplied \code{x_var} must match it. \code{group_var} must be
-\code{NULL}, since a \code{bnec()} fit has one curve. A predictor transformed inside
-\code{crf()}, such as \code{crf(log(x), ...)}, is reported in units of the variable
-itself, \code{x}, so \code{xform = exp} must not be supplied for it. The lower
-asymptote is the \code{bot} parameter for an equation that has one, and
-otherwise 0, the limit of its curve; the upper asymptote is 1 for a
-proportion. An asymptote is \code{NA} where the family has no such bound, or
-where the fit uses a link other than identity.
+be installed. Realisations are the posterior draws, with group-level
+effects excluded. \code{x_var} is read from the \code{crf()} term if not supplied.
+\code{group_var} must be \code{NULL}. A predictor transformed inside \code{crf()}, such
+as \code{crf(log(x), ...)}, is reported in units of \code{x}, so \code{xform = exp} must
+not be supplied. A binomial or beta-binomial response is predicted at one
+trial, so its curve is a proportion. The asymptotes used by \code{type = "relative"}
+are the \code{bot} parameter, or 0 for an equation without one, and 1 for a
+proportion. An asymptote is \code{NA} where the family has no such bound or
+the link is not identity.
 
-\item \code{toxval_predict(bayesmanecfit)}: Method for a model average fitted by
+\item \code{toxval_predict(bayesmanecfit)}: Method for a model average from
 \code{bayesnec::bnec()}, of class \code{bayesmanecfit}, which requires \code{bayesnec} to
-be installed. Each model in the set is predicted as for a \code{bayesnecfit}.
-The realisations are the draws \code{bayesnec} keeps from each model in
-proportion to its weight, the same draws its own estimates and plots use.
-The model each realisation came from is recorded in \code{meta$draw_model}, the
-weights in \code{meta$model_weights}, and the seed the draws were chosen with in
-\code{meta$seed}. The random number state of the session is left unchanged.
-Each realisation takes its asymptotes from its own model. The control
-response of each model in every draw of its fit, including the draws left
-out of the average, is recorded in \code{meta$model_control}.
+be installed. Each model is predicted as for a \code{bayesnecfit}. Realisations
+are the draws \code{bayesnec} keeps from each model in proportion to its
+weight, the same draws its own estimates use, and each takes its
+asymptotes from its own model. The random number state of the session is
+left unchanged.
 
 \item \code{toxval_predict(bnecfit)}: Method for any other \code{bayesnec} fit, which
 errors. Group fits, joint refits and hurdle pairs each hold more than one
@@ -221,47 +194,14 @@ curve, over concentrations that can differ between curves, which a
 \link{toxval_pred} does not yet represent.
 
 }}
-\section{Supplying the predictor}{
-
-\code{x_var} is optional in the generic because some classes record which of
-their variables is the predictor: a \code{bayesnec} fit carries it on its
-\code{bayesnecformula}, and a \code{drc} fit in \code{dataList$names$dName}. Requiring it
-here would force a caller of such a class to repeat what the object already
-knows, and no method could relax it, because the generic validates before
-dispatch. A method that cannot identify the predictor -- a \code{brmsfit} may have
-several, and a nonlinear formula mixes them with the model parameters --
-errors on \code{NULL} instead.
-}
-
-\section{Grouping}{
-
-Supply \code{group_var} to get one curve per level rather than a single curve
-marginalised across levels. The curves follow the declared order of a
-factor, and otherwise the sorted order of the levels. Each method states
-what \code{group_var} must name.
-}
-
-\section{The control concentration}{
-
-The control response is the predicted response at the control
-concentration, and every reference, ECx and NSEC is measured from it. The
-grid starts there. By default it is the lowest predictor value in the data.
-\code{x_control} names another, such as 0 for a predictor measured as the
-reduction from an ambient level, where some observations lie below 0. A
-value outside the range of the data is predicted at a concentration that was
-not tested, and warns. A grouped fit has one control concentration for every
-curve.
-}
-
 \examples{
+\dontshow{if (requireNamespace("drc", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{
-if (requireNamespace("drc", quietly = TRUE)) {
-  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
-  toxval_predict(fit, x_var = "conc", resolution = 50, n_boot = 100, seed = 42)
-}
+fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+toxval_predict(fit, seed = 42)
 if (requireNamespace("bayesnec", quietly = TRUE)) {
-  toxval_predict(bayesnec::manec_example, resolution = 50)
+  toxval_predict(bayesnec::manec_example)
 }
 }
-
+\dontshow{\}) # examplesIf}
 }

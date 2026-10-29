@@ -1,81 +1,36 @@
 #' Generate realisations of a fitted curve over a predictor grid
 #'
-#' `toxval_predict()` is the single generic in this package. It evaluates a
-#' fitted concentration-response model over a grid of predictor values, once
-#' per realisation of the fit, and returns the result as a [toxval_pred]. The
-#' metric functions compute on that object, so adding support for a new model
-#' class means writing one `toxval_predict()` method and nothing else.
+#' Evaluates a fitted concentration-response model over a grid of predictor
+#' values, once per realisation of the fit. The result can be passed to [ecx()]
+#' and [nsec()] in place of the fitted model.
 #'
 #' @details
-#' Realisations are generated the same way for every model class: posterior
-#' draws for a Bayesian fit, and a parametric bootstrap of
-#' `MVN(coef(object), vcov(object))` for a frequentist one. A frequentist fit is
-#' therefore not summarised through the three columns of
-#' `predict(object, interval = "confidence")`: inverting a pointwise confidence
-#' band on the response does not give a valid interval on the predictor, and it
-#' degrades worst where the curve is flat, which is where NSEC sits.
+#' Realisations are posterior draws for a Bayesian fit and parametric bootstrap
+#' replicates for a frequentist one.
 #'
-#' Because the bootstrap draw is joint over the whole parameter vector, the
-#' replicates of one curve stay aligned with those of another in a fit with
-#' several curves, as posterior draws are.
+#' Supply `group_var` to get one curve per level rather than a single curve. The curves follow the order of the levels of a factor, and
+#' otherwise their sorted order. Each method states what `group_var` must name.
 #'
-#' @section Supplying the predictor:
-#' `x_var` is optional in the generic because some classes record which of
-#' their variables is the predictor: a `bayesnec` fit carries it on its
-#' `bayesnecformula`, and a `drc` fit in `dataList$names$dName`. Requiring it
-#' here would force a caller of such a class to repeat what the object already
-#' knows, and no method could relax it, because the generic validates before
-#' dispatch. A method that cannot identify the predictor -- a `brmsfit` may have
-#' several, and a nonlinear formula mixes them with the model parameters --
-#' errors on `NULL` instead.
+#' The grid starts at the control concentration, where the control response is
+#' predicted, and every reference, ECx and NSEC is measured from that response.
+#' By default the control concentration is the lowest predictor value in the
+#' data. Use `x_control` to name another, such as 0 for a predictor measured as
+#' the reduction from an ambient level. A value outside the range of the data
+#' warns. A grouped fit has one control concentration for every curve.
 #'
-#' @section Grouping:
-#' Supply `group_var` to get one curve per level rather than a single curve
-#' marginalised across levels. The curves follow the declared order of a
-#' factor, and otherwise the sorted order of the levels. Each method states
-#' what `group_var` must name.
+#' @inheritParams toxval_params
+#' @param object A model fitted with brms, drc or bayesnec.
+#' @param ... Additional arguments passed to methods, such as `n_boot` and
+#'   `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
 #'
-#' @section The control concentration:
-#' The control response is the predicted response at the control
-#' concentration, and every reference, ECx and NSEC is measured from it. The
-#' grid starts there. By default it is the lowest predictor value in the data.
-#' `x_control` names another, such as 0 for a predictor measured as the
-#' reduction from an ambient level, where some observations lie below 0. A
-#' value outside the range of the data is predicted at a concentration that was
-#' not tested, and warns. A grouped fit has one control concentration for every
-#' curve.
+#' @return A [toxval_pred] object.
 #'
-#' @param object A fitted model object. Methods are provided for
-#'   [brms::brmsfit] and `drc` fits, and for the `bayesnecfit` and
-#'   `bayesmanecfit` fits of `bayesnec`.
-#' @param x_var A string naming the predictor variable in `object`, or `NULL`
-#'   where the class of `object` records which of its variables is the
-#'   predictor. Each method states whether it accepts `NULL`.
-#' @param group_var A string naming the grouping variable in `object`, or `NULL`
-#'   for a single curve.
-#' @param resolution A whole number giving the number of predictor values to
-#'   evaluate the curve at. Larger values estimate a metric more precisely.
-#' @param x_range A numeric vector of length 2 whose second value ends the
-#'   grid, or `NULL` to end it at the highest predictor value in the data. The
-#'   grid starts at the control concentration, so the first value must equal
-#'   it; supply `x_control` to name a different one.
-#' @param x_control A number, the control concentration, at which the control
-#'   response is predicted and the grid starts, or `NULL` for the lowest
-#'   predictor value in the data. A value outside the range of the data warns.
-#' @param ... Additional arguments passed to methods. These and every argument
-#'   after `...` must be named in full; an argument the method does not use is
-#'   an error.
-#'
-#' @return An object of class [toxval_pred].
-#'
-#' @examples
+#' @examplesIf requireNamespace("drc", quietly = TRUE)
 #' \donttest{
-#' if (requireNamespace("drc", quietly = TRUE)) {
-#'   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
-#'   toxval_predict(fit, x_var = "conc", resolution = 50, n_boot = 100, seed = 42)
-#' }
+#' fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+#' toxval_predict(fit, seed = 42)
 #' if (requireNamespace("bayesnec", quietly = TRUE)) {
-#'   toxval_predict(bayesnec::manec_example, resolution = 50)
+#'   toxval_predict(bayesnec::manec_example)
 #' }
 #' }
 #'
@@ -129,36 +84,27 @@ toxval_predict.default <- function(
   )
 }
 
-#' @describeIn toxval_predict Method for a `brms` fit of class
-#'   [brms::brmsfit]. Realisations are the posterior draws, and group-level
-#'   effects are marginalised out (`re_formula = NA`). `x_var` is required,
-#'   since a `brmsfit` may have several predictors. `group_var` must name a
-#'   column of the model data that enters as a population-level effect: a
-#'   variable that appears only in a group-level term, such as `site` in
-#'   `y ~ x + (1 | site)`, gives every level the same curve and is an error.
+#' @describeIn toxval_predict Method for a [brms::brmsfit]. Realisations are
+#'   the posterior draws, with group-level effects excluded. `x_var` is
+#'   required. `group_var` must name a population-level effect; a variable
+#'   that appears only in a group-level term, such as `site` in
+#'   `y ~ x + (1 | site)`, is an error.
 #'
-#'   A multivariate fit gives one curve per response, and per level of
-#'   `group_var` when it is supplied, so the responses are read from the fit
-#'   rather than named. They are named as `brms` names them, for example
-#'   `spsurvival` for a column `sp_survival`.
+#'   A multivariate fit gives one curve per response, named as `brms` names
+#'   them, for example `spsurvival` for a column `sp_survival`.
 #'
 #'   A binomial response, such as `y | trials(n) ~ x`, is predicted at one
-#'   trial, so its curves, `control` and `reference` are proportions rather
-#'   than counts whatever the trials in the data. The trials are read from the
-#'   fit and must name a single column of the data. An NSEC or ECx does not
-#'   depend on the number of trials, so only the scale of `control` and
-#'   `reference` differs from a prediction at the observed trials.
+#'   trial, so `control` and `reference` are proportions. The NSEC and ECx do
+#'   not depend on the number of trials.
 #'
-#'   `type = "relative"` needs `asymptote`, since which parameter of a
-#'   non-linear formula is an asymptote cannot be read from the fit. It is not
-#'   supported for a multivariate fit.
+#'   `type = "relative"` needs `asymptote`, and is not supported for a
+#'   multivariate fit.
 #'
-#' @param asymptote `NULL`, or a vector named `decreasing`, `increasing` or
-#'   both, giving the lower and upper asymptotes of a `brmsfit` for
-#'   `type = "relative"`: as the names of non-linear parameters, such as
-#'   `c(decreasing = "bot", increasing = "top")`, which are taken per posterior
-#'   draw and transformed by the inverse link, or as numbers on the response
-#'   scale. A direction not named has no asymptote.
+#' @param asymptote The lower and upper asymptotes of a `brmsfit`, for
+#'   `type = "relative"`, as a vector named `decreasing`, `increasing` or
+#'   both. Each is the name of a non-linear parameter, such as
+#'   `c(decreasing = "bot", increasing = "top")`, or a number on the response
+#'   scale.
 #'
 #' @export
 toxval_predict.brmsfit <- function(
@@ -215,21 +161,17 @@ toxval_predict.brmsfit <- function(
   )
 }
 
-#' @describeIn toxval_predict Method for a `drc` fit returned by [drc::drm()].
-#'   Realisations are parametric bootstrap replicates, so results are stochastic
-#'   unless `seed` is supplied. `x_var` is read from the fit when `NULL`, and a
-#'   supplied `x_var` must match the dose variable of the fit, so another
-#'   column, such as the response, cannot be passed as the predictor.
-#'   `group_var` must name the column passed as `curveid`, and the levels are
-#'   read from the coefficient names rather than from a column position. The
-#'   asymptotes `type = "relative"` measures to are the lower and upper limits
-#'   of the fitted function, from `fct$lowerAs()` and `fct$upperAs()`.
+#' @describeIn toxval_predict Method for a fit from [drc::drm()].
+#'   Realisations are parametric bootstrap replicates, so results vary between
+#'   calls unless `seed` is supplied. `x_var` is read from the fit if not
+#'   supplied. `group_var` must name the column passed as `curveid`. The
+#'   asymptotes used by `type = "relative"` are the lower and upper limits of
+#'   the fitted function.
 #'
 #' @param n_boot A whole number giving the number of parametric bootstrap
 #'   replicates to draw.
 #' @param seed A whole number used to seed the bootstrap draw, or `NULL` to use
-#'   the current random number state. The seed is recorded in the returned
-#'   object.
+#'   the current random number state.
 #'
 #' @export
 toxval_predict.drc <- function(
@@ -282,29 +224,24 @@ toxval_predict.drc <- function(
       group_var = group_var,
       realisation = "bootstrap",
       # `type` names the response distribution of a `drc` fit, and
-      # `"binomial"` marks a response on the proportion scale (T18)
+      # `"binomial"` marks a response on the proportion scale
       family = object$type,
       seed = seed
     )
   )
 }
 
-#' @describeIn toxval_predict Method for a single model fitted by
+#' @describeIn toxval_predict Method for a single fit from
 #'   `bayesnec::bnec()`, of class `bayesnecfit`, which requires `bayesnec` to
-#'   be installed. Realisations are the posterior draws of the `brmsfit` held in
-#'   `object$fit`, and group-level effects are marginalised out
-#'   (`re_formula = NA`). The grid spans the same concentrations as for a
-#'   `brmsfit`, and `bayesnec` builds the data to predict at, with a binomial
-#'   or beta-binomial response predicted for one trial, so that its curve is a
-#'   proportion. `x_var` is read from the `crf()`
-#'   term when `NULL`, and a supplied `x_var` must match it. `group_var` must be
-#'   `NULL`, since a `bnec()` fit has one curve. A predictor transformed inside
-#'   `crf()`, such as `crf(log(x), ...)`, is reported in units of the variable
-#'   itself, `x`, so `xform = exp` must not be supplied for it. The lower
-#'   asymptote is the `bot` parameter for an equation that has one, and
-#'   otherwise 0, the limit of its curve; the upper asymptote is 1 for a
-#'   proportion. An asymptote is `NA` where the family has no such bound, or
-#'   where the fit uses a link other than identity.
+#'   be installed. Realisations are the posterior draws, with group-level
+#'   effects excluded. `x_var` is read from the `crf()` term if not supplied.
+#'   `group_var` must be `NULL`. A predictor transformed inside `crf()`, such
+#'   as `crf(log(x), ...)`, is reported in units of `x`, so `xform = exp` must
+#'   not be supplied. A binomial or beta-binomial response is predicted at one
+#'   trial, so its curve is a proportion. The asymptotes used by `type = "relative"`
+#'   are the `bot` parameter, or 0 for an equation without one, and 1 for a
+#'   proportion. An asymptote is `NA` where the family has no such bound or
+#'   the link is not identity.
 #'
 #' @export
 toxval_predict.bayesnecfit <- function(
@@ -330,7 +267,7 @@ toxval_predict.bayesnecfit <- function(
   x_vec <- newdata[[x_var]]
   # Read from the stored brmsfit rather than through bayesnec's own
   # posterior_epred() methods, which have none for the components of a model
-  # set, so that one call serves both bayesnec classes (BAYESNEC-claude.md §3.1)
+  # set, so that one call serves both bayesnec classes
   curve <- posterior_epred(object$fit, newdata = newdata, re_formula = NA)
   chk_defined_grid(list(curve), x_vec)
 
@@ -350,17 +287,13 @@ toxval_predict.bayesnecfit <- function(
   )
 }
 
-#' @describeIn toxval_predict Method for a model average fitted by
+#' @describeIn toxval_predict Method for a model average from
 #'   `bayesnec::bnec()`, of class `bayesmanecfit`, which requires `bayesnec` to
-#'   be installed. Each model in the set is predicted as for a `bayesnecfit`.
-#'   The realisations are the draws `bayesnec` keeps from each model in
-#'   proportion to its weight, the same draws its own estimates and plots use.
-#'   The model each realisation came from is recorded in `meta$draw_model`, the
-#'   weights in `meta$model_weights`, and the seed the draws were chosen with in
-#'   `meta$seed`. The random number state of the session is left unchanged.
-#'   Each realisation takes its asymptotes from its own model. The control
-#'   response of each model in every draw of its fit, including the draws left
-#'   out of the average, is recorded in `meta$model_control`.
+#'   be installed. Each model is predicted as for a `bayesnecfit`. Realisations
+#'   are the draws `bayesnec` keeps from each model in proportion to its
+#'   weight, the same draws its own estimates use, and each takes its
+#'   asymptotes from its own model. The random number state of the session is
+#'   left unchanged.
 #'
 #' @export
 toxval_predict.bayesmanecfit <- function(
@@ -465,10 +398,8 @@ toxval_predict.bnecfit <- function(
 
 #' Assemble the metadata of a toxval_pred
 #'
-#' Every method builds its `meta` here, so the contract is satisfied in one
-#' place rather than once per method. `resolution` and `x_range` are derived
-#' from the grid rather than from the arguments the method was called with,
-#' which is what they are documented to describe.
+#' Every method builds its `meta` here. `resolution` and `x_range` are taken
+#' from the grid, not from the call.
 #'
 #' @param object The fitted model the realisations came from.
 #' @param x_vec The predictor grid.
@@ -523,7 +454,7 @@ build_meta <- function(
 #' @return A list with `names`, the response names of a multivariate fit as
 #'   `posterior_epred()` names them, or `NULL` for a univariate fit; `family`,
 #'   one string for a univariate fit and a vector named by response for a
-#'   multivariate one (T26); and `trials_var`, the columns holding the trials
+#'   multivariate one; and `trials_var`, the columns holding the trials
 #'   of any binomial response, named by response for a multivariate fit, or
 #'   `NULL`.
 #'
@@ -548,7 +479,7 @@ brms_responses <- function(object) {
 #' The column holding the trials of a binomial response
 #'
 #' The trials are set to 1 in the prediction data, so that a binomial response
-#' is predicted as a proportion (T26). That needs them to be a single column:
+#' is predicted as a proportion. That needs them to be a single column:
 #' a constant, as in `trials(10)`, or an expression, as in `trials(n + m)`,
 #' cannot be set to 1.
 #'
@@ -609,7 +540,7 @@ brms_curves <- function(object, x_vec, x_var, group_var, responses) {
     if (is.null(responses$names)) {
       return(list(epred))
     }
-    # matched by name, not by position (T26)
+    # matched by name, not by position
     lapply(responses$names, function(response) {
       matrix(
         epred[,, response],
@@ -731,13 +662,9 @@ group_levels <- function(x) {
 #'   which are set to 1, or `NULL`.
 #'
 #' @details
-#' Where the model has a population-level predictor other than `x_var` that is
-#' not named as `group_var`, `brms` cannot build the prediction data and errors
-#' in its own terms. That error is caught and restated in terms of `x_var`
-#' and `group_var` (#56), naming the variables `brms` reported. Which variables
-#' need a value is left to `brms` rather than read from the formula, since a
-#' variable in a group-level term, such as `site` in `(1 | site)`, needs none
-#' under `re_formula = NA`.
+#' Where `brms` cannot build the prediction data because the model has another
+#' population-level predictor, its error is restated in terms of `x_var` and
+#' `group_var` (#56). Which variables need a value is left to `brms`.
 #'
 #' @return A numeric matrix, one row per draw and one column per grid value,
 #'   or for a multivariate fit an array with a third dimension named by
@@ -835,11 +762,13 @@ chk_brms_asymptote <- function(asymptote, object, responses) {
 #' The asymptotes of every curve of a brmsfit
 #'
 #' A named non-linear parameter is predicted per draw at the first grid value,
-#' with group-level effects marginalised as for the curves. `brms` applies the
+#' with group-level effects excluded as for the curves. `brms` applies the
 #' link to the whole non-linear formula, so the parameter is on the link scale
 #' and is put on the response scale by the inverse link.
 #'
+#' @param asymptote The `asymptote` argument of `toxval_predict.brmsfit()`.
 #' @param n_realisation The number of posterior draws.
+#' @inheritParams epred_curve
 #'
 #' @return `NULL` when `asymptote` is `NULL`, otherwise a list with one element
 #'   per curve, each a list of two numeric vectors, `decreasing` and
@@ -1038,7 +967,7 @@ drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
 #'
 #' `drc` gives the limits of its mean function with `fct$lowerAs()` and
 #' `fct$upperAs()`, which also return a limit that `fct$fixed` fixes, such as
-#' the lower limit of 0 in `LL.3()` (T24). They take one parameter vector:
+#' the lower limit of 0 in `LL.3()`. They take one parameter vector:
 #' given a matrix, `lowerAs()` returns a wrong value with a warning, so they
 #' are applied row by row.
 #'
@@ -1158,7 +1087,7 @@ predict_grid <- function(x_range, x, resolution, x_control = NULL) {
 #' A grid value at which no realisation of a curve has a finite prediction lies
 #' outside where the model is defined, such as `x <= 0` for a formula with
 #' `log(x)`. That is a mismatch between the grid and the model, so it errors
-#' (T3) rather than returning `NA` estimates. A non-finite value in only some
+#' rather than returning `NA` estimates. A non-finite value in only some
 #' realisations is left for `find_crossings()`, which skips it.
 #'
 #' @param curves The list of realisation matrices.
@@ -1219,9 +1148,8 @@ chk_x_control <- function(x_control) {
 
 #' Check the type of `x_var` in the generic
 #'
-#' `NULL` is valid here but not for every method, so the message does not offer
-#' it: a caller whose class requires `x_var` should not be told `NULL` will do
-#' and then refused it.
+#' `NULL` is valid here but not for every method, so the message does not
+#' offer it.
 #'
 #' @param x_var The supplied `x_var`.
 #'
@@ -1237,7 +1165,7 @@ chk_x_var <- function(x_var) {
 
 #' Check that no argument was left in `...`
 #'
-#' `...` follows `object`, so every other argument must be named in full (T39).
+#' `...` follows `object`, so every other argument must be named in full.
 #' A misspelt, abbreviated or unnamed argument lands in `...`, and would
 #' otherwise be dropped without a message.
 #'

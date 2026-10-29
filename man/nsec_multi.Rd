@@ -10,9 +10,9 @@ nsec_multi(...)
 \item{...}{Unused.}
 }
 \description{
-\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}}
+\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#defunct}{\figure{lifecycle-defunct.svg}{options: alt='[Defunct]'}}}{\strong{[Defunct]}}
 
-\code{nsec_multi()} is deprecated and calling it is an error. Use \code{\link[=nsec]{nsec()}}, which
+\code{nsec_multi()} is defunct and calling it is an error. Use \code{\link[=nsec]{nsec()}}, which
 gives one row per response and direction for a multivariate fit, reading the
 responses from the fit.
 }

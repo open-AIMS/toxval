@@ -13,12 +13,10 @@
 #' | `direct` | `reference`, a response value | as decreasing |
 #'
 #' The increasing `absolute` forms are extra risk for a proportion and relative
-#' deviation for any other response (T18): a 10 per cent increase from a control
-#' of 20 is 22. The reference is `NA` for a realisation whose span, the distance
-#' from the control to the bound, is zero or less, such as a control at or below
-#' 0 under `absolute`, since the proportion then has nothing to be taken of.
-#' Under `range` such a realisation is flagged in `no_span`, so that it is
-#' censored rather than excluded when summarised (T38).
+#' deviation otherwise: a 10 per cent increase from a control of 20 is 22. The
+#' reference is `NA` where the span, the distance from the control to the bound,
+#' is zero or less. Under `range` such a realisation is flagged in `no_span`, so
+#' it is censored rather than excluded when summarised.
 #'
 #' Values are not summarised. A realisation with no crossing in a direction is
 #' `NA`.
@@ -27,8 +25,7 @@
 #' @param proportion The effect as a proportion of the span, one or more
 #'   values. Not used under `direct`.
 #' @param type One of `"absolute"`, `"relative"`, `"range"` or `"direct"`.
-#' @param reference The response value under `direct`, and `NULL` otherwise
-#'   (T32).
+#' @param reference The response value under `direct`, and `NULL` otherwise.
 #'
 #' @return A tibble with one row per curve, proportion and direction: the
 #'   columns of `keys`, `direction`, `proportion` (`NA` under `direct`), `type`,
@@ -114,20 +111,17 @@ compute_ecx <- function(
 #' `type`.
 #'
 #' Values are not summarised. A realisation with no crossing in a direction is
-#' `NA`. By construction of the quantile, a fraction `sig_val` of the
-#' realisations have a control at or below the decreasing reference, and on a
-#' decreasing curve none of them crosses it. How those realisations enter the
-#' summary is T21, amended on #74, which reads `first_change_away` and
-#' `on_no_effect_side`.
+#' `NA`; `first_change_away` and `on_no_effect_side` set how such realisations
+#' enter the summary in `summarise_row()` (#74).
 #'
 #' @param pred A `toxval_pred`.
 #' @param sig_val The quantile of the control realisations that sets the
 #'   decreasing reference.
-#' @param type One of `"absolute"` or `"range"`, selecting the `ecnsec`
-#'   definition. `"direct"` is refused (T19): its `ecnsec` would be the
+#' @param type One of `"absolute"`, `"relative"` or `"range"`, selecting the
+#'   `ecnsec` definition. `"direct"` is refused: its `ecnsec` would be the
 #'   reference itself, which the `reference` column already reports.
 #' @param anchor One of `"model"` or `"component"`, where the reference comes
-#'   from under model averaging (T23). Under `"component"` each model of a
+#'   from under model averaging. Under `"component"` each model of a
 #'   model average, named per realisation by `meta$draw_model`, takes the
 #'   quantile of its own control: over every draw of its fit, from
 #'   `meta$model_control`, or over its realisations in the average where that
@@ -139,7 +133,7 @@ compute_ecx <- function(
 #'   average), and the list columns `control`, `asymptote` (`NA` unless `type`
 #'   is `relative`),
 #'   `first_change_away`, `on_no_effect_side`, `draws` and `ecnsec`, each
-#'   holding one value per realisation. `ecnsec` is a proportion (T32).
+#'   holding one value per realisation. `ecnsec` is a proportion.
 #'
 #' @noRd
 compute_nsec <- function(
@@ -230,7 +224,7 @@ compute_nsec <- function(
 #'
 #' A `toxval_pred` has no asymptote when its method could not supply one, such
 #' as a `brmsfit` predicted without `asymptote`, so `relative` is refused rather
-#' than measured to an assumed bound (T9, T29).
+#' than measured to an assumed bound.
 #'
 #' @noRd
 chk_asymptote_supplied <- function(pred, type) {
@@ -250,10 +244,9 @@ chk_asymptote_supplied <- function(pred, type) {
 
 #' Warn which models of a model average have no asymptote
 #'
-#' The realisations of such a model have no span under `relative` and are
-#' excluded, which leaves the average of the other models with their weights
-#' renormalised. A direction in which no model has an asymptote is excluded
-#' for every realisation and is reported by the summary instead.
+#' Their realisations have no span under `relative` and are excluded, so the
+#' other models are averaged. A direction in which no model has an asymptote is
+#' reported by the summary instead.
 #'
 #' @param asymptote The asymptotes of the curve, from `curve_asymptote()`.
 #' @param draw_model The model of each realisation, or `NULL`.
@@ -377,9 +370,8 @@ crossings_by_row <- function(curve, x_vec, reference, direction) {
 #'
 #' The first change is the first difference between successive finite values
 #' whose absolute value exceeds `1e-8` times the largest absolute response of
-#' that realisation. Away from the effect is rising when decreasing and falling when
-#' increasing. A realisation with no such difference has no first change and
-#' counts as away (T21, amended on #74).
+#' that realisation. Away from the effect is rising when decreasing and falling
+#' when increasing. A realisation with no such difference counts as away (#74).
 #'
 #' @inheritParams crossings_by_row
 #'
@@ -413,7 +405,7 @@ first_change_away_by_row <- function(curve, direction) {
 #' reference at any grid value
 #'
 #' The no-effect side is above the reference when decreasing and below it when
-#' increasing (T21, amended on #74).
+#' increasing (#74).
 #'
 #' @inheritParams crossings_by_row
 #' @param reference The NSEC reference of the curve, one value.
@@ -433,7 +425,7 @@ on_no_effect_side_by_row <- function(curve, reference, direction) {
 #' A curve predicted on the proportion scale is bounded at 1, and its
 #' increasing `absolute` reference is extra risk, which is Abbott's formula. Any
 #' other response has no upper bound, and its increasing reference is relative
-#' deviation from the control, the mirror of the decreasing form (T18).
+#' deviation from the control, the mirror of the decreasing form.
 #'
 #' @param meta The `meta` of a `toxval_pred`.
 #' @param keys The `keys` of the `toxval_pred`.
@@ -459,7 +451,7 @@ response_upper_bound <- function(meta, keys, i) {
     zero_inflated_beta = ,
     zero_one_inflated_beta = ,
     # predicted at one trial by `toxval_predict()`, so a proportion whatever
-    # the trials in the data (T26); `bnec_newdata()` sets them to 1 for a
+    # the trials in the data; `bnec_newdata()` sets them to 1 for a
     # `bayesnec` fit
     binomial = ,
     beta_binomial = ,
@@ -471,7 +463,7 @@ response_upper_bound <- function(meta, keys, i) {
 #' The family of one curve
 #'
 #' `meta$family` is one string for every curve, or a vector named by response
-#' for a multivariate fit whose responses differ in family (T26).
+#' for a multivariate fit whose responses differ in family.
 #'
 #' @noRd
 curve_family <- function(family, keys, i) {
@@ -481,17 +473,19 @@ curve_family <- function(family, keys, i) {
   family[[as.character(keys$response[i])]]
 }
 
-#' The span a percentage effect is taken of, for every realisation of a curve
+#' The span a proportional effect is taken of, for every realisation of a curve
 #'
 #' The reference is the control minus (decreasing) or plus (increasing) a
-#' percentage of this span. `ecx_reference()` and `ecnsec_value()` both take the
-#' span from here, so `ecnsec` stays the inverse of the `ecx` reference (T8). A
+#' proportion of this span. `ecx_reference()` and `ecnsec_value()` both take the
+#' span from here, so `ecnsec` stays the inverse of the `ecx` reference. A
 #' span of zero or less, up to rounding error relative to the control, gives no
-#' percentage, so it is returned as `NA`: under
+#' proportion, so it is returned as `NA`: under
 #' `absolute` that is a control at or below 0, or at or above 1 for a
 #' proportion; under `relative` a control at or beyond the asymptote; under
 #' `range` a curve with no extent in that direction.
 #'
+#' @param curve A matrix of realisations, one per row.
+#' @param type One of `"absolute"`, `"relative"` or `"range"`.
 #' @param upper The upper bound from `response_upper_bound()`.
 #' @param asymptote The output of `curve_asymptote()`, used under `relative`.
 #'
@@ -510,7 +504,7 @@ reference_span <- function(curve, type, upper, asymptote = NULL) {
 
 #' Whether each realisation has no span, in each direction
 #'
-#' Under `range` such a realisation is censored rather than excluded (T38): its
+#' Under `range` such a realisation is censored rather than excluded: its
 #' curve never falls below, or rises above, its control within the evaluated
 #' range.
 #'
@@ -565,6 +559,7 @@ no_span <- function(span, control) {
 #'
 #' @param proportion A single proportion of the span.
 #' @param reference The response value under `direct`.
+#' @inheritParams reference_span
 #'
 #' @noRd
 ecx_reference <- function(
@@ -594,10 +589,11 @@ ecx_reference <- function(
 #' direction
 #'
 #' The inverse of `ecx_reference()`: the proportion of the span that the
-#' reference lies from the control (T32).
+#' reference lies from the control.
 #'
 #' @param reference The NSEC reference, a numeric vector named `decreasing`
 #'   and `increasing`.
+#' @inheritParams reference_span
 #'
 #' @noRd
 ecnsec_value <- function(curve, reference, type, upper, asymptote = NULL) {

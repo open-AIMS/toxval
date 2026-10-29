@@ -254,7 +254,7 @@ test_that("ecx() on a bayesnecfit returns a toxval tibble", {
   fits <- bnec_single_fits()
   for (nm in names(fits)) {
     # nechorme rises before it falls, so the increasing ECx of bnec_model_1 is
-    # censored in most realisations and warns (T25), which test-summarise.R
+    # censored in most realisations and warns, which test-summarise.R
     # tests; only the class of the result is tested here
     result <- suppressWarnings(ecx(fits[[nm]], resolution = 50))
     expect_s3_class(result, "toxval")

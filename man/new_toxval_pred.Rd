@@ -16,8 +16,9 @@ new_toxval_pred(
 )
 }
 \arguments{
-\item{curves}{An unnamed list of numeric matrices of realisations, one
-element per row of \code{keys}. See Slots.}
+\item{curves}{An unnamed list of numeric matrices, one element per row of
+\code{keys}. Each matrix has one row per realisation and one column per value
+of \code{x_vec}.}
 
 \item{keys}{A data frame identifying the curves, one row per element of
 \code{curves}. See Identifying curves.}
@@ -28,63 +29,39 @@ predictor values.}
 \item{meta}{A named list of metadata. See Metadata.}
 
 \item{threshold}{An unnamed list of numeric vectors of per-realisation
-threshold values, one element per row of \code{keys}, or \code{NULL}.}
+values of a threshold parameter such as an NEC, one element per row of
+\code{keys}, or \code{NULL} where the model has none.}
 
 \item{control}{An unnamed list of numeric vectors of per-realisation control
-values, one element per row of \code{keys}, or \code{NULL}.}
+responses from a separate control-only fit, one element per row of
+\code{keys}, or \code{NULL}.}
 
 \item{asymptote}{An unnamed list, one element per row of \code{keys}, of lists
 of two numeric vectors of per-realisation asymptotes named \code{decreasing}
-and \code{increasing}, or \code{NULL}.}
+(the lower asymptote) and \code{increasing} (the upper one), or \code{NULL} where
+the model supplies none. Used by \code{type = "relative"}.}
 }
 \value{
-An object of class \code{toxval_pred}.
+An object of class \code{toxval_pred}, a list with elements \code{curves},
+\code{keys}, \code{x_vec}, \code{threshold}, \code{control}, \code{asymptote} and \code{meta}.
 }
 \description{
-\code{toxval_pred} is the intermediate object that every metric function in this
-package computes on. It holds realisations of a fitted curve -- posterior
+A \code{toxval_pred} holds realisations of one or more fitted curves (posterior
 draws for a Bayesian fit, parametric bootstrap replicates for a frequentist
-one -- evaluated over a common predictor grid, together with the metadata
-needed to describe and interpret them.
+one) evaluated over a common predictor grid. It is returned by
+\code{\link[=toxval_predict]{toxval_predict()}} and can be passed to \code{\link[=ecx]{ecx()}} and \code{\link[=nsec]{nsec()}} in place of
+the fitted model.
 }
 \details{
-The class is part of the package interface, not an internal convenience. A
-model class supported from outside this package supplies a \code{toxval_predict()}
-method that builds its \code{toxval_pred} with \code{new_toxval_pred()}, so the slot
-contract documented here is what such a method has to satisfy.
+\code{new_toxval_pred()} builds one, and is for developers writing a
+\code{toxval_predict()} method for a new model class.
 }
-\section{Slots}{
-
-\describe{
-\item{\code{curves}}{An unnamed list of numeric matrices, each \code{n_realisation}
-rows by \code{length(x_vec)} columns, holding one realisation of the fitted
-curve per row. One element per row of \code{keys}.}
-\item{\code{keys}}{A data frame identifying the curves, one row per element of
-\code{curves}; see below.}
-\item{\code{x_vec}}{The predictor grid the curves are evaluated over.}
-\item{\code{threshold}}{An unnamed list of per-realisation values of a genuine
-threshold parameter such as a NEC, one element per row of \code{keys}, or
-\code{NULL} where the model has none. Not recoverable from \code{curves}, which is
-why it is carried separately.}
-\item{\code{control}}{An unnamed list of per-realisation control responses from
-a control-only fit, estimated independently of the dose-response shape,
-one element per row of \code{keys}, or \code{NULL}. One element per curve, because
-a grouped fit has one control per group.}
-\item{\code{asymptote}}{An unnamed list of the per-realisation asymptotes of
-each curve, one element per row of \code{keys}, or \code{NULL} where the model
-supplies none. Each element is a list of two numeric vectors,
-\code{decreasing} (the lower asymptote) and \code{increasing} (the upper one),
-\code{NA} where the equation has no such asymptote. \code{type = "relative"}
-measures from the control to it (T24).}
-\item{\code{meta}}{Named list of metadata; see below.}
-}
-}
-
 \section{Identifying curves}{
 
 Row \emph{i} of \code{keys} identifies element \emph{i} of \code{curves}, and of \code{threshold},
-\code{control} and \code{asymptote} when they are supplied. The columns of \code{keys} are drawn from
-\code{group} and \code{response}, and become the descriptor columns of the result:
+\code{control} and \code{asymptote} when they are supplied. The columns of \code{keys} are
+drawn from \code{group} and \code{response}, and become the descriptor columns of the
+result:
 
 \describe{
 \item{Ungrouped}{One row and no columns, such as
@@ -96,32 +73,22 @@ response.}
 group and response.}
 }
 
-Rows of \code{keys} are unique and contain no missing values. A curve is
-identified by its row rather than by a list name, because a fit that is both
-grouped and multivariate needs two descriptors per curve.
+Rows of \code{keys} are unique and contain no missing values.
 }
 
 \section{Realisation alignment}{
 
-Realisation \emph{i} is the same underlying draw in every slot: row \emph{i} of every
-matrix in \code{curves}, element \emph{i} of every element of \code{threshold}, and element
-\emph{i} of every element of \code{control} all come from the same posterior draw or
-the same bootstrap replicate. This is what makes per-realisation quantities
-computed from different slots comparable row by row.
-
-The invariant itself cannot be checked from the object -- nothing records
-which draw a row came from. What \code{new_toxval_pred()} does check is
-conformability, which is where a violation shows up: every matrix in \code{curves}
-has \code{meta$n_realisation} rows and \code{length(x_vec)} columns, and every element
-of \code{threshold} and \code{control} has \code{meta$n_realisation} values. Supplying
-aligned realisations is the caller's responsibility.
+Realisation \emph{i} is the same posterior draw or bootstrap replicate in every
+slot: row \emph{i} of every matrix in \code{curves}, and element \emph{i} of every element
+of \code{threshold}, \code{control} and \code{asymptote}. \code{new_toxval_pred()} checks that
+the dimensions agree with \code{meta$n_realisation} and \code{length(x_vec)}, but
+cannot check that the realisations themselves are aligned.
 }
 
 \section{Metadata}{
 
-\code{meta} must contain the following elements. Additional elements are permitted
-and ignored, so that a \code{toxval_predict()} method defined in another package
-can record what it needs to.
+\code{meta} must contain the following elements. Additional elements are
+permitted and ignored.
 
 \describe{
 \item{\code{source_class}}{String, the class of the fitted object the
@@ -130,27 +97,18 @@ realisations came from.}
 \item{\code{group_var}}{String naming the grouping variable. Required when
 \code{keys} has a \code{group} column, and \code{NULL} otherwise.}
 \item{\code{multi_var}}{Character vector of the response names of a
-multivariate fit, as the fitted object names them, including every
-level of \code{keys$response}. Required when \code{keys} has a \code{response} column,
-and \code{NULL} otherwise.}
+multivariate fit, including every level of \code{keys$response}. Required
+when \code{keys} has a \code{response} column, and \code{NULL} otherwise.}
 \item{\code{resolution}}{Whole number, the number of values in \code{x_vec}.}
 \item{\code{x_range}}{Numeric of length 2, the range of \code{x_vec}.}
 \item{\code{x_control}}{Number, the control concentration, at which the
 control response is predicted: the lowest predictor value in the data,
-unless the caller names another. It must be the first value of \code{x_vec}.
-A realisation whose control response already lies beyond the reference is
-placed here. In \code{nsec()},
-one whose response first changes away from the effect and passes to the
-other side of the reference without returning is censored instead (T21).}
+unless the caller names another. It must be the first value of \code{x_vec}.}
 \item{\code{family}}{String naming the response distribution, such as the
-\code{brms} family or the \code{type} of a \code{drc} fit, or \code{NULL} where the fitted
-object has none. A multivariate fit whose responses differ in family
-gives a character vector named by response instead. It decides whether
-the response is a proportion, bounded at 1. A binomial family is taken
-to be predicted on the proportion scale, at one trial, as
-\code{\link[=toxval_predict]{toxval_predict()}} predicts a \code{brms} binomial fit.}
-\item{\code{realisation}}{Either \code{"draws"} or \code{"bootstrap"}, the source of the
-realisations.}
+\code{brms} family or the \code{type} of a \code{drc} fit, or \code{NULL}. A multivariate
+fit whose responses differ in family gives a character vector named by
+response. A binomial family is taken to be on the proportion scale.}
+\item{\code{realisation}}{Either \code{"draws"} or \code{"bootstrap"}.}
 \item{\code{n_realisation}}{Whole number, the number of realisations.}
 \item{\code{seed}}{Whole number, the seed used to generate bootstrap
 realisations or to choose the realisations of a model average, or
@@ -197,3 +155,4 @@ new_toxval_pred(
 )
 
 }
+\keyword{internal}

@@ -122,10 +122,7 @@ tbl_sum.toxval <- function(x, ...) {
 #' Combine toxval tibbles
 #'
 #' The header describes every row, so toxval tibbles combine, as in
-#' `dplyr::bind_rows()`, only when their run settings are identical. Otherwise
-#' `bind_rows()` would keep the settings of the first and print them above rows
-#' they do not describe; `dplyr_reconstruct()` cannot prevent this, since it
-#' sees only the first tibble (T40).
+#' `dplyr::bind_rows()`, only when their run settings are identical.
 #'
 #' @param x,y,to Objects of class `toxval`.
 #' @param ...,x_arg,y_arg Passed on by vctrs.

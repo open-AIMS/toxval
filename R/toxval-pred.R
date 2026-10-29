@@ -1,45 +1,19 @@
 #' Realisations of a fitted curve over a predictor grid
 #'
-#' `toxval_pred` is the intermediate object that every metric function in this
-#' package computes on. It holds realisations of a fitted curve -- posterior
+#' A `toxval_pred` holds realisations of one or more fitted curves (posterior
 #' draws for a Bayesian fit, parametric bootstrap replicates for a frequentist
-#' one -- evaluated over a common predictor grid, together with the metadata
-#' needed to describe and interpret them.
+#' one) evaluated over a common predictor grid. It is returned by
+#' [toxval_predict()] and can be passed to [ecx()] and [nsec()] in place of
+#' the fitted model.
 #'
-#' The class is part of the package interface, not an internal convenience. A
-#' model class supported from outside this package supplies a `toxval_predict()`
-#' method that builds its `toxval_pred` with `new_toxval_pred()`, so the slot
-#' contract documented here is what such a method has to satisfy.
-#'
-#' @section Slots:
-#' \describe{
-#'   \item{`curves`}{An unnamed list of numeric matrices, each `n_realisation`
-#'     rows by `length(x_vec)` columns, holding one realisation of the fitted
-#'     curve per row. One element per row of `keys`.}
-#'   \item{`keys`}{A data frame identifying the curves, one row per element of
-#'     `curves`; see below.}
-#'   \item{`x_vec`}{The predictor grid the curves are evaluated over.}
-#'   \item{`threshold`}{An unnamed list of per-realisation values of a genuine
-#'     threshold parameter such as a NEC, one element per row of `keys`, or
-#'     `NULL` where the model has none. Not recoverable from `curves`, which is
-#'     why it is carried separately.}
-#'   \item{`control`}{An unnamed list of per-realisation control responses from
-#'     a control-only fit, estimated independently of the dose-response shape,
-#'     one element per row of `keys`, or `NULL`. One element per curve, because
-#'     a grouped fit has one control per group.}
-#'   \item{`asymptote`}{An unnamed list of the per-realisation asymptotes of
-#'     each curve, one element per row of `keys`, or `NULL` where the model
-#'     supplies none. Each element is a list of two numeric vectors,
-#'     `decreasing` (the lower asymptote) and `increasing` (the upper one),
-#'     `NA` where the equation has no such asymptote. `type = "relative"`
-#'     measures from the control to it (T24).}
-#'   \item{`meta`}{Named list of metadata; see below.}
-#' }
+#' `new_toxval_pred()` builds one, and is for developers writing a
+#' `toxval_predict()` method for a new model class.
 #'
 #' @section Identifying curves:
 #' Row *i* of `keys` identifies element *i* of `curves`, and of `threshold`,
-#' `control` and `asymptote` when they are supplied. The columns of `keys` are drawn from
-#' `group` and `response`, and become the descriptor columns of the result:
+#' `control` and `asymptote` when they are supplied. The columns of `keys` are
+#' drawn from `group` and `response`, and become the descriptor columns of the
+#' result:
 #'
 #' \describe{
 #'   \item{Ungrouped}{One row and no columns, such as
@@ -51,28 +25,18 @@
 #'     group and response.}
 #' }
 #'
-#' Rows of `keys` are unique and contain no missing values. A curve is
-#' identified by its row rather than by a list name, because a fit that is both
-#' grouped and multivariate needs two descriptors per curve.
+#' Rows of `keys` are unique and contain no missing values.
 #'
 #' @section Realisation alignment:
-#' Realisation *i* is the same underlying draw in every slot: row *i* of every
-#' matrix in `curves`, element *i* of every element of `threshold`, and element
-#' *i* of every element of `control` all come from the same posterior draw or
-#' the same bootstrap replicate. This is what makes per-realisation quantities
-#' computed from different slots comparable row by row.
-#'
-#' The invariant itself cannot be checked from the object -- nothing records
-#' which draw a row came from. What `new_toxval_pred()` does check is
-#' conformability, which is where a violation shows up: every matrix in `curves`
-#' has `meta$n_realisation` rows and `length(x_vec)` columns, and every element
-#' of `threshold` and `control` has `meta$n_realisation` values. Supplying
-#' aligned realisations is the caller's responsibility.
+#' Realisation *i* is the same posterior draw or bootstrap replicate in every
+#' slot: row *i* of every matrix in `curves`, and element *i* of every element
+#' of `threshold`, `control` and `asymptote`. `new_toxval_pred()` checks that
+#' the dimensions agree with `meta$n_realisation` and `length(x_vec)`, but
+#' cannot check that the realisations themselves are aligned.
 #'
 #' @section Metadata:
-#' `meta` must contain the following elements. Additional elements are permitted
-#' and ignored, so that a `toxval_predict()` method defined in another package
-#' can record what it needs to.
+#' `meta` must contain the following elements. Additional elements are
+#' permitted and ignored.
 #'
 #' \describe{
 #'   \item{`source_class`}{String, the class of the fitted object the
@@ -81,27 +45,18 @@
 #'   \item{`group_var`}{String naming the grouping variable. Required when
 #'     `keys` has a `group` column, and `NULL` otherwise.}
 #'   \item{`multi_var`}{Character vector of the response names of a
-#'     multivariate fit, as the fitted object names them, including every
-#'     level of `keys$response`. Required when `keys` has a `response` column,
-#'     and `NULL` otherwise.}
+#'     multivariate fit, including every level of `keys$response`. Required
+#'     when `keys` has a `response` column, and `NULL` otherwise.}
 #'   \item{`resolution`}{Whole number, the number of values in `x_vec`.}
 #'   \item{`x_range`}{Numeric of length 2, the range of `x_vec`.}
 #'   \item{`x_control`}{Number, the control concentration, at which the
 #'     control response is predicted: the lowest predictor value in the data,
-#'     unless the caller names another. It must be the first value of `x_vec`.
-#'     A realisation whose control response already lies beyond the reference is
-#'     placed here. In `nsec()`,
-#'     one whose response first changes away from the effect and passes to the
-#'     other side of the reference without returning is censored instead (T21).}
+#'     unless the caller names another. It must be the first value of `x_vec`.}
 #'   \item{`family`}{String naming the response distribution, such as the
-#'     `brms` family or the `type` of a `drc` fit, or `NULL` where the fitted
-#'     object has none. A multivariate fit whose responses differ in family
-#'     gives a character vector named by response instead. It decides whether
-#'     the response is a proportion, bounded at 1. A binomial family is taken
-#'     to be predicted on the proportion scale, at one trial, as
-#'     [toxval_predict()] predicts a `brms` binomial fit.}
-#'   \item{`realisation`}{Either `"draws"` or `"bootstrap"`, the source of the
-#'     realisations.}
+#'     `brms` family or the `type` of a `drc` fit, or `NULL`. A multivariate
+#'     fit whose responses differ in family gives a character vector named by
+#'     response. A binomial family is taken to be on the proportion scale.}
+#'   \item{`realisation`}{Either `"draws"` or `"bootstrap"`.}
 #'   \item{`n_realisation`}{Whole number, the number of realisations.}
 #'   \item{`seed`}{Whole number, the seed used to generate bootstrap
 #'     realisations or to choose the realisations of a model average, or
@@ -128,22 +83,27 @@
 #'
 #' @aliases toxval_pred
 #'
-#' @param curves An unnamed list of numeric matrices of realisations, one
-#'   element per row of `keys`. See Slots.
+#' @param curves An unnamed list of numeric matrices, one element per row of
+#'   `keys`. Each matrix has one row per realisation and one column per value
+#'   of `x_vec`.
 #' @param keys A data frame identifying the curves, one row per element of
 #'   `curves`. See Identifying curves.
 #' @param x_vec A numeric vector of at least two finite, strictly increasing
 #'   predictor values.
 #' @param meta A named list of metadata. See Metadata.
 #' @param threshold An unnamed list of numeric vectors of per-realisation
-#'   threshold values, one element per row of `keys`, or `NULL`.
+#'   values of a threshold parameter such as an NEC, one element per row of
+#'   `keys`, or `NULL` where the model has none.
 #' @param control An unnamed list of numeric vectors of per-realisation control
-#'   values, one element per row of `keys`, or `NULL`.
+#'   responses from a separate control-only fit, one element per row of
+#'   `keys`, or `NULL`.
 #' @param asymptote An unnamed list, one element per row of `keys`, of lists
 #'   of two numeric vectors of per-realisation asymptotes named `decreasing`
-#'   and `increasing`, or `NULL`.
+#'   (the lower asymptote) and `increasing` (the upper one), or `NULL` where
+#'   the model supplies none. Used by `type = "relative"`.
 #'
-#' @return An object of class `toxval_pred`.
+#' @return An object of class `toxval_pred`, a list with elements `curves`,
+#'   `keys`, `x_vec`, `threshold`, `control`, `asymptote` and `meta`.
 #'
 #' @examples
 #' new_toxval_pred(
@@ -165,6 +125,7 @@
 #'   )
 #' )
 #'
+#' @keywords internal
 #' @export
 new_toxval_pred <- function(
   curves,
@@ -193,8 +154,7 @@ new_toxval_pred <- function(
 
 #' Check that a toxval_pred satisfies its slot contract
 #'
-#' Called by `new_toxval_pred()`, which is the only way to build the object, so
-#' an unvalidated `toxval_pred` cannot be constructed.
+#' Called by `new_toxval_pred()`.
 #'
 #' @param x An object of class `toxval_pred`.
 #'
@@ -459,7 +419,7 @@ chk_keys <- function(keys, meta) {
 #' Check that `meta$family` gives a family for every curve
 #'
 #' A family is one string for every curve, or, for a multivariate fit whose
-#' responses differ in family, a vector named by response (T26).
+#' responses differ in family, a vector named by response.
 #'
 #' @noRd
 chk_family_keys <- function(family, keys) {
@@ -662,28 +622,8 @@ element_name <- function(arg, i) {
 #'
 #' @return `x`, invisibly.
 #'
-#' @examples
-#' pred <- new_toxval_pred(
-#'   curves = list(matrix(c(10, 9, 8, 7, 11, 9, 7, 5), nrow = 2, byrow = TRUE)),
-#'   keys = data.frame(row.names = 1L),
-#'   x_vec = c(0, 1, 2, 3),
-#'   meta = list(
-#'     source_class = "brmsfit",
-#'     x_var = "x",
-#'     group_var = NULL,
-#'     multi_var = NULL,
-#'     resolution = 4,
-#'     x_range = c(0, 3),
-#'     x_control = 0,
-#'     family = "gaussian",
-#'     realisation = "draws",
-#'     n_realisation = 2,
-#'     seed = NULL
-#'   )
-#' )
-#' print(pred)
-#'
 #' @export
+#' @noRd
 print.toxval_pred <- function(x, ...) {
   meta <- x$meta
   cat("<toxval_pred> ", meta$source_class, "\n", sep = "")

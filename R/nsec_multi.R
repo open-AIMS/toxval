@@ -1,9 +1,9 @@
 #' Estimate NSEC values from a multivariate brmsfit
 #'
 #' @description
-#' `r lifecycle::badge("deprecated")`
+#' `r lifecycle::badge("defunct")`
 #'
-#' `nsec_multi()` is deprecated and calling it is an error. Use [nsec()], which
+#' `nsec_multi()` is defunct and calling it is an error. Use [nsec()], which
 #' gives one row per response and direction for a multivariate fit, reading the
 #' responses from the fit.
 #'

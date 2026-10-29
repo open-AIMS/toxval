@@ -84,9 +84,8 @@ test_that("new_toxval_pred keeps the keys of a multivariate fit", {
 })
 
 test_that("new_toxval_pred keeps the keys of a grouped multivariate fit", {
-  # REVIEW-TEXT remove comment if additional tests to toxval_predict are added
-  # no toxval_predict() method produces this yet, so it is built by hand to
-  # show the contract can hold one curve per combination of group and response
+  # built by hand to show the contract can hold one curve per combination of
+  # group and response
   keys <- pred_keys(
     group = factor(c("A", "A", "B", "B")),
     response = factor(c("growth", "survival", "growth", "survival"))

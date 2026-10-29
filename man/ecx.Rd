@@ -26,13 +26,11 @@ ecx(
 )
 }
 \arguments{
-\item{object}{A fitted model with a \code{\link[=toxval_predict]{toxval_predict()}} method, or a
-\link{toxval_pred}.}
+\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
+object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.
-These and every argument after \code{...} must be named in full; an argument
-no method uses is an error.}
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{proportion}{A numeric vector of effects, as proportions of the span
 named by \code{type}; 0.1 is the EC10. Each value gives its own rows. Not
@@ -54,10 +52,9 @@ for a single curve.}
 \item{resolution}{A whole number giving the number of predictor values to
 evaluate the curve at. Larger values estimate a metric more precisely.}
 
-\item{x_range}{A numeric vector of length 2 whose second value ends the
-grid, or \code{NULL} to end it at the highest predictor value in the data. The
-grid starts at the control concentration, so the first value must equal
-it; supply \code{x_control} to name a different one.}
+\item{x_range}{A numeric vector of length 2 giving the range of predictor
+values to evaluate over, or \code{NULL} to use the range in the model data. The
+first value must equal the control concentration.}
 
 \item{x_control}{A number, the control concentration, at which the control
 response is predicted and the grid starts, or \code{NULL} for the lowest
@@ -76,7 +73,7 @@ concentration.}
 \item{ecx_val}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{proportion}, or
 \code{reference} under \code{type = "direct"}.}
 
-\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Supplying it is an
+\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#defunct}{\figure{lifecycle-defunct.svg}{options: alt='[Defunct]'}}}{\strong{[Defunct]}} Supplying it is an
 error. Use \code{draws}.}
 
 \item{hormesis_def, horme}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Both
@@ -86,12 +83,35 @@ directions are now always estimated, so these are ignored.}
 gives one estimate per level.}
 }
 \value{
-A \code{toxval} tibble with one row per curve, proportion and direction.
+A \code{toxval} tibble with one row per curve, proportion and direction,
+and the columns:
+\itemize{
+\item \code{metric}: \code{"ecx"}.
+\item \code{direction}: \code{"decreasing"} or \code{"increasing"}.
+\item \code{group}: the level of \code{group_var}, where it is supplied.
+\item \code{response}: the response of a multivariate fit.
+\item \code{estimate}, \code{conf.low}, \code{conf.high}: the ECx, as the \code{prob_vals}
+quantiles of the realisations, after \code{xform}.
+\item \code{proportion}, \code{type}: the arguments of the call. \code{proportion} is \code{NA}
+under \code{type = "direct"}.
+\item \code{control}: the predicted response at the control concentration, or
+\code{NA} under \code{type = "direct"}.
+\item \code{reference}: the response whose crossing is the ECx.
+\item \code{asymptote}: the asymptote the span is measured to, or \code{NA} unless \code{type}
+is \code{"relative"}.
+\item \code{draws}: where \code{draws = TRUE}, a tibble per row of \code{.draw} and
+\code{value.draw}, the ECx of each realisation. A realisation that does not
+reach the reference is \code{Inf}, and one excluded from the summary is \code{NA}.
+}
+
+\code{control}, \code{reference} and \code{asymptote} are on the response scale, as the
+central \code{prob_vals} quantile of the realisations. The tibble prints the
+model class and the number of realisations above the rows.
 }
 \description{
 Estimates the concentration at which the fitted response changes by a given
 proportion from the control, in each direction, for a fitted
-concentration-response model or for a \link{toxval_pred} built from one.
+concentration-response model.
 }
 \details{
 The model is evaluated over a grid of concentrations once per realisation,
@@ -134,19 +154,43 @@ below 0 or a missing asymptote, is excluded from the summary, with a warning.
 }
 \section{Fits from bayesnec}{
 
-A \code{bayesnecfit} or \code{bayesmanecfit} from \code{bayesnec::bnec()} is accepted when
-\code{bayesnec} is installed; see \code{\link[=toxval_predict]{toxval_predict()}}. \code{bayesnec} also exports a
-function named \code{ecx()}, and whichever of the two packages is attached later
-masks the other's, without a warning. Call \code{toxval::ecx()} to be sure of
-reaching this function.
+\code{ecx()} also accepts a \code{bayesnecfit} or \code{bayesmanecfit} from
+\code{bayesnec::bnec()} when \code{bayesnec} is installed. \code{bayesnec} has its own
+\code{ecx()}, and when both packages are loaded with \code{library()}, the one loaded
+last is used. Call \code{toxval::ecx()} to make sure this function runs.
+The two functions can give different estimates for the same fit, because
+they evaluate the curve at different concentrations.
 }
 
 \examples{
+\dontshow{if (requireNamespace("drc", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{
-if (requireNamespace("drc", quietly = TRUE)) {
-  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
-  ecx(fit, proportion = c(0.1, 0.5), seed = 42)
-}
-}
+fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
 
+# EC10 and EC50, as proportions of the span from the control down to 0
+ecx(fit, proportion = c(0.1, 0.5), seed = 42)
+
+# EC10 of the span from the control to the lower asymptote
+ecx(fit, type = "relative", seed = 42)
+
+# EC10 of the span from the control to the lowest predicted response
+ecx(fit, type = "range", seed = 42)
+
+# concentration at which the predicted root length falls to 4
+ecx(fit, type = "direct", reference = 4, seed = 42)
+
+# per-realisation values of each row
+res <- ecx(fit, draws = TRUE, seed = 42)
+res$draws[[1]]
+
+# one estimate per herbicide
+fit_group <- drc::drm(
+  DryMatter ~ Dose,
+  curveid = Herbicide,
+  data = drc::S.alba,
+  fct = drc::LL.4()
+)
+ecx(fit_group, group_var = "Herbicide", seed = 42)
+}
+\dontshow{\}) # examplesIf}
 }
