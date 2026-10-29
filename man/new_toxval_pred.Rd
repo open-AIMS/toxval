@@ -135,10 +135,11 @@ level of \code{keys$response}. Required when \code{keys} has a \code{response} c
 and \code{NULL} otherwise.}
 \item{\code{resolution}}{Whole number, the number of values in \code{x_vec}.}
 \item{\code{x_range}}{Numeric of length 2, the range of \code{x_vec}.}
-\item{\code{x_control}}{Number, the lowest predictor value in the data the
-model was fitted to, taken to be the control. It differs from the first
-value of \code{x_vec} when \code{x_range} is supplied. A realisation whose control
-response already lies beyond the reference is placed here. In \code{nsec()},
+\item{\code{x_control}}{Number, the control concentration, at which the
+control response is predicted: the lowest predictor value in the data,
+unless the caller names another. It must be the first value of \code{x_vec}.
+A realisation whose control response already lies beyond the reference is
+placed here. In \code{nsec()},
 one whose response first changes away from the effect and passes to the
 other side of the reference without returning is censored instead (T21).}
 \item{\code{family}}{String naming the response distribution, such as the

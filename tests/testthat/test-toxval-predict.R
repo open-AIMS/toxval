@@ -497,17 +497,19 @@ test_that("toxval_predict errors when seed is not a whole number", {
 
 # the predictor grid --------------------------------------------------------
 
-test_that("toxval_predict builds the grid from x_range and resolution", {
+test_that("toxval_predict builds the grid from x_control, x_range and resolution", {
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
-    x_range = c(0, 3),
+    x_control = 1,
+    x_range = c(1, 4),
     resolution = 4,
     n_boot = 5,
     seed = 42
   )
 
-  expect_equal(result$x_vec, c(0, 1, 2, 3))
+  expect_equal(result$x_vec, c(1, 2, 3, 4))
+  expect_identical(result$meta$x_control, 1)
 })
 
 test_that("toxval_predict takes the grid range from the data when x_range is NULL", {
@@ -528,18 +530,95 @@ test_that("toxval_predict records the lowest concentration in the data as x_cont
   expect_identical(result$meta$x_control, min(brms_model_1$data$x))
 })
 
-test_that("toxval_predict takes x_control from the data, not from x_range", {
+test_that("toxval_predict starts the grid at the lowest concentration in the data", {
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
-    x_range = c(1, 3),
     resolution = 4,
     n_boot = 5,
     seed = 42
   )
 
-  expect_identical(result$meta$x_control, min(nsec_drc_1$data$x))
-  expect_lt(result$meta$x_control, result$x_vec[1])
+  expect_identical(result$x_vec[1], min(nsec_drc_1$data$x))
+})
+
+test_that("toxval_predict refuses an x_range that does not start at the control concentration", {
+  # a lower bound of x_range would otherwise move the control
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_range = c(1, 3), n_boot = 5),
+    "`x_range` must start at the control concentration, 0.03234801, not 1; supply `x_control`",
+    fixed = TRUE
+  )
+  expect_error(
+    toxval_predict(
+      nsec_drc_1,
+      x_var = "x",
+      x_control = 0.5,
+      x_range = c(1, 3),
+      n_boot = 5
+    ),
+    "`x_range` must start at the control concentration, 0.5, not 1",
+    fixed = TRUE
+  )
+})
+
+test_that("toxval_predict ends the grid at the data when only x_control is supplied", {
+  result <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    x_control = 1,
+    resolution = 4,
+    n_boot = 5,
+    seed = 42
+  )
+
+  expect_equal(range(result$x_vec), c(1, max(nsec_drc_1$data$x)))
+})
+
+test_that("toxval_predict warns when x_control lies outside the range of the data", {
+  # ryegrass without its controls, so the lowest tested concentration is 0.94
+  no_controls <- drc::drm(
+    rootl ~ conc,
+    data = drc::ryegrass[drc::ryegrass$conc > 0, ],
+    fct = drc::LL.4()
+  )
+  expect_warning(
+    result <- toxval_predict(
+      no_controls,
+      x_control = 0,
+      resolution = 10,
+      n_boot = 5,
+      seed = 42
+    ),
+    "`x_control`, 0, lies outside the range of the data, 0.94 to 30",
+    fixed = TRUE
+  )
+  expect_identical(result$meta$x_control, 0)
+
+  full <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+  expect_no_warning(
+    toxval_predict(full, x_control = 0, resolution = 10, n_boot = 5, seed = 42)
+  )
+})
+
+test_that("toxval_predict errors when x_control is not a finite number below the end of the grid", {
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_control = "0"),
+    "`x_control` must be a number"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_control = c(0, 1)),
+    "`x_control` must be a number"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_control = Inf),
+    "`x_control` must be finite"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_control = 5, n_boot = 5),
+    "`x_control` must be below the upper end of the grid, 3.22052, not 5.",
+    fixed = TRUE
+  )
 })
 
 test_that("toxval_predict errors when the predictor takes a single value", {
@@ -556,7 +635,7 @@ test_that("toxval_predict errors when the predictor takes a single value", {
     toxval_predict(
       fit,
       x_var = "x",
-      x_range = c(0, 3),
+      x_range = c(1, 3),
       resolution = 4,
       n_boot = 5
     )
@@ -633,7 +712,8 @@ test_that("toxval_predict at the fitted coefficients reproduces predict()", {
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
-    x_range = c(0, 3),
+    x_control = 1,
+    x_range = c(1, 3),
     resolution = 4,
     n_boot = 2
   )
@@ -942,13 +1022,18 @@ test_that("toxval_predict handles a single bootstrap replicate", {
   # vector rather than a 1-row matrix. The values also pin the draw for a
   # seed: the Cholesky factor of `vcov()` is unique, so they are the same on
   # every platform, which `MASS::mvrnorm()` did not give (#59)
-  result <- toxval_predict(
-    nsec_drc_1,
-    x_var = "x",
-    x_range = c(0, 3),
-    resolution = 4,
-    n_boot = 1,
-    seed = 3
+  # the grid starts at 0, below the data, so that the pinned values still apply
+  expect_warning(
+    result <- toxval_predict(
+      nsec_drc_1,
+      x_var = "x",
+      x_control = 0,
+      x_range = c(0, 3),
+      resolution = 4,
+      n_boot = 1,
+      seed = 3
+    ),
+    "lies outside the range of the data"
   )
 
   expect_true(is.matrix(result$curves[[1]]))
@@ -961,13 +1046,13 @@ test_that("toxval_predict handles a single bootstrap replicate", {
   )
 })
 
-test_that("toxval_predict errors when x_range runs outside where the model is defined", {
+test_that("toxval_predict errors when the grid runs outside where the model is defined", {
   # brms_model_1 is y ~ log(x), which has no value at x <= 0
   expect_error(
     suppressWarnings(
-      toxval_predict(brms_model_1, x_var = "x", x_range = c(-1, 1.05))
+      toxval_predict(brms_model_1, x_var = "x", x_control = -1)
     ),
-    "`x_range` must lie where the model is defined"
+    "`x_control` and `x_range` must lie where the model is defined"
   )
 })
 

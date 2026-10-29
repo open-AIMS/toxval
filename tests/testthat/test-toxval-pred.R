@@ -229,6 +229,21 @@ test_that("new_toxval_pred errors when x_control is not finite", {
   )
 })
 
+test_that("new_toxval_pred errors when x_vec does not start at x_control", {
+  # the compute functions read the control at the first grid value, and
+  # summarise_metric() places realisations at x_control
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(x_control = -1)
+    ),
+    regexp = "`x_vec` must start at `meta$x_control`, the control concentration (-1), not 0.",
+    fixed = TRUE
+  )
+})
+
 test_that("new_toxval_pred errors when x_range is missing a value", {
   expect_error(
     new_toxval_pred(

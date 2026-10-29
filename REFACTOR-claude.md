@@ -1001,7 +1001,9 @@ protective concentration.
 
 #### The `type` vocabulary
 
-The control is the predicted response at the lowest concentration in the series.
+The control is the predicted response at the lowest concentration in the series,
+or at the concentration named by `x_control`. The grid starts at the control
+concentration (T41).
 `p` is `ecx_val`; `y` is one realisation's fitted curve over the predictor range.
 
 | `type` | decreasing | increasing |

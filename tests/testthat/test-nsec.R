@@ -60,10 +60,21 @@ test_that("x_range can be passed various values", {
     regexp = "`x_range` must be length 2 not 1"
   )
 
-  output_1 <- nsec(nsec_drc_1, x_range = c(0.5, 100), x_var = "x", seed = 1)
+  output_1 <- nsec(
+    nsec_drc_1,
+    x_control = 0.5,
+    x_range = c(0.5, 100),
+    x_var = "x",
+    seed = 1
+  )
   expect_equal(output_1$estimate, c(1.158826, NA_real_), tolerance = 0.001)
 
-  output_2 <- nsec(brms_model_3, x_range = c(0.5, 100), x_var = "x")
+  output_2 <- nsec(
+    brms_model_3,
+    x_control = 0.5,
+    x_range = c(0.5, 100),
+    x_var = "x"
+  )
   expect_equal(output_2$estimate, c(1.3688852, 0.6452353), tolerance = 0.001)
 })
 
@@ -672,6 +683,10 @@ test_that("nsec errors when a toxval_pred is given predict-level arguments", {
   expect_error(
     nsec(pred, resolution = 100, x_range = c(0, 5)),
     "so `resolution`, `x_range` must not be supplied"
+  )
+  expect_error(
+    nsec(pred, x_control = 1),
+    "so `x_control` must not be supplied"
   )
 })
 

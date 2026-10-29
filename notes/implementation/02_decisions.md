@@ -366,9 +366,11 @@ lies:
 
 - A realisation whose control already lies beyond the reference in the
   direction sought takes the lowest concentration in the data the model was
-  fitted to. That is the control concentration, which `x_vec[1]` is not when
-  `x_range` is supplied. In `nsec()`, one that shows no effect in the tested
-  range is censored instead (amended 2026-10-27, below).
+  fitted to. That is the control concentration, ~~which `x_vec[1]` is not when
+  `x_range` is supplied~~ (amended 2026-10-28, T41: the grid starts at the
+  control concentration, which `x_control` can name). In `nsec()`, one that
+  shows no effect in the tested range is censored instead (amended 2026-10-27,
+  below).
 - A realisation with no crossing within the evaluated range keeps its rank
   above `max(x_vec)` and is not given a value. A quantile that falls among such
   realisations is reported as `max(x_vec)`, and the call warns with the
@@ -862,6 +864,40 @@ An error was chosen over dropping to a plain tibble, which `bind_rows()` cannot
 be made to do, and over moving the settings into columns, which would change
 §3.1. `vctrs` is added to Imports; it is already a dependency of `dplyr` and
 `tibble`.
+
+## T41 — the grid starts at the control concentration (#73)
+
+Settled 2026-10-26 (RF) on #73, and for a control outside the data 2026-10-28
+(RF).
+
+The control is the predicted response at the control concentration. By default
+that is the lowest concentration in the data, and `x_control`, an argument of
+`toxval_predict()`, `ecx()` and `nsec()`, names another. The grid starts at the
+control concentration and `meta$x_control` records it. The first grid value,
+which the compute functions read as the control, and the concentration T21
+places realisations at are therefore one value. `x_range` sets the upper end of
+the grid only, and a lower bound other than the control concentration is an
+error. `new_toxval_pred()` refuses an object whose `x_vec[1]` differs from
+`meta$x_control`.
+
+An `x_control` outside the range of the data is accepted with a warning that
+gives the range of the data. The request is valid, so it is not refused (T3),
+but the control is then predicted at a concentration that was not tested, and
+every reference, ECx and NSEC is computed from it. A value at which the model
+gives no finite prediction, such as 0 under `log(x)`, is still an error (T36).
+
+A grouped fit keeps one control concentration for every curve, the lowest
+across all the data. Giving each curve its own `x_vec` and `x_control` changes
+the `toxval_pred` contract and is decided separately.
+
+Before, the control was read at the first grid value, which is `x_range[1]`
+when `x_range` is supplied, while T21 placed realisations at the lowest
+concentration in the data. On `LL.4()` fitted to `drc::ryegrass`,
+`x_range = c(1, 30)` changed the control from 7.79 to 7.50 and the decreasing
+EC10 from 1.49 to 1.65, without a message. Starting the grid at the control
+concentration was preferred to predicting the control separately, which would
+add a slot to `toxval_pred`. A call whose `x_range` starts elsewhere now errors,
+which is a breaking change.
 
 ---
 

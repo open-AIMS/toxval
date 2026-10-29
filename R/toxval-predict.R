@@ -35,6 +35,16 @@
 #' factor, and otherwise the sorted order of the levels. Each method states
 #' what `group_var` must name.
 #'
+#' @section The control concentration:
+#' The control response is the predicted response at the control
+#' concentration, and every reference, ECx and NSEC is measured from it. The
+#' grid starts there. By default it is the lowest predictor value in the data.
+#' `x_control` names another, such as 0 for a predictor measured as the
+#' reduction from an ambient level, where some observations lie below 0. A
+#' value outside the range of the data is predicted at a concentration that was
+#' not tested, and warns. A grouped fit has one control concentration for every
+#' curve.
+#'
 #' @param object A fitted model object. Methods are provided for [brms::brmsfit]
 #'   and `drc` fits.
 #' @param x_var A string naming the predictor variable in `object`, or `NULL`
@@ -44,8 +54,13 @@
 #'   for a single curve.
 #' @param resolution A whole number giving the number of predictor values to
 #'   evaluate the curve at. Larger values estimate a metric more precisely.
-#' @param x_range A numeric vector of length 2 giving the range of predictor
-#'   values to evaluate over, or `NULL` to use the range in the model data.
+#' @param x_range A numeric vector of length 2 whose second value ends the
+#'   grid, or `NULL` to end it at the highest predictor value in the data. The
+#'   grid starts at the control concentration, so the first value must equal
+#'   it; supply `x_control` to name a different one.
+#' @param x_control A number, the control concentration, at which the control
+#'   response is predicted and the grid starts, or `NULL` for the lowest
+#'   predictor value in the data. A value outside the range of the data warns.
 #' @param ... Additional arguments passed to methods. These and every argument
 #'   after `...` must be named in full; an argument the method does not use is
 #'   an error.
@@ -67,13 +82,15 @@ toxval_predict <- function(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 ) {
   chk_x_var(x_var)
   chk::chk_null_or(group_var, vld = chk::vld_string)
   chk::chk_whole_number(resolution)
   chk::chk_gt(resolution, 1)
   chk_x_range(x_range)
+  chk_x_control(x_control)
   # Grouping by the predictor would set the grid column to one level per curve,
   # giving a constant curve for each (#15). Checked here rather than in each
   # method, since both methods would otherwise return without error.
@@ -97,7 +114,8 @@ toxval_predict.default <- function(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 ) {
   chk::abort_chk(
     "`object` must be a fitted model with a `toxval_predict()` method, ",
@@ -146,6 +164,7 @@ toxval_predict.brmsfit <- function(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   asymptote = NULL
 ) {
   chk_dots_unused(..., source = "`brmsfit`")
@@ -158,7 +177,7 @@ toxval_predict.brmsfit <- function(
   responses <- brms_responses(object)
   chk_brms_asymptote(asymptote, object, responses)
 
-  x_vec <- predict_grid(x_range, data[[x_var]], resolution)
+  x_vec <- predict_grid(x_range, data[[x_var]], resolution, x_control)
   curve_set <- brms_curves(object, x_vec, x_var, group_var, responses)
   chk_defined_grid(curve_set$curves, x_vec)
   chk_population_level(curve_set$curves, max(1L, length(responses$names)))
@@ -216,6 +235,7 @@ toxval_predict.drc <- function(
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
+  x_control = NULL,
   n_boot = 1000,
   seed = NULL
 ) {
@@ -241,7 +261,7 @@ toxval_predict.drc <- function(
     chk_var_in_data(group_var, data, "group_var")
   }
 
-  x_vec <- predict_grid(x_range, data[[x_var]], resolution)
+  x_vec <- predict_grid(x_range, data[[x_var]], resolution, x_control)
   curve_set <- drc_curves(object, x_vec, group_var, n_boot, seed)
   chk_defined_grid(curve_set$curves, x_vec)
 
@@ -305,9 +325,8 @@ build_meta <- function(
     multi_var = multi_var,
     resolution = length(x_vec),
     x_range = range(x_vec),
-    # the lowest concentration in the data, not of the grid, which starts
-    # elsewhere when `x_range` is supplied (T21)
-    x_control = min(object$data[[x_var]]),
+    # predict_grid() starts the grid at the control concentration
+    x_control = x_vec[1],
     family = family,
     realisation = realisation,
     n_realisation = nrow(curves[[1]]),
@@ -895,31 +914,68 @@ drc_curve_cols <- function(split, is_shared, id) {
 
 #' Build the predictor grid
 #'
-#' @param x_range The requested range, or `NULL` to take it from `x`.
+#' The grid starts at the control concentration, so the first value of every
+#' curve is the control response. `x_range` sets only the upper end.
+#'
+#' @param x_range The requested range, or `NULL` to end the grid at `max(x)`.
 #' @param x The predictor values in the model data.
 #' @param resolution Number of grid values.
+#' @param x_control The control concentration, or `NULL` for `min(x)`.
 #'
 #' @return A numeric vector of length `resolution`.
 #'
 #' @noRd
-predict_grid <- function(x_range, x, resolution) {
-  if (is.null(x_range)) {
-    x_range <- range(x)
-    if (x_range[1] == x_range[2]) {
-      chk::abort_chk(
-        "`object` must have more than one value of the predictor, or ",
-        "`x_range` must be supplied."
-      )
-    }
+predict_grid <- function(x_range, x, resolution, x_control = NULL) {
+  data_range <- range(x)
+  if (is.null(x_range) && is.null(x_control) && diff(data_range) == 0) {
+    chk::abort_chk(
+      "`object` must have more than one value of the predictor, or ",
+      "`x_range` must be supplied."
+    )
   }
-  seq(x_range[1], x_range[2], length.out = resolution)
+  if (is.null(x_control)) {
+    x_control <- data_range[1]
+  }
+  if (!is.null(x_range) && !isTRUE(all.equal(x_range[1], x_control))) {
+    chk::abort_chk(
+      "`x_range` must start at the control concentration, ",
+      format(x_control),
+      ", not ",
+      format(x_range[1]),
+      "; supply `x_control` to name a different control concentration."
+    )
+  }
+  upper <- if (is.null(x_range)) data_range[2] else x_range[2]
+  if (x_control >= upper) {
+    chk::abort_chk(
+      "`x_control` must be below the upper end of the grid, ",
+      format(upper),
+      ", not ",
+      format(x_control),
+      "."
+    )
+  }
+  if (x_control < data_range[1] || x_control > data_range[2]) {
+    warning(
+      "`x_control`, ",
+      format(x_control),
+      ", lies outside the range of the data, ",
+      format(data_range[1]),
+      " to ",
+      format(data_range[2]),
+      ", so the control response is predicted at a concentration that was ",
+      "not tested.",
+      call. = FALSE
+    )
+  }
+  seq(x_control, upper, length.out = resolution)
 }
 
 #' Check that the model is defined over the whole grid
 #'
 #' A grid value at which no realisation of a curve has a finite prediction lies
 #' outside where the model is defined, such as `x <= 0` for a formula with
-#' `log(x)`. That is a mismatch between `x_range` and the model, so it errors
+#' `log(x)`. That is a mismatch between the grid and the model, so it errors
 #' (T3) rather than returning `NA` estimates. A non-finite value in only some
 #' realisations is left for `find_crossings()`, which skips it.
 #'
@@ -944,7 +1000,7 @@ chk_defined_grid <- function(curves, x_vec) {
       format(min(x_vec[undefined]), digits = 4),
       " and ",
       format(max(x_vec[undefined]), digits = 4),
-      "; `x_range` must lie where the model is defined."
+      "; `x_control` and `x_range` must lie where the model is defined."
     )
   }
   invisible(curves)
@@ -965,6 +1021,18 @@ chk_x_range <- function(x_range) {
     chk::abort_chk("`x_range` must be increasing.")
   }
   invisible(x_range)
+}
+
+#' @noRd
+chk_x_control <- function(x_control) {
+  if (is.null(x_control)) {
+    return(invisible(x_control))
+  }
+  chk::chk_number(x_control, x_name = "`x_control`")
+  if (!is.finite(x_control)) {
+    chk::abort_chk("`x_control` must be finite.")
+  }
+  invisible(x_control)
 }
 
 #' Check the type of `x_var` in the generic
