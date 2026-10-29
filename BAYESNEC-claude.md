@@ -144,6 +144,17 @@ within the grid should equal `bayesnec`'s. Task 5 tests this to `1e-8`. A
 discrepancy there means that one of the packages locates the crossing
 incorrectly.
 
+T21 as amended on #74 (RF, 2026-10-27) departs from `bayesnec` D17 ruling 1 and
+the `bayesnec` #404 rule, which place at the control every realisation past the
+NSEC reference at the control that has no crossing in the direction sought.
+`toxval` censors such a realisation when its first change in response is away
+from the effect and it is on the no-effect side of the reference at a later grid
+value. A reported NSEC then differs from the `bayesnec` rule's where a quantile
+falls among these realisations. In the decreasing row of `brms_model_1`, 7 of 10
+are censored and the lower limit is 0.991338, against 0.9847278 with all 10 at
+the control. Realisations that cross are unaffected, so the task 5 comparison
+stands.
+
 ## 3. Design
 
 ### 3.1 Sources of the grid and the curves
