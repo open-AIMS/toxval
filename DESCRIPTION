@@ -13,8 +13,8 @@ Authors@R: c(
     person("Poisson Consulting Ltd.", role = "cph")
   )
 Description: Extracts NSEC or ECx estimates from supported
-    fitted frequentist (drc) and Bayesian (brms) model objects (see
-    Fisher and Fox (2023) <doi:10.1002/etc.5610>).
+    fitted frequentist (drc) and Bayesian (brms and bayesnec) model
+    objects (see Fisher and Fox (2023) <doi:10.1002/etc.5610>).
 License: GPL (>= 2)
 URL: https://open-aims.github.io/toxval/
 BugReports: https://github.com/open-aims/toxval/issues

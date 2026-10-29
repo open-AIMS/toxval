@@ -259,6 +259,11 @@ test_that("ecx() on a bayesnecfit returns a toxval tibble", {
     result <- suppressWarnings(ecx(fits[[nm]], resolution = 50))
     expect_s3_class(result, "toxval")
     expect_identical(nrow(result), 2L, info = nm)
+    expect_identical(
+      pillar::tbl_sum(result)[["Model"]],
+      "bayesnecfit",
+      info = nm
+    )
   }
 })
 
@@ -268,6 +273,11 @@ test_that("nsec() on a bayesnecfit returns a toxval tibble", {
     result <- suppressWarnings(nsec(fits[[nm]], resolution = 50))
     expect_s3_class(result, "toxval")
     expect_identical(result$direction, c("decreasing", "increasing"))
+    expect_identical(
+      pillar::tbl_sum(result)[["Model"]],
+      "bayesnecfit",
+      info = nm
+    )
   }
 })
 
@@ -440,6 +450,7 @@ test_that("ecx() on a bayesmanecfit returns a toxval tibble", {
 
   expect_s3_class(result, "toxval")
   expect_identical(nrow(result), 2L)
+  expect_identical(pillar::tbl_sum(result)[["Model"]], "bayesmanecfit")
 })
 
 test_that("nsec() on a bayesmanecfit returns a toxval tibble", {
@@ -448,6 +459,7 @@ test_that("nsec() on a bayesmanecfit returns a toxval tibble", {
   expect_s3_class(result, "toxval")
   expect_identical(result$direction, c("decreasing", "increasing"))
   expect_identical(result$anchor, c("model", "model"))
+  expect_identical(pillar::tbl_sum(result)[["Model"]], "bayesmanecfit")
 })
 
 test_that("nsec() on a bayesmanecfit takes each model's reference under the component anchor", {

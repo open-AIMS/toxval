@@ -37,6 +37,13 @@
 #' NSECs are not estimated for `drc` NEC models, whose threshold is a parameter
 #' of the model rather than a feature of a smooth curve.
 #'
+#' @section Fits from bayesnec:
+#' A `bayesnecfit` or `bayesmanecfit` from `bayesnec::bnec()` is accepted when
+#' `bayesnec` is installed; see [toxval_predict()]. `bayesnec` also exports a
+#' function named `nsec()`, and whichever of the two packages is attached later
+#' masks the other's, without a warning. Call `toxval::nsec()` to be sure of
+#' reaching this function.
+#'
 #' @section Multivariate fits:
 #' A multivariate `brmsfit` gives rows for each response, named in the
 #' `response` column as `brms` names them; see [toxval_predict()]. This

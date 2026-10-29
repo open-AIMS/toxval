@@ -131,6 +131,15 @@ or rises above, its control. Under \code{"absolute"} and \code{"relative"}, a
 realisation with nothing to take the proportion of, such as a control at or
 below 0 or a missing asymptote, is excluded from the summary, with a warning.
 }
+\section{Fits from bayesnec}{
+
+A \code{bayesnecfit} or \code{bayesmanecfit} from \code{bayesnec::bnec()} is accepted when
+\code{bayesnec} is installed; see \code{\link[=toxval_predict]{toxval_predict()}}. \code{bayesnec} also exports a
+function named \code{ecx()}, and whichever of the two packages is attached later
+masks the other's, without a warning. Call \code{toxval::ecx()} to be sure of
+reaching this function.
+}
+
 \examples{
 \donttest{
 if (requireNamespace("drc", quietly = TRUE)) {

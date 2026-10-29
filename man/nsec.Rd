@@ -129,6 +129,15 @@ warning.
 NSECs are not estimated for \code{drc} NEC models, whose threshold is a parameter
 of the model rather than a feature of a smooth curve.
 }
+\section{Fits from bayesnec}{
+
+A \code{bayesnecfit} or \code{bayesmanecfit} from \code{bayesnec::bnec()} is accepted when
+\code{bayesnec} is installed; see \code{\link[=toxval_predict]{toxval_predict()}}. \code{bayesnec} also exports a
+function named \code{nsec()}, and whichever of the two packages is attached later
+masks the other's, without a warning. Call \code{toxval::nsec()} to be sure of
+reaching this function.
+}
+
 \section{Multivariate fits}{
 
 A multivariate \code{brmsfit} gives rows for each response, named in the

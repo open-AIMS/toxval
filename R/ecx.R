@@ -41,6 +41,13 @@
 #' realisation with nothing to take the proportion of, such as a control at or
 #' below 0 or a missing asymptote, is excluded from the summary, with a warning.
 #'
+#' @section Fits from bayesnec:
+#' A `bayesnecfit` or `bayesmanecfit` from `bayesnec::bnec()` is accepted when
+#' `bayesnec` is installed; see [toxval_predict()]. `bayesnec` also exports a
+#' function named `ecx()`, and whichever of the two packages is attached later
+#' masks the other's, without a warning. Call `toxval::ecx()` to be sure of
+#' reaching this function.
+#'
 #' @param object A fitted model with a [toxval_predict()] method, or a
 #'   [toxval_pred].
 #' @param proportion A numeric vector of effects, as proportions of the span
