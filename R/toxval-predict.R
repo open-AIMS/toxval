@@ -218,10 +218,8 @@ toxval_predict.drc <- function(
 
 #' Assemble the metadata of a toxval_pred
 #'
-#' Every method builds its `meta` here, so the contract is satisfied in one
-#' place rather than once per method. `resolution` and `x_range` are derived
-#' from the grid rather than from the arguments the method was called with,
-#' which is what they are documented to describe.
+#' Every method builds its `meta` here. `resolution` and `x_range` are taken
+#' from the grid, not from the call.
 #'
 #' @param object The fitted model the realisations came from.
 #' @param x_vec The predictor grid.
@@ -481,13 +479,9 @@ group_levels <- function(x) {
 #'   which are set to 1, or `NULL`.
 #'
 #' @details
-#' Where the model has a population-level predictor other than `x_var` that is
-#' not named as `group_var`, `brms` cannot build the prediction data and errors
-#' in its own terms. That error is caught and restated in terms of `x_var`
-#' and `group_var` (#56), naming the variables `brms` reported. Which variables
-#' need a value is left to `brms` rather than read from the formula, since a
-#' variable in a group-level term, such as `site` in `(1 | site)`, needs none
-#' under `re_formula = NA`.
+#' Where `brms` cannot build the prediction data because the model has another
+#' population-level predictor, its error is restated in terms of `x_var` and
+#' `group_var` (#56). Which variables need a value is left to `brms`.
 #'
 #' @return A numeric matrix, one row per draw and one column per grid value,
 #'   or for a multivariate fit an array with a third dimension named by
@@ -585,11 +579,13 @@ chk_brms_asymptote <- function(asymptote, object, responses) {
 #' The asymptotes of every curve of a brmsfit
 #'
 #' A named non-linear parameter is predicted per draw at the first grid value,
-#' with group-level effects marginalised as for the curves. `brms` applies the
+#' with group-level effects excluded as for the curves. `brms` applies the
 #' link to the whole non-linear formula, so the parameter is on the link scale
 #' and is put on the response scale by the inverse link.
 #'
+#' @param asymptote The `asymptote` argument of `toxval_predict.brmsfit()`.
 #' @param n_realisation The number of posterior draws.
+#' @inheritParams epred_curve
 #'
 #' @return `NULL` when `asymptote` is `NULL`, otherwise a list with one element
 #'   per curve, each a list of two numeric vectors, `decreasing` and
@@ -920,9 +916,8 @@ chk_x_range <- function(x_range) {
 
 #' Check the type of `x_var` in the generic
 #'
-#' `NULL` is valid here but not for every method, so the message does not offer
-#' it: a caller whose class requires `x_var` should not be told `NULL` will do
-#' and then refused it.
+#' `NULL` is valid here but not for every method, so the message does not
+#' offer it.
 #'
 #' @param x_var The supplied `x_var`.
 #'

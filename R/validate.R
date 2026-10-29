@@ -1,7 +1,7 @@
-#' Check the metric arguments shared by the metric functions
+#' Check `type`
 #'
-#' Metric arguments are validated here, once, so that every model class gets
-#' identical checks. Predict-level arguments are checked by `toxval_predict()`.
+#' Metric arguments are checked here so every model class gets the same checks;
+#' predict-level arguments are checked by `toxval_predict()`.
 #'
 #' @noRd
 chk_type <- function(type) {
@@ -14,11 +14,11 @@ chk_type <- function(type) {
   invisible(type)
 }
 
-#' `proportion` is not capped at 1 under `absolute`: a response that goes
-#' negative has more than complete inhibition by definition. Under `range` the
-#' reference cannot pass the curve's own minimum or maximum, nor under
-#' `relative` its asymptote, so it is capped.
-#' Several values give one row each.
+#' Check `proportion`
+#'
+#' Capped at 1 under `range` and `relative`, where the reference cannot pass the
+#' curve's extent or asymptote, but not under `absolute`. Several values give
+#' one row each.
 #'
 #' @noRd
 chk_proportion <- function(proportion, type) {
@@ -37,7 +37,7 @@ chk_proportion <- function(proportion, type) {
   invisible(proportion)
 }
 
-#' `anchor` is `"model"` or `"component"`.
+#' Check `anchor`
 #'
 #' @noRd
 chk_anchor <- function(anchor) {
@@ -46,13 +46,10 @@ chk_anchor <- function(anchor) {
   invisible(anchor)
 }
 
-#' `sig_val` sets the decreasing reference and `1 - sig_val` the increasing
-#' one, so it must be below 0.5 for the two to lie either side of the control.
-#' Values above the lower probability of the summary interval are allowed:
-#' Fisher and Fox (2023, Table 3) report NSECs at 0.05, 0.10 and 0.20. The
-#' fraction `sig_val` of realisations whose control lies at or below the
-#' reference then sets the lower bound of the interval, which those authors
-#' report as the lowest concentration (p. 2026).
+#' Check `sig_val`
+#'
+#' `sig_val` must lie in (0, 0.5) so that the decreasing (`sig_val`) and
+#' increasing (`1 - sig_val`) references lie either side of the median control.
 #'
 #' @noRd
 chk_sig_val <- function(sig_val) {

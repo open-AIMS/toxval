@@ -134,8 +134,7 @@ new_toxval_pred <- function(
 
 #' Check that a toxval_pred satisfies its slot contract
 #'
-#' Called by `new_toxval_pred()`, which is the only way to build the object, so
-#' an unvalidated `toxval_pred` cannot be constructed.
+#' Called by `new_toxval_pred()`.
 #'
 #' @param x An object of class `toxval_pred`.
 #'

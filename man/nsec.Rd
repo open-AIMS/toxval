@@ -65,7 +65,7 @@ to summarise the realisations by, in that order.}
 they are summarised, such as \code{exp} for a model fitted on log
 concentration.}
 
-\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Supplying it is an
+\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#defunct}{\figure{lifecycle-defunct.svg}{options: alt='[Defunct]'}}}{\strong{[Defunct]}} Supplying it is an
 error. Use \code{draws}.}
 
 \item{hormesis_def, horme}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Both

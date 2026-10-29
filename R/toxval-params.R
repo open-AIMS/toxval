@@ -23,7 +23,7 @@
 #' @param xform A function applied to the per-realisation concentrations before
 #'   they are summarised, such as `exp` for a model fitted on log
 #'   concentration.
-#' @param posterior `r lifecycle::badge("deprecated")` Supplying it is an
+#' @param posterior `r lifecycle::badge("defunct")` Supplying it is an
 #'   error. Use `draws`.
 #' @param hormesis_def,horme `r lifecycle::badge("deprecated")` Both
 #'   directions are now always estimated, so these are ignored.

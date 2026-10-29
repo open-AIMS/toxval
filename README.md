@@ -26,7 +26,7 @@ Concentrations (NSEC) with `nsec()`.
 `toxval` currently has methods for Bayesian models fitted with
 [`brms`](https://cran.r-project.org/package=brms) and frequentist models
 fitted with [`drc`](https://cran.r-project.org/package=drc). The package
-is designed so that more model classes can be easy added, letting users
+is designed so that more model classes can be easily added, letting users
 estimate toxicity metrics from whichever modelling framework they work
 in.
 

@@ -13,12 +13,10 @@
 #' | `direct` | `reference`, a response value | as decreasing |
 #'
 #' The increasing `absolute` forms are extra risk for a proportion and relative
-#' deviation for any other response: a 10 per cent increase from a control
-#' of 20 is 22. The reference is `NA` for a realisation whose span, the distance
-#' from the control to the bound, is zero or less, such as a control at or below
-#' 0 under `absolute`, since the proportion then has nothing to be taken of.
-#' Under `range` such a realisation is flagged in `no_span`, so that it is
-#' censored rather than excluded when summarised.
+#' deviation otherwise: a 10 per cent increase from a control of 20 is 22. The
+#' reference is `NA` where the span, the distance from the control to the bound,
+#' is zero or less. Under `range` such a realisation is flagged in `no_span`, so
+#' it is censored rather than excluded when summarised.
 #'
 #' Values are not summarised. A realisation with no crossing in a direction is
 #' `NA`.
@@ -110,11 +108,8 @@ compute_ecx <- function(
 #' `type`.
 #'
 #' Values are not summarised. A realisation with no crossing in a direction is
-#' `NA`. By construction of the quantile, a fraction `sig_val` of the
-#' realisations have a control at or below the decreasing reference, and on a
-#' decreasing curve none of them crosses it. `first_change_away` and
-#' `on_no_effect_side` set how those realisations enter the summary in
-#' `summarise_row()` (#74).
+#' `NA`; `first_change_away` and `on_no_effect_side` set how such realisations
+#' enter the summary in `summarise_row()` (#74).
 #'
 #' @param pred A `toxval_pred`.
 #' @param sig_val The quantile of the control realisations that sets the
@@ -277,9 +272,8 @@ crossings_by_row <- function(curve, x_vec, reference, direction) {
 #'
 #' The first change is the first difference between successive finite values
 #' whose absolute value exceeds `1e-8` times the largest absolute response of
-#' that realisation. Away from the effect is rising when decreasing and falling when
-#' increasing. A realisation with no such difference has no first change and
-#' counts as away (#74).
+#' that realisation. Away from the effect is rising when decreasing and falling
+#' when increasing. A realisation with no such difference counts as away (#74).
 #'
 #' @inheritParams crossings_by_row
 #'
@@ -391,6 +385,8 @@ curve_family <- function(family, keys, i) {
 #' proportion; under `relative` a control at or beyond the asymptote; under
 #' `range` a curve with no extent in that direction.
 #'
+#' @param curve A matrix of realisations, one per row.
+#' @param type One of `"absolute"`, `"relative"` or `"range"`.
 #' @param upper The upper bound from `response_upper_bound()`.
 #' @param asymptote The output of `curve_asymptote()`, used under `relative`.
 #'
@@ -464,6 +460,7 @@ no_span <- function(span, control) {
 #'
 #' @param proportion A single proportion of the span.
 #' @param reference The response value under `direct`.
+#' @inheritParams reference_span
 #'
 #' @noRd
 ecx_reference <- function(
@@ -497,6 +494,7 @@ ecx_reference <- function(
 #'
 #' @param reference The NSEC reference, a numeric vector named `decreasing`
 #'   and `increasing`.
+#' @inheritParams reference_span
 #'
 #' @noRd
 ecnsec_value <- function(curve, reference, type, upper, asymptote = NULL) {

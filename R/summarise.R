@@ -20,20 +20,21 @@
 #'   direction;
 #' - any other has no crossing within the evaluated range. It ranks above
 #'   `max(x_vec)` and is given no value, so a quantile that falls among such
-#'   realisations is reported as `max(x_vec)`.
+#'   realisations is reported as `xform(max(x_vec))`.
 #'
 #' A direction in which no realisation has a crossing returns `NA`. The
 #' call warns once when a reported quantile is censored or a realisation is
 #' excluded.
 #'
 #' `xform` is applied to the realisations before they are summarised. The
-#' `control` and `reference` columns are the central quantile of the
-#' realisations not excluded from that row, the same realisations as the
-#' estimate. Each direction excludes its own, so `control` can differ
-#' between the two rows of one curve, and it is `NA` where every realisation is
-#' excluded. `control` is also `NA` under `type = "direct"`, which does not use
-#' it. `asymptote` is summarised over the same realisations, and is `NA` unless
-#' `type` is `"relative"`.
+#' `control` column is the central quantile of the realisations not excluded
+#' from that row, the same realisations as the estimate. Each direction
+#' excludes its own, so `control` can differ between the two rows of one
+#' curve, and it is `NA` where every realisation is excluded or under
+#' `type = "direct"`. `asymptote` is summarised over the same realisations,
+#' and is `NA` unless `type` is `"relative"`. `reference` is the central
+#' quantile of the non-missing references, which for an NSEC is the single
+#' reference of the curve.
 #'
 #' @param rows The output of `compute_ecx()` or `compute_nsec()`.
 #' @param pred The `toxval_pred` the rows were computed on.
@@ -42,9 +43,8 @@
 #' @param xform A function applied to the realisations.
 #' @param draws A flag. If `TRUE` a `draws` list column holds, for each row, a
 #'   tibble of the realisations with columns `.draw` and `value.draw`, and
-#'   `ecnsec.draw` for an NSEC. The `.draw` suffix keeps them distinct from the
-#'   summary columns, so `tidyr::unnest(result, draws)` does not clash with
-#'   `ecnsec`. A censored realisation is `Inf` and an excluded one `NA`.
+#'   `ecnsec.draw` for an NSEC. A censored realisation is `Inf` and an
+#'   excluded one `NA`.
 #'
 #' @return An object of class `toxval`.
 #'
@@ -94,12 +94,16 @@ summarise_metric <- function(
 #' Summarise one curve and direction
 #'
 #' @param row One row of the output of `compute_ecx()` or `compute_nsec()`.
+#' @param x_control The concentration given to a realisation whose control is
+#'   already past the reference.
+#' @param x_max The highest grid value.
+#' @inheritParams summarise_metric
 #'
-#' @return A list with `estimates`, a one-row tibble of the estimate and interval;
-#'   `descriptors`, a one-row tibble of `control`, `reference`, `asymptote` and,
-#'   for an NSEC, the `ecnsec` summary; `draws`, a tibble of the realisations; and the
-#'   counts `n`, `n_censored` and `n_excluded`, with `censored`, whether a
-#'   reported quantile is censored.
+#' @return A list with `estimates`, a one-row tibble of the estimate and
+#'   interval; `descriptors`, a one-row tibble of `control`, `reference`,
+#'   `asymptote` and, for an NSEC, the `ecnsec` summary; `draws`, a tibble of
+#'   the realisations; the counts `n`, `n_censored` and `n_excluded`; and
+#'   `censored`, whether a reported quantile is censored.
 #'
 #' @noRd
 summarise_row <- function(row, x_control, x_max, prob_vals, xform) {

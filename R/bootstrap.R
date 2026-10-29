@@ -6,12 +6,9 @@
 #' and replicate *i* of another come from the same parameter draw, which is the
 #' alignment invariant `toxval_pred` carries.
 #'
-#' The draw is built from the Cholesky factor of `vcov(object)`, which is unique
-#' for a positive-definite matrix, so a seed gives the same replicates on every
-#' platform. `MASS::mvrnorm()` factorises with `eigen()`, where the sign of each
-#' eigenvector depends on the LAPACK build. The normal deviates fill the matrix
-#' by row, so increasing `n_boot` appends replicates rather than redrawing the
-#' first ones.
+#' The draw uses the Cholesky factor of `vcov(object)`, so a seed gives the
+#' same replicates on every platform, and the deviates fill by row, so
+#' increasing `n_boot` appends replicates rather than redrawing the first ones.
 #'
 #' @param object A fitted model with `coef()` and `vcov()` methods.
 #' @param n_boot Number of bootstrap replicates.
