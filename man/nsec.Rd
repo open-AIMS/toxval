@@ -80,7 +80,32 @@ gives one estimate per level.}
 \item{curveid}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{group_var}.}
 }
 \value{
-A \code{toxval} tibble with one row per curve and direction.
+A \code{toxval} tibble with one row per curve and direction, and the
+columns:
+\itemize{
+\item \code{metric}: \code{"nsec"}.
+\item \code{direction}: \code{"decreasing"} or \code{"increasing"}.
+\item \code{group}: the level of \code{group_var}, where it is supplied.
+\item \code{response}: the response of a multivariate fit.
+\item \code{estimate}, \code{conf.low}, \code{conf.high}: the NSEC, as the \code{prob_vals}
+quantiles of the realisations, after \code{xform}.
+\item \code{sig_val}, \code{type}, \code{anchor}: the arguments of the call.
+\item \code{control}: the predicted response at the lowest concentration.
+\item \code{reference}: the \code{sig_val} (decreasing) or \code{1 - sig_val} (increasing)
+quantile of the control realisations, whose crossing is the NSEC.
+\item \code{asymptote}: the asymptote \code{ecnsec} is measured to, or \code{NA} unless \code{type}
+is \code{"relative"}.
+\item \code{ecnsec}, \code{ecnsec.low}, \code{ecnsec.high}: the effect at the NSEC, as a
+proportion of the span named by \code{type}, summarised by \code{prob_vals}.
+\item \code{draws}: where \code{draws = TRUE}, a tibble per row of \code{.draw},
+\code{value.draw}, the NSEC of each realisation, and \code{ecnsec.draw}. A
+realisation that does not reach the reference is \code{Inf} in \code{value.draw},
+and one excluded from the summary is \code{NA}.
+}
+
+\code{control}, \code{reference} and \code{asymptote} are on the response scale, as the
+central \code{prob_vals} quantile of the realisations. The tibble prints the
+model class and the number of realisations above the rows.
 }
 \description{
 Estimates the No-Significant-Effect Concentration (NSEC), the concentration

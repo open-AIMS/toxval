@@ -75,7 +75,31 @@
 #'   not model-averaged.
 #' @param curveid `r lifecycle::badge("deprecated")` Use `group_var`.
 #'
-#' @return A `toxval` tibble with one row per curve and direction.
+#' @return A `toxval` tibble with one row per curve and direction, and the
+#'   columns:
+#'
+#'   - `metric`: `"nsec"`.
+#'   - `direction`: `"decreasing"` or `"increasing"`.
+#'   - `group`: the level of `group_var`, where it is supplied.
+#'   - `response`: the response of a multivariate fit.
+#'   - `estimate`, `conf.low`, `conf.high`: the NSEC, as the `prob_vals`
+#'     quantiles of the realisations, after `xform`.
+#'   - `sig_val`, `type`, `anchor`: the arguments of the call.
+#'   - `control`: the predicted response at the lowest concentration.
+#'   - `reference`: the `sig_val` (decreasing) or `1 - sig_val` (increasing)
+#'     quantile of the control realisations, whose crossing is the NSEC.
+#'   - `asymptote`: the asymptote `ecnsec` is measured to, or `NA` unless `type`
+#'     is `"relative"`.
+#'   - `ecnsec`, `ecnsec.low`, `ecnsec.high`: the effect at the NSEC, as a
+#'     proportion of the span named by `type`, summarised by `prob_vals`.
+#'   - `draws`: where `draws = TRUE`, a tibble per row of `.draw`,
+#'     `value.draw`, the NSEC of each realisation, and `ecnsec.draw`. A
+#'     realisation that does not reach the reference is `Inf` in `value.draw`,
+#'     and one excluded from the summary is `NA`.
+#'
+#'   `control`, `reference` and `asymptote` are on the response scale, as the
+#'   central `prob_vals` quantile of the realisations. The tibble prints the
+#'   model class and the number of realisations above the rows.
 #'
 #' @examples
 #' \donttest{
