@@ -267,9 +267,10 @@ The four classes of section 3.3 follow in later pull requests.
 ## 5. Branch
 
 The work is on `phase-7-bayesnec-methods`. PR #66 has merged into `phase-2`.
-The branch is now built on PR #78, which starts every grid at the control
-concentration (#73). The pull request goes into `phase-2`. It is merged after
-#78 and before #77, the documentation review (`BAYESNEC-claude.md` §5).
+The branch is built on PR #78, which starts every grid at the control
+concentration (#73) and has merged into `phase-2`. The pull request goes into
+`phase-2`, and is merged before #77, the documentation review
+(`BAYESNEC-claude.md` §5).
 
 ## 6. Decisions and points for review
 

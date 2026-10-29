@@ -871,17 +871,17 @@ at `9a3b846`, and rebased onto `6bdd99c` on 2026-10-23 and onto `2436858` on
 commits are ancestors of `phase-2` and no `--onto` rebase is needed.
 
 On 2026-10-29 the branch was rebased onto `issue-73-x-control` (PR #78, at
-`aa43cda`), because #73 changes how every method sets `x_control`. The pull
-request is opened from `beckyfisher:phase-7-bayesnec-methods` into
-`open-AIMS:phase-2`, ready for review. Until #78 merges it also shows #78's
-commits. #78 is merged first, and #77, AP's documentation review, last. #77
-edits the same comments in `R/compute.R`, `R/toxval-predict.R`, `test-ecx.R`
-and `test-nsec.R`, so it is rebased over this branch.
+`aa43cda`), because #73 changes how every method sets `x_control`. #78 merged
+into `phase-2` the same day with a merge commit, whose content equals
+`aa43cda`. The pull request is opened from
+`beckyfisher:phase-7-bayesnec-methods` into `open-AIMS:phase-2`, ready for
+review. #77, AP's documentation review, is merged last. It edits the same
+comments in `R/compute.R`, `R/toxval-predict.R`, `test-ecx.R` and
+`test-nsec.R`, so it is rebased over this branch.
 
-While #78 is open the branch is rebased with
-`git rebase origin/issue-73-x-control`. A rebase conflicts mainly in
+A later rebase onto `upstream/phase-2` conflicts mainly in
 `R/toxval-predict.R`, where the methods sit beside the `brmsfit` and `drc`
-methods that #78 edits, and in `DESCRIPTION`, `NAMESPACE` and `man/`, which
+methods, and in `DESCRIPTION`, `NAMESPACE` and `man/`, which
 `devtools::document()` regenerates.
 
 | needed | by task | from | state on 2026-10-26 |
