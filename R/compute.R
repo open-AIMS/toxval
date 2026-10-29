@@ -373,7 +373,6 @@ response_upper_bound <- function(meta, keys, i) {
     # the trials in the data (T26); `bnec_newdata()` sets them to 1 for a
     # `bayesnec` fit
     binomial = ,
-    binomial = ,
     beta_binomial = ,
     zero_inflated_binomial = 1,
     Inf

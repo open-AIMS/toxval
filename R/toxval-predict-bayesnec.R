@@ -206,12 +206,10 @@ chk_one_family <- function(mod_fits) {
 #' Reproduces `bayesnec`'s own choice, so that the realisations are the draws
 #' its estimates and plots use: the index stored on the object when it was made
 #' for the same number of draws, and otherwise a rebuild from the stored seed,
-#' or from 216 where none is stored (`bayesnec` #216). Each model keeps
-#' `round(n * weight)` of the `n` draws, sampled without replacement. An index
-#' drawn here from a seed argument, as the `drc` bootstrap is, was rejected,
-#' because it would give a second averaged posterior of the same object
-#' (BAYESNEC-claude.md §3.2). A comparison test with
-#' `bayesnec::posterior_epred()` fails if `bayesnec` changes the rule.
+#' or from 216, `bayesnec`'s default, where none is stored. Each model keeps
+#' `round(n * weight)` of the `n` draws, sampled without replacement. A
+#' comparison test with `bayesnec::posterior_epred()` fails if `bayesnec`
+#' changes the rule.
 #'
 #' @param object A `bayesmanecfit`.
 #' @param model_set The names of the models, in the order of `object$mod_fits`.
