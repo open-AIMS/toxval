@@ -51,7 +51,29 @@
 #' @param ecx_val `r lifecycle::badge("deprecated")` Use `proportion`, or
 #'   `reference` under `type = "direct"`.
 #'
-#' @return A `toxval` tibble with one row per curve, proportion and direction.
+#' @return A `toxval` tibble with one row per curve, proportion and direction,
+#'   and the columns:
+#'
+#'   - `metric`: `"ecx"`.
+#'   - `direction`: `"decreasing"` or `"increasing"`.
+#'   - `group`: the level of `group_var`, where it is supplied.
+#'   - `response`: the response of a multivariate `brmsfit`.
+#'   - `estimate`, `conf.low`, `conf.high`: the ECx, as the `prob_vals`
+#'     quantiles of the realisations, after `xform`.
+#'   - `proportion`, `type`: the arguments of the call. `proportion` is `NA`
+#'     under `type = "direct"`.
+#'   - `control`: the predicted response at the lowest concentration, or `NA`
+#'     under `type = "direct"`.
+#'   - `reference`: the response whose crossing is the ECx.
+#'   - `asymptote`: the asymptote the span is measured to, or `NA` unless `type`
+#'     is `"relative"`.
+#'   - `draws`: where `draws = TRUE`, a tibble per row of `.draw` and
+#'     `value.draw`, the ECx of each realisation. A realisation that does not
+#'     reach the reference is `Inf`, and one excluded from the summary is `NA`.
+#'
+#'   `control`, `reference` and `asymptote` are on the response scale, as the
+#'   central `prob_vals` quantile of the realisations. The tibble prints the
+#'   model class and the number of realisations above the rows.
 #'
 #' @examplesIf requireNamespace("drc", quietly = TRUE)
 #' \donttest{

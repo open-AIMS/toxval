@@ -79,7 +79,30 @@ directions are now always estimated, so these are ignored.}
 gives one estimate per level.}
 }
 \value{
-A \code{toxval} tibble with one row per curve, proportion and direction.
+A \code{toxval} tibble with one row per curve, proportion and direction,
+and the columns:
+\itemize{
+\item \code{metric}: \code{"ecx"}.
+\item \code{direction}: \code{"decreasing"} or \code{"increasing"}.
+\item \code{group}: the level of \code{group_var}, where it is supplied.
+\item \code{response}: the response of a multivariate \code{brmsfit}.
+\item \code{estimate}, \code{conf.low}, \code{conf.high}: the ECx, as the \code{prob_vals}
+quantiles of the realisations, after \code{xform}.
+\item \code{proportion}, \code{type}: the arguments of the call. \code{proportion} is \code{NA}
+under \code{type = "direct"}.
+\item \code{control}: the predicted response at the lowest concentration, or \code{NA}
+under \code{type = "direct"}.
+\item \code{reference}: the response whose crossing is the ECx.
+\item \code{asymptote}: the asymptote the span is measured to, or \code{NA} unless \code{type}
+is \code{"relative"}.
+\item \code{draws}: where \code{draws = TRUE}, a tibble per row of \code{.draw} and
+\code{value.draw}, the ECx of each realisation. A realisation that does not
+reach the reference is \code{Inf}, and one excluded from the summary is \code{NA}.
+}
+
+\code{control}, \code{reference} and \code{asymptote} are on the response scale, as the
+central \code{prob_vals} quantile of the realisations. The tibble prints the
+model class and the number of realisations above the rows.
 }
 \description{
 Estimates the concentration at which the fitted response changes by a given
