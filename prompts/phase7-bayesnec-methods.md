@@ -710,3 +710,92 @@ draft reproducible across the rebases #66 will force, and the archive in
 `_cache/` keeps the code after a rebase.
 
 ---
+
+## Session: phase7-bayesnec-methods (check and pull request)
+Date: 2026-10-29
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:** can you check that my bayesnec methods branch is all good to go and
+then open a PR into Ayla P2 PR?
+
+**Claude:** The target was taken to be `phase-2`, the head of #59. #66 had
+merged into `phase-2` on 2026-10-28 with a merge commit, so the branch was 14
+commits ahead of `phase-2` and one behind (AP's `7e65751`, air formatting). In
+a scratch worktree rebased onto `upstream/phase-2`: 872 expectations passed
+with none failing or skipped (R 4.6.1, `bayesnec` 2.1.3.43); R CMD check
+`--as-cran` gave 0 errors, 0 warnings and two notes (the pkgdown URL returns
+404, and `.git` from the worktree); `air` and `devtools::document()` gave no
+change. The drc snapshot failure recorded on 2026-10-26 no longer occurs.
+
+Two defects were found in this branch's own code:
+
+- `response_upper_bound()` listed `binomial = ,` twice, from `7006458`;
+- the `@noRd` text of `bnec_draw_index()` cited `bayesnec` #216 and described
+  a rejected alternative, against CLAUDE.md §6.
+
+By the plan, tasks 4, 5 and 0 were not done: the `asymptote` slot is not
+filled and `anchor = "component"` is refused on a model set; there is no
+`tests/local` comparison, README, `Description` or example; T35 is not
+recorded. The #66 thread confirms task 0 belongs to this branch (RF ruling
+comment 2026-10-24, "T35 is left for the phase 7 branch"; AP 2026-10-28).
+AP's draft #77, the documentation review on `phase-2`, conflicts with this
+branch in seven places, all comment or roxygen text, in `R/compute.R`,
+`R/toxval-predict.R`, `test-ecx.R` and `test-nsec.R`. The uncommitted
+`BAYESNEC-claude.md` §2.2 paragraph from the #74 sessions is documentation of
+an already merged fix, and belongs on this branch, the only one holding that
+file.
+
+**User:** can we do the fixes you suggest and the target my other brnach PR?
+#77 Ayala wants to complete last.
+
+**Claude:** The other branch is #78, `beckyfisher:issue-73-x-control` into
+`phase-2`, which starts every grid at the control concentration (T41). A pull
+request in `open-AIMS` cannot target a branch on the fork, so the branch was
+stacked on #78 and the pull request still opens into `phase-2`, to be merged
+after #78 and before #77. This is how #78 was itself stacked on #77 earlier.
+
+The branch was rebased onto `origin/issue-73-x-control` (`aa43cda`). One
+commit conflicted, `7b3925d`, in `R/toxval-predict.R`: the generic's roxygen
+kept #78's "control concentration" section with this branch's `@param object`,
+and `build_meta()` kept #78's `x_control = x_vec[1]`.
+
+#78 makes `ecx()` and `nsec()` pass `x_control` to `toxval_predict()`, which
+the bayesnec methods did not take, so T39 would have made every `ecx()` call on
+a `bnec()` fit an error. The methods were changed to follow T41:
+
+- `toxval_predict.bayesnecfit()`, `.bayesmanecfit()` and `.bnecfit()` take
+  `x_control = NULL`;
+- the concentrations come from `predict_grid(x_range, data[[x_var]],
+  resolution, x_control)`, so the refusal of an `x_range` that does not start at
+  the control, and the warning for an `x_control` outside the data, apply as for
+  a `brmsfit`;
+- `bnec_grid(object, x_vec)` passes `resolution = length(x_vec)` and
+  `x_range = range(x_vec)` to `bayesnec::bnec_newdata()`. `bayesnec`'s
+  `prediction_grid()` builds `seq(min(x_range), max(x_range), length =
+  resolution)`, the same call as `predict_grid()`, so the predictor column
+  equals `x_vec` and `bayesnec` still sets the trials and the rate denominator;
+- `build_meta()` loses the `data` argument this branch had added, since
+  `x_control` now comes from `x_vec[1]`.
+
+Copying `predict_grid()`'s rules into `bnec_grid()` was not considered further:
+reusing it keeps one implementation of T41.
+
+The test "honours a supplied x_range" passed `x_range = c(0.6, 1)` on
+`bnec_model_1`, whose lowest concentration is 0.5, and now errors as T41
+intends. It was replaced by tests that `x_range` ends the grid, that
+`x_control` starts it on both classes (`x_vec` identical to
+`seq(x_control, upper, length.out = 50)`), that a mismatched `x_range` stops
+with T41's message, and that `ecx()` passes `x_control` to a `bayesnecfit`.
+
+Commits: `dc4b877` (the two defects), `d8525e5` (the #73 change), `ef56dd3`
+(the §2.2 T21 paragraph, committed as written by the #74 session) and
+`5ebb1d0` (the plan: §2.2 control row, the §3.1 signature with `...` second
+and `x_control`, the body, `bnec_grid()` and `build_meta()` text, task 2 test
+2, and §5 of both documents for the stack on #78 and the merge order).
+Full suite at `d8525e5`: 896 expectations, none failing or skipped. R CMD
+check `--as-cran`: 0 errors, 0 warnings, the same two notes. The old head was
+kept as `backup/phase-7-pre-rebase-20261029` at `8c342af`.
+
+---
