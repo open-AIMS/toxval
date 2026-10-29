@@ -25,8 +25,7 @@ ecx(
 )
 }
 \arguments{
-\item{object}{A fitted model with a \code{\link[=toxval_predict]{toxval_predict()}} method, or a
-\link{toxval_pred}.}
+\item{object}{A model fitted with brms or drc, or a \link{toxval_pred} object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
 \code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.
@@ -107,7 +106,7 @@ model class and the number of realisations above the rows.
 \description{
 Estimates the concentration at which the fitted response changes by a given
 proportion from the control, in each direction, for a fitted
-concentration-response model or for a \link{toxval_pred} built from one.
+concentration-response model.
 }
 \details{
 The model is evaluated over a grid of concentrations once per realisation,

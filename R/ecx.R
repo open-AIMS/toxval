@@ -2,7 +2,7 @@
 #'
 #' Estimates the concentration at which the fitted response changes by a given
 #' proportion from the control, in each direction, for a fitted
-#' concentration-response model or for a [toxval_pred] built from one.
+#' concentration-response model.
 #'
 #' @details
 #' The model is evaluated over a grid of concentrations once per realisation,
@@ -41,6 +41,7 @@
 #' below 0 or a missing asymptote, is excluded from the summary, with a warning.
 #'
 #' @inheritParams toxval_params
+#' @param object A model fitted with brms or drc, or a [toxval_pred] object.
 #' @param proportion A numeric vector of effects, as proportions of the span
 #'   named by `type`; 0.1 is the EC10. Each value gives its own rows. Not
 #'   supplied under `type = "direct"`.
