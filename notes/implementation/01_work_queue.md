@@ -38,6 +38,15 @@ survives.
 
 ## The dependency untangle  *(now issue #39)*
 
+Amended 2026-10-29 (T35, #68). The `toxval` side of the untangle is done:
+phase 3 deleted the `bnecfit` and `predict` methods and `newdata_eval()`, and
+removed `bayesnec` from `Imports`. The `bayesnec` side below is replaced: the
+`toxval_predict()` methods for `bayesnec` fits are in `toxval`, and `bayesnec`
+does not import `toxval` (`BAYESNEC-human.md`). Phase 7 adds `bayesnec` to
+`Suggests`, so the constraint on `DESCRIPTION` below
+no longer applies. The rest of this entry is the record of the plan as first
+written.
+
 `toxval` has `bayesnec` in its `Imports`, so the dependency runs backwards from
 where it is going. Both packages also register the same S3 methods today —
 `predict.bayesnecfit`, `predict.bayesmanecfit`, `nsec.brmsfit`, `nsec.drc` —

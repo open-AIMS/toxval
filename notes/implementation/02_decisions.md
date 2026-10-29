@@ -38,8 +38,9 @@ at the edge of the tested range. Those **warn** and return the estimate.
 
 ## T4 — Fixes here are canonical, but `bayesnec`'s code is still evidence
 
-`bayesnec` is deleting its own `ecx()`/`nsec()`, not maintaining them. **Do not
-port fixes back.**
+~~`bayesnec` is deleting its own `ecx()`/`nsec()`, not maintaining them.~~
+Amended 2026-10-29 (T35): whether `bayesnec` keeps its own `ecx()` and `nsec()`
+is for `bayesnec` to decide. **Do not port fixes back.**
 
 **Amended 2026-08-19.** This decision originally also said "do not consult
 `bayesnec`'s copies as a reference". That is too strong and following it would
@@ -475,9 +476,13 @@ Settled 2026-10-18 (RF). The argument is specified in `REFACTOR-claude.md`
 §3.8.
 
 `nsec()` gains `anchor = c("model", "component")`, defaulting to `"model"`.
-`"model"` and `"component"` give the same values for every class toxval
-supports, since none is model-averaged. The `anchor` column appears on the
-result from phase 4, which is done with phase 5 (T33).
+~~`"model"` and `"component"` give the same values for every class toxval
+supports, since none is model-averaged.~~ Amended 2026-10-29 (T35): they differ
+for a `bayesmanecfit`, where `"component"` takes each equation's reference from
+the realisations that `meta$draw_model` assigns to that equation
+(`BAYESNEC-claude.md` §3.2). They give the same values for every other class.
+The `anchor` column appears on the result from phase 4, which is done with
+phase 5 (T33).
 
 `"control"` and its `control_fit` argument are left out of phase 4 (RF,
 2026-10-19, amending this entry as first settled). `"control"` was meant to
@@ -750,9 +755,40 @@ realisation with no span is censored rather than excluded (T38), so the
 increasing row of a monotone decreasing curve keeps its `control`. `nsec()` is unaffected: its reference is one finite value per curve,
 so no realisation is excluded.
 
+## T35 — `toxval` contains the `toxval_predict()` methods for `bayesnec` fits (#68)
+
+Settled 2026-10-23 (RF and AP) on #68, replacing the split proposed on #39.
+Stated in full in `BAYESNEC-claude.md` §1.
+
+`toxval` contains the `toxval_predict()` methods for fits made with `bayesnec`,
+and lists `bayesnec` in `Suggests`. `ecx()` and `nsec()` then accept a `bnec()`
+fit again. `bayesnec` does not import `toxval`, so CRAN publication of `toxval`
+(#45, phase 6) no longer has to come before support for `bayesnec` fits
+(phase 7).
+
+A `toxval_pred` holds facts that `toxval` defines for its compute functions and
+that `bayesnec` has no use for: the `keys` table (T14), `meta$x_control` (T21),
+the per-realisation asymptotes (T24), the per-curve trials (T26), and, for a
+model-averaged fit, the equation behind each realisation. Each was added or
+changed during phases 2 to 4. Had the methods been in `bayesnec`, each change
+would have needed a `bayesnec` release made after the `toxval` release that
+introduced it, and `bayesnec` could not import `toxval` at all until `toxval`
+was on CRAN (#45).
+
+The rejected alternative is the split of #39, in which `bayesnec` held the
+methods and imported `toxval`. Under it every change to the `toxval_pred`
+contract would need a release of both packages, and support for `bayesnec` fits
+would wait on CRAN publication of `toxval`.
+
+`toxval_pred` stays exported and documented, and a change to its contract stays
+a breaking change, because another package may still supply a
+`toxval_predict()` method. What `bayesnec` does with its own `ecx()` and
+`nsec()` is for `bayesnec` to decide.
+
 ## T36 — a grid value with no finite prediction is an error (T3)
 
-Settled 2026-10-24 (RF), ruling 3 on PR #66. T35 is held for #68.
+Settled 2026-10-24 (RF), ruling 3 on PR #66. T35 was held for #68 and
+recorded on 2026-10-29.
 
 `toxval_predict()` errors when a value of `x_vec` has no finite prediction in
 any realisation, naming the affected range of the predictor. An `x_range` below
