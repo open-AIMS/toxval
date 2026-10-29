@@ -411,7 +411,8 @@ chk_settings <- function(x_vec, meta) {
   # `resolution` and `x_range` are the settings the grid was built from and are
   # reported as such, so an object where they disagree with `x_vec` describes
   # itself wrongly. The compute functions read the control from the first grid
-  # value, and T21 places realisations at `x_control`, so the two must agree.
+  # value, and `summarise_metric()` places realisations at `x_control`, so the
+  # two must agree.
   if (!isTRUE(all.equal(x_vec[1], meta$x_control))) {
     chk::abort_chk(
       "`x_vec` must start at `meta$x_control`, the control concentration (",

@@ -325,7 +325,7 @@ build_meta <- function(
     multi_var = multi_var,
     resolution = length(x_vec),
     x_range = range(x_vec),
-    # predict_grid() starts the grid at the control concentration (T41)
+    # predict_grid() starts the grid at the control concentration
     x_control = x_vec[1],
     family = family,
     realisation = realisation,
@@ -915,7 +915,7 @@ drc_curve_cols <- function(split, is_shared, id) {
 #' Build the predictor grid
 #'
 #' The grid starts at the control concentration, so the first value of every
-#' curve is the control response (T41). `x_range` sets only the upper end.
+#' curve is the control response. `x_range` sets only the upper end.
 #'
 #' @param x_range The requested range, or `NULL` to end the grid at `max(x)`.
 #' @param x The predictor values in the model data.

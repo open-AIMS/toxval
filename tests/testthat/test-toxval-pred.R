@@ -230,8 +230,8 @@ test_that("new_toxval_pred errors when x_control is not finite", {
 })
 
 test_that("new_toxval_pred errors when x_vec does not start at x_control", {
-  # the compute functions read the control at the first grid value, and T21
-  # places realisations at x_control, so the two must be the same value
+  # the compute functions read the control at the first grid value, and
+  # summarise_metric() places realisations at x_control
   expect_error(
     new_toxval_pred(
       curves = list(pred_curve()),
