@@ -84,7 +84,7 @@ and the columns:
 \item \code{metric}: \code{"ecx"}.
 \item \code{direction}: \code{"decreasing"} or \code{"increasing"}.
 \item \code{group}: the level of \code{group_var}, where it is supplied.
-\item \code{response}: the response of a multivariate \code{brmsfit}.
+\item \code{response}: the response of a multivariate fit.
 \item \code{estimate}, \code{conf.low}, \code{conf.high}: the ECx, as the \code{prob_vals}
 quantiles of the realisations, after \code{xform}.
 \item \code{proportion}, \code{type}: the arguments of the call. \code{proportion} is \code{NA}

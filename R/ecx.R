@@ -58,7 +58,7 @@
 #'   - `metric`: `"ecx"`.
 #'   - `direction`: `"decreasing"` or `"increasing"`.
 #'   - `group`: the level of `group_var`, where it is supplied.
-#'   - `response`: the response of a multivariate `brmsfit`.
+#'   - `response`: the response of a multivariate fit.
 #'   - `estimate`, `conf.low`, `conf.high`: the ECx, as the `prob_vals`
 #'     quantiles of the realisations, after `xform`.
 #'   - `proportion`, `type`: the arguments of the call. `proportion` is `NA`
