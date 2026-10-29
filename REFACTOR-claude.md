@@ -749,8 +749,8 @@ nsec(fit, anchor = c("model", "component", "control"))
 
 | `anchor` | threshold from | reading |
 |---|---|---|
-| `"model"` *(default)* | the `sig_val` quantile of the **model-averaged** control posterior | where the averaged curve departs from the averaged control |
-| `"component"` | the same quantile of **each component model's** control, applied to that model's own realisations | pick a model, compute its NSEC, repeat — the strict BMA mixture |
+| `"model"` *(default except for `bayesmanecfit`)* | the `sig_val` quantile of the **model-averaged** control posterior | where the averaged curve departs from the averaged control |
+| `"component"` *(default for `bayesmanecfit`)* | the same quantile of **each component model's** control, applied to that model's own realisations | pick a model, compute its NSEC, repeat — the strict BMA mixture |
 | `"control"` | a **control-only fit**, in the same family and framework | where the curve departs from the control estimated on its own |
 
 `anchor` is a descriptor column on the result, so the choice travels with the
@@ -759,7 +759,7 @@ estimate rather than being invisible in the number.
 For a single (non-averaged) fit `"model"` and `"component"` coincide — there is
 only one model — so the distinction is a model-averaging one.
 
-#### Why `"model"` is the default
+#### Why `"model"` was the original default
 
 **Ratified 2026-09-05 (RF)**; see decision T12.
 
@@ -785,8 +785,8 @@ carries only 17% of the weight**. Under `"component"` that minority model uses
 its own higher threshold, crosses it sooner, and single-handedly sets the
 reported lower bound.
 
-`"model"` is the default because the values it pools are all measured against
-the *same* y-threshold, so the estimate has a single interpretable reference
+The original `"model"` choice pooled values measured against the *same*
+y-threshold, so the estimate has a single interpretable reference
 that can be drawn on the plot. Under `"component"` some draws are "distance to
 2.035" and others "distance to 2.098", and the question "what response level
 does this NSEC correspond to?" has no single answer. It is the same fork as
@@ -794,14 +794,16 @@ does this NSEC correspond to?" has no single answer. It is the same fork as
 inversion work, resolved the same way: average the distributions, then derive
 the endpoint.
 
-`"component"` is kept rather than removed because it is the strict Bayesian
+`"component"` is available because it is the strict Bayesian
 model average — the weighted mixture of per-model posteriors — and because it
 reproduces what `bayesnec` returns today, which matters for anyone checking
 previously published values.
 
 Note `"model"` understates uncertainty about the control relative to
 `"component"`, by collapsing it to one pooled number. That is the cost of the
-default and should be documented, not glossed.
+original default and should be documented, not glossed. On 2026-10-29 RF chose
+`"component"` as the `bayesmanecfit` default to match `bayesnec` while retaining
+`"model"` as an explicit option (T12). Other classes still default to `"model"`.
 
 #### `anchor = "control"`
 

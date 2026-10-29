@@ -39,8 +39,10 @@ at the edge of the tested range. Those **warn** and return the estimate.
 ## T4 — Fixes here are canonical, but `bayesnec`'s code is still evidence
 
 ~~`bayesnec` is deleting its own `ecx()`/`nsec()`, not maintaining them.~~
-Amended 2026-10-29 (T35): whether `bayesnec` keeps its own `ecx()` and `nsec()`
-is for `bayesnec` to decide. **Do not port fixes back.**
+Amended 2026-10-29 (T35): `bayesnec` keeps its own `ecx()` and `nsec()` for now.
+The agreed NSEC no-effect rule is ported to `bayesnec` so the overlapping
+functions can give the same answer. Further changes to either implementation
+should be compared across packages before release.
 
 **Amended 2026-08-19.** This decision originally also said "do not consult
 `bayesnec`'s copies as a reference". That is too strong and following it would
@@ -221,15 +223,17 @@ amend this entry and need their own evidence: #76.
 
 This is an approach rather than a definition, so it did not gate phase 0.
 
-## T12 — `anchor` defaults to `"model"` (#19, `nsec` half)
+## T12 — the default NSEC reference (#19, `nsec` half)
 
 Ratified 2026-09-05 (RF). Stated in full in `REFACTOR-claude.md` §3.8.
 
-For a model-averaged fit the NSEC threshold is the `sig_val` quantile of the
-**model-averaged** control posterior, so every draw is measured against one
-common response level. `"component"` — each component's own control, the
-strict BMA mixture and what `bayesnec` returns today — remains available, as
-does the reserved `"control"`. Only the default was in question.
+The original default was `"model"`: its NSEC reference is the `sig_val`
+quantile of the model-averaged control posterior. The `"component"` reference
+uses every control draw of each equation's fit. On 2026-10-29 RF changed the
+default for a `bayesmanecfit` to `"component"`, so an ordinary toxval call
+agrees with `bayesnec::nsec()` on the same fit. Other classes continue to use
+`"model"` by default. Both choices remain explicit arguments and appear in
+the result. The reserved `"control"` choice is not implemented.
 
 **This completes phase 0.** #19, #20, #49 and the `anchor` default are all
 settled, so `REFACTOR-claude.md` §4 phase 1 can begin.
@@ -377,6 +381,12 @@ lies:
   realisations is reported as `max(x_vec)`, and the call warns with the
   censored fraction (T25).
 
+Amended 2026-10-29 (RF): when any realisation is censored, the reported
+quantiles use observed order statistics (`stats::quantile(type = 1)`). This
+matches `bayesnec::summarise_censored()`. Interpolating a finite crossing with
+an unknown crossing beyond the grid would report the boundary even when the
+order statistic is finite. Uncensored summaries retain type 7.
+
 The increasing direction mirrors the first rule against the `1 - sig_val`
 reference. In `ecx()` the second rule applies as in `nsec()`. A realisation
 whose `ecx()` reference is `NA`, a span of zero or less (T18), is excluded from
@@ -454,10 +464,11 @@ of group 2, whose lower limit changes from 0.9789 to 1.004, and 8 of 10 in the
 increasing row, from 0.9205 to 0.9418. In the sp_growth decreasing row of
 `nsec_multi_model_2` at 50 points it censors 5 of 10, and the NSEC changes from
 0.8591841 (0.3908073 to 1.5) to 0.8671501 (0.410851 to 1.5). These agree with
-the values in #74, computed outside toxval with quantile type 7.
+the values in #74, computed outside toxval with quantile type 7. They precede
+the 2026-10-29 type 1 summary amendment above.
 
-The amendment departs from `bayesnec` D17 ruling 1 and the `bayesnec` #404
-rule, which T21 adopted and which place every such realisation at the control.
+The 2026-10-27 amendment departed from `bayesnec` D17 ruling 1 and the
+`bayesnec` #404 rule. On 2026-10-29 the same rule was adopted in `bayesnec`.
 
 ## T22 — `lifecycle` joins `Imports`
 
@@ -475,7 +486,8 @@ and has a plain warning (T29).
 Settled 2026-10-18 (RF). The argument is specified in `REFACTOR-claude.md`
 §3.8.
 
-`nsec()` gains `anchor = c("model", "component")`, defaulting to `"model"`.
+`nsec()` accepts `"model"` and `"component"`. Its default resolves to
+`"component"` for a `bayesmanecfit` and `"model"` for other classes (T12).
 ~~`"model"` and `"component"` give the same values for every class toxval
 supports, since none is model-averaged.~~ Amended 2026-10-29 (T35): they differ
 for a `bayesmanecfit`, where `"component"` takes each equation's reference from
@@ -747,7 +759,7 @@ reference, and the EC10 reference was 0.8158 against 0.9 x 0.9045 = 0.8140.
 
 Under `absolute` every reference is an increasing linear function of the
 control (0.9 x control decreasing, 1.1 x control increasing, 0.1 + 0.9 x control
-increasing on a proportion), and type 7 quantiles commute with such a
+increasing on a proportion), and its quantiles commute with such a
 function, so the relation holds exactly in the printed table. Under `range` the
 reference also depends on each realisation's minimum or maximum, so it does
 not.

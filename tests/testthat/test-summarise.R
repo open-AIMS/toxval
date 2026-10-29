@@ -107,6 +107,31 @@ test_that("summarise_metric takes quantiles of the crossings", {
   )
 })
 
+test_that("censored quantiles use observed order statistics", {
+  n <- 100L
+  row <- dplyr::tibble(
+    direction = "decreasing",
+    type = "absolute",
+    draws = list(c(1:9, rep(NA_real_, n - 9L))),
+    control = list(rep(10, n)),
+    reference = list(rep(5, n)),
+    asymptote = list(rep(NA_real_, n))
+  )
+
+  result <- toxval:::summarise_row(
+    row,
+    x_control = 0,
+    x_max = 10,
+    prob_vals = c(0.5, 0.025, 0.975),
+    xform = identity
+  )
+
+  expect_equal(result$estimates$conf.low, 3)
+  expect_equal(result$estimates$estimate, 10)
+  expect_true(result$censored)
+  expect_identical(result$n_censored, 91L)
+})
+
 test_that("summarise_metric reports the central control and reference", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 8 - x_vec)), x_vec)
@@ -282,7 +307,7 @@ test_that("summarise_metric keeps T21 for an ECx of every type on the same curve
   }
 })
 
-test_that("summarise_metric reports a censored quantile at the highest concentration (T21)", {
+test_that("summarise_metric reports a censored upper quantile at the highest concentration (T21)", {
   x_vec <- 0:10
   # the second realisation reaches its EC10 reference of 9 only at x = 20
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - x_vec / 20)), x_vec)
@@ -299,7 +324,7 @@ test_that("summarise_metric reports a censored quantile at the highest concentra
 
   expect_equal(
     unlist(result[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 10, conf.low = 1, conf.high = 10)
+    c(estimate = 1, conf.low = 1, conf.high = 10)
   )
 })
 
@@ -579,13 +604,11 @@ test_that("summarise_metric matches today's decreasing EC10 on brms_model_1, les
     summarise_metric(compute_ecx(pred), pred, "ecx")
   )
 
-  # `ecx(brms_model_1, x_var = "x", resolution = 500)` at a3f682f gives 0.8322880
-  # (0.8195822 to 1.05). The per-draw values agree; the difference is the 8
-  # draws with a negative control, whose reference is NA and which are excluded
-  # (T18, T21) rather than given a crossing of a reference above the control.
+  # Eight draws with a negative control are excluded. The remaining censored
+  # draws make the summary use observed order statistics.
   expect_equal(
     unlist(result[1, c("estimate", "conf.low", "conf.high")]),
-    c(estimate = 0.832247, conf.low = 0.8197345, conf.high = 1.05),
+    c(estimate = 0.8322456, conf.low = 0.8195841, conf.high = 1.05),
     tolerance = 1e-6
   )
 })

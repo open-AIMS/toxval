@@ -69,12 +69,12 @@ direction was looked for and not found, which is information. Decision T10 and
 
 All three are settled. Section 4's phase 0 also required agreeing the default for
 the `nsec` reference, which is exposed as the `anchor` argument rather than fixed
-by the plan (section 3.8). That default was ratified as `"model"` on 5 September,
-so phase 0 is complete and phase 1 can begin.
+by the plan (section 3.8). That default was ratified as `"model"` on 5 September
+and amended for `bayesmanecfit` on 29 October (T12).
 
 The `nsec` reference does **not** block, because §3.8 exposes it as an argument
 rather than settling it, so only the default had to be agreed. It was ratified as
-`"model"` on 5 September, and a default can be revisited later.
+`"model"` on 5 September, then revised on 29 October for `bayesmanecfit` (T12).
 
 ## 3. Design decisions
 
@@ -364,16 +364,18 @@ hard-coded rule:
 nsec(fit, anchor = c("model", "component", "control"))
 ```
 
-`"model"` is the default: the threshold comes from the model-averaged control
-posterior, so every pooled value is measured against the same response level.
-`"component"` uses each component model's own control, which is the strict
-Bayesian model average and reproduces what `bayesnec` returns today. `"control"`
+`"model"` takes the threshold from the model-averaged control posterior, so
+every pooled value is measured against the same response level. `"component"`
+uses each component model's own control, which is the strict Bayesian model
+average and reproduces what `bayesnec` returns. It is now the default for a
+`bayesmanecfit`; `"model"` remains the default for other classes (T12).
+`"control"`
 would use a separate control-only fit supplied by the user. It is left out of
 phase 4 and will probably be replaced, because it does not reproduce the LECx of
 de Bruyn and Elphick (2013), which it was meant to match (decision T23).
 
 `anchor` is a column on the result, so the choice travels with the estimate. The
-measurements behind the default, and the cost of choosing it, are in
+measurements behind the original `"model"` default, and the tradeoff, are in
 `REFACTOR-claude.md` §3.8.
 
 ## 4. Phased implementation

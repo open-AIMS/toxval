@@ -130,10 +130,10 @@ realisation.
 
 | quantity | `toxval` | `bayesnec` | source |
 |---|---|---|---|
-| `nsec` reference, model-averaged fit | pooled control (`anchor = "model"`, T12) | each equation's own control | `nsec.R:422-456` |
-| realisation with no crossing | placed by T21 | censored at a bound, `bound_*` reported | `helpers.R:2959` |
+| `nsec` reference, model-averaged fit | each equation's control by default (`anchor = "component"`, T12) | each equation's own control | T12 |
+| realisation with no crossing | placed by amended T21 | corresponding NSEC rule, with a bound when censored | T21, D17 amendment |
 | directions | both, as rows (T10) | decreasing | — |
-| default `resolution` | 500 (T31) | 200 | `ecx.R:178-183` |
+| default `resolution` | 500 (T31) | 500 for post-fit endpoints | T31 |
 | control | first grid value, `x_control`, the lowest observed `x` unless `x_control` is supplied (T41) | prediction at the lowest observed `x` | `helpers.R:2697-2742` |
 | interpolation | linear between grid points | linear | `helpers.R:2483-2507` |
 
@@ -151,15 +151,12 @@ relative. Task 5 therefore tests that they agree to that tolerance times the
 grid step. A larger discrepancy means that one of the packages locates the
 crossing incorrectly.
 
-T21 as amended on #74 (RF, 2026-10-27) departs from `bayesnec` D17 ruling 1 and
-the `bayesnec` #404 rule, which place at the control every realisation past the
-NSEC reference at the control that has no crossing in the direction sought.
-`toxval` censors such a realisation when its first change in response is away
-from the effect and it is on the no-effect side of the reference at a later grid
-value. A reported NSEC then differs from the `bayesnec` rule's where a quantile
-falls among these realisations. In the decreasing row of `brms_model_1`, 7 of 10
-are censored and the lower limit is 0.991338, against 0.9847278 with all 10 at
-the control. Realisations that cross are unaffected, so the task 5 comparison
+T21 as amended on #74 (RF, 2026-10-27) now also applies in `bayesnec`. A draw
+past the reference at control with no later decreasing crossing is censored
+above the range when its first meaningful response change is an increase and
+it later lies on the no-effect side. A later decreasing crossing is
+returned. Historical comparisons to the old control rule are recorded in T21.
+Realisations that cross are unaffected, so the task 5 comparison
 stands.
 
 ## 3. Design
@@ -711,12 +708,11 @@ The results:
   `bayesnecjointfit`, and a `bayesnecjointlevel` built with
   `bayesnec:::joint_level_fit()`.
 - With `thin = 3`, four chains and 500 post-warmup iterations, each equation
-  held 668 draws while `sample_size` recorded 667. The stored index was
-  therefore bypassed by both packages and rebuilt from `w_draw_seed`, giving
-  668 realisations. `bayesnec`'s stored summaries, its `ecx()` and its `nsec()`
-  pass the stored `sample_size` and so keep the stored index of 667 draws. On
-  such a set `toxval`'s metrics and `bayesnec::ecx()` are therefore computed on
-  different draws. The fault is `bayesnec` #477. `bayesnec_manec_example` holds
+  held 668 draws while `sample_size` recorded 667. At the time of this
+  measurement, toxval bypassed the stored index and rebuilt 668 realisations,
+  while `bayesnec` kept the stored index of 667 draws. Toxval now recognises
+  this legacy undercount and uses the same stored count and index as bayesnec
+  (#477). `bayesnec_manec_example` holds
   100 draws per equation and records 100, so the task 5 comparison on it is
   unaffected. The `decline` sets on binomial and beta gave 1001 and 999
   realisations, from rounding each equation's share. Both packages do the same.
@@ -930,13 +926,12 @@ and for task 4. `ecx()` has called it since `6bdd99c`.
     realisations crossing within the grid, to the tolerance of `bayesnec`'s
     root-finding (§2.2);
   - on `bayesnec_logx`, `toxval` equals `exp()` of `bayesnec` (§2.1);
-  - `nsec(anchor = "component")` against `bayesnec::nsec()` on
-    `manec_example` at `sig_val = 0.01`: the difference in each quantile is
-    reported in the pull request, not asserted (§3.2).
+  - the default component NSEC against `bayesnec::nsec()` on
+    `manec_example` at `sig_val = 0.01`, with paired draws and quantiles
+    asserted (§3.2).
   - the fits of `tests/local/bayesnec-robustness/` (§3.7), where structures
-    beyond the fixtures are wanted. A model set whose `sample_size` differs
-    from its draws (`bayesnec` #477) is left out of the per-realisation
-    comparison with `bayesnec::ecx()`.
+    beyond the fixtures are wanted. Legacy undercounted model sets are
+    included in the per-realisation comparison with `bayesnec::ecx()`.
 - The README section on `bayesnec` fits and the masking paragraph (§3.6).
 - The `Description` field of `DESCRIPTION` names `bayesnec`.
 - An example on `?toxval_predict` using `manec_example`, inside `\donttest{}`

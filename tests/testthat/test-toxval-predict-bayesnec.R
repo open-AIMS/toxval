@@ -390,6 +390,36 @@ test_that("toxval_predict on a bayesmanecfit rebuilds an index made for other dr
   expect_identical(pred$meta$seed, 7L)
 })
 
+test_that("a legacy undercount keeps the index used by bayesnec", {
+  fit <- bayesnec_manec_example
+  fit$w_draw_index <- list(nec4param = 1:80, ecx4param = 81:99)
+  fit$w_draw_seed <- 7L
+  fit$sample_size <- 99
+  # Legacy formula: ceiling(148 / 3 * 2) = 99, although the fits hold 100.
+  fit$mod_fits[[1]]$fit$fit@sim$iter <- 198L
+  fit$mod_fits[[1]]$fit$fit@sim$warmup <- 50L
+  fit$mod_fits[[1]]$fit$fit@sim$thin <- 3L
+  fit$mod_fits[[1]]$fit$fit@sim$chains <- 2L
+  expect_true(toxval:::bnec_undercounted_set(fit, 100L))
+
+  weights <- stats::setNames(
+    fit$mod_stats[names(fit$mod_fits), "wi"],
+    names(fit$mod_fits)
+  )
+  index <- toxval:::bnec_draw_index(fit, names(fit$mod_fits), weights, 100L)
+
+  expect_identical(index$rows, fit$w_draw_index)
+  expect_identical(index$seed, 7L)
+
+  fit$w_draw_index <- NULL
+  rebuilt <- toxval:::bnec_draw_index(fit, names(fit$mod_fits), weights, 100L)
+  expect_lte(max(unlist(rebuilt$rows)), 99L)
+  expect_identical(
+    unname(lengths(rebuilt$rows)),
+    as.integer(round(99 * weights))
+  )
+})
+
 test_that("toxval_predict on a bayesmanecfit keeps the weight of a model given no draws", {
   fit <- bayesnec_manec_example
   fit$mod_stats[c("nec4param", "ecx4param"), "wi"] <- c(0.999, 0.001)
@@ -456,10 +486,18 @@ test_that("ecx() on a bayesmanecfit returns a toxval tibble", {
 
 test_that("nsec() on a bayesmanecfit returns a toxval tibble", {
   result <- nsec(bayesnec_manec_example, resolution = 50)
+  component <- nsec(
+    bayesnec_manec_example,
+    resolution = 50,
+    anchor = "component"
+  )
+  model <- nsec(bayesnec_manec_example, resolution = 50, anchor = "model")
 
   expect_s3_class(result, "toxval")
   expect_identical(result$direction, c("decreasing", "increasing"))
-  expect_identical(result$anchor, c("model", "model"))
+  expect_identical(result$anchor, c("component", "component"))
+  expect_identical(result$estimate, component$estimate)
+  expect_false(isTRUE(all.equal(result$reference, model$reference)))
   expect_identical(pillar::tbl_sum(result)[["Model"]], "bayesmanecfit")
 })
 

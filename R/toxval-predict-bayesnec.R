@@ -256,9 +256,13 @@ bnec_asymptote <- function(fit) {
 #' @noRd
 bnec_draw_index <- function(object, model_set, weights, n) {
   stored <- object$w_draw_index
+  sample_size <- object$sample_size
+  if (!isTRUE(sample_size == n) && bnec_undercounted_set(object, n)) {
+    n <- sample_size
+  }
   if (
     !is.null(stored) &&
-      isTRUE(object$sample_size == n) &&
+      isTRUE(sample_size == n) &&
       all(model_set %in% names(stored))
   ) {
     return(list(rows = stored[model_set], seed = object$w_draw_seed))
@@ -277,4 +281,22 @@ bnec_draw_index <- function(object, model_set, weights, n) {
     .rng_sample_kind = "Rejection"
   )
   list(rows = stats::setNames(rows, model_set), seed = seed)
+}
+
+#' Whether an older bayesnec fit recorded fewer draws than its models hold
+#'
+#' @param object A `bayesmanecfit`.
+#' @param n The smallest number of draws held by its models.
+#'
+#' @return A flag.
+#' @noRd
+bnec_undercounted_set <- function(object, n) {
+  fits <- object$mod_fits
+  if (!length(fits)) {
+    return(FALSE)
+  }
+  sim <- fits[[1]]$fit$fit@sim
+  recorded <- ceiling((sim$iter - sim$warmup) / sim$thin * sim$chains)
+  isTRUE(object$sample_size == recorded) &&
+    isTRUE(n == min(vapply(fits, function(x) brms::ndraws(x$fit), numeric(1))))
 }

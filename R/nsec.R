@@ -29,7 +29,8 @@
 #' realisation that does not reach the reference within the evaluated range
 #' ranks above the highest concentration, and an interval limit that falls
 #' among such realisations is reported as the highest concentration, with a
-#' warning.
+#' warning. When any realisation is censored, the reported quantiles are
+#' observed order statistics.
 #'
 #' `ecnsec` is the effect at the NSEC, as a proportion of the span named by
 #' `type`: the inverse of the [ecx()] reference under the same `type`.
@@ -77,10 +78,12 @@
 #'   increasing one.
 #' @param type One of `"absolute"`, `"relative"` or `"range"`, naming the span
 #'   `ecnsec` is a proportion of. See [ecx()].
-#' @param anchor One of `"model"` (the default) or `"component"`, where the
-#'   reference is taken from for a model-averaged fit: the averaged control,
-#'   or each component model's own control, over every draw of that model's
-#'   fit. The two coincide for a fit that is not model-averaged. Under
+#' @param anchor One of `"model"` or `"component"`, where the reference is
+#'   taken from for a model-averaged fit: the averaged control, or each
+#'   component model's own control over every draw of that model's fit.
+#'   `"component"` is the default for a `bayesmanecfit`, matching
+#'   `bayesnec::nsec()`; `"model"` is the default otherwise. The two coincide
+#'   for a fit that is not model-averaged. Under
 #'   `"component"` the references of the models differ, and the `reference`
 #'   column reports their `prob_vals[1]` quantile across realisations, as
 #'   `control` does.
@@ -102,7 +105,7 @@ nsec <- function(
   ...,
   sig_val = 0.01,
   type = "absolute",
-  anchor = "model",
+  anchor = NULL,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
@@ -210,6 +213,14 @@ nsec <- function(
       x_control = x_control,
       ...
     )
+  }
+
+  if (is.null(anchor)) {
+    anchor <- if (identical(pred$meta$source_class, "bayesmanecfit")) {
+      "component"
+    } else {
+      "model"
+    }
   }
 
   rows <- compute_nsec(pred, sig_val = sig_val, type = type, anchor = anchor)

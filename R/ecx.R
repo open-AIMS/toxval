@@ -36,7 +36,8 @@
 #' A realisation that does not reach the reference within the evaluated range
 #' ranks above the highest concentration, and an interval limit that falls
 #' among such realisations is reported as the highest concentration, with a
-#' warning. Under `"range"` this includes a realisation that never falls below,
+#' warning. When any realisation is censored, the reported quantiles are
+#' observed order statistics. Under `"range"` this includes a realisation that never falls below,
 #' or rises above, its control. Under `"absolute"` and `"relative"`, a
 #' realisation with nothing to take the proportion of, such as a control at or
 #' below 0 or a missing asymptote, is excluded from the summary, with a warning.

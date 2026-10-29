@@ -94,34 +94,32 @@ test_that("a crf(log(x)) fit reports the exponential of bayesnec's ECx", {
 test_that("the component NSEC on manec_example equals bayesnec's", {
   fit <- load_fixture("bayesnec_manec_example")
   pred <- toxval_predict(fit, resolution = resolution)
-  toxval_draws <- toxval:::compute_nsec(
-    pred,
+  toxval_nsec <- nsec(
+    fit,
     sig_val = 0.01,
-    anchor = "component"
-  )$draws[[1]]
-  bnec_draws <- as.numeric(suppressMessages(bayesnec::nsec(
+    resolution = resolution,
+    draws = TRUE
+  )
+  decreasing <- toxval_nsec[toxval_nsec$direction == "decreasing", ]
+  toxval_draws <- decreasing$draws[[1]]$value.draw
+  bnec_posterior <- suppressMessages(bayesnec::nsec(
     fit,
     sig_val = 0.01,
     resolution = resolution,
     posterior = TRUE
-  )))
-  # a realisation past its reference at the control has no crossing in
-  # toxval's draws, and bayesnec places it at the control concentration
-  past <- is.na(toxval_draws)
-  expect_equal(bnec_draws[past], rep(pred$x_vec[1], sum(past)))
+  ))
+  bnec_draws <- as.numeric(bnec_posterior)
+  censored <- attr(bnec_posterior, "censored")
+  if (!is.null(censored)) {
+    expect_identical(is.infinite(toxval_draws), censored$above)
+  }
+  crossed <- is.finite(toxval_draws) & is.finite(bnec_draws)
   expect_same_crossing(
-    toxval_draws[!past],
-    bnec_draws[!past],
+    toxval_draws[crossed],
+    bnec_draws[crossed],
     diff(pred$x_vec)[1]
   )
 
-  toxval_nsec <- nsec(
-    fit,
-    anchor = "component",
-    sig_val = 0.01,
-    resolution = resolution
-  )
-  decreasing <- toxval_nsec[toxval_nsec$direction == "decreasing", ]
   expect_same_crossing(
     c(decreasing$estimate, decreasing$conf.low, decreasing$conf.high),
     unname(as.numeric(suppressMessages(bayesnec::nsec(
@@ -176,14 +174,6 @@ test_that("the robustness fits give bayesnec's ECx in each realisation", {
     # bayesnec reports a transformed predictor on the transformed scale, which
     # the crf(log(x)) test above compares
     if (!crf_untransformed(formula)) {
-      next
-    }
-    # a model set whose recorded sample_size differs from its draws keeps
-    # different draws in each package (bayesnec #477)
-    if (
-      inherits(fit, "bayesmanecfit") &&
-        !isTRUE(fit$sample_size == brms::ndraws(fit$mod_fits[[1]]$fit))
-    ) {
       next
     }
     paired <- tryCatch(paired_ecx(fit), error = function(e) e)

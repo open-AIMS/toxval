@@ -68,15 +68,11 @@ scale, as it is now. `bayesnec` decision D41 makes its own functions report on
 the recorded scale from version 3.0. `BAYESNEC-claude.md` §2.1 gives the
 mechanism.
 
-The numbers will differ from `bayesnec::ecx()` and `bayesnec::nsec()` wherever
-the two packages define the estimate differently. Four differences are known:
-
-- the default `nsec()` reference is taken from the model-averaged control
-  (`anchor = "model"`, decision T12), while `bayesnec` uses each equation's own
-  control;
-- a realisation with no crossing is placed by decision T21;
-- both directions are reported (decision T10);
-- the default `resolution` is 500 (decision T31), against 200 in `bayesnec`.
+The aligned defaults use each equation's control for a model average (T12),
+the amended no-crossing rule (T21), and a 500-point grid (T31). `toxval` also
+reports the increasing direction as a separate row (T10), whereas `bayesnec`
+reports the decreasing direction. The packages retain different output shapes
+and explicit options; matching values still require matching those options.
 
 Under `type = "absolute"`, the decreasing ECx should agree with `bayesnec`
 realisation by realisation. Task 5 tests that.
