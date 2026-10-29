@@ -197,7 +197,11 @@ proportion. \code{x_var} is read from the \code{crf()}
 term when \code{NULL}, and a supplied \code{x_var} must match it. \code{group_var} must be
 \code{NULL}, since a \code{bnec()} fit has one curve. A predictor transformed inside
 \code{crf()}, such as \code{crf(log(x), ...)}, is reported in units of the variable
-itself, \code{x}, so \code{xform = exp} must not be supplied for it.
+itself, \code{x}, so \code{xform = exp} must not be supplied for it. The lower
+asymptote is the \code{bot} parameter for an equation that has one, and
+otherwise 0, the limit of its curve; the upper asymptote is 1 for a
+proportion. An asymptote is \code{NA} where the family has no such bound, or
+where the fit uses a link other than identity.
 
 \item \code{toxval_predict(bayesmanecfit)}: Method for a model average fitted by
 \code{bayesnec::bnec()}, of class \code{bayesmanecfit}, which requires \code{bayesnec} to
@@ -207,6 +211,7 @@ proportion to its weight, the same draws its own estimates and plots use.
 The model each realisation came from is recorded in \code{meta$draw_model}, the
 weights in \code{meta$model_weights}, and the seed the draws were chosen with in
 \code{meta$seed}. The random number state of the session is left unchanged.
+Each realisation takes its asymptotes from its own model.
 
 \item \code{toxval_predict(bnecfit)}: Method for any other \code{bayesnec} fit, which
 errors. Group fits, joint refits and hurdle pairs each hold more than one

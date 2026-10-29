@@ -297,7 +297,11 @@ toxval_predict.drc <- function(
 #'   term when `NULL`, and a supplied `x_var` must match it. `group_var` must be
 #'   `NULL`, since a `bnec()` fit has one curve. A predictor transformed inside
 #'   `crf()`, such as `crf(log(x), ...)`, is reported in units of the variable
-#'   itself, `x`, so `xform = exp` must not be supplied for it.
+#'   itself, `x`, so `xform = exp` must not be supplied for it. The lower
+#'   asymptote is the `bot` parameter for an equation that has one, and
+#'   otherwise 0, the limit of its curve; the upper asymptote is 1 for a
+#'   proportion. An asymptote is `NA` where the family has no such bound, or
+#'   where the fit uses a link other than identity.
 #'
 #' @export
 toxval_predict.bayesnecfit <- function(
@@ -331,6 +335,7 @@ toxval_predict.bayesnecfit <- function(
     curves = list(curve),
     keys = group_keys(),
     x_vec = x_vec,
+    asymptote = list(bnec_asymptote(object$fit)),
     meta = build_meta(
       object = object,
       x_vec = x_vec,
@@ -350,6 +355,7 @@ toxval_predict.bayesnecfit <- function(
 #'   The model each realisation came from is recorded in `meta$draw_model`, the
 #'   weights in `meta$model_weights`, and the seed the draws were chosen with in
 #'   `meta$seed`. The random number state of the session is left unchanged.
+#'   Each realisation takes its asymptotes from its own model.
 #'
 #' @export
 toxval_predict.bayesmanecfit <- function(
@@ -393,11 +399,23 @@ toxval_predict.bayesmanecfit <- function(
     })
   )
   chk_defined_grid(list(curve), x_vec)
+  per_model_asymptote <- lapply(mod_fits, function(component) {
+    bnec_asymptote(component$fit)
+  })
+  asymptote <- lapply(stats::setNames(nm = directions()), function(direction) {
+    unlist(
+      lapply(model_set, function(m) {
+        per_model_asymptote[[m]][[direction]][index$rows[[m]]]
+      }),
+      use.names = FALSE
+    )
+  })
 
   new_toxval_pred(
     curves = list(curve),
     keys = group_keys(),
     x_vec = x_vec,
+    asymptote = list(asymptote),
     meta = build_meta(
       object = object,
       x_vec = x_vec,

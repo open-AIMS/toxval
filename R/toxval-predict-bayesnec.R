@@ -201,6 +201,39 @@ chk_one_family <- function(mod_fits) {
   invisible(mod_fits)
 }
 
+#' The asymptotes of a `bnec()` fit at every draw
+#'
+#' The decreasing asymptote is the `bot` draw where the equation has `bot`, 0
+#' where its curve instead tends to zero, and `NA` where the family has no lower
+#' bound. On a link other than identity `bot` is on the link scale, so both
+#' asymptotes are `NA`. No `bayesnec` equation has an upper-asymptote
+#' parameter, so the increasing asymptote is the bound of a proportion, 1, and
+#' otherwise `NA`.
+#'
+#' @param fit The `brmsfit` of one equation.
+#'
+#' @return A list of two numeric vectors with one value per draw, named
+#'   `decreasing` and `increasing`.
+#'
+#' @noRd
+bnec_asymptote <- function(fit) {
+  n <- brms::ndraws(fit)
+  family <- fit$family$family
+  if (!identical(fit$family$link, "identity")) {
+    return(list(decreasing = rep(NA_real_, n), increasing = rep(NA_real_, n)))
+  }
+  decreasing <- if ("b_bot_Intercept" %in% brms::variables(fit)) {
+    unname(as.matrix(fit, variable = "b_bot_Intercept")[, 1])
+  } else if (family %in% c("gaussian", "student")) {
+    rep(NA_real_, n)
+  } else {
+    rep(0, n)
+  }
+  upper <- response_upper_bound(list(family = family), NULL, 1)
+  increasing <- rep(if (is.finite(upper)) upper else NA_real_, n)
+  list(decreasing = decreasing, increasing = increasing)
+}
+
 #' The draws a model average keeps from each model
 #'
 #' Reproduces `bayesnec`'s own choice, so that the realisations are the draws

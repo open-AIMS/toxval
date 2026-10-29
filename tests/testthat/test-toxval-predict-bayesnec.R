@@ -450,9 +450,106 @@ test_that("nsec() on a bayesmanecfit returns a toxval tibble", {
   expect_identical(result$anchor, c("model", "model"))
 })
 
-test_that("nsec() refuses the component anchor on a bayesmanecfit", {
-  expect_error(
-    nsec(bayesnec_manec_example, resolution = 50, anchor = "component"),
-    "must be 'model' for a model-averaged fit"
+test_that("nsec() on a bayesmanecfit takes each model's reference under the component anchor", {
+  pred <- toxval_predict(bayesnec_manec_example, resolution = 50)
+  control <- pred$curves[[1]][, 1]
+  draw_model <- pred$meta$draw_model
+
+  component <- toxval:::compute_nsec(pred, anchor = "component")
+  for (m in unique(draw_model)) {
+    expect_equal(
+      unique(component$reference[[1]][draw_model == m]),
+      stats::quantile(control[draw_model == m], 0.01, names = FALSE),
+      info = m
+    )
+  }
+  model <- toxval:::compute_nsec(pred, anchor = "model")
+  expect_equal(
+    model$reference[[1]],
+    stats::quantile(control, 0.01, names = FALSE)
   )
+
+  result <- nsec(bayesnec_manec_example, resolution = 50, anchor = "component")
+  expect_s3_class(result, "toxval")
+  expect_identical(result$anchor, c("component", "component"))
+})
+
+# the asymptotes ----------------------------------------------------------------
+
+test_that("toxval_predict on a bayesnecfit takes the lower asymptote from bot", {
+  for (nm in c("bayesnec_nec4param", "bayesnec_logx")) {
+    fit <- get(nm)
+    pred <- toxval_predict(fit, resolution = 50)
+    expect_identical(
+      pred$asymptote[[1]]$decreasing,
+      unname(as.matrix(fit$fit, variable = "b_bot_Intercept")[, 1]),
+      info = nm
+    )
+  }
+})
+
+test_that("toxval_predict on a bayesnecfit without bot takes a lower asymptote of 0", {
+  # nechorme tends to zero, and a beta response is a proportion
+  pred <- toxval_predict(bnec_model_1, resolution = 50)
+  n <- brms::ndraws(bnec_model_1$fit)
+
+  expect_identical(pred$asymptote[[1]]$decreasing, rep(0, n))
+  expect_identical(pred$asymptote[[1]]$increasing, rep(1, n))
+})
+
+test_that("toxval_predict on a gaussian bayesnecfit has no upper asymptote", {
+  pred <- toxval_predict(bayesnec_nec4param, resolution = 50)
+
+  expect_true(all(is.na(pred$asymptote[[1]]$increasing)))
+})
+
+test_that("a bayesnecfit without bot on an unbounded family has no asymptote", {
+  fit <- bnec_model_1
+  fit$fit$family$family <- "gaussian"
+
+  expect_true(all(is.na(unlist(toxval:::bnec_asymptote(fit$fit)))))
+  expect_error(
+    suppressWarnings(ecx(fit, resolution = 50, type = "relative")),
+    "must not be 'relative' when `object` supplies no asymptote"
+  )
+})
+
+test_that("a bayesnecfit on a link other than identity has no asymptote", {
+  fit <- bayesnec_nec4param$fit
+  fit$family$link <- "log"
+
+  expect_true(all(is.na(unlist(toxval:::bnec_asymptote(fit)))))
+})
+
+test_that("toxval_predict on a bayesmanecfit takes each realisation's asymptote from its model", {
+  fit <- bayesnec_manec_example
+  pred <- toxval_predict(fit, resolution = 50)
+  model_set <- names(fit$mod_fits)
+  weights <- stats::setNames(fit$mod_stats[model_set, "wi"], model_set)
+  # the index is the one the curve comparison with bayesnec checks
+  index <- toxval:::bnec_draw_index(fit, model_set, weights, 100L)
+  expected <- unlist(lapply(model_set, function(m) {
+    bot <- as.matrix(fit$mod_fits[[m]]$fit, variable = "b_bot_Intercept")
+    unname(bot[index$rows[[m]], 1])
+  }))
+
+  expect_identical(pred$asymptote[[1]]$decreasing, expected)
+})
+
+test_that("ecx() and nsec() compute a relative estimate on a bayesmanecfit", {
+  # both models have bot, so neither is excluded
+  for (f in list(ecx, nsec)) {
+    warnings <- character()
+    result <- withCallingHandlers(
+      f(bayesnec_manec_example, resolution = 50, type = "relative"),
+      warning = function(w) {
+        warnings <<- c(warnings, conditionMessage(w))
+        invokeRestart("muffleWarning")
+      }
+    )
+    expect_s3_class(result, "toxval")
+    expect_identical(result$type, c("relative", "relative"))
+    expect_true(is.finite(result$estimate[result$direction == "decreasing"]))
+    expect_false(any(grepl("asymptote is undefined", warnings)))
+  }
 })
