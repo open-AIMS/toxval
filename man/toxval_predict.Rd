@@ -211,7 +211,9 @@ proportion to its weight, the same draws its own estimates and plots use.
 The model each realisation came from is recorded in \code{meta$draw_model}, the
 weights in \code{meta$model_weights}, and the seed the draws were chosen with in
 \code{meta$seed}. The random number state of the session is left unchanged.
-Each realisation takes its asymptotes from its own model.
+Each realisation takes its asymptotes from its own model. The control
+response of each model in every draw of its fit, including the draws left
+out of the average, is recorded in \code{meta$model_control}.
 
 \item \code{toxval_predict(bnecfit)}: Method for any other \code{bayesnec} fit, which
 errors. Group fits, joint refits and hurdle pairs each hold more than one

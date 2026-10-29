@@ -167,6 +167,12 @@ gives it no realisation is still listed.}
 \item{\code{draw_model}}{Character, one value per realisation, naming the model
 the realisation came from. Each value is a name in \code{model_weights} when
 that is present.}
+\item{\code{model_control}}{An unnamed list, one element per row of \code{keys}, of
+named lists of numeric vectors. Each vector holds the control response
+of one model in every draw of its own fit, including draws left out of
+the average, so its length can differ from \code{n_realisation}. It requires
+\code{draw_model}, and every model named there has a vector. Under
+\code{anchor = "component"}, \code{\link[=nsec]{nsec()}} takes each model's reference from it.}
 }
 }
 

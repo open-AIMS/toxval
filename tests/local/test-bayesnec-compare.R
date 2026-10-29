@@ -91,32 +91,46 @@ test_that("a crf(log(x)) fit reports the exponential of bayesnec's ECx", {
   )
 })
 
-test_that("the component NSEC on manec_example is reported beside bayesnec's", {
-  # the difference is reported, not asserted (BAYESNEC-claude.md §3.2):
-  # toxval takes each model's reference from that model's realisations in the
-  # average, and bayesnec from all of that model's draws
+test_that("the component NSEC on manec_example equals bayesnec's", {
   fit <- load_fixture("bayesnec_manec_example")
+  pred <- toxval_predict(fit, resolution = resolution)
+  toxval_draws <- toxval:::compute_nsec(
+    pred,
+    sig_val = 0.01,
+    anchor = "component"
+  )$draws[[1]]
+  bnec_draws <- as.numeric(suppressMessages(bayesnec::nsec(
+    fit,
+    sig_val = 0.01,
+    resolution = resolution,
+    posterior = TRUE
+  )))
+  # a realisation past its reference at the control has no crossing in
+  # toxval's draws, and bayesnec places it at the control concentration
+  past <- is.na(toxval_draws)
+  expect_equal(bnec_draws[past], rep(pred$x_vec[1], sum(past)))
+  expect_same_crossing(
+    toxval_draws[!past],
+    bnec_draws[!past],
+    diff(pred$x_vec)[1]
+  )
+
   toxval_nsec <- nsec(
     fit,
     anchor = "component",
     sig_val = 0.01,
     resolution = resolution
   )
-  bnec_nsec <- suppressMessages(bayesnec::nsec(
-    fit,
-    sig_val = 0.01,
-    resolution = resolution
-  ))
   decreasing <- toxval_nsec[toxval_nsec$direction == "decreasing", ]
-  compared <- data.frame(
-    quantile = c("estimate", "conf.low", "conf.high"),
-    toxval = c(decreasing$estimate, decreasing$conf.low, decreasing$conf.high),
-    bayesnec = unname(as.numeric(bnec_nsec))
+  expect_same_crossing(
+    c(decreasing$estimate, decreasing$conf.low, decreasing$conf.high),
+    unname(as.numeric(suppressMessages(bayesnec::nsec(
+      fit,
+      sig_val = 0.01,
+      resolution = resolution
+    )))),
+    diff(pred$x_vec)[1]
   )
-  compared$difference <- compared$toxval - compared$bayesnec
-  message(paste(utils::capture.output(print(compared)), collapse = "\n"))
-
-  expect_true(all(is.finite(compared$difference)))
 })
 
 # Whether the crf() term of a bnec() formula names its predictor untransformed,

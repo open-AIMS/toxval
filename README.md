@@ -122,7 +122,8 @@ fit to `crf(log(x), ...)` is reported in units of `x`. They differ from
 the estimates of `bayesnec::ecx()` and `bayesnec::nsec()` wherever the
 two packages define them differently. By default `nsec()` takes its
 reference from the model-averaged control (`anchor = "model"`), where
-`bayesnec` uses each equation’s own control. Both packages place a
+`bayesnec` uses each equation’s own control; `anchor = "component"` takes
+the reference as `bayesnec` does. Both packages place a
 realisation that never reaches the reference, but by different rules,
 which `?nsec` describes for `toxval`. `toxval` reports both directions,
 and evaluates 500 concentrations by default against 200 in `bayesnec`.

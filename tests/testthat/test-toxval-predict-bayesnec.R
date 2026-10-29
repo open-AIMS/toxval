@@ -402,6 +402,7 @@ test_that("toxval_predict on a bayesmanecfit keeps the weight of a model given n
     pred$meta$model_weights,
     c(nec4param = 0.999, ecx4param = 0.001)
   )
+  expect_named(pred$meta$model_control[[1]], c("nec4param", "ecx4param"))
   expect_identical(unname(pred$curves[[1]]), unname(bnec_average(fit)))
 })
 
@@ -462,16 +463,43 @@ test_that("nsec() on a bayesmanecfit returns a toxval tibble", {
   expect_identical(pillar::tbl_sum(result)[["Model"]], "bayesmanecfit")
 })
 
+test_that("toxval_predict on a bayesmanecfit records the control of every draw of each model", {
+  fit <- bayesnec_manec_example
+  pred <- toxval_predict(fit, resolution = 50)
+  model_set <- names(fit$mod_fits)
+  weights <- stats::setNames(fit$mod_stats[model_set, "wi"], model_set)
+  index <- toxval:::bnec_draw_index(fit, model_set, weights, 100L)
+  model_control <- pred$meta$model_control[[1]]
+  newdata <- bayesnec::bnec_newdata(fit, resolution = 50)
+
+  expect_named(model_control, model_set)
+  for (m in model_set) {
+    full <- brms::posterior_epred(
+      fit$mod_fits[[m]]$fit,
+      newdata = newdata,
+      re_formula = NA
+    )
+    expect_identical(model_control[[m]], unname(full[, 1]), info = m)
+    expect_identical(
+      model_control[[m]][index$rows[[m]]],
+      unname(pred$curves[[1]][pred$meta$draw_model == m, 1]),
+      info = m
+    )
+  }
+})
+
 test_that("nsec() on a bayesmanecfit takes each model's reference under the component anchor", {
   pred <- toxval_predict(bayesnec_manec_example, resolution = 50)
   control <- pred$curves[[1]][, 1]
   draw_model <- pred$meta$draw_model
+  model_control <- pred$meta$model_control[[1]]
 
   component <- toxval:::compute_nsec(pred, anchor = "component")
   for (m in unique(draw_model)) {
+    # over every draw of the model's fit, not only its realisations
     expect_equal(
       unique(component$reference[[1]][draw_model == m]),
-      stats::quantile(control[draw_model == m], 0.01, names = FALSE),
+      stats::quantile(model_control[[m]], 0.01, names = FALSE),
       info = m
     )
   }

@@ -129,8 +129,9 @@ compute_ecx <- function(
 #' @param anchor One of `"model"` or `"component"`, where the reference comes
 #'   from under model averaging (T23). Under `"component"` each model of a
 #'   model average, named per realisation by `meta$draw_model`, takes the
-#'   quantile of its own control realisations. Without `meta$draw_model` the two
-#'   coincide.
+#'   quantile of its own control: over every draw of its fit, from
+#'   `meta$model_control`, or over its realisations in the average where that
+#'   is absent. Without `meta$draw_model` the two coincide.
 #'
 #' @return A tibble with one row per curve and direction: the columns of
 #'   `keys`, `direction`, `sig_val`, `type`, `anchor`, `reference` (a list
@@ -182,7 +183,8 @@ compute_nsec <- function(
       reference_by_row <- component_reference(
         control,
         sig_val,
-        pred$meta$draw_model
+        pred$meta$draw_model,
+        pred$meta$model_control[[i]]
       )
     }
     draws <- lapply(directions(), function(direction) {
@@ -306,22 +308,34 @@ nsec_reference <- function(control, prob) {
 
 #' The NSEC reference of each realisation under `anchor = "component"`
 #'
-#' Each model of a model average takes the quantile of the finite control
-#' realisations it produced, so the reference is constant within a model.
+#' Each model of a model average takes the quantile of its finite control, so
+#' the reference is constant within a model.
 #'
 #' @param control The control of each realisation.
 #' @param sig_val The quantile that sets the decreasing reference.
 #' @param draw_model The model of each realisation.
+#' @param model_control A named list of the control of each model in every
+#'   draw of its fit, or `NULL` to take each model's quantile over its
+#'   realisations in `control`.
 #'
 #' @return A list of two numeric vectors with one value per realisation, named
 #'   `decreasing` and `increasing`.
 #'
 #' @noRd
-component_reference <- function(control, sig_val, draw_model) {
+component_reference <- function(
+  control,
+  sig_val,
+  draw_model,
+  model_control = NULL
+) {
+  if (is.null(model_control)) {
+    model_control <- split(control, draw_model)
+  }
+  model_control <- model_control[unique(draw_model)]
   probs <- c(decreasing = sig_val, increasing = 1 - sig_val)
   lapply(probs, function(prob) {
     by_model <- vapply(
-      split(control, draw_model),
+      model_control,
       function(x) nsec_reference(x[is.finite(x)], prob),
       numeric(1)
     )

@@ -150,6 +150,86 @@ test_that("new_toxval_pred accepts the meta elements of a model average", {
   )
 })
 
+test_that("new_toxval_pred accepts model_control of another length than the realisations", {
+  result <- new_toxval_pred(
+    curves = list(pred_curve()),
+    keys = pred_keys(),
+    x_vec = c(0, 1, 2, 3),
+    meta = pred_meta(
+      draw_model = c("nec4param", "ecx4param"),
+      model_control = list(list(nec4param = c(10, 11, 12), ecx4param = 9))
+    )
+  )
+
+  expect_identical(
+    result$meta$model_control,
+    list(list(nec4param = c(10, 11, 12), ecx4param = 9))
+  )
+})
+
+test_that("new_toxval_pred errors on model_control without draw_model", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(model_control = list(list(nec4param = c(10, 11))))
+    ),
+    "`meta$model_control` requires `meta$draw_model`.",
+    fixed = TRUE
+  )
+})
+
+test_that("new_toxval_pred errors when model_control does not match the keys", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(
+        draw_model = c("nec4param", "nec4param"),
+        model_control = list(list(nec4param = 10), list(nec4param = 10))
+      )
+    ),
+    "`meta$model_control` must have 1 element to match the rows of `keys`, not 2.",
+    fixed = TRUE
+  )
+})
+
+test_that("new_toxval_pred errors when model_control omits a model of draw_model", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(
+        draw_model = c("nec4param", "ecx4param"),
+        model_control = list(list(nec4param = c(10, 11)))
+      )
+    ),
+    paste0(
+      "`meta$model_control[[1]]` must have an element for every model in ",
+      "`meta$draw_model`, including 'ecx4param'."
+    ),
+    fixed = TRUE
+  )
+})
+
+test_that("new_toxval_pred errors on a non-numeric model_control", {
+  expect_error(
+    new_toxval_pred(
+      curves = list(pred_curve()),
+      keys = pred_keys(),
+      x_vec = c(0, 1, 2, 3),
+      meta = pred_meta(
+        draw_model = c("nec4param", "nec4param"),
+        model_control = list(list(nec4param = "10"))
+      )
+    ),
+    regexp = "`meta\\$model_control\\[\\[1\\]\\]\\$nec4param` must be numeric"
+  )
+})
+
 test_that("new_toxval_pred errors when draw_model does not have one value per realisation", {
   expect_error(
     new_toxval_pred(

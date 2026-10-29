@@ -364,6 +364,23 @@ test_that("compute_nsec takes the component reference within each model", {
   expect_equal(result$draws[[1]][c(2, 4)], c(0.99, 0.99))
 })
 
+test_that("compute_nsec takes the component reference over every draw of each model", {
+  x_vec <- 0:10
+  pred <- compute_pred(
+    list(rbind(9 - x_vec, 10 - x_vec, 11 - x_vec, 12 - x_vec)),
+    x_vec
+  )
+  pred$meta$draw_model <- c("a", "a", "b", "b")
+  # each model has a lower control in a draw left out of the average
+  pred$meta$model_control <- list(list(a = c(8, 9, 10), b = c(10, 11, 12)))
+
+  result <- toxval:::compute_nsec(pred, anchor = "component")
+
+  expect_equal(result$reference[[1]], c(8.02, 8.02, 10.02, 10.02))
+  expect_equal(result$reference[[2]], c(9.98, 9.98, 11.98, 11.98))
+  expect_equal(result$draws[[1]], c(0.98, 1.98, 0.98, 1.98))
+})
+
 test_that("compute_nsec pools the model reference over every model", {
   x_vec <- 0:10
   pred <- compute_pred(

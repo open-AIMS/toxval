@@ -118,6 +118,12 @@
 #'   \item{`draw_model`}{Character, one value per realisation, naming the model
 #'     the realisation came from. Each value is a name in `model_weights` when
 #'     that is present.}
+#'   \item{`model_control`}{An unnamed list, one element per row of `keys`, of
+#'     named lists of numeric vectors. Each vector holds the control response
+#'     of one model in every draw of its own fit, including draws left out of
+#'     the average, so its length can differ from `n_realisation`. It requires
+#'     `draw_model`, and every model named there has a vector. Under
+#'     `anchor = "component"`, [nsec()] takes each model's reference from it.}
 #' }
 #'
 #' @aliases toxval_pred
@@ -211,6 +217,9 @@ validate_toxval_pred <- function(x) {
   }
   if (!is.null(x$asymptote)) {
     chk_asymptote(x$asymptote, x$keys, x$meta)
+  }
+  if (!is.null(x$meta$model_control)) {
+    chk_model_control(x$meta$model_control, x$keys, x$meta)
   }
 
   invisible(x)
@@ -337,6 +346,36 @@ chk_draw_model <- function(draw_model, meta) {
     }
   }
   invisible(draw_model)
+}
+
+#' @noRd
+chk_model_control <- function(model_control, keys, meta) {
+  if (is.null(meta$draw_model)) {
+    chk::abort_chk("`meta$model_control` requires `meta$draw_model`.")
+  }
+  chk_aligned_shape(model_control, "meta$model_control", keys)
+
+  for (i in seq_along(model_control)) {
+    nm <- element_name("meta$model_control", i)
+    chk::chk_list(model_control[[i]], x_name = nm)
+    chk::chk_named(model_control[[i]], x_name = nm)
+    unknown <- setdiff(meta$draw_model, names(model_control[[i]]))
+    if (length(unknown) > 0) {
+      chk::abort_chk(
+        nm,
+        " must have an element for every model in `meta$draw_model`, ",
+        "including ",
+        chk::cc(unknown, conj = " and "),
+        "."
+      )
+    }
+    for (m in names(model_control[[i]])) {
+      element <- paste0("`meta$model_control[[", i, "]]$", m, "`")
+      chk::chk_numeric(model_control[[i]][[m]], x_name = element)
+      chk::chk_vector(model_control[[i]][[m]], x_name = element)
+    }
+  }
+  invisible(model_control)
 }
 
 #' @noRd

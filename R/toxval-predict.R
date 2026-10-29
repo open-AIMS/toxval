@@ -358,7 +358,9 @@ toxval_predict.bayesnecfit <- function(
 #'   The model each realisation came from is recorded in `meta$draw_model`, the
 #'   weights in `meta$model_weights`, and the seed the draws were chosen with in
 #'   `meta$seed`. The random number state of the session is left unchanged.
-#'   Each realisation takes its asymptotes from its own model.
+#'   Each realisation takes its asymptotes from its own model. The control
+#'   response of each model in every draw of its fit, including the draws left
+#'   out of the average, is recorded in `meta$model_control`.
 #'
 #' @export
 toxval_predict.bayesmanecfit <- function(
@@ -429,7 +431,10 @@ toxval_predict.bayesmanecfit <- function(
       seed = index$seed,
       # a model with no realisation in the average stays in `model_weights`
       draw_model = rep(model_set, lengths(index$rows)),
-      model_weights = weights
+      model_weights = weights,
+      # keep every draw, not only the rows of the index, so that each model's
+      # component reference is taken over its whole fit
+      model_control = list(lapply(per_model, function(p) unname(p[, 1])))
     )
   )
 }
