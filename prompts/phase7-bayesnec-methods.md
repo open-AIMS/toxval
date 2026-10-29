@@ -799,3 +799,83 @@ check `--as-cran`: 0 errors, 0 warnings, the same two notes. The old head was
 kept as `backup/phase-7-pre-rebase-20261029` at `8c342af`.
 
 ---
+
+**User:** wait reading the PR - i think you misunderstood. I wanted to do the
+three tasks before we opened this. Can you switch it to draft, and then do the
+three things
+
+**Claude:** #81 was converted to draft. Tasks 4, 5 and 0 were then done; task 0
+was given to a background agent, since it edits only the refactor documents
+and the decision notes.
+
+Task 4 (`f213025`):
+
+- `bnec_asymptote(fit)` gives each draw's asymptotes. Decreasing: the
+  `b_bot_Intercept` draw where the equation has `bot`, 0 where it has none and
+  the family is bounded below, `NA` for `gaussian` or `student`. Increasing: 1
+  for a proportion, otherwise `NA`. A link other than identity gives `NA` for
+  both, because `bot` is then on the link scale. The `bot` draws from
+  `as.matrix(fit, variable = "b_bot_Intercept")` were checked identical to
+  `posterior_linpred(nlpar = "bot")` on `bayesnec_nec4param`. Every fixture
+  uses the identity link. The model set takes each realisation's asymptote
+  from its own equation at the draw index.
+- `anchor = "component"` takes the reference within each model named by
+  `meta$draw_model` (`component_reference()`), replacing the interim refusal.
+  `reference` is then a list column of one value per realisation, as
+  `compute_ecx()` already gives, and `summarise_metric()` reports its
+  `prob_vals[1]` quantile as it does `control`. One reference per equation was
+  not reported, because it would need a column whose length varies with the
+  model set.
+- Under `relative`, `compute_ecx()` and `compute_nsec()` warn with the names of
+  the models whose asymptote is `NA` in a direction where another model has
+  one, as `REFACTOR-claude.md` §3.10 asks. A direction with no asymptote in any
+  model is left to T25's warning.
+
+Task 5 (`975a57e`): `# Model:` header assertions on every fixture;
+`tests/local/test-bayesnec-compare.R`; a "Models fitted with bayesnec" README
+section and corrected overview sentence; a "Fits from bayesnec" section in
+`?ecx` and `?nsec` on the masking; `bayesnec` in `Description`; a
+`manec_example` example on `?toxval_predict`.
+
+The comparison first failed at the plan's `1e-8`. The crossings differed by up
+to 3.2e-7 relative on `bayesnec_nec4param` (`resolution = 200`). `bayesnec`'s
+`crossing_x()` finds the root of the linear interpolant with `modelbased`'s
+`.uniroot.all()`, at `tol = .Machine$double.eps^0.2` in grid steps. The
+interpolant at `toxval`'s crossing was within 8.9e-16 of the reference and at
+`bayesnec`'s within 2.8e-6, so `toxval`'s is the exact root. The test now
+allows that tolerance times the grid step, and passes: 13 expectations, with
+the robustness test skipped because the fits are no longer in the user cache.
+A model set carries no `censored` attribute from `bayesnec::ecx()`, so its
+finite values are compared.
+
+The component NSEC on `manec_example` (`sig_val = 0.01`, `resolution = 200`):
+`toxval` 1.4741 (0.5900, 1.5508), `bayesnec::nsec()` 1.4740 (0.7656, 1.5507).
+With fewer than 101 realisations of an equation the type-7 1% quantile lies
+between the two lowest controls, so the lowest is always past its reference:
+two realisations under `"component"`, one per equation, against one in
+`bayesnec`'s draws. The 2.5% limit falls among the lowest four of 100. RF
+accepted a difference here on 2026-10-23; the measured 0.176 is recorded in
+`BAYESNEC-claude.md` §3.2 and `BAYESNEC-human.md` §6 for RF to confirm, since
+the spec keeps storing each equation's full control posterior open for a large
+difference.
+
+Task 0 (`a14e33e`, by the agent, reviewed here): T35 in `02_decisions.md`; T4
+and T23 amended; every passage of `BAYESNEC-claude.md` §1.2 in both refactor
+documents and `01_work_queue.md`; the #39 comment drafted in
+`notes/drafts/issue-39-toxval-methods-comment.md` for RF to post. Corrected
+here: two places that read "decision T35, amended 2026-10-29", and the
+`REFACTOR-human.md` §5 bullet on `bayesnec` #216, which the agent's edit of the
+matching `REFACTOR-claude.md` bullet had left contradicting it. Added: the
+`hormesis_def = "max"` bullet in §3.5 of both bayesnec documents, which T28
+says the phase 7 plan states. Left as history: T14's and T28's reasons, and
+`REFACTOR-claude.md` passages near §3.3, §3.4 `keys` and phase 3 that mention
+the #39 plan.
+
+Checks on the working tree before the commits: `devtools::test()` 936
+expectations, none failing or skipped. R CMD check `--as-cran` with `bayesnec`
+installed: 0 errors, 0 warnings. With `bayesnec` hidden from both libraries and
+`_R_CHECK_FORCE_SUGGESTS_=false`: 0 errors, 0 warnings, 788 tests passing and
+the bayesnec file skipped. Both give three notes, all local: the pkgdown URL,
+`.claude` and `superceded`.
+
+---
