@@ -913,3 +913,59 @@ equation. Corrected `BAYESNEC-human.md` §3.2, `BAYESNEC-claude.md` §3.2 and th
 stands, on this reason.
 
 ---
+
+**User:** so which is the more "correct" version? Bayesnec or toxval? It seems
+to me bayesnec is the better method?
+
+**Claude:** Agreed: for `anchor = "component"` the quantity sought is each
+equation's 1% control quantile, a property of that equation's posterior. The
+realisations kept in the average are a random subset of the equation's draws,
+so estimating from the subset discards draws and gains nothing. `toxval` does
+so only because a `toxval_pred` holds the kept realisations alone. Under
+`anchor = "model"` the kept realisations are the right sample, the
+model-averaged posterior, so that anchor has no such issue. The rejection in
+`BAYESNEC-claude.md` §3.2 assumed the gap was Monte Carlo noise; the
+measurement shows it tends toward a lower NSEC and grows as an equation's
+share of realisations falls. `toxval_predict.bayesmanecfit()` already computes
+every draw of every equation (`per_model`) before keeping the indexed rows, so
+each equation's full control column can be kept as an optional `meta` element
+and used by `component_reference()` at no extra prediction cost. Recommendation
+revised: make that change in #81, since it is on the same call path. Awaiting
+RF's ruling, which would reverse the 2026-10-23 one.
+
+**User:** yes reverse the ruling, apply the change and put it up as a PR
+
+**Claude:** RF's ruling of 2026-10-23 reversed (T23 amended 2026-10-29). Under
+`anchor = "component"` each equation's reference is now the quantile of its
+control over every draw of its own fit, as `bayesnec::nsec()` takes it
+(`pull_out()` then `nsec()` on the whole equation, then the index rows).
+
+- `toxval_predict.bayesmanecfit()` records
+  `meta$model_control = list(lapply(per_model, function(p) unname(p[, 1])))`,
+  the control column of every equation over all its draws, before the index
+  subsets the rows.
+- `meta$model_control` is optional: one element per curve (as `control` and
+  `asymptote`), each a named list of numeric vectors of any length. It requires
+  `meta$draw_model` and must name every model there. Checked by
+  `chk_model_control()` from `validate_toxval_pred()`, since its length is
+  checked against `keys`.
+- `component_reference(control, sig_val, draw_model, model_control = NULL)`
+  takes each model's quantile over `model_control[[m]]`, or over its
+  realisations when `model_control` is absent (a `toxval_pred` built by
+  another method).
+- Tests: validator acceptance and four refusals; a hand-built reference test
+  (`a = c(8, 9, 10)`, `b = c(10, 11, 12)` give 8.02 and 10.02); on
+  `manec_example`, `model_control` equals each equation's `posterior_epred()`
+  control column and its index rows equal the realisations' controls, and the
+  component reference equals the quantile over every draw. The local
+  comparison now asserts agreement with `bayesnec::nsec()` per realisation and
+  in the summary: 1.47399 (0.76562, 1.55067) in both.
+- Docs: `?new_toxval_pred`, `?toxval_predict`, `?nsec`, README, T23,
+  `BAYESNEC-human.md` §3.2, §3.4, §4, §6 and `BAYESNEC-claude.md` §3.2 (the
+  realisations-only rule moved to a rejected-alternative subsection with its
+  measurement), §3.4, task 4, §6. #81 body updated and marked ready for review.
+
+`devtools::test()`: 950 expectations, none failing or skipped. Local
+comparison: 15 expectations pass, robustness test skipped (fits not cached).
+
+---

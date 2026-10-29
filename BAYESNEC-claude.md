@@ -435,16 +435,22 @@ test in task 3 fails if it does.
 #### The component anchor
 
 `anchor = "component"` (T23, `REFACTOR-claude.md` §3.8) takes each equation's
-reference from that equation's realisations:
+reference from the control of every draw of that equation's fit, including the
+draws left out of the average:
 
 ```r
-reference[m] <- quantile(control[draw_model == m], sig_val)
+reference[m] <- quantile(model_control[[i]][[m]], sig_val)
 ```
 
-applied to those realisations, with `ecnsec` paired to it. Without
-`meta$draw_model`, every realisation belongs to one equation and
-`"component"` equals `"model"`, which is T23's statement for every class
-supported so far.
+applied to that equation's realisations, with `ecnsec` paired to it.
+`toxval_predict.bayesmanecfit()` predicts every draw of every equation before
+keeping the rows of the index, so `meta$model_control` is the first column of
+each equation's prediction (§3.4) and needs no further prediction. Where a
+`toxval_pred` has `meta$draw_model` but no `meta$model_control`, as one built by
+another method might, `component_reference()` takes each equation's quantile
+over its realisations. Without `meta$draw_model`, every realisation belongs to
+one equation and `"component"` equals `"model"`, which is T23's statement for
+every other class.
 
 `compute_nsec()` then holds `reference` as one value per realisation, a list
 column as `compute_ecx()` already gives, and `summarise_metric()` reports its
@@ -455,17 +461,30 @@ model set.
 
 `bayesnec::nsec()` on a model set computes each equation's NSEC from that
 equation's full posterior and then keeps the rows of the index
-(`nsec.R:425-456`; the per-equation reference at `:422-424`). Its reference for
-`ecx4param` on `manec_example` is a quantile of 100 control draws; `toxval`'s is
-a quantile of 17. Both estimate the same quantile. The `toxval` estimate is
-based on fewer draws, and for `sig_val = 0.01` and 17 draws the type-7 quantile
-interpolates between the lowest two.
+(`nsec.R:425-456`; the per-equation reference at `:422-424`), so the two
+packages take the same references. On `manec_example`, in one deterministic run
+at `resolution = 200` and `sig_val = 0.01` with `bayesnec` 2.1.3.43
+(2026-10-29), the decreasing NSEC was 1.47399 (0.76562, 1.55067) from both. The
+NSEC of each realisation agreed to within `bayesnec`'s root-finding tolerance
+(§2.2), and the realisations past their reference at the control were the same
+in both. `tests/local/test-bayesnec-compare.R` asserts both.
 
-Task 5 measured the difference on 2026-10-29, in one deterministic run at
-`resolution = 200` and `sig_val = 0.01` with `bayesnec` 2.1.3.43. The decreasing
-NSEC was 1.4741 (0.5900, 1.5508) from `toxval` and 1.4740 (0.7656, 1.5507) from
-`bayesnec::nsec()`. The estimate and the upper limit agree to about 1e-4, and
-the lower limit is 0.176 lower in `toxval`.
+#### The reference over the realisations alone (rejected)
+
+Taking each equation's reference over its realisations in the average,
+`quantile(control[draw_model == m], sig_val)`, was implemented first. RF
+accepted the resulting difference from `bayesnec` on 2026-10-23 and reversed
+that on 2026-10-29, once it was measured. Its reference for `ecx4param` on
+`manec_example` is a quantile of 17 control draws, against `bayesnec`'s 100.
+Both estimate the same quantile, so the 83 `ecx4param` draws left out add information and
+nothing is gained by leaving them out. The rejection of storing the full
+control, that it would only reproduce `bayesnec` to within Monte Carlo error,
+assumed the difference was noise.
+
+Measured in the same run, the decreasing NSEC was 1.4741 (0.5900, 1.5508) under
+this rule, against 1.4740 (0.7656, 1.5507) from `bayesnec::nsec()`. The
+estimate and the upper limit agree to about 1e-4, and the lower limit is 0.176
+lower.
 
 The `ecx4param` reference accounts for the lower limit. The type-7 1% quantile
 of 17 values lies 0.16 of the way from the lowest to the second lowest. The 17
@@ -493,13 +512,9 @@ where h = 1 + p(n − 1). At p = 0.01 that is 0.064 for n = 17, 0.020 for n = 10
 for n = 3385. A reference taken from few realisations therefore lies nearer the
 centre of the equation's control distribution on average, and that equation's
 NSECs are lower in both directions. `manec_example` holds 100 draws per
-equation.
-
-Storing each equation's full control posterior in the `toxval_pred` was
-rejected. It would add a slot whose only use is to reproduce `bayesnec` to within Monte Carlo
-error. Recorded here so it can be reopened if the measured difference is large.
-Whether the 0.176 difference in the lower limit reopens it is for RF
-(`BAYESNEC-human.md` §6).
+equation. On a fit of 4000 draws per equation, an equation of weight 0.01
+contributes 40 realisations, whose 1% quantile has on average 0.034 of the
+distribution below it.
 
 ### 3.3 Classes
 
@@ -550,9 +565,16 @@ to a public contract, so it is decided on its own pull request, not here.
 |---|---|---|
 | `meta$draw_model` | character, length `n_realisation` | no `NA`; every value in `names(meta$model_weights)` when that is present |
 | `meta$model_weights` | named numeric | names unique and non-empty; values in `[0, 1]`; sum equal to 1 by `all.equal()` |
+| `meta$model_control` | unnamed list, one element per row of `keys`, of named lists of numeric vectors | requires `meta$draw_model`; every model in `draw_model` named; each vector numeric, of any length |
 
-Both are checked in `chk_meta()` (`R/toxval-pred.R:203-252`) when not `NULL`, and
-documented in the Metadata section of `?new_toxval_pred` as optional. The change
+`draw_model` and `model_weights` are checked in `chk_meta()` when not `NULL`.
+`model_control` is checked in `chk_model_control()`, called from
+`validate_toxval_pred()` because its length is checked against `keys`. It has
+one element per curve, as `control` and `asymptote` do, because the control is
+a property of the curve. Each vector holds every draw of the equation's own
+fit, so its length is that fit's number of draws, not `n_realisation`. All
+three are documented in the Metadata section of `?new_toxval_pred` as
+optional. The change
 is additive: every existing object stays valid. `meta$seed` is documented as the
 seed of a bootstrap or of a model-averaging index.
 
@@ -875,7 +897,8 @@ Phase 4 added the `asymptote` slot (T24), `type = "relative"` and `anchor`
 (T23) on PR #66 (`2436858`).
 
 - Fill `asymptote` as §3.4.
-- Make `anchor = "component"` group the realisations by `meta$draw_model` (§3.2).
+- Make `anchor = "component"` group the realisations by `meta$draw_model`, and
+  take each equation's reference from `meta$model_control` (§3.2).
 
 Phase 4 records `anchor` on the result without grouping the realisations
 (`compute_nsec()` at `2436858`), so the grouping is added here, treating a
@@ -887,8 +910,10 @@ Tests: on `bayesnec_nec4param` the decreasing asymptote equals the
 `b_bot_Intercept` draws; on `bnec_model_1` (`nechorme`, beta, no `bot`) it is 0;
 on a copy with the family set to `gaussian` it is `NA` and `relative` stops; on
 `bayesnec_manec_example` the `"component"` reference of each equation equals
-the `sig_val` quantile of that equation's control realisations, and `"model"`
-equals the pooled quantile.
+the `sig_val` quantile of that equation's control over every draw of its fit,
+and `"model"` equals the pooled quantile. `meta$model_control` equals the
+control column of each equation's `posterior_epred()`, and its rows at the
+index equal the realisations' controls.
 
 Done when `type = "relative"` and both anchors are tested on the model set.
 
@@ -958,7 +983,10 @@ prerequisite of any task.
 
 ## 6. Decisions and points for review
 
-RF approved three of these on 2026-10-23: `bayesnec` in `Suggests` (§3.1), the
-difference under `anchor = "component"` (§3.2), and fixture size (task 1, §4).
+RF approved two of these on 2026-10-23: `bayesnec` in `Suggests` (§3.1) and
+fixture size (task 1, §4). RF ruled on 2026-10-29 that under
+`anchor = "component"` each equation's reference is taken over every draw of
+its fit (§3.2), reversing the acceptance on 2026-10-23 of the difference from
+using the realisations alone.
 The rest are listed in `BAYESNEC-human.md` §6. The arguments are in §3.2 (the
 draw index), §3.3 (scope), §3.4 (`threshold`) and §2.1 (the predictor scale).

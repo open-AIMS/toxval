@@ -479,7 +479,12 @@ Settled 2026-10-18 (RF). The argument is specified in `REFACTOR-claude.md`
 ~~`"model"` and `"component"` give the same values for every class toxval
 supports, since none is model-averaged.~~ Amended 2026-10-29 (T35): they differ
 for a `bayesmanecfit`, where `"component"` takes each equation's reference from
-the realisations that `meta$draw_model` assigns to that equation
+~~the realisations that `meta$draw_model` assigns to that equation~~ the control
+of every draw of that equation's fit, recorded in `meta$model_control`, as
+`bayesnec::nsec()` does (amended 2026-10-29, RF). Taking it over the
+realisations alone gave a lower limit 0.176 below `bayesnec`'s on
+`manec_example`, because a 1% quantile of an equation's 17 realisations lies
+nearer the centre of its control than one of its 100 draws
 (`BAYESNEC-claude.md` §3.2). They give the same values for every other class.
 The `anchor` column appears on the result from phase 4, which is done with
 phase 5 (T33).

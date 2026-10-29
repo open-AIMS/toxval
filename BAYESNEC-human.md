@@ -127,33 +127,20 @@ Recording the equation of each realisation is what `anchor = "component"`
 requires (`REFACTOR-human.md` §3.8). A `bayesmanecfit` is the first class for
 which `"component"` and `"model"` give different answers.
 
-Under `"component"` there is one difference from `bayesnec` to document.
-`toxval` takes each equation's reference from that equation's draws in the
-average, which on `manec_example` is 17 draws for `ecx4param`. `bayesnec` takes
-it from all 100 draws of the equation. Both estimate the same quantile of the
-equation's control posterior. The `toxval` estimate is based on fewer draws, and
-the shortfall is largest for an equation with a small weight.
+Under `"component"`, `toxval` takes each equation's reference from every draw
+of that equation's fit, as `bayesnec` does. A reference is the 1% point of the
+control responses, so it is estimated best from all the draws available.
+`toxval_predict()` already predicts every draw of every equation before keeping
+those in the average. It now also keeps each draw's control response, in
+`meta$model_control`. On `manec_example` at `sig_val = 0.01`, the decreasing
+NSEC is 1.474 (0.766, 1.551) in both packages.
 
-Task 5 measured the difference at `sig_val = 0.01`. The decreasing NSEC was
-1.4741 (0.5900, 1.5508) from `toxval` and 1.4740 (0.7656, 1.5507) from
-`bayesnec`. The estimate and the upper limit agree to within 0.0002, and the
-lower limit is 0.18 lower in `toxval`.
-
-The difference comes from the `ecx4param` reference. The 17 draws `toxval`
-takes it from do not include the two lowest controls among that equation's 100
-draws. The `toxval` reference was 2.139, against 2.097 in `bayesnec`. Five of
-the 100 controls lie below the first, and one below the second. Each
-`ecx4param` draw crosses the higher reference at a concentration 0.05 to 0.20
-lower. The `ecx4param` draws make up the lower tail of the average, so the
-lower limit falls with them.
-
-The difference shrinks as an equation contributes more draws. On average, R's
-default 1% quantile of n draws has (1 + 0.01(n − 1)) / (n + 1) of the
-distribution below it. That is 6.4% for 17 draws, 2.0% for 100, and 1.2% for
-615, the `ecx4param` share of the 4000-draw set measured in task 3.
-`manec_example` holds 100 draws per equation. A reference taken from few draws
-lies nearer the centre of the control distribution on average, which gives a
-lower NSEC.
+The first implementation used only each equation's draws in the average, which
+on `manec_example` is 17 draws for `ecx4param`. Its lower limit was 0.18 below
+`bayesnec`'s. A 1% point estimated from few draws lies nearer the middle of the
+control responses on average, and it lowered every `ecx4param` NSEC by 0.05 to
+0.20. RF reversed the ruling that accepted this on 2026-10-29
+(`BAYESNEC-claude.md` §3.2).
 
 ### 3.3 Classes in the first pull request
 
@@ -188,16 +175,19 @@ its own pull request once it is released.
 
 ### 3.4 Additions to `toxval_pred`
 
-`meta` gains two optional elements, and no new slot is added
+`meta` gains three optional elements, and no new slot is added
 (`BAYESNEC-claude.md` §3.4).
 
 - `meta$draw_model` names the equation that produced each realisation.
 - `meta$model_weights` gives the model weight of each equation in the set.
+- `meta$model_control` holds the control response of each equation in every
+  draw of its fit, including the draws left out of the average.
 
 The second makes the equations behind a model-averaged estimate recoverable from
-the result, as `REFACTOR-claude.md` §3.10 requires. Both are checked when
-present. `toxval_pred` is public interface, so both are documented with the rest
-of the metadata.
+the result, as `REFACTOR-claude.md` §3.10 requires. The third sets the
+references under `anchor = "component"` (section 3.2). All three are checked
+when present. `toxval_pred` is public interface, so all three are documented
+with the rest of the metadata.
 
 Two existing slots are filled from the fit:
 
@@ -273,8 +263,8 @@ merged. `BAYESNEC-claude.md` §4 gives files, tests and stopping points for each
    `bayesnec::posterior_epred()` on `manec_example` and the call leaves the
    caller's random number state unchanged.
 4. Task 4 fills the `asymptote` slot and makes `anchor = "component"` read
-   `meta$draw_model`. It is done when `type = "relative"` and both anchors are
-   tested on `manec_example`.
+   `meta$draw_model` and `meta$model_control`. It is done when
+   `type = "relative"` and both anchors are tested on `manec_example`.
 5. Task 5 tests `ecx()` and `nsec()` on every fixture and compares them with
    `bayesnec` in `tests/local/`. It also updates the examples, the README and
    `DESCRIPTION`. It waits for task 4. It is done when R CMD check passes with
@@ -292,14 +282,14 @@ concentration (#73) and has merged into `phase-2`. The pull request goes into
 
 ## 6. Decisions and points for review
 
-RF decided three of these on 2026-10-23.
+RF decided three of these.
 
-- `bayesnec` is added to `Suggests` (section 3.1).
-- The difference from `bayesnec` under `anchor = "component"` is accepted
-  (section 3.2). Its measured size, 0.18 in the lower limit on `manec_example`,
-  is for RF to confirm, since `BAYESNEC-claude.md` §3.2 keeps the rejected
-  alternative open for a large difference.
-- Fixture size does not limit this work, because the tests are needed during
+- `bayesnec` is added to `Suggests` (section 3.1; 2026-10-23).
+- Under `anchor = "component"` each equation's reference is taken over every
+  draw of its fit, so `toxval` matches `bayesnec` (section 3.2). RF decided this
+  on 2026-10-29, reversing the ruling of 2026-10-23 that accepted the difference
+  from using the draws in the average alone.
+- Fixture size does not limit this work (2026-10-23), because the tests are needed during
   development and CRAN submission is not near. When the package is prepared for
   CRAN, a fit needed only by the tests in `tests/local/` can be kept out of the
   built package, as `bayesnec` does (`BAYESNEC-claude.md` §4, task 1).
