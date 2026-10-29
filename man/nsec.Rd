@@ -154,6 +154,7 @@ of the model rather than a feature of a smooth curve.
 \code{bayesnec::bnec()} when \code{bayesnec} is installed. \code{bayesnec} has its own
 \code{nsec()}, and when both packages are loaded with \code{library()}, the one loaded
 last is used. Call \code{toxval::nsec()} to make sure this function runs.
+
 The two functions can give different estimates for the same fit, because
 they evaluate the curve at different concentrations and handle realisations
 that never reach the reference differently.

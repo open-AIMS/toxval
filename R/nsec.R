@@ -37,6 +37,7 @@
 #' `bayesnec::bnec()` when `bayesnec` is installed. `bayesnec` has its own
 #' `nsec()`, and when both packages are loaded with `library()`, the one loaded
 #' last is used. Call `toxval::nsec()` to make sure this function runs.
+#' 
 #' The two functions can give different estimates for the same fit, because
 #' they evaluate the curve at different concentrations and handle realisations
 #' that never reach the reference differently.
