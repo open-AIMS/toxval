@@ -153,25 +153,25 @@ bnec_x_var <- function(formula, data, x_var) {
   x_var
 }
 
-#' The grid `bayesnec` predicts a fit over
+#' The data `bayesnec` predicts a fit at, over a grid chosen by `toxval`
 #'
 #' `bnec_newdata()` sets the trials of a binomial or beta-binomial response to
-#' 1 and the denominator of a `rate()` term to 1. Building the grid here instead
+#' 1 and the denominator of a `rate()` term to 1. Building the data here instead
 #' would mean copying those rules, which have changed between `bayesnec`
-#' releases.
+#' releases. It builds its grid with `seq()` from the ends of `x_range`, as
+#' `predict_grid()` does, so the predictor column reproduces `x_vec`.
 #'
 #' @param object A `bnecfit`.
-#' @param resolution Number of grid values.
-#' @param x_range The requested range, or `NULL` for the range of the data.
+#' @param x_vec The grid from `predict_grid()`.
 #'
 #' @return A data frame with one row per grid value.
 #'
 #' @noRd
-bnec_grid <- function(object, resolution, x_range) {
+bnec_grid <- function(object, x_vec) {
   bayesnec::bnec_newdata(
     object,
-    resolution = resolution,
-    x_range = if (is.null(x_range)) NA else x_range
+    resolution = length(x_vec),
+    x_range = range(x_vec)
   )
 }
 

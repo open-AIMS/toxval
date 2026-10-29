@@ -59,7 +59,8 @@ toxval_predict(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 )
 
 \method{toxval_predict}{bayesmanecfit}(
@@ -68,7 +69,8 @@ toxval_predict(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 )
 
 \method{toxval_predict}{bnecfit}(
@@ -77,7 +79,8 @@ toxval_predict(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 )
 }
 \arguments{
@@ -187,9 +190,10 @@ of the fitted function, from \code{fct$lowerAs()} and \code{fct$upperAs()}.
 \code{bayesnec::bnec()}, of class \code{bayesnecfit}, which requires \code{bayesnec} to
 be installed. Realisations are the posterior draws of the \code{brmsfit} held in
 \code{object$fit}, and group-level effects are marginalised out
-(\code{re_formula = NA}). The grid is the one \code{bayesnec} builds for its own
-predictions, with a binomial or beta-binomial response predicted for one
-trial, so that its curve is a proportion. \code{x_var} is read from the \code{crf()}
+(\code{re_formula = NA}). The grid spans the same concentrations as for a
+\code{brmsfit}, and \code{bayesnec} builds the data to predict at, with a binomial
+or beta-binomial response predicted for one trial, so that its curve is a
+proportion. \code{x_var} is read from the \code{crf()}
 term when \code{NULL}, and a supplied \code{x_var} must match it. \code{group_var} must be
 \code{NULL}, since a \code{bnec()} fit has one curve. A predictor transformed inside
 \code{crf()}, such as \code{crf(log(x), ...)}, is reported in units of the variable

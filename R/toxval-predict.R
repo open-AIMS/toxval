@@ -290,9 +290,10 @@ toxval_predict.drc <- function(
 #'   `bayesnec::bnec()`, of class `bayesnecfit`, which requires `bayesnec` to
 #'   be installed. Realisations are the posterior draws of the `brmsfit` held in
 #'   `object$fit`, and group-level effects are marginalised out
-#'   (`re_formula = NA`). The grid is the one `bayesnec` builds for its own
-#'   predictions, with a binomial or beta-binomial response predicted for one
-#'   trial, so that its curve is a proportion. `x_var` is read from the `crf()`
+#'   (`re_formula = NA`). The grid spans the same concentrations as for a
+#'   `brmsfit`, and `bayesnec` builds the data to predict at, with a binomial
+#'   or beta-binomial response predicted for one trial, so that its curve is a
+#'   proportion. `x_var` is read from the `crf()`
 #'   term when `NULL`, and a supplied `x_var` must match it. `group_var` must be
 #'   `NULL`, since a `bnec()` fit has one curve. A predictor transformed inside
 #'   `crf()`, such as `crf(log(x), ...)`, is reported in units of the variable
@@ -305,7 +306,8 @@ toxval_predict.bayesnecfit <- function(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 ) {
   chk_dots_unused(..., source = "`bayesnecfit`")
   check_bayesnec_installed(object)
@@ -314,7 +316,10 @@ toxval_predict.bayesnecfit <- function(
 
   data <- object$fit$data
   x_var <- bnec_x_var(object$bayesnecformula, data, x_var)
-  newdata <- bnec_grid(object, resolution, x_range)
+  newdata <- bnec_grid(
+    object,
+    predict_grid(x_range, data[[x_var]], resolution, x_control)
+  )
   x_vec <- newdata[[x_var]]
   # Read from the stored brmsfit rather than through bayesnec's own
   # posterior_epred() methods, which have none for the components of a model
@@ -332,8 +337,7 @@ toxval_predict.bayesnecfit <- function(
       x_var = x_var,
       curves = list(curve),
       realisation = "draws",
-      family = object$fit$family$family,
-      data = data
+      family = object$fit$family$family
     )
   )
 }
@@ -354,7 +358,8 @@ toxval_predict.bayesmanecfit <- function(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 ) {
   chk_dots_unused(..., source = "`bayesmanecfit`")
   check_bayesnec_installed(object)
@@ -370,7 +375,10 @@ toxval_predict.bayesmanecfit <- function(
   # every model is fitted to the same data with the same crf() term
   data <- mod_fits[[1]]$fit$data
   x_var <- bnec_x_var(mod_fits[[1]]$bayesnecformula, data, x_var)
-  newdata <- bnec_grid(object, resolution, x_range)
+  newdata <- bnec_grid(
+    object,
+    predict_grid(x_range, data[[x_var]], resolution, x_control)
+  )
   x_vec <- newdata[[x_var]]
 
   per_model <- lapply(mod_fits, function(component) {
@@ -398,7 +406,6 @@ toxval_predict.bayesmanecfit <- function(
       realisation = "draws",
       family = mod_fits[[1]]$fit$family$family,
       seed = index$seed,
-      data = data,
       # a model with no realisation in the average stays in `model_weights`
       draw_model = rep(model_set, lengths(index$rows)),
       model_weights = weights
@@ -418,7 +425,8 @@ toxval_predict.bnecfit <- function(
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
-  x_range = NULL
+  x_range = NULL,
+  x_control = NULL
 ) {
   chk::abort_chk(
     "`object` must be a ",
@@ -447,8 +455,6 @@ toxval_predict.bnecfit <- function(
 #'   response for a multivariate fit, the `type` of a `drc` fit, or `NULL`
 #'   where there is none.
 #' @param seed The bootstrap seed, or `NULL`.
-#' @param data The data the model was fitted to. A `bnecfit` holds them in its
-#'   `brmsfit`, as `object$fit$data`, rather than as `object$data`.
 #' @param ... Optional elements of `meta`, such as `draw_model` and
 #'   `model_weights`, appended to the required ones.
 #'
@@ -465,7 +471,6 @@ build_meta <- function(
   realisation,
   family = NULL,
   seed = NULL,
-  data = object$data,
   ...
 ) {
   required <- list(

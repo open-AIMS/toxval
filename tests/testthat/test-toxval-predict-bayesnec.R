@@ -38,13 +38,59 @@ test_that("toxval_predict on a bayesnecfit takes x_vec from bayesnec's grid", {
   expect_equal(range(pred$x_vec), range(bnec_model_1$fit$data$x))
 })
 
-test_that("toxval_predict on a bayesnecfit honours a supplied x_range", {
-  pred <- toxval_predict(bnec_model_1, resolution = 50, x_range = c(0.6, 1))
+test_that("toxval_predict on a bayesnecfit ends the grid at a supplied x_range", {
+  x_min <- min(bnec_model_1$fit$data$x)
+  pred <- toxval_predict(bnec_model_1, resolution = 50, x_range = c(x_min, 1))
 
-  expect_equal(range(pred$x_vec), c(0.6, 1))
+  expect_equal(range(pred$x_vec), c(x_min, 1))
   expect_length(pred$x_vec, 50)
-  # the control stays at the lowest concentration in the data (T21)
-  expect_identical(pred$meta$x_control, min(bnec_model_1$fit$data$x))
+  expect_identical(pred$meta$x_control, x_min)
+})
+
+test_that("toxval_predict on a bayesnecfit starts the grid at x_control", {
+  pred <- toxval_predict(
+    bnec_model_1,
+    resolution = 50,
+    x_control = 0.6,
+    x_range = c(0.6, 1)
+  )
+
+  expect_identical(pred$x_vec, seq(0.6, 1, length.out = 50))
+  expect_identical(pred$meta$x_control, 0.6)
+})
+
+test_that("toxval_predict on a bayesnecfit refuses an x_range that does not start at the control concentration", {
+  expect_error(
+    toxval_predict(bnec_model_1, resolution = 50, x_range = c(0.6, 1)),
+    "`x_range` must start at the control concentration, 0.5, not 0.6",
+    fixed = TRUE
+  )
+})
+
+test_that("toxval_predict on a bayesmanecfit starts the grid at x_control", {
+  pred <- toxval_predict(
+    bayesnec_manec_example,
+    resolution = 50,
+    x_control = 0.5,
+    x_range = c(0.5, 2)
+  )
+
+  expect_identical(pred$x_vec, seq(0.5, 2, length.out = 50))
+  expect_identical(pred$meta$x_control, 0.5)
+})
+
+test_that("ecx() passes x_control to a bayesnecfit", {
+  # the increasing ECx of nechorme is censored in most realisations and warns
+  result <- suppressWarnings(ecx(
+    bnec_model_1,
+    proportion = 0.1,
+    resolution = 50,
+    x_control = 0.6,
+    x_range = c(0.6, 1)
+  ))
+
+  expect_s3_class(result, "toxval")
+  expect_true(all(c(result$conf.low, result$conf.high) >= 0.6))
 })
 
 test_that("toxval_predict on a bayesnecfit records the meta contract", {
