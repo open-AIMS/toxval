@@ -244,10 +244,9 @@ chk_asymptote_supplied <- function(pred, type) {
 
 #' Warn which models of a model average have no asymptote
 #'
-#' The realisations of such a model have no span under `relative` and are
-#' excluded, which leaves the average of the other models with their weights
-#' renormalised. A direction in which no model has an asymptote is excluded
-#' for every realisation and is reported by the summary instead.
+#' Their realisations have no span under `relative` and are excluded, so the
+#' other models are averaged. A direction in which no model has an asymptote is
+#' reported by the summary instead.
 #'
 #' @param asymptote The asymptotes of the curve, from `curve_asymptote()`.
 #' @param draw_model The model of each realisation, or `NULL`.

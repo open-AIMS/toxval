@@ -10,8 +10,7 @@ bnec_supported_classes <- function() {
 
 #' Whether `bayesnec` is installed
 #'
-#' A function of its own so that a test can replace it with
-#' `testthat::local_mocked_bindings()`.
+#' Separate so that tests can mock it.
 #'
 #' @noRd
 bayesnec_available <- function() {
@@ -20,8 +19,7 @@ bayesnec_available <- function() {
 
 #' Check that `bayesnec` is installed
 #'
-#' The grid and the predictor are read through `bayesnec`, so a `bnecfit`
-#' cannot be predicted without it, although the stored `brmsfit` could be.
+#' The grid and the predictor are read through `bayesnec`.
 #'
 #' @param object A `bnecfit`.
 #'
@@ -39,7 +37,10 @@ check_bayesnec_installed <- function(object) {
   invisible(object)
 }
 
-#' Refuse the `bayesnecfit` objects whose curve is not one expected value
+#' Check that a `bayesnecfit` has a single expected-value curve
+#'
+#' Joint refit levels, two-part families and the count part of a hurdle fit
+#' are errors.
 #'
 #' @param object A `bayesnecfit`.
 #'
@@ -56,8 +57,8 @@ chk_bayesnec_supported <- function(object) {
     )
   }
   family <- object$fit$family$family
-  # These families fit the zeros in a second part, and which part, or their
-  # combination, a metric should be computed on is not yet decided
+  # These families fit the zeros in a second part, so there is no single curve
+  # to compute a metric on
   if (family %in% bnec_two_part_families()) {
     chk::abort_chk(
       "`object` must not be fitted with the family ",
@@ -115,10 +116,8 @@ chk_no_group_var <- function(group_var, object) {
 
 #' The predictor of a `bnec()` fit
 #'
-#' `bayesnec` records the variable named inside `crf()` on the model frame of
-#' its formula, as the `x_var` entry of the `bnec_pop` attribute. For
-#' `crf(log(x), ...)` that is `x`, which is also the column the grid is built
-#' over.
+#' Read from the `bnec_pop` attribute of the model frame. For
+#' `crf(log(x), ...)` it is `x`, the column the grid is built over.
 #'
 #' @param formula The `bayesnecformula` of the fit.
 #' @param data The data the fit was made to.
@@ -155,10 +154,8 @@ bnec_x_var <- function(formula, data, x_var) {
 
 #' The data `bayesnec` predicts a fit at, over a grid chosen by `toxval`
 #'
-#' `bnec_newdata()` sets the trials of a binomial or beta-binomial response to
-#' 1 and the denominator of a `rate()` term to 1. Building the data here instead
-#' would mean copying those rules, which have changed between `bayesnec`
-#' releases. It builds its grid with `seq()` from the ends of `x_range`, as
+#' `bnec_newdata()` sets the trials of a binomial or beta-binomial response and
+#' the denominator of a `rate()` term to 1, and builds its grid as
 #' `predict_grid()` does, so the predictor column reproduces `x_vec`.
 #'
 #' @param object A `bnecfit`.
@@ -177,8 +174,7 @@ bnec_grid <- function(object, x_vec) {
 
 #' Check that every model of a model set has one family
 #'
-#' `bnec()` fits a model set with one family, so a set that fails this is
-#' malformed. The family decides whether the averaged curve is a proportion.
+#' The family decides whether the averaged curve is a proportion.
 #'
 #' @param mod_fits The `mod_fits` of a `bayesmanecfit`.
 #'
@@ -236,13 +232,10 @@ bnec_asymptote <- function(fit) {
 
 #' The draws a model average keeps from each model
 #'
-#' Reproduces `bayesnec`'s own choice, so that the realisations are the draws
-#' its estimates and plots use: the index stored on the object when it was made
-#' for the same number of draws, and otherwise a rebuild from the stored seed,
-#' or from 216, `bayesnec`'s default, where none is stored. Each model keeps
-#' `round(n * weight)` of the `n` draws, sampled without replacement. A
-#' comparison test with `bayesnec::posterior_epred()` fails if `bayesnec`
-#' changes the rule.
+#' Reproduces `bayesnec`'s own choice of draws: the index stored on the object
+#' when it was made for the same number of draws, and otherwise a rebuild from
+#' the stored seed, or from 216, `bayesnec`'s default. Each model keeps
+#' `round(n * weight)` of the `n` draws, sampled without replacement.
 #'
 #' @param object A `bayesmanecfit`.
 #' @param model_set The names of the models, in the order of `object$mod_fits`.
@@ -289,6 +282,7 @@ bnec_draw_index <- function(object, model_set, weights, n) {
 #' @param n The smallest number of draws held by its models.
 #'
 #' @return A flag.
+#'
 #' @noRd
 bnec_undercounted_set <- function(object, n) {
   fits <- object$mod_fits
