@@ -132,8 +132,15 @@ Under `"component"` there is one difference from `bayesnec` to document.
 average, which on `manec_example` is 17 draws for `ecx4param`. `bayesnec` takes
 it from all 100 draws of the equation. Both estimate the same quantile of the
 equation's control posterior. The `toxval` estimate is based on fewer draws, and
-the shortfall is largest for an equation with a small weight. Task 5 measures
-the difference.
+the shortfall is largest for an equation with a small weight.
+
+Task 5 measured the difference at `sig_val = 0.01`. The decreasing NSEC was
+1.4741 (0.5900, 1.5508) from `toxval` and 1.4740 (0.7656, 1.5507) from
+`bayesnec`. The estimate and the upper limit agree to within 0.0002, and the
+lower limit is 0.18 lower in `toxval`. With so few draws, the draw with the lowest control is always
+past its equation's reference, so `toxval` places one draw from each equation at
+the control concentration, where `bayesnec` places one in all. The lower limit
+falls among the lowest four of 100 draws, so that extra draw changes it.
 
 ### 3.3 Classes in the first pull request
 
@@ -196,7 +203,7 @@ reference uses that bound (decision T18).
 
 ### 3.5 bayesnec behaviour not reproduced
 
-Three behaviours of `bayesnec` are not reproduced (`BAYESNEC-claude.md` §3.5).
+Four behaviours of `bayesnec` are not reproduced (`BAYESNEC-claude.md` §3.5).
 
 - The back-transformation of a predictor transformed inside `crf()` (decision
   T6, section 2).
@@ -206,6 +213,8 @@ Three behaviours of `bayesnec` are not reproduced (`BAYESNEC-claude.md` §3.5).
 - The computation of each metric per equation followed by mixing of the
   results. `toxval` computes every metric on the one model-averaged matrix
   (section 3.2).
+- The decline from the peak, `hormesis_def = "max"`, which defines a different
+  reference (decision T28).
 
 ### 3.6 The shared function names
 
@@ -225,12 +234,8 @@ decide. Its plan currently relocates them to `toxval` and imports `toxval`
 
 ## 4. Order of work
 
-There are six tasks. Tasks 1 to 3 are done. PR #66 has merged, bringing
-`type = "relative"` and `anchor`, so task 4 can start. `ecx()` and `nsec()` both
-call `toxval_predict()`, so task 5 waits only for task 4. Task 0 is done last. Until task 4, `nsec()` on a model set refuses
-`anchor = "component"`, because it would otherwise return the `"model"` result
-under that label.
-`BAYESNEC-claude.md` §4 gives files, tests and stopping points for each.
+There are six tasks, and all six are done. Task 0 was done last, after PR #66
+merged. `BAYESNEC-claude.md` §4 gives files, tests and stopping points for each.
 
 0. Task 0 records the decision. It adds T35 to
    `notes/implementation/02_decisions.md`, rewrites phases 6 and 7 of the
@@ -278,7 +283,9 @@ RF decided three of these on 2026-10-23.
 
 - `bayesnec` is added to `Suggests` (section 3.1).
 - The difference from `bayesnec` under `anchor = "component"` is accepted
-  (section 3.2).
+  (section 3.2). Its measured size, 0.18 in the lower limit on `manec_example`,
+  is for RF to confirm, since `BAYESNEC-claude.md` §3.2 keeps the rejected
+  alternative open for a large difference.
 - Fixture size does not limit this work, because the tests are needed during
   development and CRAN submission is not near. When the package is prepared for
   CRAN, a fit needed only by the tests in `tests/local/` can be kept out of the

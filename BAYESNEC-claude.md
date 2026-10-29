@@ -14,9 +14,8 @@ CRAN release 2.1.3.1 at `6f6bd25d`. `toxval` facts are cited on
 `phase-7-bayesnec-methods` at `6bdd99c`, the head of PR #66. Measurements were
 run on 2026-10-23 in R 4.6.1 under WSL with `bayesnec` 2.1.3.39 installed.
 
-Decision numbers T35 onwards are provisional until they are written into
-`notes/implementation/02_decisions.md` (task 0). T34 is reserved for the control
-ruling AP is recording on PR #66.
+T35 was written into `notes/implementation/02_decisions.md` on 2026-10-29
+(task 0).
 
 ## 1. The decision (T35)
 
@@ -139,10 +138,18 @@ realisation.
 | interpolation | linear between grid points | linear | `helpers.R:2483-2507` |
 
 The last two rows agree, so under `type = "absolute"`, at equal `resolution` and
-with `x_range` and `x_control` unset, the decreasing ECx of every realisation that crosses
-within the grid should equal `bayesnec`'s. Task 5 tests this to `1e-8`. A
-discrepancy there means that one of the packages locates the crossing
-incorrectly.
+with `x_range` and `x_control` unset, the decreasing ECx of every realisation
+that crosses within the grid should equal `bayesnec`'s up to the accuracy of
+`bayesnec`'s root-finding. `toxval` interpolates the crossing exactly.
+`bayesnec`'s `crossing_x()` instead finds the root of the same piecewise-linear
+interpolant with `modelbased`'s `.uniroot.all()`, at a tolerance of
+`.Machine$double.eps^0.2` in grid steps. On `bayesnec_nec4param` at
+`resolution = 200` (2026-10-29, `bayesnec` 2.1.3.43), the interpolant at
+`toxval`'s crossing differed from the reference by at most 8.9e-16, and at
+`bayesnec`'s by up to 2.8e-6. The two crossings differed by at most 3.2e-7
+relative. Task 5 therefore tests that they agree to that tolerance times the
+grid step. A larger discrepancy means that one of the packages locates the
+crossing incorrectly.
 
 T21 as amended on #74 (RF, 2026-10-27) departs from `bayesnec` D17 ruling 1 and
 the `bayesnec` #404 rule, which place at the control every realisation past the
@@ -439,17 +446,39 @@ applied to those realisations, with `ecnsec` paired to it. Without
 `"component"` equals `"model"`, which is T23's statement for every class
 supported so far.
 
+`compute_nsec()` then holds `reference` as one value per realisation, a list
+column as `compute_ecx()` already gives, and `summarise_metric()` reports its
+`prob_vals[1]` quantile, as it does for `control`. On `manec_example` that is
+the `nec4param` reference, which holds 83 of the 100 realisations. Reporting
+one reference per equation would need a column whose length varies with the
+model set.
+
 `bayesnec::nsec()` on a model set computes each equation's NSEC from that
 equation's full posterior and then keeps the rows of the index
 (`nsec.R:425-456`; the per-equation reference at `:422-424`). Its reference for
 `ecx4param` on `manec_example` is a quantile of 100 control draws; `toxval`'s is
 a quantile of 17. Both estimate the same quantile. The `toxval` estimate is
 based on fewer draws, and for `sig_val = 0.01` and 17 draws the type-7 quantile
-interpolates between the lowest two. Task 5 measures the difference.
+interpolates between the lowest two.
+
+Task 5 measured the difference on 2026-10-29, in one deterministic run at
+`resolution = 200` and `sig_val = 0.01` with `bayesnec` 2.1.3.43. The decreasing
+NSEC was 1.4741 (0.5900, 1.5508) from `toxval` and 1.4740 (0.7656, 1.5507) from
+`bayesnec::nsec()`. The estimate and the upper limit agree to about 1e-4, and
+the lower limit is 0.176 lower in `toxval`. With fewer than 101 realisations of
+an equation, the 1% quantile lies between its two lowest controls, so the
+realisation with the lowest control is always past its own reference. Under
+`"component"` two realisations are past their reference at the control, one
+from each equation. In `bayesnec`'s draws one is, because `bayesnec` takes each
+reference over 100 draws and keeps only 17 of `ecx4param`'s. The 2.5% limit of
+100 realisations falls among the lowest four, so the one extra realisation
+changes it.
 
 Storing each equation's full control posterior in the `toxval_pred` was
 rejected. It would add a slot whose only use is to reproduce `bayesnec` to within Monte Carlo
 error. Recorded here so it can be reopened if the measured difference is large.
+Whether the 0.176 difference in the lower limit reopens it is for RF
+(`BAYESNEC-human.md` §6).
 
 ### 3.3 Classes
 
@@ -536,8 +565,11 @@ On a model set the slot is filled from each equation's rows at the index, so
 alignment holds by construction. Dropping the equations whose asymptote is `NA`
 and renormalising, as §3.10 specifies, is equivalent to excluding their
 realisations; the warning of T25 then gives the excluded fraction. §3.10 also
-asks for the equations to be named, which needs the compute layer to read
-`meta$draw_model` (task 4).
+asks for the equations to be named. Under `relative`, `compute_ecx()` and
+`compute_nsec()` warn with the names of the equations whose asymptote is `NA`
+in a direction where another equation has one. A direction with no asymptote
+in any equation is excluded for every realisation, and T25's warning reports
+it, as for a single fit.
 
 #### The response bound
 
@@ -566,6 +598,9 @@ before #25 rules would fix that meaning by default.
   #39, are deleted.
 - Per-equation computation then mixing (`ecx.R:398-428`, `nsec.R:425-456`).
   Every metric is computed on the averaged matrix (§3.2).
+- The decline from the peak, `hormesis_def = "max"`, which defines a different
+  reference and is not reimplemented (T28; further references are the scope of
+  #63). `bayesnec` 2.1.3.43 no longer takes the argument.
 
 ### 3.6 The shared function names
 
@@ -846,7 +881,8 @@ and for task 4. `ecx()` has called it since `6bdd99c`.
 - `tests/local/test-bayesnec-compare.R`, run by hand:
   - the decreasing absolute ECx, per realisation, against
     `bayesnec::ecx(posterior = TRUE)` at the same `resolution`, for
-    realisations crossing within the grid, to `1e-8` (§2.2);
+    realisations crossing within the grid, to the tolerance of `bayesnec`'s
+    root-finding (§2.2);
   - on `bayesnec_logx`, `toxval` equals `exp()` of `bayesnec` (§2.1);
   - `nsec(anchor = "component")` against `bayesnec::nsec()` on
     `manec_example` at `sig_val = 0.01`: the difference in each quantile is
