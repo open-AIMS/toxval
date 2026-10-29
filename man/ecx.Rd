@@ -124,11 +124,34 @@ realisation with nothing to take the proportion of, such as a control at or
 below 0 or a missing asymptote, is excluded from the summary, with a warning.
 }
 \examples{
+\dontshow{if (requireNamespace("drc", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{
-if (requireNamespace("drc", quietly = TRUE)) {
-  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
-  ecx(fit, proportion = c(0.1, 0.5), seed = 42)
-}
-}
+fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
 
+# EC10 and EC50, as proportions of the span from the control down to 0
+ecx(fit, proportion = c(0.1, 0.5), seed = 42)
+
+# EC10 of the span from the control to the lower asymptote
+ecx(fit, type = "relative", seed = 42)
+
+# EC10 of the span from the control to the lowest predicted response
+ecx(fit, type = "range", seed = 42)
+
+# concentration at which the predicted root length falls to 4
+ecx(fit, type = "direct", reference = 4, seed = 42)
+
+# per-realisation values of each row
+res <- ecx(fit, draws = TRUE, seed = 42)
+res$draws[[1]]
+
+# one estimate per herbicide
+fit_group <- drc::drm(
+  DryMatter ~ Dose,
+  curveid = Herbicide,
+  data = drc::S.alba,
+  fct = drc::LL.4()
+)
+ecx(fit_group, group_var = "Herbicide", seed = 42)
+}
+\dontshow{\}) # examplesIf}
 }
