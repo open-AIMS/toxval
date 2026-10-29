@@ -879,3 +879,37 @@ the bayesnec file skipped. Both give three notes, all local: the pkgdown URL,
 `.claude` and `superceded`.
 
 ---
+
+## Session: phase7-bayesnec-methods (component lower limit)
+Date: 2026-10-29
+Model: Claude Opus 5.5 (claude-opus-5-5)
+
+### Prompts and Responses
+
+**User:** Can you explain this in more detail to me here? 'keep your
+component-anchor ruling, since toxval's lower NSEC limit is 0.18 below
+bayesnec's.'
+
+**Claude:** Traced the 0.176 difference realisation by realisation on
+`manec_example` (`resolution = 200`, `sig_val = 0.01`). The mechanism recorded
+earlier in this log, the plan documents and #81 was wrong. The extra
+realisation past its reference at the control (realisation 97, `ecx4param`)
+does not change the 2.5% limit: in `bayesnec` it crosses at 0.385, still among
+the lowest two. The limit lies between realisations 87 and 88 in both packages
+(0.571 and 0.611 in `toxval`, 0.728 and 0.808 in `bayesnec`). They are lower in
+`toxval` because the `ecx4param` reference is 2.139 there against 2.097: the 17
+realisations kept in the average exclude the two lowest of that equation's 100
+controls, and five of the 100 lie below `toxval`'s reference. Every crossing
+`ecx4param` realisation is 0.053 to 0.197 lower. The `nec4param` references
+(2.0345 against 2.0352) give the 1e-4 differences in the estimate and upper
+limit. Under `anchor = "model"` the result is 1.4740 (0.9090, 1.5507).
+
+On average the type-7 1% quantile of n values has about
+(1 + 0.01(n − 1)) / (n + 1) of the distribution below it: 0.064 at n = 17,
+0.020 at 100, 0.012 at 615 (the task 3 set's `ecx4param` share). The shift is
+therefore toward a lower NSEC on average and shrinks with the realisations per
+equation. Corrected `BAYESNEC-human.md` §3.2, `BAYESNEC-claude.md` §3.2 and the
+"Decision needed" section of #81. The recommendation to confirm RF's ruling
+stands, on this reason.
+
+---

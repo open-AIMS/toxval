@@ -137,10 +137,23 @@ the shortfall is largest for an equation with a small weight.
 Task 5 measured the difference at `sig_val = 0.01`. The decreasing NSEC was
 1.4741 (0.5900, 1.5508) from `toxval` and 1.4740 (0.7656, 1.5507) from
 `bayesnec`. The estimate and the upper limit agree to within 0.0002, and the
-lower limit is 0.18 lower in `toxval`. With so few draws, the draw with the lowest control is always
-past its equation's reference, so `toxval` places one draw from each equation at
-the control concentration, where `bayesnec` places one in all. The lower limit
-falls among the lowest four of 100 draws, so that extra draw changes it.
+lower limit is 0.18 lower in `toxval`.
+
+The difference comes from the `ecx4param` reference. The 17 draws `toxval`
+takes it from do not include the two lowest controls among that equation's 100
+draws. The `toxval` reference was 2.139, against 2.097 in `bayesnec`. Five of
+the 100 controls lie below the first, and one below the second. Each
+`ecx4param` draw crosses the higher reference at a concentration 0.05 to 0.20
+lower. The `ecx4param` draws make up the lower tail of the average, so the
+lower limit falls with them.
+
+The difference shrinks as an equation contributes more draws. On average, R's
+default 1% quantile of n draws has (1 + 0.01(n − 1)) / (n + 1) of the
+distribution below it. That is 6.4% for 17 draws, 2.0% for 100, and 1.2% for
+615, the `ecx4param` share of the 4000-draw set measured in task 3.
+`manec_example` holds 100 draws per equation. A reference taken from few draws
+lies nearer the centre of the control distribution on average, which gives a
+lower NSEC.
 
 ### 3.3 Classes in the first pull request
 

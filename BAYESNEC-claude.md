@@ -465,14 +465,35 @@ Task 5 measured the difference on 2026-10-29, in one deterministic run at
 `resolution = 200` and `sig_val = 0.01` with `bayesnec` 2.1.3.43. The decreasing
 NSEC was 1.4741 (0.5900, 1.5508) from `toxval` and 1.4740 (0.7656, 1.5507) from
 `bayesnec::nsec()`. The estimate and the upper limit agree to about 1e-4, and
-the lower limit is 0.176 lower in `toxval`. With fewer than 101 realisations of
-an equation, the 1% quantile lies between its two lowest controls, so the
-realisation with the lowest control is always past its own reference. Under
-`"component"` two realisations are past their reference at the control, one
-from each equation. In `bayesnec`'s draws one is, because `bayesnec` takes each
-reference over 100 draws and keeps only 17 of `ecx4param`'s. The 2.5% limit of
-100 realisations falls among the lowest four, so the one extra realisation
-changes it.
+the lower limit is 0.176 lower in `toxval`.
+
+The `ecx4param` reference accounts for the lower limit. The type-7 1% quantile
+of 17 values lies 0.16 of the way from the lowest to the second lowest. The 17
+realisations kept in the average exclude the two lowest of the equation's 100
+control draws, so the reference was 2.139 in `toxval` and 2.097 in `bayesnec`.
+Five of the 100 controls lie below the first and one below the second. The 16
+`ecx4param` realisations that cross within the grid cross `toxval`'s reference
+0.053 to 0.197 lower. The 17th, realisation 97, has a control of 2.131. It is
+past `toxval`'s reference at the control and crosses `bayesnec`'s at 0.385.
+
+The 2.5% limit of 100 realisations lies 0.475 of the way from the third lowest
+to the fourth. In both packages these are realisations 87 and 88, at 0.571 and
+0.611 in `toxval` and at 0.728 and 0.808 in `bayesnec`. The two below them are
+realisation 6, a `nec4param` draw past its reference at the control in both,
+and realisation 97. Where realisation 97 is placed therefore does not change
+the limit. The `nec4param` reference is 2.0345 in `toxval` and 2.0352 in
+`bayesnec`, which accounts for the differences of about 1e-4 in the estimate
+and the upper limit.
+
+The size of the shift depends on the number of realisations of an equation.
+For a continuous distribution, E[F(X₍ₖ₎)] = k / (n + 1), so the type-7 quantile
+at p of n values has on average about h / (n + 1) of the distribution below it,
+where h = 1 + p(n − 1). At p = 0.01 that is 0.064 for n = 17, 0.020 for n = 100,
+0.012 for n = 615 (the `ecx4param` realisations of the task 3 set) and 0.010
+for n = 3385. A reference taken from few realisations therefore lies nearer the
+centre of the equation's control distribution on average, and that equation's
+NSECs are lower in both directions. `manec_example` holds 100 draws per
+equation.
 
 Storing each equation's full control posterior in the `toxval_pred` was
 rejected. It would add a slot whose only use is to reproduce `bayesnec` to within Monte Carlo
