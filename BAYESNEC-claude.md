@@ -135,11 +135,11 @@ realisation.
 | realisation with no crossing | placed by T21 | censored at a bound, `bound_*` reported | `helpers.R:2959` |
 | directions | both, as rows (T10) | decreasing | — |
 | default `resolution` | 500 (T31) | 200 | `ecx.R:178-183` |
-| control | first grid value, the lowest observed `x` when `x_range` is `NULL` | prediction at the lowest observed `x` | `helpers.R:2697-2742` |
+| control | first grid value, `x_control`, the lowest observed `x` unless `x_control` is supplied (T41) | prediction at the lowest observed `x` | `helpers.R:2697-2742` |
 | interpolation | linear between grid points | linear | `helpers.R:2483-2507` |
 
 The last two rows agree, so under `type = "absolute"`, at equal `resolution` and
-with `x_range` unset, the decreasing ECx of every realisation that crosses
+with `x_range` and `x_control` unset, the decreasing ECx of every realisation that crosses
 within the grid should equal `bayesnec`'s. Task 5 tests this to `1e-8`. A
 discrepancy there means that one of the packages locates the crossing
 incorrectly.
@@ -164,15 +164,18 @@ stands.
 ```r
 toxval_predict.bayesnecfit <- function(
   object,
+  ...,
   x_var = NULL,
   group_var = NULL,
   resolution = 500,
   x_range = NULL,
-  ...
+  x_control = NULL
 )
 ```
 
-`resolution` follows the generic's default of 500 (T31, `6bdd99c`).
+`resolution` follows the generic's default of 500 (T31, `6bdd99c`). `...`
+follows `object` and an unused argument is an error (T39). `x_control` is the
+argument #73 adds (T41).
 
 #### Body
 
@@ -181,7 +184,10 @@ check_bayesnec_installed()
 chk_bayesnec_supported(object)
 chk_no_group_var(group_var, "`bayesnecfit`")
 x_var <- bnec_x_var(object$bayesnecformula, object$fit$data, x_var)
-newdata <- bnec_grid(object, resolution, x_range)
+newdata <- bnec_grid(
+  object,
+  predict_grid(x_range, object$fit$data[[x_var]], resolution, x_control)
+)
 x_vec <- newdata[[x_var]]
 curve <- posterior_epred(object$fit, newdata = newdata, re_formula = NA)
 chk_defined_grid(list(curve), x_vec)
@@ -196,8 +202,7 @@ new_toxval_pred(
     x_var = x_var,
     curves = list(curve),
     realisation = "draws",
-    family = object$fit$family$family,
-    data = object$fit$data
+    family = object$fit$family$family
   )
 )
 ```
@@ -228,15 +233,21 @@ predictor before phase 3 (`58c57a1^:R/helpers.R:23`). Rules:
 - A supplied `x_var` that differs from `found` stops, naming both, as T17 does
   for a `drc` fit.
 
-`bnec_grid(object, resolution, x_range)`:
+`bnec_grid(object, x_vec)`:
 
 ```r
 bayesnec::bnec_newdata(
   object,
-  resolution = resolution,
-  x_range = if (is.null(x_range)) NA else x_range
+  resolution = length(x_vec),
+  x_range = range(x_vec)
 )
 ```
+
+`predict_grid()` chooses the concentrations, so the refusals and warnings of
+T41 apply to a `bnec()` fit as to a `brmsfit`. `bnec_newdata()` builds its grid
+with `seq(min(x_range), max(x_range), length = resolution)`
+(`prediction_grid()`), as `predict_grid()` does, so its predictor column is
+identical to `x_vec`.
 
 `bnec_newdata()` is exported in both the CRAN and the development release. It
 sets the trials column to 1 for `binomial` and `beta_binomial`
@@ -247,14 +258,13 @@ variables, so group-level effects must be marginalised: `re_formula = NA`, as
 every `bayesnec` curve prediction does (`expand_classes.R:281-291`) and as T16
 specifies for `brmsfit`.
 
-`build_meta()` (`R/toxval-predict.R:263-291`) reads `min(object$data[[x_var]])`
-for `x_control`. A `bnecfit` has no `$data`; its data are `object$fit$data`.
-`build_meta()` therefore gains `data = object$data`, used for `x_control`, and
-`...`, a set of optional elements appended to the list (§3.4). The `brmsfit`
-and `drc` methods pass neither and are unchanged.
+`build_meta()` takes `x_control` from `x_vec[1]` (T41), so it needs no access to
+the data of a `bnecfit`, which are `object$fit$data` rather than `object$data`.
+It gains `...`, a set of optional elements appended to the list (§3.4). The
+`brmsfit` and `drc` methods pass none and are unchanged.
 
-`x_control` is then the lowest observed predictor value, which is what
-`bayesnec` reads its control at (`control_x()`, `helpers.R:2554-2572`).
+By default `x_control` is then the lowest observed predictor value, which is
+what `bayesnec` reads its control at (`control_x()`, `helpers.R:2554-2572`).
 
 #### Refusals
 
@@ -740,7 +750,7 @@ so the warning is the only effect.
 - `toxval_predict.bayesnecfit()`, `toxval_predict.bnecfit()`,
   `check_bayesnec_installed()`, `bayesnec_available()`, `bnec_x_var()`,
   `bnec_grid()`, `chk_bayesnec_supported()`, as §3.1.
-- `build_meta()` gains `data` (§3.1). The optional elements are added in task
+- `build_meta()` gains `...` (§3.1). The optional elements are added in task
   3, where they are first used and tested.
 - `bayesnec` in `Suggests`, approved by RF on 2026-10-23.
 
@@ -749,7 +759,9 @@ Tests, on `bnec_model_1` (`nechorme`, beta), `bayesnec_nec4param`,
 
 1. `curves[[1]]` is identical to `bayesnec`'s
    `posterior_epred(fit, newdata = bnec_newdata(fit, resolution = r))`.
-2. `x_vec` equals the grid column; a supplied `x_range` is honoured.
+2. `x_vec` equals the grid column; a supplied `x_range` ends the grid and a
+   supplied `x_control` starts it, and an `x_range` that starts elsewhere
+   stops (T41).
 3. `meta`: `source_class`, `x_var`, `x_control == min(fit$fit$data[[x_var]])`,
    `family`, `realisation == "draws"`, `n_realisation == brms::ndraws(fit$fit)`.
 4. `x_var = NULL` is read from the formula; a matching `x_var` is accepted; a
@@ -854,22 +866,23 @@ Done when R CMD check passes with `bayesnec` installed, and with it absent and
 ## 5. Branch and dependencies
 
 `phase-7-bayesnec-methods` was branched from `upstream/phase-4-5-spine-and-tibble`
-at `9a3b846`, rebased onto `6bdd99c` on 2026-10-23 and onto `2436858` on
-2026-10-26, and tracks it. AP adds
-commits to #66 rather than rewriting them, so while #66 is open the branch is
-rebased with `git rebase upstream/phase-4-5-spine-and-tibble`.
+at `9a3b846`, and rebased onto `6bdd99c` on 2026-10-23 and onto `2436858` on
+2026-10-26. #66 merged into `phase-2` on 2026-10-28 with a merge commit, so its
+commits are ancestors of `phase-2` and no `--onto` rebase is needed.
 
-PR #65 was squash-merged into `phase-2`, and #66 is expected to be as well. A
-plain rebase onto `upstream/phase-2` would then replay #66's commits over their
-own squashed copy. Rebase with
-`git rebase --onto upstream/phase-2 <last #66 commit>` instead, which replays
-only this branch's commits. Then do task 0 and open the pull request from
-`beckyfisher:phase-7-bayesnec-methods` into `open-AIMS:phase-2`, ready for
-review rather than as a draft.
+On 2026-10-29 the branch was rebased onto `issue-73-x-control` (PR #78, at
+`aa43cda`), because #73 changes how every method sets `x_control`. The pull
+request is opened from `beckyfisher:phase-7-bayesnec-methods` into
+`open-AIMS:phase-2`, ready for review. Until #78 merges it also shows #78's
+commits. #78 is merged first, and #77, AP's documentation review, last. #77
+edits the same comments in `R/compute.R`, `R/toxval-predict.R`, `test-ecx.R`
+and `test-nsec.R`, so it is rebased over this branch.
 
-This branch's code is in new files, so a rebase can conflict only in
-`DESCRIPTION`, `NAMESPACE` and `man/`, which `devtools::document()` regenerates,
-and in the refactor documents that task 0 edits.
+While #78 is open the branch is rebased with
+`git rebase origin/issue-73-x-control`. A rebase conflicts mainly in
+`R/toxval-predict.R`, where the methods sit beside the `brmsfit` and `drc`
+methods that #78 edits, and in `DESCRIPTION`, `NAMESPACE` and `man/`, which
+`devtools::document()` regenerates.
 
 | needed | by task | from | state on 2026-10-26 |
 |---|---|---|---|

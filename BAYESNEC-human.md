@@ -225,10 +225,9 @@ decide. Its plan currently relocates them to `toxval` and imports `toxval`
 
 ## 4. Order of work
 
-There are six tasks. Tasks 1 to 3 are done. Task 0 is done last, after PR #66
-merges. Phase 4 has added `type = "relative"` and `anchor` on PR #66, so task 4
-can start. `ecx()` and `nsec()` both call `toxval_predict()`, so task 5 waits
-only for task 4. Until task 4, `nsec()` on a model set refuses
+There are six tasks. Tasks 1 to 3 are done. PR #66 has merged, bringing
+`type = "relative"` and `anchor`, so task 4 can start. `ecx()` and `nsec()` both
+call `toxval_predict()`, so task 5 waits only for task 4. Task 0 is done last. Until task 4, `nsec()` on a model set refuses
 `anchor = "component"`, because it would otherwise return the `"model"` result
 under that label.
 `BAYESNEC-claude.md` §4 gives files, tests and stopping points for each.
@@ -267,12 +266,10 @@ The four classes of section 3.3 follow in later pull requests.
 
 ## 5. Branch
 
-The work is on `phase-7-bayesnec-methods`, branched from the head of PR #66 and
-rebased onto its latest commit (`6bdd99c`) on 2026-10-23. PR #66 is a draft and
-will change, so the branch is rebased on it as it does. The new code is in new
-files, so these rebases can conflict only in files that are regenerated. The
-pull request is opened against `phase-2` once PR #66 has merged
-(`BAYESNEC-claude.md` §5).
+The work is on `phase-7-bayesnec-methods`. PR #66 has merged into `phase-2`.
+The branch is now built on PR #78, which starts every grid at the control
+concentration (#73). The pull request goes into `phase-2`. It is merged after
+#78 and before #77, the documentation review (`BAYESNEC-claude.md` §5).
 
 ## 6. Decisions and points for review
 
