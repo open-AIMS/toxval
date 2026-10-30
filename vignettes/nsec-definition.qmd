@@ -63,11 +63,9 @@ For each curve, `nsec()` does three things.
 1. It sets one reference response for each direction. The decreasing reference
    is the `sig_val` quantile of the control realisations, and the increasing
    reference is the `1 - sig_val` quantile. The control realisation is a
-   realisation's predicted response at the control concentration, the lowest
-   concentration in the data, where the grid starts. At the commit loaded
-   here the control is read at the first grid value, `x_vec[1]`, which differs
-   from the lowest concentration in the data when `x_range` starts elsewhere
-   (toxval#73). `sig_val` defaults to 0.01.
+   realisation's predicted response at the control concentration, by default
+   the lowest concentration in the data, where the grid starts. `sig_val`
+   defaults to 0.01.
 2. It finds, for each realisation, the first concentration at which that
    realisation crosses the reference in each direction. Between grid points the
    crossing is found by linear interpolation.
@@ -429,8 +427,8 @@ A realisation that never crosses the reference within the grid has no NSEC of
 its own. `nsec()` places it by one of three rules.
 
 - A realisation whose control already lies at or beyond the reference, in the
-  direction sought, is given `x_control`, the control concentration: the
-  lowest concentration in the data the model was fitted to.
+  direction sought, is given `x_control`, the control concentration: by
+  default the lowest concentration in the data the model was fitted to.
 - A realisation that does not reach the reference within the grid is given
   `Inf`, which ranks it above every crossing. A quantile that falls among such
   realisations is reported as the highest concentration, and the call warns
@@ -661,16 +659,19 @@ model average. A model average combines several fitted equations by weight, and
 each of its realisations is drawn from one of those equations, its component.
 `anchor` is reported as a column of the result.
 
-`anchor = "model"`, the default, takes the reference from all the control
-realisations of the curve, pooled across components, as in every example above.
+`anchor = "model"` takes the reference from all the control realisations of
+the curve, pooled across components, as in every example above.
 Every realisation is then measured against one response level, which can be
 drawn on a plot as in @fig-decreasing.
 
-`anchor = "component"` would measure the realisations of each component against
-the `sig_val` quantile of that component's own control realisations. That is the
-strict Bayesian model average, and it is the reference `bayesnec::nsec()` uses
-for a model set. For a fit that is not a model average there is one component, so the
-two anchors give the same values.
+`anchor = "component"` measures the realisations of each component against the
+`sig_val` quantile of that component's own control realisations. That is the
+strict Bayesian model average, and the reference `bayesnec::nsec()` uses for a
+model set, so it is the default for a `bayesmanecfit`; `"model"` is the default
+otherwise. For a `bayesmanecfit` each component's quantile is taken over every
+draw of its own fit, not only the draws kept in the average. For a fit that is
+not a model average there is one component, so the two anchors give the same
+values.
 
 ```{r}
 #| label: anchor-single
@@ -688,15 +689,13 @@ stopifnot(
 )
 ```
 
-For a model average `nsec()` refuses `"component"` at present. A model average is
-recognised from `meta$draw_model`, which names the component of each
+A model average is recognised from `meta$draw_model`, which names the component of each
 realisation. The constructed set below assigns the realisations of the
 decreasing set with controls up to the median to an equation `a`, and the rest
 to an equation `b`.
 
 ```{r}
 #| label: anchor-average
-#| error: true
 draw_model <- ifelse(controls <= median(controls), "a", "b")
 avg_pred <- build_pred(
   decline,
@@ -705,7 +704,8 @@ avg_pred <- build_pred(
   model_weights = c(table(draw_model)) / length(draw_model),
   draw_model = draw_model
 )
-nsec(avg_pred, anchor = "component")
+avg_component <- nsec(avg_pred, anchor = "component")
+avg_component
 ```
 
 ```{r}
@@ -718,14 +718,14 @@ range_by_component <- tapply(controls, draw_model, range)
 
 Under `"model"` every realisation is measured against `r ctl(r_dec)`. Under
 `"component"` the `r n_by_component[["a"]]` realisations of `a`, with controls
-from `r ctl(range_by_component[["a"]][1])` to `r ctl(range_by_component[["a"]][2])`, would
-be measured against `r ctl(ref_by_component[["a"]])`. The
+from `r ctl(range_by_component[["a"]][1])` to `r ctl(range_by_component[["a"]][2])`, are
+measured against `r ctl(ref_by_component[["a"]])`. The
 `r n_by_component[["b"]]` realisations of `b`, with controls from
-`r ctl(range_by_component[["b"]][1])` to `r ctl(range_by_component[["b"]][2])`, would be
+`r ctl(range_by_component[["b"]][1])` to `r ctl(range_by_component[["b"]][2])`, are
 measured against `r ctl(ref_by_component[["b"]])`. Each is the 0.01 quantile of
-that equation's own controls. The NSEC under `"component"` is computed below by
-applying `nsec()` to the realisations of each equation alone, and summarising
-their crossings together.
+that equation's own controls. Applying `nsec()` to the realisations of each
+equation alone, and summarising their crossings together, gives the same
+NSEC.
 
 ```{r}
 #| label: anchor-average-component
@@ -749,6 +749,11 @@ stopifnot(
   identical(model_nsec$estimate, dec$estimate),
   identical(model_nsec$conf.low, dec$conf.low),
   identical(model_nsec$conf.high, dec$conf.high),
+  isTRUE(all.equal(
+    unlist(avg_component[1, c("estimate", "conf.low", "conf.high")]),
+    q_component,
+    check.attributes = FALSE
+  )),
   # the component interval is narrower, and its upper limit lower
   diff(q_component[2:3]) < model_nsec$conf.high[1] - model_nsec$conf.low[1],
   q_component[3] < model_nsec$conf.high[1],
@@ -770,9 +775,7 @@ they are measured against a reference well below their controls. Under
 `"component"` they are measured against `r ctl(ref_by_component[["b"]])`, their
 NSECs decrease, and the upper limit decreases with them. Where an equation whose
 reference lies above the pooled one holds the lowest NSECs instead, its NSECs
-decrease further and the interval widens. The
-[`bayesnec` case study](case-bayesnec.html) applies the default anchor to a
-fitted model set and shows the refusal of `"component"`.
+decrease further and the interval widens.
 
 `anchor = "control"`, a reference taken from a model fitted to the control
 observations alone, was proposed and is not implemented. `nsec()` refuses it.
@@ -888,11 +891,7 @@ tested, `r if_drc(rye_tested[1])` and `r if_drc(rye_tested[2])`, and the lower
 limit of its interval lies below `r if_drc(rye_tested[1])`. The NSEC is located
 on the bootstrap curves rather than at a tested concentration, so it can fall
 between or below the concentrations tested. The increasing reference lies above
-the band of replicates at every concentration drawn. The
-[`drc` case study](case-drc.html) uses fits to `bayesnec::nec_data`. It compares
-toxval's bootstrap interval on the EC10 with the delta-method interval of
-`drc::ED()`, and toxval's NSEC with a hand calculation from the fitted
-parameters.
+the band of replicates at every concentration drawn.
 
 ## Provenance
 

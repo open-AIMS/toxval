@@ -56,10 +56,9 @@ cols <- unname(grDevices::palette.colors(9, "Okabe-Ito")[c(2, 6, 4, 7)])
 `ecx()` estimates the concentration at which a fitted curve reaches a reference
 response. The estimate is computed for each realisation of the fit, a posterior
 draw or a bootstrap replicate, and in two directions, a decrease and an
-increase. The control is the predicted response at the lowest concentration in
-the data. In this version of toxval it is read at the first value of the grid
-the curve is evaluated over, which is a different concentration when `x_range`
-starts elsewhere (toxval#73). The argument `type` names a span, the difference
+increase. The control is the predicted response at the control concentration,
+by default the lowest concentration in the data, where the grid the curve is
+evaluated over starts. The argument `type` names a span, the difference
 in response of which the effect is a proportion, and the span is measured
 separately in each direction, $S_{\text{dec}}$ and $S_{\text{inc}}$. The
 argument `proportion` gives the proportion $p$, so `proportion = 0.1` is the
@@ -425,8 +424,8 @@ within one grid step of `r fmt(diff(x_exp[1:2]), 1)`.
   downward crossing in the decreasing row and the first upward crossing in the
   increasing row. The `control` column is `NA`, but the control is still
   compared with the reference. A realisation with no crossing whose control
-  already lies past the reference is placed at the lowest concentration rather
-  than above the highest.
+  already lies past the reference is placed at the control concentration
+  rather than above the highest.
 
 The names `absolute` and `relative` follow Daniels et al. (2026), for whom an
 absolute ECx is a change relative to the control and a relative ECx is a
@@ -495,14 +494,19 @@ How the slot is filled depends on the class of the fitted object.
   value.
 - For a hand-built `toxval_pred`, it is supplied to `new_toxval_pred()`, as
   above.
-- A fit from `bayesnec::bnec()` supplies no asymptote, so
-  `type = "relative"` is refused for it.
+- For a fit from `bayesnec::bnec()`, `toxval_predict()` takes the lower
+  asymptote from the `bot` parameter of the equation, or 0 for an equation
+  without `bot` whose family is bounded below, and the upper asymptote as 1 for
+  a proportion. A direction without an asymptote, such as the increasing
+  direction of a gaussian fit, has no span, so its realisations are excluded
+  and its estimate is `NA`.
 
 Where the realisations come from several equations, as in a model average,
-each realisation is measured to the asymptote of its own equation. In this
-version that arises only for a hand-built `toxval_pred`, since no method for a
-model average supplies an asymptote. The proportion then corresponds to a different response in each equation, so a
-model-averaged `relative` ECx does not correspond to a single response level.
+each realisation is measured to the asymptote of its own equation. For a
+`bayesmanecfit`, the realisations of an equation without an asymptote are
+excluded, with a warning, and the other equations are averaged. The proportion
+corresponds to a different response in each equation, so a model-averaged
+`relative` ECx does not correspond to a single response level.
 
 The `LL.4()` equation, $f(x) = c + (d - c)/(1 + \exp(b(\ln x - \ln e)))$, was
 fitted to the root lengths of `drc::ryegrass` with `drc::drm()`. Its control is
