@@ -1,7 +1,7 @@
 Package: toxval
 Title: Functions for Extracting NSEC and ECx Values from Fitted
     Frequentist and Bayesian Model Objects
-Version: 1.0.0.9000
+Version: 2.0.0
 Authors@R: c(
     person("Rebecca", "Fisher", , "r.fisher@aims.gov.au", role = c("aut", "cre")),
     person("Diego", "Barneche", role = "aut"),
