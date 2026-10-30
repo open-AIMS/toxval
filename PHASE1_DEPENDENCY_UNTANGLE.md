@@ -88,8 +88,9 @@ stops accepting `bnecfit` objects, it needs nothing from `bayesnec` at all.
   toxval #21 (`glm` and other classes) tractable later.
 - Drops `ecx.bnecfit`, `nsec.bnecfit`, `predict.bayesnecfit`,
   `predict.bayesmanecfit` and the `bnecfit` branch of `newdata_eval()`.
-- `bayesnec` moves from `Imports` to `Suggests` (still needed by examples and
-  tests that build fixtures from real `bnec()` fits).
+- `bayesnec` leaves `Imports`. What the examples and remaining tests read from
+  it is stored as fixtures, so it is listed in `Suggests` only for a test that
+  compares against it (`REFACTOR-claude.md` §4, phase 3).
 
 **`bayesnec` owns everything that knows about its own classes.**
 
@@ -140,9 +141,10 @@ unchanged, and R CMD check is clean.
 ### Step 2 — `toxval`: shed the bayesnec dependency
 
 Delete `ecx.bnecfit`, `nsec.bnecfit`, `predict.bayesnecfit`,
-`predict.bayesmanecfit` and the `bayesmanecfit` branch of `newdata_eval()`. Move
-`bayesnec` from `Imports` to `Suggests`. Guard any example or test that uses a
-`bnec()` fit behind `requireNamespace("bayesnec")`.
+`predict.bayesmanecfit` and the `bayesmanecfit` branch of `newdata_eval()`, with
+the tests of them, and remove `bayesnec` from `Imports`. Store what the remaining
+tests and examples read from `bayesnec` as fixtures rather than skipping them.
+`REFACTOR-claude.md` §4, "Phase 3 without `bayesnec`", lists them.
 
 **Done when** `grep -rn "bayesnec::" R/` returns nothing, `NAMESPACE` has no
 `bayesnecfit` / `bayesmanecfit` / `bnecfit` method, and R CMD check is clean with

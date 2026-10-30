@@ -25,6 +25,9 @@ strip_stanmodel <- function(file) {
 
   if ("brmsfit" %in% cls) {
     obj$fit@stanmodel <- methods::new("stanmodel")
+    # a cmdstanr fit keeps its compiled model here, which warns on load where
+    # cmdstanr is not installed
+    attr(obj$fit, "CmdStanModel") <- NULL
   } else if ("bayesnecfit" %in% cls) {
     obj$fit$fit@stanmodel <- methods::new("stanmodel")
   } else if ("bayesmanecfit" %in% cls) {
@@ -164,6 +167,59 @@ save(
 )
 strip_stanmodel("tests/testthat/fixtures/brms_model_5.rda")
 
+# z enters only through a group-level term
+# compared to the population level of brms_model_2
+data <- data.frame(
+  x = c(1.05, 1.0, 0.95, 0.9, 0.8),
+  y = c(0.1, 0.5, 0.6, 0.75, 0.8),
+  z = c(1, 1, 1, 2, 2)
+)
+
+brms_model_6 <-
+  brms::brm(
+    y ~ log(x) + (1 | z),
+    data = data,
+    chains = 2,
+    iter = 2000,
+    thin = 2,
+    seed = 101
+  )
+save(
+  brms_model_6,
+  file = "tests/testthat/fixtures/brms_model_6.rda",
+  compress = "xz"
+)
+strip_stanmodel("tests/testthat/fixtures/brms_model_6.rda")
+
+# A multivariate fit with a binomial response whose trials vary between
+# observations, which toxval_predict() predicts at one trial (T26)
+data <- data.frame(
+  x = rep(c(0.001, 0.01, 0.1, 0.5, 1, 1.5), each = 2),
+  survived = c(19, 17, 18, 19, 15, 17, 10, 9, 4, 5, 1, 0),
+  n = c(20, 18, 19, 20, 17, 20, 20, 19, 18, 20, 20, 16),
+  growth = c(1.9, 2.1, 2.0, 1.8, 1.7, 1.9, 1.2, 1.3, 0.7, 0.8, 0.5, 0.4)
+)
+
+surv_formula <- brms::bf(survived | trials(n) ~ x, family = binomial())
+growth_formula <- brms::bf(growth ~ x)
+
+brms_model_7 <-
+  brms::brm(
+    surv_formula + growth_formula,
+    data = data,
+    chains = 2,
+    iter = 2000,
+    thin = 2,
+    seed = 102,
+    backend = "cmdstanr"
+  )
+save(
+  brms_model_7,
+  file = "tests/testthat/fixtures/brms_model_7.rda",
+  compress = "xz"
+)
+strip_stanmodel("tests/testthat/fixtures/brms_model_7.rda")
+
 # bnecfit -----------------------------------------------------------------
 
 data <- data.frame(
@@ -211,6 +267,97 @@ save(
   compress = "xz"
 )
 strip_stanmodel("tests/testthat/fixtures/bayesnec_ecx4param.rda")
+
+# toxval_predict methods for bayesnec fits -----------------------------------
+
+# Fits for the toxval_predict() methods for bayesnecfit and bayesmanecfit
+# (BAYESNEC-claude.md §4, task 1). Generated with bayesnec 2.1.3.39.
+
+# The model average of nec4param and ecx4param. Stored whole, rather than read
+# from bayesnec in the tests, because the stored object is the one whose draw
+# index the tests rebuild; manec_example holds no w_draw_index, so the
+# bayesmanecfit method takes the seeded rebuild path on it.
+bayesnec_manec_example <- bayesnec::manec_example
+save(
+  bayesnec_manec_example,
+  file = "tests/testthat/fixtures/bayesnec_manec_example.rda",
+  compress = "xz"
+)
+strip_stanmodel("tests/testthat/fixtures/bayesnec_manec_example.rda")
+
+# A binomial response predicted as a proportion, from nec3param, which has no
+# bot parameter. Simulated from nec3param itself, with top = 0.9, nec = 1 and
+# exp(beta) = 1.5: 20 trials at each of three replicates of eight
+# concentrations.
+set.seed(2160)
+binom_data <- data.frame(
+  x = rep(c(0, 0.25, 0.5, 1, 1.5, 2, 2.5, 3), each = 3),
+  n = 20L
+)
+binom_p <- 0.9 * exp(-1.5 * pmax(binom_data$x - 1, 0))
+binom_data$y <- stats::rbinom(nrow(binom_data), binom_data$n, binom_p)
+
+bayesnec_binomial <-
+  bayesnec::bnec(
+    y | trials(n) ~ crf(x, model = "nec3param"),
+    data = binom_data,
+    family = binomial,
+    seed = 2161,
+    chains = 2,
+    iter = 2000,
+    thin = 2
+  )
+save(
+  bayesnec_binomial,
+  file = "tests/testthat/fixtures/bayesnec_binomial.rda",
+  compress = "xz"
+)
+strip_stanmodel("tests/testthat/fixtures/bayesnec_binomial.rda")
+
+# A predictor transformed inside crf(). The brmsfit data and the bayesnec grid
+# hold raw x while Stan applies log(), which is what the predictor-scale tests
+# (§2.1) need; a log column made before fitting would not exercise it.
+# Loaded without bayesnec installed, this fixture warns that the bayesnec
+# namespace was replaced by .GlobalEnv: the beta family bayesnec builds for it
+# holds a reference to a bayesnec function frame. It is stored as bnec()
+# returned it, and the tests that use it are skipped without bayesnec.
+bayesnec_logx <-
+  bayesnec::bnec(
+    y ~ crf(log(x), model = "ecx4param"),
+    data = bayesnec::nec_data,
+    seed = 2162,
+    chains = 2,
+    iter = 2000,
+    thin = 2
+  )
+save(
+  bayesnec_logx,
+  file = "tests/testthat/fixtures/bayesnec_logx.rda",
+  compress = "xz"
+)
+strip_stanmodel("tests/testthat/fixtures/bayesnec_logx.rda")
+
+# data from bayesnec -------------------------------------------------------
+
+# Stored so that the drc tests fitted to these data run without bayesnec
+# installed, since bayesnec is not a dependency of toxval (#39). Generated with
+# bayesnec 2.1.3.39.
+# The bayesnec_ prefix keeps them from masking the bayesnec datasets of the
+# same name, since devtools::load_all() loads every fixture into the package
+# environment through helper-fixtures.R.
+bayesnec_nec_data <- bayesnec::nec_data
+save(
+  bayesnec_nec_data,
+  file = "tests/testthat/fixtures/bayesnec_nec_data.rda",
+  compress = "xz"
+)
+
+bayesnec_herbicide <- bayesnec::herbicide
+save(
+  bayesnec_herbicide,
+  file = "tests/testthat/fixtures/bayesnec_herbicide.rda",
+  compress = "xz"
+)
 
 # nsec drc ----------------------------------------------------------------
 

@@ -45,14 +45,20 @@ control down to zero; `relative`, the control down to the equation's own
 theoretical asymptote; `range`, the control down to the lowest response the curve
 predicts; and `direct`, a response value supplied by the user. `range` is new,
 and it is what `relative` means in the current code, so `relative` changes
-meaning and is deprecated into `range`. Decision T9 and `REFACTOR-claude.md`
-§3.10 state it in full.
+meaning, and a call that supplies it warns and names `range` (decision T29).
+Decision T9 and `REFACTOR-claude.md`
+§3.10 state it in full. For an increasing response, `absolute` measures towards
+1 for a proportion and as a percentage of the control otherwise, so a 10 per
+cent increase from a control of 20 is 22. These are the published definitions
+(decision T18). A count fit whose trials are a total rather than a ceiling, such
+as gene expression, is also treated as a proportion. That is accepted as an edge
+case for now, to be handled with #63 (decision T26).
 
 **The `ecnsec` definition (#49).** `ecnsec` is the inverse of the `ecx`
 reference under the same `type`, and `nsec()` accepts the arguments `ecx()`
-accepts, so one `type` selects both. Under `direct`, `ecnsec` is the reference
-on the response scale rather than a percentage. Decision T8 and §3.9 state it in
-full.
+accepts, so one `type` selects both. `nsec()` refuses `type = "direct"`,
+because its `ecnsec` would only repeat the `reference` column (decision T19).
+Decision T8 and §3.9 state it in full.
 
 **Direction (#20).** An estimate is sought in both directions every time and
 `direction` is a column of the result, so `hormesis_def` is removed rather than
@@ -63,12 +69,12 @@ direction was looked for and not found, which is information. Decision T10 and
 
 All three are settled. Section 4's phase 0 also required agreeing the default for
 the `nsec` reference, which is exposed as the `anchor` argument rather than fixed
-by the plan (section 3.8). That default was ratified as `"model"` on 5 September,
-so phase 0 is complete and phase 1 can begin.
+by the plan (section 3.8). That default was ratified as `"model"` on 5 September
+and amended for `bayesmanecfit` on 29 October (T12).
 
 The `nsec` reference does **not** block, because §3.8 exposes it as an argument
 rather than settling it, so only the default had to be agreed. It was ratified as
-`"model"` on 5 September, and a default can be revisited later.
+`"model"` on 5 September, then revised on 29 October for `bayesmanecfit` (T12).
 
 ## 3. Design decisions
 
@@ -88,7 +94,8 @@ Descriptor columns, each listed once against every metric it appears for:
 
 - `group` — one row per level, when grouped
 - `response` — one row per response, for multivariate fits
-- `ecx_val` — `ecx`
+- `ecx_val` — `ecx`; renamed `proportion` in phase 5, with the `direct` value
+  given as `reference` (decision T32)
 - `type` — `ecx`, `nsec`
 - `sig_val`, `anchor` — `nsec`, `n(s)ec`
 - `control` — `ecx`, `nsec`
@@ -105,6 +112,8 @@ or a response value (#49, decision T8).
 `"noec"` — with the value that parameterises it in its own column: `metric =
 "ecx"` with `ecx_val = 10`, never `metric = "ec10"`. Run settings are displayed
 as tibble header lines via `tbl_sum()`, as `# Groups:` is on a grouped tibble.
+Results combine with `dplyr::bind_rows()` only when their run settings match,
+since one header must describe every row (decision T40).
 
 Some examples of `ecx()`:
 
@@ -134,7 +143,7 @@ ecx(brms_grouped, x_var = "x", group_var = "site", by_group = TRUE, ecx_val = 10
 #> # Settings: resolution 1000 | 4000 posterior draws
 #> # Groups:   site [3]
 #>   metric direction  group estimate conf.low conf.high ecx_val type     control reference
-#>   <chr>  <chr>      <chr>    <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
+#>   <chr>  <chr>      <fct>    <dbl>    <dbl>     <dbl>   <dbl> <chr>      <dbl>     <dbl>
 #> 1 ecx    decreasing A         0.71     0.55      0.88      10 absolute    0.98      0.88
 #> 2 ecx    decreasing B         1.02     0.83      1.24      10 absolute    1.10      0.99
 #> 3 ecx    decreasing C         0.44     0.31      0.58      10 absolute    0.87      0.78
@@ -176,8 +185,16 @@ by the column rule in §3.1, not by an argument flipping the return type.
 ### 3.3 Single-generic architecture
 
 `toxval_predict()` is the only S3 generic. It dispatches on model class and
-returns a `toxval_pred`. The metric functions (`ecx`, `nsec`, `nsec_multi`, ...)
-are plain, non-generic functions that compute on a `toxval_pred`.
+returns a `toxval_pred`. The metric functions (`ecx`, `nsec`, ...) are plain,
+non-generic functions that compute on a `toxval_pred`.
+
+`nsec_multi()` is folded into `nsec()` and made defunct, so one function serves
+ungrouped, grouped and multivariate fits (decision T15, `REFACTOR-claude.md`
+§3.3). A call to `nsec_multi()` stops with an error that names `nsec()`
+(decision T37, amended 2026-10-24). The responses and any binomial trials are read from the fit, so neither
+`multi_var` nor `trials_var` is an argument (T15 and T26, amended 2026-10-23).
+Its `type = "lower"` option becomes a filter on the result, so `nsec()` needs no
+argument for it (decision T30).
 
 Metric functions accept **either a fitted model or a pre-built `toxval_pred`**
 (one `inherits()` check at the top), which enables predict-once / compute-many
@@ -193,14 +210,15 @@ toxval_predict.gam <- function(object, x_var, resolution, x_range, ...) {
 }
 ```
 
-`toxval_pred` is **public API**, not an internal convenience: under #39 the
-`bayesnec` classes are served by methods living in `bayesnec`, which constructs
-a `toxval_pred` from outside this package.
+`toxval_pred` is **public API**, not an internal convenience: another package
+may supply a `toxval_predict()` method, which then constructs a `toxval_pred`
+from outside this one. The methods for `bayesnec` fits are in `toxval`
+(decision T35), not in `bayesnec` as #39 planned.
 
 ### 3.4 The `toxval_pred` intermediate object
 
 `toxval_pred` holds **realisations** of the fitted curve as a list, one element
-per group or response, plus metadata.
+per curve, plus a table saying which curve is which, plus metadata.
 
 A *realisation* is one plausible version of the fitted curve. A Bayesian fit
 supplies thousands of them as posterior draws. A frequentist fit gets the same
@@ -211,13 +229,23 @@ confidence interval.
 
 ```
 toxval_pred:
-  curves    : named list of matrices, each [n_realisation x n_x]
+  curves    : list of matrices, each [n_realisation x n_x], one per row of keys
+  keys      : table with one row per curve and a `group` column, a `response`
+              column, both, or neither
   x_vec     : numeric [n_x]
   threshold : per-realisation threshold parameter (a NEC), or NULL
-  control   : realisations of a control-only fit, or NULL
+  control   : realisations of a control-only fit, one set per row of keys, or
+              NULL, since a grouped fit has one control per group
+  asymptote : per-realisation asymptotes for `type = "relative"`, one set per
+              row of keys, or NULL (decision T24)
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
-              dimension, family, realisation source, n_realisation, ...
+              family, realisation source, n_realisation, ...
 ```
+
+`keys` lets one object hold a fit that is both grouped and multivariate, such as
+two endpoints measured at three sites, which gives six curves. `nsec()` has to
+accept such a fit once it absorbs `nsec_multi()` (decision T14,
+`REFACTOR-claude.md` §3.4).
 
 One representation covers every case:
 
@@ -225,7 +253,8 @@ One representation covers every case:
 |---|---|---|---|
 | Ungrouped Bayesian | 1 element | draws | n_draws |
 | `by_group` / `group_var` | one per factor level | draws | n_draws |
-| Multivariate (`nsec_multi`) | one per response | draws | n_draws |
+| Multivariate (`multi_var`) | one per response | draws | n_draws |
+| Grouped multivariate (T14) | one per group and response | draws | n_draws |
 | `drc` | one per curve (or 1) | bootstrap | n_boot |
 | `glm` / `gam` (future, #21) | one per group | bootstrap | n_boot |
 
@@ -259,18 +288,23 @@ Long form is one pipe stage rather than a separate API:
 ```r
 ecx(fit, draws = TRUE) |> tidyr::unnest(draws)
 #> # A tibble: 4,000 x 6
-#>   metric direction  ecx_val estimate .draw  value
-#>   <chr>  <chr>        <dbl>    <dbl> <int>  <dbl>
-#> 1 ecx    decreasing      10    0.832     1  0.841
-#> 2 ecx    decreasing      10    0.832     2  0.795
-#> 3 ecx    decreasing      10    0.832     3  0.826
+#>   metric direction  ecx_val estimate .draw value.draw
+#>   <chr>  <chr>        <dbl>    <dbl> <int>      <dbl>
+#> 1 ecx    decreasing      10    0.832     1      0.841
+#> 2 ecx    decreasing      10    0.832     2      0.795
+#> 3 ecx    decreasing      10    0.832     3      0.826
 #> # i 3,997 more rows
 ```
 
+Each `draws` cell is a tibble with `.draw`, `value.draw` and, for `nsec`,
+`ecnsec.draw`, so the NSEC and `ecnsec` of a realisation share a row.
+
 The list column keeps one row per estimate, so unnesting is the caller's explicit
 choice; it satisfies §3.2 without a second function; and it keeps paired
-quantities such as NSEC and `ecnsec` aligned. `posterior` stays accepted for one
-release behind a deprecation warning, since 1.0.0 is released.
+quantities such as NSEC and `ecnsec` aligned. `posterior` is defunct: a call
+that supplies it stops with an error that names `draws`, since code that used
+the old vector would fail later and further from the cause (decision T37,
+amended 2026-10-24).
 
 ### 3.6 Direction
 
@@ -284,8 +318,16 @@ both are reported. `hormesis_def` cannot be repaired in place, because the two
 `nsec` methods compute different quantities under it (`REFACTOR-claude.md` §3.6).
 #1 and #8 close as a consequence, and #20 is answered directly.
 
-**To pin down:** whether a curve with no crossing in one direction emits a row
-with `NA` or omits the row.
+Where no draw crosses in a direction, the row is still returned with `NA`
+(decision T10). Where some draws cross and some do not (#60), a draw whose
+control is already past the reference takes the lowest concentration in the
+data. `nsec()` makes one exception (#74). A draw whose response first changes
+away from the effect, and then passes to the other side of the reference
+without returning, shows no effect in the tested range. It is treated as a
+draw that does not cross. A draw that does not cross within the tested range
+is ranked above the highest concentration. An interval limit that falls among
+such draws is reported as the highest concentration, with a warning giving the
+fraction (decisions T21 and T25).
 
 ### 3.7 Validation
 
@@ -304,7 +346,14 @@ with `NA` or omits the row.
 
 `REFACTOR-claude.md` §3.7 lists the specific unguarded defects to fold in,
 including `nsec.drc`'s positional `curveid` (#34) and the six differing
-`resolution` defaults.
+`resolution` defaults, which become 500 (decision T31).
+
+Estimates from a `brmsfit` with group-level (random) effects are population-level
+estimates. A `group_var` that appears only in a group-level term, such as `site`
+in `y ~ x + (1 | site)`, is therefore an error, because every site would receive
+the same curve (decision T16). For a `drc` fit `x_var` may be left out, since the
+fit records its dose variable, and a supplied `x_var` must match it (decision
+T17). Both are in `REFACTOR-claude.md` §3.7.
 
 ### 3.8 The `nsec` reference: the `anchor` argument
 
@@ -315,14 +364,18 @@ hard-coded rule:
 nsec(fit, anchor = c("model", "component", "control"))
 ```
 
-`"model"` is the default: the threshold comes from the model-averaged control
-posterior, so every pooled value is measured against the same response level.
-`"component"` uses each component model's own control, which is the strict
-Bayesian model average and reproduces what `bayesnec` returns today. `"control"`
-uses a separate control-only fit, specified here but not implemented.
+`"model"` takes the threshold from the model-averaged control posterior, so
+every pooled value is measured against the same response level. `"component"`
+uses each component model's own control, which is the strict Bayesian model
+average and reproduces what `bayesnec` returns. It is now the default for a
+`bayesmanecfit`; `"model"` remains the default for other classes (T12).
+`"control"`
+would use a separate control-only fit supplied by the user. It is left out of
+phase 4 and will probably be replaced, because it does not reproduce the LECx of
+de Bruyn and Elphick (2013), which it was meant to match (decision T23).
 
 `anchor` is a column on the result, so the choice travels with the estimate. The
-measurements behind the default, and the cost of choosing it, are in
+measurements behind the original `"model"` default, and the tradeoff, are in
 `REFACTOR-claude.md` §3.8.
 
 ## 4. Phased implementation
@@ -334,10 +387,12 @@ estimators. Phase 1 locks the current numbers; #19 decides which should move.
 Answered afterwards, a refactor bug cannot be told apart from an intended change
 of definition.
 
-**`toxval` must reach CRAN before `bayesnec` can depend on it.** A CRAN package's
-dependencies must resolve from CRAN, and `toxval` is not published. That puts the
-change of output shape *before* the submission, since publishing an API about to
-break would force two breaking releases in a row.
+The second is that the change of output shape comes before the CRAN submission,
+since publishing an API about to break would force two breaking releases in a
+row. It was first set because `bayesnec` was to import `toxval`, and a CRAN
+package's dependencies must resolve from CRAN. Under decision T35 the methods
+for `bayesnec` fits are in `toxval` and `bayesnec` does not import it. Support
+for `bayesnec` fits therefore no longer waits for `toxval` to reach CRAN.
 
 0. **Decide #19, #20 and #49, and agree the `anchor` default.** No code. Fixes
    what the numbers should be before anything locks them. Done when the answers
@@ -354,36 +409,67 @@ break would force two breaking releases in a row.
    class-agnostic compute functions, the parametric bootstrap. Purely additive.
    Done when it is tested and `ecx()` / `nsec()` still return today's values.
 3. **`toxval` sheds `bayesnec`.** Reverses a dependency pointing the wrong way.
-   Done when `bayesnec` is no longer imported and `ecx` on a `bnecfit` follows
-   the #19 answer.
-4. **Move metrics onto the spine one at a time** (`ecx`, then `nsec`, then
-   `nsec_multi`), each gaining `draws`. Done when all three compute from a
-   `toxval_pred`, with `posterior` deprecated but working.
-5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing;
+   The `bnecfit` methods and their tests are deleted. What the remaining tests
+   and examples read from `bayesnec`, such as `nec_data`, is stored as test
+   fixtures, so the suite runs without `bayesnec` installed. A test is skipped
+   when `bayesnec` is absent only if its purpose is to compare against
+   `bayesnec`. Done when `bayesnec` is no longer imported and the tests pass
+   without it installed. `ecx` and `nsec` on a `bnecfit` are then computed by
+   `bayesnec` alone until phase 7 (`REFACTOR-claude.md` §4, phase 3).
+4. **Move metrics onto the spine one at a time** (`ecx`, then `nsec`), each
+   gaining `draws`, with `nsec_multi()` made defunct in favour of `nsec()`
+   (decision T37, amended 2026-10-24). #60, which decides what the aggregation reports, is answered
+   (decision T21). Also needs `toxval_predict()` to return one curve per
+   response for a multivariate `brmsfit`, which it refuses until then. It also
+   adds `type = "relative"` and the `anchor` argument, which phase 2 left out.
+   Done when `ecx()` and `nsec()` compute from a `toxval_pred`, with
+   `nsec_multi()` and `posterior` defunct (decision T37). Its rulings are
+   decisions T21 to T33. It is done together with phase 5, so no interim
+   version returns today's shapes from the spine (decision T33).
+5. **Swap outputs and clean up.** The `toxval` tibble and `tbl_sum()` printing,
+   combined by `bind_rows()` only when the run settings match (decision T40);
+   `ecx_val` becomes `proportion`, so an EC10 is `proportion = 0.1` rather
+   than `ecx_val = 10`, and `type = "direct"` takes its response value as
+   `reference` (decision T32);
    update the tests; remove `posterior` and the dead blocks last. Done when every
    metric returns a tibble and the tests assert the new shapes.
-6. **`toxval` to CRAN**, carrying the final API. Unblocks #39. Done when
-   published.
-7. **`bayesnec`.** One PR: `Imports: toxval`, delete its copies of `ecx` and
-   `nsec`, add the `toxval_predict` methods, adapt to the tibble. Then CRAN.
+6. **`toxval` to CRAN**, with the final API. Done when published. It is no
+   longer a prerequisite of phase 7 (decision T35).
+7. **Support for `bayesnec` fits.** `toxval_predict()` methods for
+   `bayesnecfit` and `bayesmanecfit`, in `toxval`, with `bayesnec` in
+   `Suggests`, so `ecx()` and `nsec()` accept a `bnec()` fit again (decision
+   T35, `BAYESNEC-human.md`). Done when R CMD check passes with and without
+   `bayesnec` installed. The other `bayesnec` classes follow in later pull
+   requests. Under #39 this phase was a `bayesnec` pull request that added
+   `toxval` to the `Imports` of `bayesnec`, deleted its copies of `ecx` and
+   `nsec`, and added the methods there.
 
 Phases 2 to 4 change who owns the code and what it computes; phase 5 changes what
-it returns. Separating them keeps each checkable against the regression net, and
-`bayesnec` sees one finished API at phase 7.
+it returns. Phases 2 and 3 are kept separate, so each can be checked against the
+regression net. Phases 4 and 5 are done together (decision T33). Phase 7 adds
+the methods for `bayesnec` fits to `toxval`, on the API that phases 4 and 5
+complete (decision T35).
 
 ## 5. Notes
 
 - **Method gaps to keep in mind:** `ecx` has no `drc` method, which becomes
-  nearly free under §3.4 — whether it is in scope needs a decision. `nsec_multi`
-  is brms-multivariate only.
+  nearly free under §3.4 and is added in phase 4 (decision T27). `nsec_multi`
+  is brms-multivariate only. Under decision T15 that support is provided by
+  `toxval_predict()` instead.
 - **`n(s)ec` and `nec` are reserved in the vocabulary but not implemented here**
   (#25, #18), so the vocabulary does not have to be reopened later.
-- **`anchor = "control"` is specified but not implemented.** It needs a
-  control-only fit, which cannot be recovered from a fitted model, so it is
-  supplied as an argument — an argument for fitting wrappers (#22).
-- **Model-averaged results are not reproducible today** (`bayesnec` #216): the
-  component resampling is unseeded. Not fixed by this plan, and it blocks
-  regression-testing model-averaged output by equality.
+- **Model averaging of `drc` fits is not in any phase yet.** `anchor` applies to
+  a `drc` model average as it does to a `bayesnec` one, so it is to be scoped
+  with `relative` and the further `type` options in #63
+  (`REFACTOR-claude.md` §5).
+- **`anchor = "control"` is left out of phase 4** (decision T23). It would need
+  a control-only fit supplied by the user, and it does not reproduce the LECx it
+  was meant to match. Fitting wrappers (#22) are not planned at this stage.
+- **Model-averaged results were not reproducible** while `bayesnec` resampled
+  the components unseeded (`bayesnec` #216, closed 2026-08-21). From `bayesnec`
+  2.1.3.7 the draw index is stored on the object or rebuilt from a seed, and
+  `toxval_predict.bayesmanecfit()` follows the same rule, so model-averaged
+  output can be tested by equality (`REFACTOR-claude.md` §5).
 - **`xform` stays user-supplied, and applies to realisations before
   summarising.** Both are current behaviour; the second changes answers for any
   non-linear `xform`, so it belongs in the written contract.

@@ -1,0 +1,1319 @@
+# A grouped `drc` fit. Neither saved fixture has one: drc fills the curveid
+# columns with a constant named `1` when no curveid is given, so both are
+# single-curve fits that still have something in that position.
+daphnids_fit <- function() {
+  drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = drc::daphnids,
+    fct = drc::LL.2(),
+    type = "binomial"
+  )
+}
+
+# toxval_predict argument checks --------------------------------------------
+
+test_that("toxval_predict errors when a brmsfit is given no x_var", {
+  expect_error(
+    toxval_predict(brms_model_1),
+    "`x_var` must be supplied for a `brmsfit`"
+  )
+})
+
+test_that("a misspelt argument errors rather than being ignored", {
+  skip_if_not_installed("drc")
+  expect_error(
+    ecx(brms_model_1, x_var = "x", proprtion = 0.5),
+    "`...` must be unused for a `brmsfit`, not 'proprtion'"
+  )
+  expect_error(
+    ecx(nsec_drc_1, proprtion = 0.5),
+    "`...` must be unused for a `drc` fit, not 'proprtion'"
+  )
+})
+
+test_that("an abbreviated argument errors rather than partially matching", {
+  skip_if_not_installed("drc")
+  expect_error(
+    ecx(brms_model_1, x_var = "x", resol = 20),
+    "`...` must be unused for a `brmsfit`, not 'resol'"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, n_bo = 10),
+    "`...` must be unused for a `drc` fit, not 'n_bo'"
+  )
+})
+
+test_that("an argument passed by position after object errors", {
+  skip_if_not_installed("drc")
+  expect_error(
+    ecx(nsec_drc_1, 0.5),
+    "Arguments after `object` must be named, not passed by position"
+  )
+  expect_error(
+    nsec(brms_model_1, 0.05, x_var = "x"),
+    "Arguments after `object` must be named, not passed by position"
+  )
+})
+
+test_that("toxval_predict errors for a class with no method", {
+  expect_error(
+    toxval_predict(1:10),
+    "`object` must be a fitted model with a `toxval_predict\\(\\)` method"
+  )
+
+  expect_error(
+    toxval_predict(list(x = 1:10), x_var = "x"),
+    "`object` must be a fitted model with a `toxval_predict\\(\\)` method"
+  )
+})
+
+test_that("toxval_predict errors when x_var is not a string", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = 1),
+    "`x_var` must be a string"
+  )
+})
+
+test_that("toxval_predict errors when group_var is not a string", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", group_var = 1),
+    "`group_var` must be a string .* or NULL"
+  )
+})
+
+test_that("toxval_predict errors when group_var is the same column as x_var", {
+  expect_error(
+    toxval_predict(brms_model_1, x_var = "x", group_var = "x"),
+    "`group_var` and `x_var` must name different columns, not both 'x'."
+  )
+})
+
+test_that("toxval_predict errors when resolution is not a whole number", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", resolution = 2.5),
+    "`resolution` must be a whole number"
+  )
+})
+
+test_that("toxval_predict errors when resolution is 1 or less", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", resolution = 1),
+    "`resolution` must be greater than 1, not 1"
+  )
+
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", resolution = 0),
+    "`resolution` must be greater than 1, not 0"
+  )
+})
+
+test_that("toxval_predict errors when x_range is not length 2", {
+  skip_if_not_installed("drc")
+  # a length-2 `x_range` must reach the comparisons below without being tested
+  # element-wise first, as `is.na(x_range)` would
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_range = c(0, 1, 2)),
+    "`x_range` must be length 2"
+  )
+
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_range = c(1)),
+    "`x_range` must be length 2"
+  )
+})
+
+test_that("toxval_predict errors when x_range contains a missing value", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_range = c(0, NA)),
+    "`x_range` must not have any missing values"
+  )
+})
+
+test_that("toxval_predict errors when x_range is not finite", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_range = c(0, Inf)),
+    "`x_range` must be finite"
+  )
+})
+
+test_that("toxval_predict errors when x_range is not increasing", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_range = c(3, 0)),
+    "`x_range` must be increasing"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_range = c(2, 2)),
+    "`x_range` must be increasing"
+  )
+})
+
+test_that("toxval_predict errors when x_var is not a column of the data", {
+  expect_error(
+    toxval_predict(brms_model_1, x_var = "dose"),
+    "`x_var` must name a column of the data in `object`, not 'dose'"
+  )
+})
+
+test_that("toxval_predict matches x_var exactly", {
+  # `x_var = "x"` must not be satisfied by a column merely containing an "x"
+  # brms_model_1 has data with column names y, log(x), x, it won't match "lo"
+  expect_error(
+    toxval_predict(brms_model_1, x_var = "lo"),
+    "`x_var` must name a column of the data in `object`, not 'lo'"
+  )
+})
+
+test_that("toxval_predict errors when group_var is not a column of the data", {
+  expect_error(
+    toxval_predict(brms_model_2, x_var = "x", group_var = "site"),
+    "`group_var` must name a column of the data in `object`, not 'site'"
+  )
+})
+
+# toxval_predict.brmsfit ----------------------------------------------------
+
+test_that("toxval_predict returns a toxval_pred for an ungrouped brmsfit", {
+  result <- toxval_predict(
+    brms_model_1,
+    x_var = "x",
+    resolution = 6
+  )
+
+  expect_s3_class(result, "toxval_pred")
+  expect_type(result$curves, "list")
+  expect_length(result$curves, 1)
+  expect_equal(result$keys, data.frame(row.names = 1L))
+  expect_equal(ncol(result$curves[[1]]), 6)
+  expect_equal(nrow(result$curves[[1]]), brms::ndraws(brms_model_1))
+
+  expect_equal(result$meta$source_class, "brmsfit")
+  expect_equal(result$meta$x_var, "x")
+  expect_null(result$meta$group_var)
+  expect_null(result$meta$multi_var)
+  expect_equal(result$meta$resolution, 6)
+  expect_equal(result$meta$x_range, c(0.8, 1.05))
+  expect_equal(result$meta$family, "gaussian")
+  expect_equal(result$meta$realisation, "draws")
+  expect_equal(result$meta$n_realisation, brms::ndraws(brms_model_1))
+  expect_null(result$meta$seed)
+})
+
+test_that("toxval_predict returns one curve per group for a grouped brmsfit", {
+  result <- toxval_predict(
+    brms_model_2,
+    x_var = "x",
+    group_var = "z",
+    resolution = 6
+  )
+
+  expect_length(result$curves, 2)
+  expect_equal(result$keys, data.frame(group = factor(c("1", "2"))))
+  expect_equal(result$meta$group_var, "z")
+  expect_equal(ncol(result$curves[[1]]), 6)
+  expect_equal(ncol(result$curves[[2]]), 6)
+})
+
+test_that("toxval_predict returns different curves for different groups", {
+  result <- toxval_predict(
+    brms_model_2,
+    x_var = "x",
+    group_var = "z",
+    resolution = 6
+  )
+
+  expect_false(identical(result$curves[[1]], result$curves[[2]]))
+})
+
+test_that("toxval_predict errors when group_var is only a group-level effect", {
+  # brms_model_6 is `y ~ log(x) + (1 | z)`; with group-level effects
+  # marginalised both levels of z would get the same curve
+  expect_error(
+    toxval_predict(
+      brms_model_6,
+      x_var = "x",
+      group_var = "z",
+      resolution = 6
+    ),
+    "Group-level effects are marginalised; `group_var` must be fitted as a population-level effect in `object` to give one curve per level."
+  )
+})
+
+test_that("toxval_predict gives one curve per response for a multivariate brmsfit", {
+  result <- toxval_predict(nsec_multi_model_2, x_var = "dose", resolution = 6)
+
+  expect_length(result$curves, 2)
+  expect_equal(
+    result$keys,
+    data.frame(
+      response = factor(
+        c("spsurvival", "spgrowth"),
+        levels = c("spsurvival", "spgrowth")
+      )
+    )
+  )
+  expect_identical(result$meta$multi_var, c("spsurvival", "spgrowth"))
+  expect_identical(
+    result$meta$family,
+    c(spsurvival = "bernoulli", spgrowth = "gaussian")
+  )
+  expect_null(result$meta$trials_var)
+  expect_equal(
+    result$curves[[2]],
+    unname(brms::posterior_epred(
+      nsec_multi_model_2,
+      newdata = data.frame(dose = result$x_vec),
+      re_formula = NA,
+      resp = "spgrowth"
+    )),
+    ignore_attr = TRUE
+  )
+})
+
+test_that("toxval_predict reads the trials of a binomial response from the fit", {
+  # brms_model_7 is `survived | trials(n) ~ x` (binomial) and `growth ~ x`
+  result <- toxval_predict(brms_model_7, x_var = "x", resolution = 6)
+
+  expect_identical(result$meta$trials_var, c(survived = "n"))
+  expect_identical(
+    result$meta$family,
+    c(survived = "binomial", growth = "gaussian")
+  )
+})
+
+test_that("toxval_predict predicts a binomial response at one trial", {
+  # the trials in the data vary from 16 to 20, so the curve is a proportion
+  # rather than a count at any one of them
+  result <- toxval_predict(brms_model_7, x_var = "x", resolution = 6)
+
+  expect_equal(
+    result$curves[[1]],
+    unname(brms::posterior_epred(
+      brms_model_7,
+      newdata = data.frame(x = result$x_vec, n = 1),
+      re_formula = NA,
+      resp = "survived"
+    )),
+    ignore_attr = TRUE
+  )
+  expect_true(all(result$curves[[1]] >= 0 & result$curves[[1]] <= 1))
+})
+
+test_that("toxval_predict has no asymptote for a brmsfit unless one is named", {
+  result <- toxval_predict(brms_model_1, x_var = "x", resolution = 6)
+
+  expect_null(result$asymptote)
+})
+
+# toxval_predict.drc --------------------------------------------------------
+
+test_that("toxval_predict takes the asymptotes of a drc fit from its limits", {
+  skip_if_not_installed("drc")
+  # nsec_drc_2 is LL.3, whose lower limit is fixed at 0
+  result <- toxval_predict(nsec_drc_2, resolution = 5, n_boot = 10, seed = 42)
+
+  expect_equal(result$asymptote[[1]]$decreasing, rep(0, 10))
+  expect_length(result$asymptote[[1]]$increasing, 10)
+})
+
+test_that("toxval_predict reads x_var from a drc fit when it is not supplied", {
+  skip_if_not_installed("drc")
+  result <- toxval_predict(nsec_drc_1, resolution = 5, n_boot = 10, seed = 42)
+  supplied <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    resolution = 5,
+    n_boot = 10,
+    seed = 42
+  )
+
+  expect_equal(result$meta$x_var, "x")
+  expect_identical(result, supplied)
+})
+
+test_that("toxval_predict errors when x_var is not the dose variable of a drc fit", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "y", n_boot = 10),
+    "`x_var` must be 'x', the dose variable of `object`, not 'y'"
+  )
+})
+
+test_that("toxval_predict returns a toxval_pred for an ungrouped drc fit", {
+  skip_if_not_installed("drc")
+  result <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    resolution = 5,
+    n_boot = 10,
+    seed = 42
+  )
+
+  expect_s3_class(result, "toxval_pred")
+  expect_length(result$curves, 1)
+  expect_equal(result$keys, data.frame(row.names = 1L))
+  expect_equal(dim(result$curves[[1]]), c(10L, 5L))
+
+  expect_equal(result$meta$source_class, "drc")
+  expect_equal(result$meta$x_var, "x")
+  expect_null(result$meta$group_var)
+  expect_null(result$meta$multi_var)
+  expect_equal(result$meta$resolution, 5)
+  expect_equal(result$meta$x_range, c(0.032, 3.221), tolerance = 0.001)
+  expect_equal(result$meta$family, "continuous")
+  expect_equal(result$meta$realisation, "bootstrap")
+  expect_equal(result$meta$n_realisation, 10)
+  expect_equal(result$meta$seed, 42)
+})
+
+test_that("toxval_predict returns one curve per curveid for a grouped drc fit", {
+  skip_if_not_installed("drc")
+  result <- toxval_predict(
+    daphnids_fit(),
+    x_var = "dose",
+    group_var = "time",
+    resolution = 5,
+    n_boot = 10,
+    seed = 42
+  )
+
+  expect_length(result$curves, 2)
+  expect_equal(result$keys, data.frame(group = factor(c("24h", "48h"))))
+  expect_equal(result$meta$group_var, "time")
+  expect_equal(dim(result$curves[[1]]), c(10L, 5L))
+})
+
+test_that("toxval_predict errors when a grouped drc fit is given no group_var", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(
+      daphnids_fit(),
+      x_var = "dose",
+      resolution = 5,
+      n_boot = 10
+    ),
+    "`group_var` must be supplied for a `drc` fit with more than one curve"
+  )
+})
+
+test_that("toxval_predict errors when an ungrouped drc fit is given a group_var", {
+  skip_if_not_installed("drc")
+  # the curves are read from the coefficient names, so a `group_var` that names
+  # a real column of a single-curve fit is still an error (#34)
+  expect_error(
+    toxval_predict(
+      nsec_drc_1,
+      x_var = "x",
+      group_var = "y",
+      resolution = 5,
+      n_boot = 10
+    ),
+    "`group_var` must be NULL for a `drc` fit with a single curve"
+  )
+})
+
+test_that("toxval_predict errors when group_var is not the curveid of a drc fit", {
+  skip_if_not_installed("drc")
+  # `dose` is a column of the data, so only the comparison with the `curveid`
+  # stops it being recorded as the grouping variable. `x_var` is left to be
+  # read from the fit, since `x_var = "dose"` would stop the call earlier, at
+  # the check that `group_var` and `x_var` differ.
+  expect_error(
+    toxval_predict(
+      daphnids_fit(),
+      group_var = "dose",
+      resolution = 5,
+      n_boot = 10
+    ),
+    "`group_var` must be the `curveid` of `object`, not 'dose'"
+  )
+})
+
+test_that("toxval_predict orders the curves of a drc fit by level, not by row", {
+  skip_if_not_installed("drc")
+  # with the rows reversed and `time` a character column, `coef()` names the
+  # 48h curve first; each curve is compared with `predict()` for its level, so
+  # a reordering of `keys` without the curves also fails
+  data <- drc::daphnids[rev(seq_len(nrow(drc::daphnids))), ]
+  data$time <- as.character(data$time)
+  fit <- drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = data,
+    fct = drc::LL.2(),
+    type = "binomial"
+  )
+  mu <- coef(fit)
+  local_mocked_bindings(
+    boot_parms = function(
+      object,
+      n_boot,
+      seed = NULL,
+      log_scale = character()
+    ) {
+      matrix(
+        mu,
+        nrow = n_boot,
+        ncol = length(mu),
+        byrow = TRUE,
+        dimnames = list(NULL, names(mu))
+      )
+    }
+  )
+  result <- toxval_predict(
+    fit,
+    x_var = "dose",
+    group_var = "time",
+    resolution = 4,
+    n_boot = 1
+  )
+
+  expect_equal(result$keys, data.frame(group = factor(c("24h", "48h"))))
+  for (i in seq_len(nrow(result$keys))) {
+    level <- as.character(result$keys$group[i])
+    fitted <- predict(
+      fit,
+      newdata = data.frame(dose = result$x_vec, time = level)
+    )
+    expect_equal(result$curves[[i]][1, ], as.numeric(fitted))
+  }
+})
+
+test_that("toxval_predict errors when n_boot is not a positive whole number", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", n_boot = 2.5),
+    "`n_boot` must be a whole number"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", n_boot = 0),
+    "`n_boot` must be greater than 0"
+  )
+})
+
+test_that("toxval_predict errors when seed is not a whole number", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", seed = "42"),
+    "`seed` must be a whole number .* or NULL"
+  )
+
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", seed = 42.5),
+    "`seed` must be a whole number .* or NULL"
+  )
+})
+
+# the predictor grid --------------------------------------------------------
+
+test_that("toxval_predict builds the grid from x_control, x_range and resolution", {
+  skip_if_not_installed("drc")
+  result <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    x_control = 1,
+    x_range = c(1, 4),
+    resolution = 4,
+    n_boot = 5,
+    seed = 42
+  )
+
+  expect_equal(result$x_vec, c(1, 2, 3, 4))
+  expect_identical(result$meta$x_control, 1)
+})
+
+test_that("toxval_predict takes the grid range from the data when x_range is NULL", {
+  skip_if_not_installed("drc")
+  result <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    resolution = 4,
+    n_boot = 5,
+    seed = 42
+  )
+
+  expect_equal(range(result$x_vec), range(nsec_drc_1$data$x))
+})
+
+test_that("toxval_predict records the lowest concentration in the data as x_control", {
+  result <- toxval_predict(brms_model_1, x_var = "x", resolution = 4)
+
+  expect_identical(result$meta$x_control, min(brms_model_1$data$x))
+})
+
+test_that("toxval_predict starts the grid at the lowest concentration in the data", {
+  skip_if_not_installed("drc")
+  result <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    resolution = 4,
+    n_boot = 5,
+    seed = 42
+  )
+
+  expect_identical(result$x_vec[1], min(nsec_drc_1$data$x))
+})
+
+test_that("toxval_predict refuses an x_range that does not start at the control concentration", {
+  skip_if_not_installed("drc")
+  # a lower bound of x_range would otherwise move the control
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_range = c(1, 3), n_boot = 5),
+    "`x_range` must start at the control concentration, 0.03234801, not 1; supply `x_control`",
+    fixed = TRUE
+  )
+  expect_error(
+    toxval_predict(
+      nsec_drc_1,
+      x_var = "x",
+      x_control = 0.5,
+      x_range = c(1, 3),
+      n_boot = 5
+    ),
+    "`x_range` must start at the control concentration, 0.5, not 1",
+    fixed = TRUE
+  )
+})
+
+test_that("toxval_predict ends the grid at the data when only x_control is supplied", {
+  skip_if_not_installed("drc")
+  result <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    x_control = 1,
+    resolution = 4,
+    n_boot = 5,
+    seed = 42
+  )
+
+  expect_equal(range(result$x_vec), c(1, max(nsec_drc_1$data$x)))
+})
+
+test_that("toxval_predict warns when x_control lies outside the range of the data", {
+  skip_if_not_installed("drc")
+  # ryegrass without its controls, so the lowest tested concentration is 0.94
+  no_controls <- drc::drm(
+    rootl ~ conc,
+    data = drc::ryegrass[drc::ryegrass$conc > 0, ],
+    fct = drc::LL.4()
+  )
+  expect_warning(
+    result <- toxval_predict(
+      no_controls,
+      x_control = 0,
+      resolution = 10,
+      n_boot = 5,
+      seed = 42
+    ),
+    "`x_control`, 0, lies outside the range of the data, 0.94 to 30",
+    fixed = TRUE
+  )
+  expect_identical(result$meta$x_control, 0)
+
+  full <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+  expect_no_warning(
+    toxval_predict(full, x_control = 0, resolution = 10, n_boot = 5, seed = 42)
+  )
+})
+
+test_that("toxval_predict errors when x_control is not a finite number below the end of the grid", {
+  skip_if_not_installed("drc")
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_control = "0"),
+    "`x_control` must be a number"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_control = c(0, 1)),
+    "`x_control` must be a number"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_control = Inf),
+    "`x_control` must be finite"
+  )
+  expect_error(
+    toxval_predict(nsec_drc_1, x_var = "x", x_control = 5, n_boot = 5),
+    "`x_control` must be below the upper end of the grid, 3.22052, not 5.",
+    fixed = TRUE
+  )
+})
+
+test_that("toxval_predict errors when the predictor takes a single value", {
+  skip_if_not_installed("drc")
+  # every observation at one concentration, so there is no range to build a
+  # grid from
+  fit <- nsec_drc_1
+  fit$data$x <- 1
+
+  expect_error(
+    toxval_predict(fit, x_var = "x", resolution = 4, n_boot = 5),
+    "`object` must have more than one value of the predictor, or `x_range` must be supplied"
+  )
+  expect_no_error(
+    toxval_predict(
+      fit,
+      x_var = "x",
+      x_range = c(1, 3),
+      resolution = 4,
+      n_boot = 5
+    )
+  )
+})
+
+# the parametric bootstrap --------------------------------------------------
+
+test_that("toxval_predict is reproducible for a given seed", {
+  skip_if_not_installed("drc")
+  args <- list(
+    nsec_drc_1,
+    x_var = "x",
+    resolution = 5,
+    n_boot = 10,
+    seed = 7
+  )
+
+  expect_equal(
+    do.call(toxval_predict, args)$curves,
+    do.call(toxval_predict, args)$curves
+  )
+})
+
+test_that("toxval_predict gives different realisations for different seeds", {
+  skip_if_not_installed("drc")
+  first <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    resolution = 5,
+    n_boot = 10,
+    seed = 7
+  )
+  second <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    resolution = 5,
+    n_boot = 10,
+    seed = 8
+  )
+
+  expect_false(identical(first$curves, second$curves))
+})
+
+test_that("toxval_predict leaves the random number state alone", {
+  skip_if_not_installed("drc")
+  set.seed(1)
+  before <- .Random.seed
+  toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    resolution = 5,
+    n_boot = 10,
+    seed = 7
+  )
+
+  expect_equal(.Random.seed, before)
+})
+
+test_that("toxval_predict at the fitted coefficients reproduces predict()", {
+  skip_if_not_installed("drc")
+  # with every replicate set to coef(), the curve must be the fitted curve, so
+  # this checks that each parameter reaches the drc mean function in the
+  # position it expects; with b and e swapped, the same grid gives 0.897, 0.883,
+  # 0.842 and 0.782
+  mu <- coef(nsec_drc_1)
+  local_mocked_bindings(
+    boot_parms = function(
+      object,
+      n_boot,
+      seed = NULL,
+      log_scale = character()
+    ) {
+      matrix(
+        mu,
+        nrow = n_boot,
+        ncol = length(mu),
+        byrow = TRUE,
+        dimnames = list(NULL, names(mu))
+      )
+    }
+  )
+  result <- toxval_predict(
+    nsec_drc_1,
+    x_var = "x",
+    x_control = 1,
+    x_range = c(1, 3),
+    resolution = 4,
+    n_boot = 2
+  )
+  fitted <- predict(nsec_drc_1, newdata = data.frame(x = result$x_vec))
+
+  expect_equal(result$curves[[1]][1, ], as.numeric(fitted))
+  expect_equal(result$curves[[1]][2, ], as.numeric(fitted))
+})
+
+test_that("boot_parms draws from MVN(coef(object), vcov(object))", {
+  skip_if_not_installed("drc")
+  # tested on the parameter scale rather than against the fitted curve: the
+  # curve is nonlinear in its parameters, so the mean bootstrap curve differs
+  # from the fitted curve by more than Monte Carlo error (0.0376 against 0.0351
+  # at x = 3, 4000 replicates)
+  n_boot <- 4000
+  parms <- toxval:::boot_parms(nsec_drc_1, n_boot = n_boot, seed = 42)
+  mu <- coef(nsec_drc_1)
+  sigma <- vcov(nsec_drc_1)
+  sample_sigma <- stats::cov(parms)
+
+  expect_equal(colnames(parms), names(mu))
+
+  # each mean within 4 Monte Carlo standard errors of its coefficient
+  z <- (colMeans(parms) - mu) / sqrt(diag(sigma) / n_boot)
+  expect_lt(max(abs(z)), 4)
+
+  # the standard error of a sample variance relative to its target is about
+  # sqrt(2 / n_boot), 0.022 here, so 0.1 is between four and five of them
+  expect_lt(max(abs(diag(sample_sigma) / diag(sigma) - 1)), 0.1)
+
+  # the standard error of a sample correlation is at most 1 / sqrt(n_boot),
+  # 0.016 here; the fit's b-e and c-e correlations of -0.75 and -0.91 mean a
+  # draw that ignored the off-diagonal of `vcov()` would fail by an order of
+  # magnitude
+  expect_lt(
+    max(abs(stats::cov2cor(sample_sigma) - stats::cov2cor(sigma))),
+    0.05
+  )
+})
+
+# the log scale ----------------------------------------------------------------
+
+test_that("toxval_predict gives a finite curve for every replicate of nsec_drc_2", {
+  skip_if_not_installed("drc")
+  # SE(e) is 2.25 against e of 1.58, so on its own scale about a quarter of the
+  # draws of e are at or below 0, where LL.3 evaluates log(dose / e)
+  expect_equal(toxval:::drc_log_parms(nsec_drc_2), "e:(Intercept)")
+  expect_no_warning(
+    result <- toxval_predict(nsec_drc_2, n_boot = 1000, seed = 1)
+  )
+  parms <- toxval:::boot_parms(
+    nsec_drc_2,
+    n_boot = 1000,
+    seed = 1,
+    log_scale = "e:(Intercept)"
+  )
+
+  expect_true(all(is.finite(result$curves[[1]])))
+  expect_true(all(parms[, "e:(Intercept)"] > 0))
+  expect_equal(
+    result$curves[[1]],
+    toxval:::drc_eval_curve(nsec_drc_2, result$x_vec, parms)
+  )
+})
+
+test_that("boot_parms draws a log_scale parameter from the delta-method normal", {
+  skip_if_not_installed("drc")
+  # with J diagonal, 1 / e for e and 1 otherwise, (b, d, log(e)) is drawn from
+  # MVN((b, d, log(e)), J V J')
+  n_boot <- 10000
+  parms <- toxval:::boot_parms(
+    nsec_drc_2,
+    n_boot = n_boot,
+    seed = 42,
+    log_scale = "e:(Intercept)"
+  )
+  mu <- coef(nsec_drc_2)
+  jacobian <- c(1, 1, 1 / mu[["e:(Intercept)"]])
+  sigma <- vcov(nsec_drc_2) * outer(jacobian, jacobian)
+  mu[["e:(Intercept)"]] <- log(mu[["e:(Intercept)"]])
+  draws <- parms
+  draws[, "e:(Intercept)"] <- log(draws[, "e:(Intercept)"])
+  sample_sigma <- stats::cov(draws)
+
+  # the tolerances follow the MVN test above: 4 Monte Carlo standard errors
+  # for a mean, about 7 for a variance and 5 for a correlation
+  z <- (colMeans(draws) - mu) / sqrt(diag(sigma) / n_boot)
+  expect_lt(max(abs(z)), 4)
+  expect_lt(max(abs(diag(sample_sigma) / diag(sigma) - 1)), 0.1)
+  expect_lt(
+    max(abs(stats::cov2cor(sample_sigma) - stats::cov2cor(sigma))),
+    0.05
+  )
+})
+
+test_that("boot_parms leaves the draw unchanged when log_scale is empty", {
+  skip_if_not_installed("drc")
+  expect_identical(
+    toxval:::boot_parms(nsec_drc_2, n_boot = 20, seed = 3),
+    toxval:::boot_parms(
+      nsec_drc_2,
+      n_boot = 20,
+      seed = 3,
+      log_scale = character()
+    )
+  )
+})
+
+test_that("drc_log_parms names the e of every curve of a grouped drc fit", {
+  skip_if_not_installed("drc")
+  fit <- daphnids_fit()
+  shared <- drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = drc::daphnids,
+    fct = drc::LL.2(),
+    type = "binomial",
+    pmodels = data.frame(1, time)
+  )
+  parms <- toxval:::boot_parms(
+    fit,
+    n_boot = 200,
+    seed = 5,
+    log_scale = toxval:::drc_log_parms(fit)
+  )
+
+  expect_equal(toxval:::drc_log_parms(fit), c("e:24h", "e:48h"))
+  # the slope is shared and the ED50 is fitted for each curve
+  expect_equal(toxval:::drc_log_parms(shared), c("e:24h", "e:48h"))
+  expect_true(all(parms[, c("e:24h", "e:48h")] > 0))
+})
+
+test_that("drc_log_parms finds e in a fit with a fixed or renamed parameter", {
+  skip_if_not_installed("drc")
+  # fixing b removes it from coef(), so e is the third coefficient rather than
+  # the fourth, under the name the fit gives it
+  renamed <- drc::drm(
+    y ~ x,
+    data = bayesnec_nec_data,
+    fct = drc::LL.4(
+      fixed = c(8, NA, NA, NA),
+      names = c("slope", "lower", "upper", "ed50")
+    )
+  )
+  fixed_e <- drc::drm(
+    y ~ x,
+    data = bayesnec_nec_data,
+    fct = drc::LL.4(fixed = c(NA, NA, NA, 2))
+  )
+
+  expect_equal(toxval:::drc_log_parms(renamed), "ed50:(Intercept)")
+  expect_equal(toxval:::drc_log_parms(fixed_e), character())
+})
+
+test_that("drc_log_parms leaves the draw of a fit outside the set unchanged", {
+  skip_if_not_installed("drc")
+  # G.4 has no parameter that must be positive; LL2.4 and LN.4(loge = TRUE)
+  # share a class with LL.4 and LN.4 but estimate log(e), which takes any sign
+  fits <- list(
+    gompertz = drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::G.4()),
+    ll2 = drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::LL2.4()),
+    ln_loge = drc::drm(
+      y ~ x,
+      data = bayesnec_nec_data,
+      fct = drc::LN.4(loge = TRUE)
+    )
+  )
+  for (fit in fits) {
+    expect_equal(toxval:::drc_log_parms(fit), character())
+    result <- toxval_predict(fit, resolution = 5, n_boot = 10, seed = 9)
+    expect_equal(
+      result$curves[[1]],
+      toxval:::drc_eval_curve(
+        fit,
+        result$x_vec,
+        toxval:::boot_parms(fit, n_boot = 10, seed = 9)
+      )
+    )
+  }
+})
+
+test_that("drc_positive_parms finds the parameters drc requires to be positive", {
+  skip_if_not_installed("drc")
+  dose <- c(0.5, 1, 2, 4)
+  # a value for every parameter name the constructors below use
+  values <- c(
+    b = 1.5,
+    c = 0.1,
+    d = 2,
+    e = 1.7,
+    f = 0.8,
+    g = 0.5,
+    t0 = 0.2,
+    b1 = 1.2,
+    b2 = 2.5,
+    c1 = 0,
+    d1 = 1,
+    e1 = 1.3,
+    d2 = 1,
+    e2 = 3
+  )
+  positive <- function(fct) {
+    toxval:::drc_positive_parms(fct, values[fct$names], dose)
+  }
+
+  for (fct in list(
+    drc::LL.4(),
+    drc::LL.5(),
+    drc::MM.3(),
+    drc::W1.4(),
+    drc::EXD.3(),
+    drc::W2.4(),
+    drc::AR.3(),
+    drc::W2x.4(),
+    drc::LN.4(),
+    drc::BC.5(),
+    drc::CRS.4a(),
+    drc::CRS.6(),
+    # not UCRS.4a: drc 4.0-0 lists its fixed `c` in `names`, so the vector
+    # built from `names` is one too long and drm() cannot fit it either
+    drc::UCRS.5a(),
+    drc::lgaussian(),
+    drc::gammadr()
+  )) {
+    expect_equal(positive(fct), "e")
+    expect_true(inherits(fct, toxval:::drc_log_classes))
+  }
+  expect_equal(positive(drc::baro5()), "e")
+  expect_equal(positive(drc::twophase()), c("e1", "e2"))
+  expect_equal(positive(drc::LL2.4()), character())
+  expect_equal(positive(drc::LN.4(loge = TRUE)), character())
+  for (fct in list(drc::G.4(), drc::L.4(), drc::NEC.4())) {
+    expect_false(inherits(fct, toxval:::drc_log_classes))
+  }
+})
+
+test_that("the realisations of a grouped drc fit come from one joint parameter draw", {
+  skip_if_not_installed("drc")
+  # alignment: replicate i of every curve is the same draw of the whole
+  # parameter vector, which is what makes per-realisation quantities from
+  # different curves comparable row by row
+  fit <- daphnids_fit()
+  result <- toxval_predict(
+    fit,
+    x_var = "dose",
+    group_var = "time",
+    resolution = 4,
+    n_boot = 5,
+    seed = 11
+  )
+  parms <- toxval:::boot_parms(
+    fit,
+    n_boot = 5,
+    seed = 11,
+    log_scale = c("e:24h", "e:48h")
+  )
+
+  expect_equal(as.character(result$keys$group), c("24h", "48h"))
+  expect_equal(
+    result$curves[[1]],
+    toxval:::drc_eval_curve(
+      fit,
+      result$x_vec,
+      parms[, c("b:24h", "e:24h"), drop = FALSE]
+    )
+  )
+  expect_equal(
+    result$curves[[2]],
+    toxval:::drc_eval_curve(
+      fit,
+      result$x_vec,
+      parms[, c("b:48h", "e:48h"), drop = FALSE]
+    )
+  )
+})
+
+test_that("drc_eval_curve reproduces the drc mean function row by row", {
+  skip_if_not_installed("drc")
+  x_vec <- c(0.5, 1, 2)
+  parms <- rbind(coef(nsec_drc_1), coef(nsec_drc_1) * 1.1)
+  result <- toxval:::drc_eval_curve(nsec_drc_1, x_vec, parms)
+
+  expect_equal(dim(result), c(2L, 3L))
+  # each row is evaluated at its own parameter vector; checking only the first
+  # row would pass an implementation that applied it to every row
+  for (i in seq_len(nrow(parms))) {
+    expect_equal(
+      result[i, ],
+      nsec_drc_1$fct$fct(
+        x_vec,
+        matrix(parms[i, ], nrow = 3, ncol = 4, byrow = TRUE)
+      )
+    )
+  }
+})
+
+test_that("drc_split_parm_names splits drc coefficient names on the first colon", {
+  # a curve level comes from the data and may contain a colon; a drc parameter
+  # name does not
+  result <- toxval:::drc_split_parm_names(c(
+    "b:(Intercept)",
+    "e:24h",
+    "b:t:24h"
+  ))
+
+  expect_equal(result$param, c("b", "e", "b"))
+  expect_equal(result$curve, c("(Intercept)", "24h", "t:24h"))
+})
+
+test_that("toxval_predict keeps a curveid level that contains a colon", {
+  skip_if_not_installed("drc")
+  data <- drc::daphnids
+  data$time <- ifelse(data$time == "24h", "t:24h", "t:48h")
+  fit <- drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = data,
+    fct = drc::LL.2(),
+    type = "binomial"
+  )
+  result <- toxval_predict(
+    fit,
+    x_var = "dose",
+    group_var = "time",
+    resolution = 3,
+    n_boot = 2,
+    seed = 1
+  )
+
+  expect_equal(as.character(result$keys$group), c("t:24h", "t:48h"))
+})
+
+test_that("drc_split_parm_names splits drc coefficients as expected", {
+  skip_if_not_installed("drc")
+  # nsec_drc_1 uses LL.4 is the four parameter log-logistic model
+  result <- toxval:::drc_split_parm_names(names(coef(nsec_drc_1)))
+
+  expect_equal(result$param, c("b", "c", "d", "e"))
+  expect_equal(
+    result$curve,
+    c("(Intercept)", "(Intercept)", "(Intercept)", "(Intercept)")
+  )
+})
+
+test_that("drc_split_parm_names errors on a name it cannot split", {
+  expect_error(
+    toxval:::drc_split_parm_names(c("b", "e")),
+    "`coef\\(object\\)` must be named <parameter>:<curve>"
+  )
+})
+
+test_that("toxval_predict builds each curve of a drc fit with shared parameters", {
+  skip_if_not_installed("drc")
+  # `pmodels` fits one slope across both curves and an ED50 for each, so the
+  # coefficients are `b:(Intercept)`, `e:24h` and `e:48h`: a curve is assembled
+  # from its own parameters plus the shared one. With every replicate set to
+  # coef(), each curve must be the fitted curve for its level.
+  fit <- drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = drc::daphnids,
+    fct = drc::LL.2(),
+    type = "binomial",
+    pmodels = data.frame(1, time)
+  )
+  mu <- coef(fit)
+  local_mocked_bindings(
+    boot_parms = function(
+      object,
+      n_boot,
+      seed = NULL,
+      log_scale = character()
+    ) {
+      matrix(
+        mu,
+        nrow = n_boot,
+        ncol = length(mu),
+        byrow = TRUE,
+        dimnames = list(NULL, names(mu))
+      )
+    }
+  )
+  result <- toxval_predict(
+    fit,
+    x_var = "dose",
+    group_var = "time",
+    resolution = 4,
+    n_boot = 1
+  )
+
+  expect_equal(as.character(result$keys$group), c("24h", "48h"))
+  for (i in seq_len(nrow(result$keys))) {
+    level <- as.character(result$keys$group[i])
+    fitted <- predict(
+      fit,
+      newdata = data.frame(dose = result$x_vec, time = level)
+    )
+    expect_equal(result$curves[[i]][1, ], as.numeric(fitted))
+  }
+})
+
+test_that("drc_curve_cols errors when a parameter is missing for a curve", {
+  split <- list(param = c("b", "e"), curve = c("24h", "48h"))
+
+  expect_error(
+    toxval:::drc_curve_cols(split, is_shared = c(FALSE, FALSE), id = "24h"),
+    "`coef\\(object\\)` must name parameter 'e' exactly once for curve '24h', not 0 times"
+  )
+})
+
+test_that("boot_parms errors when a coefficient is missing", {
+  # a rank-deficient fit drops a coefficient to NA rather than failing
+  data <- data.frame(y = c(1, 2, 3, 5), x = c(1, 2, 3, 4))
+  data$x2 <- data$x * 2
+  fit <- stats::lm(y ~ x + x2, data = data)
+
+  expect_error(
+    toxval:::boot_parms(fit, n_boot = 5),
+    "`coef\\(object\\)` must not contain missing values"
+  )
+})
+
+test_that("boot_parms errors when the variance-covariance matrix contains missing values", {
+  registerS3method("coef", "toxval_stub", function(object, ...) c(a = 1, b = 2))
+  registerS3method("vcov", "toxval_stub", function(object, ...) {
+    matrix(c(1, NA, NA, 1), nrow = 2, dimnames = list(c("a", "b"), c("a", "b")))
+  })
+
+  expect_error(
+    toxval:::boot_parms(structure(list(), class = "toxval_stub"), n_boot = 5),
+    "`vcov\\(object\\)` must not contain missing values"
+  )
+})
+
+test_that("boot_parms errors when the variance-covariance matrix is not positive definite", {
+  # a correlation of 2 between the parameters is impossible, so `chol()` fails
+  registerS3method(
+    "coef",
+    "toxval_stub_not_pd",
+    function(object, ...) c(a = 1, b = 2)
+  )
+  registerS3method("vcov", "toxval_stub_not_pd", function(object, ...) {
+    matrix(c(1, 2, 2, 1), nrow = 2, dimnames = list(c("a", "b"), c("a", "b")))
+  })
+
+  expect_error(
+    toxval:::boot_parms(
+      structure(list(), class = "toxval_stub_not_pd"),
+      n_boot = 5
+    ),
+    "`vcov\\(object\\)` must be positive definite; the fit may not be identified"
+  )
+})
+
+test_that("toxval_predict orders the curves by the content of the grouping variable", {
+  # `herbicide` appears in the data as irgarol, diuron, ametryn, ..., so an
+  # order taken from the rows would depend on how the data happened to be
+  # sorted, and the levels become the group descriptor of the result
+  result <- toxval_predict(
+    brms_model_4,
+    x_var = "x",
+    group_var = "herbicide",
+    resolution = 3
+  )
+
+  expect_equal(
+    as.character(result$keys$group),
+    c(
+      "ametryn",
+      "atrazine",
+      "diuron",
+      "hexazinone",
+      "irgarol",
+      "simazine",
+      "tebuthiuron"
+    )
+  )
+})
+
+test_that("group_levels orders character levels the same in every locale", {
+  # testthat runs with a C collation, under which plain `sort()` would also
+  # pass, so the session collation is set to a locale that orders mixed case
+  # differently
+  withr::local_collate("en_US.UTF-8")
+  skip_if_not(
+    Sys.getlocale("LC_COLLATE") == "en_US.UTF-8",
+    "en_US.UTF-8 collation is not available"
+  )
+
+  expect_equal(
+    toxval:::group_levels(c("b", "A", "a", "B")),
+    c("A", "B", "a", "b")
+  )
+})
+
+test_that("group_levels keeps the declared order of a factor", {
+  # the declared order differs from both the alphabetical order (control, high,
+  # medium) and the order of first appearance (high, control, medium), so the
+  # test fails if either replaces it
+  x <- factor(
+    c("high", "control", "medium", "high"),
+    levels = c("control", "low", "medium", "high")
+  )
+  result <- toxval:::group_levels(x)
+
+  # the unused level is dropped, the declared order of the rest is kept, and
+  # the result stays a factor so the levels reach `newdata`
+  expect_s3_class(result, "factor")
+  expect_equal(as.character(result), c("control", "medium", "high"))
+  expect_equal(levels(result), c("control", "medium", "high"))
+})
+
+test_that("toxval_predict handles a single bootstrap replicate", {
+  skip_if_not_installed("drc")
+  # n_boot = 1 is the edge case where a draw is most easily returned as a
+  # vector rather than a 1-row matrix. The values also pin the draw for a
+  # seed: the Cholesky factor of `vcov()` is unique, so they are the same on
+  # every platform, which `MASS::mvrnorm()` did not give (#59)
+  # the grid starts at 0, below the data, so that the pinned values still apply
+  expect_warning(
+    result <- toxval_predict(
+      nsec_drc_1,
+      x_var = "x",
+      x_control = 0,
+      x_range = c(0, 3),
+      resolution = 4,
+      n_boot = 1,
+      seed = 3
+    ),
+    "lies outside the range of the data"
+  )
+
+  expect_true(is.matrix(result$curves[[1]]))
+  expect_equal(dim(result$curves[[1]]), c(1L, 4L))
+  expect_equal(result$meta$n_realisation, 1)
+  expect_equal(
+    as.numeric(result$curves[[1]]),
+    c(0.9002389, 0.8941995, 0.4380654, 0.0091772),
+    tolerance = 1e-6
+  )
+})
+
+test_that("toxval_predict errors when the grid runs outside where the model is defined", {
+  # brms_model_1 is y ~ log(x), which has no value at x <= 0
+  expect_error(
+    suppressWarnings(
+      toxval_predict(brms_model_1, x_var = "x", x_control = -1)
+    ),
+    "`x_control` and `x_range` must lie where the model is defined"
+  )
+})
+
+test_that("chk_defined_grid allows a non-finite value in some realisations", {
+  curve <- rbind(c(10, NaN, 8), c(10, 9, 8))
+  expect_silent(chk_defined_grid(list(curve), c(0, 1, 2)))
+})
+
+test_that("chk_defined_grid errors at a grid value with no finite realisation", {
+  curve <- rbind(c(NaN, 9, 8), c(NaN, 9, 8))
+  expect_error(
+    chk_defined_grid(list(curve), c(0, 1, 2)),
+    "no finite prediction at 1 of 3 grid values, between 0 and 0"
+  )
+})

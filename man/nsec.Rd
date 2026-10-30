@@ -2,162 +2,196 @@
 % Please edit documentation in R/nsec.R
 \name{nsec}
 \alias{nsec}
-\alias{nsec.bnecfit}
-\alias{nsec.brmsfit}
-\alias{nsec.drc}
-\title{Extracts the predicted NSEC value as desired from a supported class.}
+\title{Estimate NSEC values from a fitted model}
 \usage{
 nsec(
   object,
-  sig_val = 0.01,
-  resolution = 100,
-  x_range = NA,
-  hormesis_def = "control",
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  posterior = FALSE,
-  ...
-)
-
-\method{nsec}{bnecfit}(
-  object,
-  sig_val = 0.01,
-  resolution = 100,
-  x_range = NA,
-  hormesis_def = "control",
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  posterior = FALSE,
-  type = "absolute",
-  ...
-)
-
-\method{nsec}{brmsfit}(
-  object,
-  sig_val = 0.01,
-  resolution = 1000,
-  x_range = NA,
-  hormesis_def = "control",
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
-  posterior = FALSE,
-  x_var,
-  group_var = NA,
-  by_group = FALSE,
-  horme = FALSE,
-  ...
-)
-
-\method{nsec}{drc}(
-  object,
-  sig_val = 0.01,
-  resolution = 1000,
-  x_range = NA,
-  hormesis_def = "control",
-  xform = identity,
-  prob_vals = c(0.5, 0.025, 0.975),
   ...,
-  x_var,
-  horme = FALSE,
-  curveid = NA
+  sig_val = 0.01,
+  type = "absolute",
+  anchor = NULL,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL,
+  draws = FALSE,
+  prob_vals = c(0.5, 0.025, 0.975),
+  xform = identity,
+  posterior = lifecycle::deprecated(),
+  hormesis_def = lifecycle::deprecated(),
+  horme = lifecycle::deprecated(),
+  by_group = lifecycle::deprecated(),
+  curveid = lifecycle::deprecated()
 )
 }
 \arguments{
-\item{object}{An object of class \link[bayesnec:bayesnecfit]{bayesnec::bayesnecfit} or
-\link[bayesnec:bayesmanecfit]{bayesnec::bayesmanecfit} returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.}
+\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
+object.}
 
-\item{sig_val}{Probability value to use as the lower quantile to test
-significance of the predicted posterior values.
-against the lowest observed concentration (assumed to be the control), to
-estimate NEC as an interpolated NOEC value from smooth ECx curves.}
+\item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
+\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
-\item{resolution}{The number of unique x values over which to find the
-estimate -- large values will make the estimate more precise.}
+\item{sig_val}{A number strictly between 0 and 0.5, the quantile of the
+control realisations that sets the decreasing reference; \code{1 - sig_val}
+sets the increasing one.}
 
-\item{x_range}{A range of x values over which to consider extracting the
-estimate.}
+\item{type}{One of \code{"absolute"}, \code{"relative"} or \code{"range"}, naming the span
+\code{ecnsec} is a proportion of. See \code{\link[=ecx]{ecx()}}.}
 
-\item{hormesis_def}{A character vector, taking values
-of "max" or "control". See Details.}
+\item{anchor}{For a model-averaged fit, the control the reference is taken
+from: \code{"model"} uses the control of the averaged model, and \code{"component"}
+uses the control of each component model over every draw of its fit. The
+default is \code{"component"} for a \code{bayesmanecfit}, matching
+\code{bayesnec::nsec()}, and \code{"model"} otherwise. Both give the same result for
+a single model. Under \code{"component"} the \code{reference} column reports the
+\code{prob_vals[1]} quantile of the component references across realisations,
+as \code{control} does.}
 
-\item{xform}{A function to apply to the returned estimated concentration
-values.}
+\item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
+where the class of \code{object} records which of its variables is the
+predictor. Each method states whether it accepts \code{NULL}.}
 
-\item{prob_vals}{A vector indicating the probability values over which to
-return the estimated value. Defaults to 0.5 (median) and 0.025 and
-0.975 (95 percent credible intervals).}
+\item{group_var}{A string naming the grouping variable in \code{object}, or \code{NULL}
+for a single curve.}
 
-\item{posterior}{A logical value indicating if the full
-posterior sample of calculated values should be returned instead of
-just the median and 95 credible intervals.}
+\item{resolution}{A whole number giving the number of predictor values to
+evaluate the curve at. Larger values estimate a metric more precisely.}
 
-\item{...}{Additional arguments passed to class-specific methods.}
+\item{x_range}{A numeric vector of length 2 giving the range of predictor
+values to evaluate over, or \code{NULL} to use the range in the model data. The
+first value must equal the control concentration.}
 
-\item{type}{One of "relative" or "absolute" (the default). For "relative"
-the NSEC reference is taken relative to the minimum predicted response; for
-"absolute" it is taken relative to zero.}
+\item{x_control}{A number, the control concentration, at which the control
+response is predicted and the grid starts, or \code{NULL} for the lowest
+predictor value in the data. A value outside the range of the data warns.}
 
-\item{x_var}{A character indicating the name of the predictor (x) data in
-\code{object}.}
+\item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
+per-realisation values of each row.}
 
-\item{group_var}{A character indicating the name of the grouping variable in
-\code{object}.}
+\item{prob_vals}{A numeric vector of the central, lower and upper quantiles
+to summarise the realisations by, in that order.}
 
-\item{by_group}{A logical indicating if values should be returned for each
-level in \code{group_var}, or marginalised across all groups.}
+\item{xform}{A function applied to the per-realisation concentrations before
+they are summarised, such as \code{exp} for a model fitted on log
+concentration. It must be monotone over the evaluated range and may be
+decreasing.}
 
-\item{horme}{Logical indicating if hormesis is evident.}
+\item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#defunct}{\figure{lifecycle-defunct.svg}{options: alt='[Defunct]'}}}{\strong{[Defunct]}} Supplying it is an
+error. Use \code{draws}.}
 
-\item{curveid}{A character indicating the name of the grouping variable in
-\code{object}.}
+\item{hormesis_def, horme}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Both
+directions are now always estimated, so these are ignored.}
+
+\item{by_group}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Supplying \code{group_var}
+gives one estimate per level.}
+
+\item{curveid}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{group_var}.}
 }
 \value{
-A vector containing the estimated NSEC value, including upper and
-lower 95\% credible interval bounds.
+A \code{toxval} tibble with one row per curve and direction, and the
+columns:
+\itemize{
+\item \code{metric}: \code{"nsec"}.
+\item \code{direction}: \code{"decreasing"} or \code{"increasing"}.
+\item \code{group}: the level of \code{group_var}, where it is supplied.
+\item \code{response}: the response of a multivariate fit.
+\item \code{estimate}, \code{conf.low}, \code{conf.high}: the NSEC, as the \code{prob_vals}
+quantiles of the realisations, after \code{xform}.
+\item \code{sig_val}, \code{type}, \code{anchor}: the arguments of the call.
+\item \code{control}: the predicted response at the control concentration.
+\item \code{reference}: the \code{sig_val} (decreasing) or \code{1 - sig_val} (increasing)
+quantile of the control realisations, whose crossing is the NSEC.
+\item \code{asymptote}: the asymptote \code{ecnsec} is measured to, or \code{NA} unless \code{type}
+is \code{"relative"}.
+\item \code{ecnsec}, \code{ecnsec.low}, \code{ecnsec.high}: the effect at the NSEC, as a
+proportion of the span named by \code{type}, summarised by \code{prob_vals}.
+\item \code{draws}: where \code{draws = TRUE}, a tibble per row of \code{.draw},
+\code{value.draw}, the NSEC of each realisation after \code{xform}, and
+\code{ecnsec.draw}. A realisation that does not reach the reference is \code{Inf}
+in \code{value.draw}, or \code{-Inf} where \code{xform} is decreasing, and one excluded
+from the summary is \code{NA}.
+}
+
+\code{control}, \code{reference} and \code{asymptote} are on the response scale, as the
+central \code{prob_vals} quantile of the realisations. The tibble prints the
+model class and the number of realisations above the rows.
 }
 \description{
-Extracts the predicted NSEC value as desired from a supported class.
+Estimates the No-Significant-Effect Concentration (NSEC), the concentration
+at which the fitted response departs from the control by more than its
+uncertainty allows, in each direction, for a fitted concentration-response
+model.
 }
 \details{
-For \code{hormesis_def}, if "max", then NSEC values are calculated
-as a decline from the maximum estimates (i.e. the peak at NEC);
-if "control", then NSEC values are calculated relative to the control, which
-is assumed to be the lowest observed concentration.
+The model is evaluated over a grid of concentrations once per realisation,
+by \code{\link[=toxval_predict]{toxval_predict()}}: once per posterior draw for a Bayesian fit, and once
+per parametric bootstrap replicate for a frequentist one.
 
-Calls to functions \code{\link[=ecx]{ecx()}} and \code{\link[=nsec]{nsec()}} and
-\code{\link[bayesnec:compare_fitted]{bayesnec::compare_fitted()}} do not require the same level of flexibility
-in the context of allowing argument \code{newdata}
-(from a \code{\link[brms:posterior_predict]{brms::posterior_predict()}} perspective) to
-be supplied manually, as this is and should be handled within the function
-itself. The argument \code{resolution} controls how precisely the
-\code{\link[=ecx]{ecx()}} or \code{\link[=nsec]{nsec()}} value is estimated, with
-argument \code{x_range} allowing estimation beyond the existing range of
-the observed data (otherwise the default range) which can be useful in a
-small number of cases. There is also no reasonable case where estimating
-these from the raw data would be of value, because both functions would
-simply return one of the treatment concentrations, making NOEC a better
-metric in that case.
+The reference for the decreasing direction is the \code{sig_val} quantile of the
+control realisations, the predicted response at the control concentration
+(by default the lowest concentration in the data; see \code{\link[=toxval_predict]{toxval_predict()}}),
+and for the increasing direction the \code{1 - sig_val} quantile. The NSEC is
+found for each realisation against that reference, and the realisations are
+summarised by \code{prob_vals}. A direction in which no realisation crosses is
+returned with \code{NA} estimates.
+
+By construction, about \code{sig_val} of the realisations have a control already
+past the reference. These are placed at the control concentration, unless
+they show no effect in the tested range. A realisation that does not reach
+the reference within the evaluated range ranks above the highest
+concentration, and an interval limit that falls among such realisations is
+reported as the highest concentration, with a warning. When any realisation
+is censored, the reported quantiles are observed order statistics.
+
+\code{ecnsec} is the effect at the NSEC, as a proportion of the span named by
+\code{type}: the inverse of the \code{\link[=ecx]{ecx()}} reference under the same \code{type}.
+
+NSECs are not estimated for \code{drc} NEC models, whose threshold is a parameter
+of the model rather than a feature of a smooth curve.
 }
-\section{Methods (by class)}{
-\itemize{
-\item \code{nsec(bnecfit)}: Method for a \code{bayesnec} fit of class \link[bayesnec:bnecfit]{bayesnec::bnecfit}
-returned by \code{\link[bayesnec:bnec]{bayesnec::bnec()}}.
+\section{Fits from bayesnec}{
 
-\item \code{nsec(brmsfit)}: Method for a raw \code{brms} fit of class \link[brms:brmsfit]{brms::brmsfit}
-returned by \code{\link[brms:brm]{brms::brm()}}. Requires \code{x_var}, and supports estimates per
-group via \code{group_var} and \code{by_group}.
+\code{nsec()} also accepts a \code{bayesnecfit} or \code{bayesmanecfit} from
+\code{bayesnec::bnec()} when \code{bayesnec} is installed. \code{bayesnec} has its own
+\code{nsec()}, and when both packages are loaded with \code{library()}, the one loaded
+last is used. Call \code{toxval::nsec()} to make sure this function runs.
 
-\item \code{nsec(drc)}: Method for a \code{drc} fit (class \code{drc}) returned by
-\code{\link[drc:drm]{drc::drm()}}. Supports estimates per group via \code{curveid}. Hormesis is not
-currently implemented.
+The two functions can give different estimates for the same fit, because
+they evaluate the curve at different concentrations and handle realisations
+that never reach the reference differently.
+}
 
-}}
+\section{Multivariate fits}{
+
+A multivariate fit gives rows for each response, named in the \code{response}
+column. This replaces \code{\link[=nsec_multi]{nsec_multi()}}, whose help page shows how to convert
+existing calls.
+}
+
 \examples{
+\dontshow{if (requireNamespace("drc", quietly = TRUE)) withAutoprint(\{ # examplesIf}
 \donttest{
-library(bayesnec)
+fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+nsec(fit, seed = 42)
 
-data(manec_example)
-nsec(manec_example)
+nsec(fit, sig_val = 0.05, seed = 42)
+
+nsec(fit, type = "range", seed = 42)
+
+# 80\% interval
+nsec(fit, prob_vals = c(0.5, 0.1, 0.9), seed = 42)
+
+res <- nsec(fit, draws = TRUE, seed = 42)
+res$draws[[1]]
+
+fit_group <- drc::drm(
+  DryMatter ~ Dose,
+  curveid = Herbicide,
+  data = drc::S.alba,
+  fct = drc::LL.4()
+)
+nsec(fit_group, group_var = "Herbicide", seed = 42)
 }
-
+\dontshow{\}) # examplesIf}
 }

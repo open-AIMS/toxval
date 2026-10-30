@@ -16,3 +16,8 @@
 ^REFACTOR-claude.md$
 ^REFACTOR-human.md$
 ^air.toml$
+^BAYESNEC-claude\.md$
+^BAYESNEC-human\.md$
+^\.quarto$
+^vignettes/\.quarto$
+^tests/local$

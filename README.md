@@ -18,13 +18,25 @@ coverage](https://codecov.io/gh/open-AIMS/toxval/graph/badge.svg)](https://app.c
 
 ## Overview
 
-`toxval` is an R package providing a unified, flexible framework for
-estimating ecotoxicological toxicity metrics from concentration–response
-data. It currently supports extraction of effect-based metrics (ECx) and
-no-effect metrics — including the No-Significant-Effect Concentration
-(NSEC) — from fitted frequentist
-([`drc`](https://cran.r-project.org/package=drc)) and Bayesian
-([`bayesnec`](https://open-aims.github.io/bayesnec/)) model objects.
+`toxval` is an R package for estimating ecotoxicological toxicity
+metrics from fitted concentration-response models. It extracts effect
+concentrations (ECx) with `ecx()` and No-Significant-Effect
+Concentrations (NSEC) with `nsec()`.
+
+`toxval` currently has methods for Bayesian models fitted with
+[`brms`](https://cran.r-project.org/package=brms) or
+[`bayesnec`](https://open-aims.github.io/bayesnec/) and frequentist
+models fitted with [`drc`](https://cran.r-project.org/package=drc). The
+package is designed so that more model classes can be easily added,
+letting users estimate toxicity metrics from whichever modelling
+framework they work in.
+
+For every model class, the fitted curve is evaluated over a grid of
+concentrations once per realisation of the fit (once per posterior draw
+for a Bayesian fit, and once per parametric bootstrap replicate for a
+frequentist one), the metric is found for each realisation, and the
+realisations are summarised by an estimate and compatibility limits. The
+result is a `toxval` tibble with one row per curve and direction.
 
 For the theoretical basis of the NSEC, see [Fisher & Fox
 (2023)](https://doi.org/10.1002/etc.5610). For model-averaged N(S)EC
@@ -33,7 +45,7 @@ estimation across smooth and threshold model classes, see [Fisher et al.
 
 ## Installation
 
-The current development version can be downloaded from GitHub via
+The current development version can be installed from GitHub with
 
 ``` r
 if (!requireNamespace("remotes")) {
@@ -42,34 +54,161 @@ if (!requireNamespace("remotes")) {
 remotes::install_github("open-aims/toxval")
 ```
 
-## Motivation
+## Usage
 
-Contemporary ecotoxicology increasingly relies on model-based inference
-to derive toxicity metrics from concentration–response data. However,
-the statistical tools used to estimate these metrics remain fragmented,
-inconsistently defined, and often tied to specific modelling frameworks.
-These inconsistencies hinder transparency, reproducibility, and
-comparability in regulatory decision-making.
+`ecx()` and `nsec()` take a fitted model and return a `toxval` tibble,
+whichever framework the model was fitted with. The examples estimate the
+EC10, EC50 and NSEC of ryegrass root length from the `ryegrass` data in
+`drc`, first from a three-parameter log-logistic curve fitted with
+`drc`:
 
-A core aim of `toxval` is to operationalise NSEC estimation across both
-frequentist and Bayesian concentration–response models and to generalise
-this capability to a broader suite of toxicity metrics. In doing so, the
-package highlights a critical and often overlooked issue in
-ecotoxicology: **ambiguity in the definition of “effect.”** ECx values —
-while widely used — depend on how effect is defined relative to
-controls, model structure, and response scale, leading to
-inconsistencies that are not always transparent to users (see [issue
-\#19](https://github.com/open-AIMS/toxval/issues/19)).
+``` r
+library(toxval)
+library(drc)
 
-`toxval` addresses these challenges by providing:
+fit_drc <- drm(rootl ~ conc, data = ryegrass, fct = LL.3())
 
-- a **consistent interface** for extracting ECx, NOEC, and NSEC values
-  from fitted models;
-- support for **multiple model classes and inference frameworks**;
-- **explicit, transparent definitions** of effect and no-effect that are
-  independent of model class; and
-- improved **reproducibility and comparability** of toxicity estimates
-  across modelling approaches.
+ecx(fit_drc, proportion = c(0.1, 0.5), seed = 42)
+#> # A tibble: 4 × 10
+#> # Model:    drc
+#> # Settings: resolution 500 | 1000 bootstrap realisations
+#>   metric direction  estimate conf.low conf.high proportion type     control reference
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>      <dbl> <chr>      <dbl>     <dbl>
+#> 1 ecx    decreasing     1.33    0.946      1.70        0.1 absolute    7.85      7.06
+#> 2 ecx    increasing    NA      NA         NA           0.1 absolute    7.85      8.63
+#> 3 ecx    decreasing     3.27    2.89       3.66        0.5 absolute    7.85      3.92
+#> 4 ecx    increasing    NA      NA         NA           0.5 absolute    7.85     11.8 
+#> # ℹ 1 more variable: asymptote <dbl>
+
+nsec(fit_drc, seed = 42)
+#> # A tibble: 2 × 14
+#> # Model:    drc
+#> # Settings: resolution 500 | 1000 bootstrap realisations
+#>   metric direction  estimate conf.low conf.high sig_val type     anchor control reference
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>    <dbl>     <dbl>
+#> 1 nsec   decreasing     1.06    0.504      1.40    0.01 absolute model     7.85      7.36
+#> 2 nsec   increasing    NA      NA         NA       0.01 absolute model     7.85      8.31
+#> # ℹ 4 more variables: asymptote <dbl>, ecnsec <dbl>, ecnsec.low <dbl>, ecnsec.high <dbl>
+```
+
+Both directions are estimated every time. Root length falls with
+concentration, so the increasing rows have no crossing and are `NA`. The
+header records the model class and the settings the estimates were
+computed with. The realisations of a `drc` fit are parametric bootstrap
+replicates, so `seed` makes the results reproducible.
+
+The same curve fitted with `brms` gives estimates in the same form,
+summarised over the posterior draws:
+
+``` r
+fit_brms <- brms::brm(
+  brms::bf(rootl ~ top / (1 + (conc / ec50)^b), top + ec50 + b ~ 1, nl = TRUE),
+  data = ryegrass,
+  prior = brms::set_prior("normal(0, 10)", nlpar = c("top", "ec50", "b"), lb = 0),
+  seed = 42,
+  refresh = 0
+)
+```
+
+``` r
+ecx(fit_brms, x_var = "conc", proportion = c(0.1, 0.5))
+#> # A tibble: 4 × 10
+#> # Model:    brmsfit
+#> # Settings: resolution 500 | 4000 posterior draws
+#>   metric direction  estimate conf.low conf.high proportion type     control reference
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>      <dbl> <chr>      <dbl>     <dbl>
+#> 1 ecx    decreasing     1.39     1.00      1.87        0.1 absolute    7.82      7.04
+#> 2 ecx    increasing    NA       NA        NA           0.1 absolute    7.82      8.60
+#> 3 ecx    decreasing     3.29     2.91      3.73        0.5 absolute    7.82      3.91
+#> 4 ecx    increasing    NA       NA        NA           0.5 absolute    7.82     11.7 
+#> # ℹ 1 more variable: asymptote <dbl>
+
+nsec(fit_brms, x_var = "conc")
+#> # A tibble: 2 × 14
+#> # Model:    brmsfit
+#> # Settings: resolution 500 | 4000 posterior draws
+#>   metric direction  estimate conf.low conf.high sig_val type     anchor control reference
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>    <dbl>     <dbl>
+#> 1 nsec   decreasing     1.14    0.593      1.55    0.01 absolute model     7.82      7.31
+#> 2 nsec   increasing    NA      NA         NA       0.01 absolute model     7.82      8.36
+#> # ℹ 4 more variables: asymptote <dbl>, ecnsec <dbl>, ecnsec.low <dbl>, ecnsec.high <dbl>
+```
+
+`x_var` is required for a `brmsfit`, since a `brms` model may have
+several predictors.
+
+Single fits and model averages from `bayesnec::bnec()` are accepted when
+`bayesnec` is installed, here the model average `manec_example`.
+`bayesnec` also exports functions named `ecx()` and `nsec()`, so call
+them with `toxval::`:
+
+``` r
+toxval::ecx(bayesnec::manec_example, proportion = c(0.1, 0.5))
+#> # A tibble: 4 × 10
+#> # Model:    bayesmanecfit
+#> # Settings: resolution 500 | 100 posterior draws
+#>   metric direction  estimate conf.low conf.high proportion type     control reference
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>      <dbl> <chr>      <dbl>     <dbl>
+#> 1 ecx    decreasing     1.49    0.940      1.56        0.1 absolute    2.18      1.96
+#> 2 ecx    increasing    NA      NA         NA           0.1 absolute    2.18      2.40
+#> 3 ecx    decreasing     1.67    1.60       1.72        0.5 absolute    2.18      1.09
+#> 4 ecx    increasing    NA      NA         NA           0.5 absolute    2.18      3.27
+#> # ℹ 1 more variable: asymptote <dbl>
+
+toxval::nsec(bayesnec::manec_example)
+#> # A tibble: 2 × 14
+#> # Model:    bayesmanecfit
+#> # Settings: resolution 500 | 100 posterior draws
+#>   metric direction  estimate conf.low conf.high sig_val type     anchor  control reference
+#>   <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>     <dbl>     <dbl>
+#> 1 nsec   decreasing     1.47    0.766      1.55    0.01 absolute compon…    2.18      2.04
+#> 2 nsec   increasing    NA      NA         NA       0.01 absolute compon…    2.18      2.33
+#> # ℹ 4 more variables: asymptote <dbl>, ecnsec <dbl>, ecnsec.low <dbl>, ecnsec.high <dbl>
+```
+
+See `?ecx` and `?nsec` for how the effect is defined (`type`), the
+per-realisation values (`draws`), one row per group (`group_var`), and
+multivariate fits.
+
+Further documentation is on the [project
+page](https://open-aims.github.io/toxval/) and the [reference
+page](https://open-aims.github.io/toxval/reference/).
+
+## Changes from toxval 1.0.0
+
+toxval 2.0.0 restructures the package so that every model class is
+handled the same way and every metric returns the same shape. Code
+written for toxval 1.0.0 needs the following changes.
+
+- `ecx()` and `nsec()` return a `toxval` tibble rather than a vector
+  with attributes. The per-realisation values that `posterior = TRUE`
+  returned are in a `draws` list column with `draws = TRUE`; `posterior`
+  is defunct.
+- Both directions are estimated every time and reported in the
+  `direction` column. `hormesis_def` and `horme` are deprecated and
+  ignored.
+- `ecx_val` is deprecated in favour of `proportion`, a proportion rather
+  than a percentage, so an EC10 is `proportion = 0.1` rather than
+  `ecx_val = 10`. Under `type = "direct"` the response value is supplied
+  as `reference`.
+- `type = "relative"` now measures from the control to the asymptote of
+  the fitted curve, and warns when supplied. What it measured before is
+  now `type = "range"`.
+- `nsec_multi()` is defunct. `nsec()` gives one row per response and
+  direction for a multivariate `brms` fit; see `?nsec_multi` for how to
+  convert a call.
+- `curveid` and `by_group` are deprecated. Supply `group_var` to get one
+  row per level.
+- `ecx()` supports `drc` fits. The realisations of a `drc` fit are
+  parametric bootstrap replicates, so supply `seed` for reproducible
+  results.
+- `bayesnec` is suggested rather than imported. `ecx()` and `nsec()`
+  accept model averages (`bayesmanecfit`) as well as single fits
+  (`bayesnecfit`) when `bayesnec` is installed.
+
+Support for a new model class is added by writing a `toxval_predict()`
+method that returns a `toxval_pred`, the object every metric computes
+on. See `?toxval_predict` and `?new_toxval_pred`.
 
 ## The NSEC
 
@@ -82,92 +221,50 @@ estimated via hypothesis testing, the NSEC:
   actually tested;
 - enables proper statistical inference with uncertainty quantification;
   and
-- retains the intuitive concept of “no observable effect.”
+- retains the intuitive concept of “no observable effect”.
 
-For threshold-based models (NEC models), `toxval` also supports
-extraction of the NEC parameter directly, and is designed to support
-model-averaged N(S)EC estimates that combine NSEC values from smooth
-models with NEC values from threshold models — providing a more
+For threshold-based models (NEC models), the NEC is a parameter of the
+fitted model. Model-averaged N(S)EC estimates combine NSEC values from
+smooth models with NEC values from threshold models, which is a more
 statistically defensible approach to no-effect estimation (see [Fisher
 et al. 2024](https://doi.org/10.1002/ieam.4809) and the `bayesnec`
-package).
+package). `toxval` does not extract the NEC parameter or compute
+model-averaged N(S)EC estimates.
 
-## Usage
+## Motivation
 
-Usage and further information about `toxval` can be seen on the [project
-page](https://open-aims.github.io/toxval/) and the [reference
-page](https://open-aims.github.io/toxval/reference/).
+Contemporary ecotoxicology increasingly relies on model-based inference
+to derive toxicity metrics from concentration-response data. However,
+the statistical tools used to estimate these metrics remain fragmented,
+inconsistently defined, and often tied to specific modelling frameworks.
+These inconsistencies hinder transparency, reproducibility, and
+comparability in regulatory decision-making.
 
-## Planned Development
+A core aim of `toxval` is to operationalise NSEC estimation across both
+frequentist and Bayesian concentration-response models and to generalise
+this capability to a broader suite of toxicity metrics. ECx values,
+while widely used, depend on how effect is defined relative to controls,
+model structure, and response scale, leading to inconsistencies that are
+not always transparent to users (see [issue
+\#19](https://github.com/open-AIMS/toxval/issues/19)).
 
-`toxval` is under active development. The following enhancements are
-planned over the coming months, drawing on open issues in the
-repository:
+`toxval` addresses these challenges by providing:
 
-### Expanded model class support ([\#21](https://github.com/open-AIMS/toxval/issues/21))
-
-Currently `toxval` supports `drc` and `bayesnec` model fits. Support
-will be extended to a wider range of commonly used R model classes,
-including `glm`, `glmer`, `gam`, and `gamm`. The refactoring strategy is
-to shift the bulk of computation to operate on a prediction matrix, so
-that adding support for a new model class requires only a thin wrapper
-around that class’s existing prediction method.
-
-### Support for increasing responses ([\#20](https://github.com/open-AIMS/toxval/issues/20))
-
-`nsec()` will be generalised to handle both increasing and decreasing
-concentration–response curves. Currently only `nsec_multi()` supports
-both directions; this capability will be folded into the main `nsec()`
-function, with `nsec_multi()` becoming a deprecated special case for
-multivariate responses. `ecx()` may also be extended to support
-stimulatory (hormetic) effects where a biologically meaningful upper
-bound exists.
-
-### NOEC estimation ([\#17](https://github.com/open-AIMS/toxval/issues/17))
-
-A method for deriving the NOEC will be added for models fitted with a
-factor predictor. The control treatment will be inferred from the lowest
-concentration level or specified by the user, with support for
-one-tailed tests and a user-controlled significance threshold consistent
-with the NSEC workflow.
-
-### Model-averaged N(S)EC ([\#18](https://github.com/open-AIMS/toxval/issues/18))
-
-Support will be added for estimating a model-averaged N(S)EC — combining
-NSEC estimates from smooth (ECx-type) models with NEC values from
-threshold models. Extraction from `bayesnec` multi-model fits will be
-straightforward; extension to other fitting frameworks (e.g., `drc` or
-custom threshold models) will follow.
-
-### ECx definition clarity and consistency ([\#19](https://github.com/open-AIMS/toxval/issues/19))
-
-Ongoing work will address the implicit ambiguity in ECx definitions
-across model classes and implementations. Planned improvements include:
-
-- clearer documentation of the `type` argument (`"relative"`,
-  `"absolute"`, `"direct"`) and when each is appropriate;
-- explicit warnings when ECx definitions are poorly defined for a given
-  model family (e.g., unbounded Gaussian responses);
-- transparent exposure of the reference points (e.g., `top`, `bottom`,
-  control) used in the calculation.
-
-### Model fitting wrappers ([\#22](https://github.com/open-AIMS/toxval/issues/22))
-
-There is an open question about whether `toxval` should provide a thin
-abstraction layer over existing concentration–response fitting
-frameworks (e.g., `drc`, `bayesnec`). Such wrappers would standardise
-input data structures, model specification, and output objects, while
-making assumptions about bounds, link functions, and ECx/NEC definitions
-explicit and consistent. Community input is welcome — see [issue
-\#22](https://github.com/open-AIMS/toxval/issues/22).
+- a consistent interface for extracting ECx and NSEC values from fitted
+  models;
+- support for Bayesian and frequentist inference frameworks;
+- explicit definitions of effect and no-effect that are independent of
+  model class; and
+- reproducible and comparable toxicity estimates across modelling
+  approaches.
 
 ## Further Information
 
 `toxval` is provided by the [Australian Institute of Marine
 Science](https://www.aims.gov.au).
 
-Copyright 2024-2026 Australian Institute of Marine Science.  
-Copyright 2025-2026 Poisson Consulting Ltd.
+Copyright 2024-2026 Australian Institute of Marine Science. Copyright
+2025-2026 Poisson Consulting Ltd.
 
 Released under the [GPL (\>= 2)
 License](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
