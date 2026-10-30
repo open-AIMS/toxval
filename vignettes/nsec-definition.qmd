@@ -74,34 +74,28 @@ For each curve, `nsec()` does three things.
    median and the 2.5 and 97.5 per cent quantiles).
 
 Both directions are sought on each call and returned as one row per direction,
-identified by the `direction` column, and a direction in which no realisation crosses is returned
-with `NA` estimates. The NSEC reference is a single value for each curve,
-shared by all of its realisations, whereas the ECx reference is computed for
-each realisation from its own control (see
+identified by the `direction` column, and a direction in which no realisation
+crosses is returned with `NA` estimates.
+
+The reference is a quantile of the control realisations, so it is defined only
+across realisations, and all realisations of a curve are measured against the
+same reference (under `anchor = "component"`, all realisations of one
+component; see [The anchor argument](#the-anchor-argument)). The ECx reference,
+by contrast, is computed for each realisation from its own control (see
 `vignette("ecx-definition", package = "toxval")`).
 
-## Constructed realisations
-
-We built the examples by hand with `new_toxval_pred()`, so that each value
-returned by `nsec()` can be computed independently. Each set has 101
-constructed realisations (not sampled from a fit) with evenly spaced controls.
-
-`nsec()` takes the reference with R's default quantile method (type 7), under
-which the quantile at probability $p$ of 101 values is the value at position
-$1 + 100p$ in sorted order, interpolated where that position is not a whole
-number. The 0.01 quantile is therefore the second-smallest control, and the
-0.99 quantile the hundredth. The crossings are also summarised by type 7,
-unless a realisation in that row is censored (see
-[Realisations with no crossing](#realisations-with-no-crossing)).
-
-The helper below evaluates one curve shape at each control and stores the
-result, with a `meta` list that follows the slot contract documented in
-`?new_toxval_pred`. In that list `family = "beta"` marks a response on the
-proportion scale, and `x_control` is the control concentration (0 here, which
-is also the first grid value).
+The examples below use sets of 101 realisations constructed with
+`new_toxval_pred()` (not sampled from a fit), with evenly spaced controls, so
+that each value returned by `nsec()` can be computed independently. The helper
+`build_pred()` evaluates one curve shape at each control. It sets the control
+concentration (`x_control`) to 0, the first grid value, and `family = "beta"`
+marks a response on the proportion scale (see `?new_toxval_pred` for the slots
+it fills).
 
 ```{r}
 #| label: build-pred
+#| code-fold: true
+#| code-summary: "The helper build_pred()"
 build_pred <- function(shape, controls, x_vec, family = "gaussian", ...) {
   curves <- t(vapply(
     controls,
@@ -227,9 +221,15 @@ stopifnot(
 )
 ```
 
-The decreasing reference is `r ctl(dec$reference[1])` (the second-smallest
-control), and the increasing reference is `r ctl(dec$reference[2])` (the
-hundredth). A realisation with control $c$ crosses the decreasing reference at
+`nsec()` computes the references, and summarises the crossings, with R's
+default quantile method (type 7), under which the quantile at probability $p$
+of 101 values is the value at position $1 + 100p$ in sorted order, interpolated
+where that position is not a whole number. A row with a censored realisation is
+the exception, and is summarised as described under
+[Realisations with no crossing](#realisations-with-no-crossing). The decreasing
+reference is therefore `r ctl(dec$reference[1])` (the 0.01 quantile, the
+second-smallest control), and the increasing reference is
+`r ctl(dec$reference[2])` (the 0.99 quantile, the hundredth). A realisation with control $c$ crosses the decreasing reference at
 $x = 5 \log(c / `r ctl(r_dec)`)$, so the median realisation, with a control of
 `r ctl(median_control)`, has an NSEC of
 $5 \log(`r ctl(median_control)` / `r ctl(r_dec)`) = `r fmt(5 * log(median_control / r_dec))`$,
