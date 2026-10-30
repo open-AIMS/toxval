@@ -50,14 +50,15 @@ probs <- c(0.5, 0.025, 0.975)
 
 ## Background
 
-The no-significant-effect concentration (NSEC) is the lowest concentration at
-which the fitted response differs from the control response by more than the
-uncertainty in the control allows (Fisher and Fox 2023). `nsec()` computes it
-from realisations of the fitted curve (a posterior draw of a Bayesian fit, or a
+A no-effect concentration (NEC) is suited only to a curve with a threshold,
+below which the response does not change. For a curve without one, Fisher and
+Fox (2023) described the no-significant-effect concentration (NSEC), the lowest
+concentration at which the fitted response differs from the control response by
+more than the uncertainty in the control allows. `nsec()` computes it from
+realisations of the fitted curve (a posterior draw of a Bayesian fit, or a
 parametric bootstrap replicate of a frequentist fit), each evaluated over a grid
-of concentrations.
-`toxval_predict()` builds that grid and those realisations, and stores them in a
-`toxval_pred` object.
+of concentrations. `toxval_predict()` builds that grid and those realisations,
+and stores them in a `toxval_pred` object.
 
 For each curve, `nsec()` does three things.
 
@@ -178,6 +179,10 @@ plot_nsec <- function(pred, result, ylab = "Response", every = 10) {
 
 ## A decreasing response
 
+A response that falls with concentration (e.g. growth) is the case for which the
+NSEC was described (Fisher and Fox 2023). In a constructed set its NSEC can be
+found by hand, so each of the three steps above can be checked.
+
 The first set has controls from 9.00 to 11.00 in steps of 0.02, and each
 realisation declines exponentially from its control ($y = c\,e^{-x/5}$) over a
 grid of 500 concentrations from 0 to 10.
@@ -258,12 +263,14 @@ increasing reference, and no curve rises towards it.
 
 ## The effect at the NSEC
 
-`ecnsec` is the effect that the NSEC reference represents, expressed as a
+An NSEC is a concentration, so it does not by itself give the size of the effect
+that it detects. `ecnsec` gives that size, so that an NSEC can be compared with
+an ECx. It is the effect that the NSEC reference represents, expressed as a
 proportion of the span named by `type`. It is the inverse of the ECx reference
 under that `type`: an ECx at proportion $p$ sets its reference $p$ of the span
 away from the control, and `ecnsec` gives the $p$ at which that reference would
-equal the NSEC reference. Under the default, `type = "absolute"`, the decreasing span
-of a realisation is its control, so for a realisation with control $c$ and
+equal the NSEC reference. Under the default, `type = "absolute"`, the decreasing
+span of a realisation is its control, so for a realisation with control $c$ and
 reference $R$
 
 $$
@@ -350,6 +357,11 @@ the reference and the ECx varies between realisations.
 
 ## An increasing response
 
+The NSEC of a rising response is found as for a falling one, from the increasing
+reference (the `1 - sig_val` quantile of the controls). The example uses a
+proportion, for which `ecnsec` is measured against the distance from the control
+to 1.
+
 The second set is a proportion (e.g. mortality) that rises from its control
 towards 1, $y = 1 - (1 - c)\,e^{-x/5}$, with controls from 0.050 to 0.150 in
 steps of 0.001 over the grid of the decreasing set. `family = "beta"` records
@@ -424,8 +436,12 @@ $(`r prop(r_up)` - `r prop(median_inc)`) / (1 - `r prop(median_inc)`) = `r fmt(i
 
 ## Realisations with no crossing
 
-A realisation that never crosses the reference in the direction sought, within
-the grid, has no NSEC of its own, and `nsec()` treats it in one of four ways.
+Some realisations do not cross the reference within the grid, because their
+control is already past it or because their response changes too little over the
+concentrations evaluated. How such realisations are treated changes the
+interval, and sometimes the estimate. A realisation that never crosses the
+reference in the direction sought, within the grid, has no NSEC of its own, and
+`nsec()` treats it in one of four ways.
 
 - A realisation whose control is already at or beyond the reference, in the
   direction sought, is given `x_control` (the control concentration, by default
@@ -569,11 +585,13 @@ ranked above them.
 
 ### Crossings beyond the grid
 
-The decreasing set was also evaluated over a shorter grid, from 0 to 0.9, in
-which the realisations with the highest controls decline too little to reach
-the reference, so they are censored. For a fitted model the range is set with
-`x_range`, whereas for a constructed `toxval_pred` it is the grid supplied, and
-`nsec()` refuses `x_range`.
+A realisation that has not reached the reference by the highest concentration is
+censored, so the upper limit of the interval can be no higher than the end of
+the grid. The decreasing set was also evaluated over a shorter grid, from 0 to
+0.9, in which the realisations with the highest controls decline too little to
+reach the reference, so they are censored. For a fitted model the range is set
+with `x_range`, whereas for a constructed `toxval_pred` it is the grid supplied,
+and `nsec()` refuses `x_range`.
 
 ```{r}
 #| label: censored
@@ -662,6 +680,11 @@ full grid gives `r fmt(dec$conf.high[1])`, halfway between the 98th and the
 99th crossings, because that row has no censored realisation.
 
 ## A hormetic response
+
+A hormetic response rises above its control at low concentrations and then
+falls, so a realisation can cross the increasing reference and then the
+decreasing one. `nsec()` returns an NSEC for each direction, and the example
+shows how each is read.
 
 The third set uses the controls of the decreasing set with a hormetic shape,
 $y = c\,(1 + x/2)\,e^{-x/4}$, over a grid of 500 concentrations from 0 to 20.
@@ -916,10 +939,12 @@ nsec(dec_pred, anchor = "control")
 
 ## A fitted model
 
-The calculation is unchanged for a fitted model. Here we use `drc::drm()` to
-fit the four-parameter log-logistic equation `LL.4()` to the root lengths of
-ryegrass exposed to ferulic acid (`drc::ryegrass`). `toxval_predict()` then
-draws parametric bootstrap replicates of the curve
+The examples above are constructed so that each answer is known exactly. For a
+fitted model the calculation is unchanged, and only the source of the
+realisations differs. Here we use `drc::drm()` to fit the four-parameter
+log-logistic equation `LL.4()` to the root lengths of ryegrass exposed to
+ferulic acid (`drc::ryegrass`). `toxval_predict()` then draws parametric
+bootstrap replicates of the curve
 (`r formals(toxval:::toxval_predict.drc)$n_boot` by default, set by `n_boot`),
 and `nsec()` is called on the result.
 

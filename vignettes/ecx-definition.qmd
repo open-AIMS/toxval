@@ -55,17 +55,21 @@ cols <- unname(grDevices::palette.colors(9, "Okabe-Ito")[c(2, 6, 4, 7)])
 
 ## Background
 
-`ecx()` estimates the concentration at which a fitted curve crosses a reference
-response. The estimate is computed separately for each realisation of the fit
-(a posterior draw of a Bayesian fit, or a parametric bootstrap replicate of a
-frequentist fit), and in two directions, a decrease and an increase. The
-control is the predicted response at the control concentration (by default the
-lowest concentration in the data, where the grid over which the curve is
-evaluated starts). The argument `proportion` gives the proportion $p$ (e.g.
-`proportion = 0.1` for the EC10), and the argument `type` names the span of
-which the effect is a proportion (i.e. a difference in response, measured
-separately in each direction as $S_{\text{dec}}$ and $S_{\text{inc}}$). The
-reference of each realisation is computed from its own control and spans:
+An ECx is the concentration at which a fitted response has changed by x per
+cent, so the EC10 is where it has changed by 10 per cent. Software and guidance
+differ in what that change is a percentage of, so the same fit can give
+different ECx values (Daniels et al. 2026). `ecx()` estimates the concentration
+at which a fitted curve crosses a reference response. The estimate is computed
+separately for each realisation of the fit (a posterior draw of a Bayesian fit,
+or a parametric bootstrap replicate of a frequentist fit), and in two
+directions, a decrease and an increase. The control is the predicted response at
+the control concentration (by default the lowest concentration in the data,
+where the grid over which the curve is evaluated starts). The argument
+`proportion` gives the proportion $p$ (e.g. `proportion = 0.1` for the EC10),
+and the argument `type` names the span of which the effect is a proportion (i.e.
+a difference in response, measured separately in each direction as
+$S_{\text{dec}}$ and $S_{\text{inc}}$). The reference of each realisation is
+computed from its own control and spans:
 
 $$
 \text{reference} = \text{control} - p\,S_{\text{dec}} \ \text{(decreasing)}, \qquad
@@ -126,12 +130,14 @@ hand_pred <- function(curve, params, x_vec, family = "gaussian",
 
 ## ECx definitions
 
-`type` takes four values, which we illustrate with one realisation of the
-exponential decay $y = 20 + 80\,e^{-x/2}$, evaluated over $0 \le x \le 6$. Its
-control is 100, and its lower asymptote (the limit of the response as $x$
-increases without bound) is 20, which is supplied in the `asymptote` slot. The
-curve has no upper asymptote, so that value is `NA`. Its minimum over the grid
-is $20 + 80\,e^{-3}$ = `r fmt(20 + 80 * exp(-3), 4)`.
+The argument `type` sets what the effect in an ECx is a proportion of, and
+therefore the response at which the ECx is read. Its four values can give
+different ECx values from the same curve, which we illustrate with one
+realisation of the exponential decay $y = 20 + 80\,e^{-x/2}$, evaluated over
+$0 \le x \le 6$. Its control is 100, and its lower asymptote (the limit of the
+response as $x$ increases without bound) is 20, which is supplied in the
+`asymptote` slot. The curve has no upper asymptote, so that value is `NA`. Its
+minimum over the grid is $20 + 80\,e^{-3}$ = `r fmt(20 + 80 * exp(-3), 4)`.
 
 ```{r}
 #| label: types
@@ -357,8 +363,11 @@ stopifnot(within_step(ec120$estimate[1], 8, x_neg))
 
 ## Sources of the asymptote
 
-`type = "relative"` needs the asymptote of each realisation, which `ecx()`
-reads from the `asymptote` slot of the `toxval_pred`, and the call is refused
+Under `type = "relative"` the effect is measured against the asymptote of the
+fitted equation, so each realisation needs a value for that asymptote. How the
+value is obtained depends on the class of the fitted model, and a fitted
+`LL.4()` example compares the relative and absolute EC50. `ecx()` reads the
+asymptote from the `asymptote` slot of the `toxval_pred`, and refuses the call
 when there is none.
 
 ```{r}
@@ -670,14 +679,16 @@ fit, because its own lower limit is fixed at 0.
 
 ## Increasing responses
 
-Under `absolute` the increasing span depends on whether the response is a
-proportion. For a response with no upper bound the span is the control itself,
-so a 10 per cent increase from a control of 20 is 22. This is relative
-deviation (EFSA 2022, section 2.6.2; OECD 2006, paragraph 306), the mirror of
-the decreasing form. For a proportion, however, the span is the distance from
-the control to 1, so the reference is
-$\text{control} + p\,(1 - \text{control})$, which is extra risk (i.e. Abbott's
-formula; US EPA 2012).
+Some responses increase with concentration (e.g. the proportion of organisms
+affected). A decrease under `absolute` is measured against a fall to 0, but an
+increase has no such end point unless the response is a proportion, so under
+`absolute` the span of an increase depends on the kind of response. For a
+response with no upper bound the span is the control itself, so a 10 per cent
+increase from a control of 20 is 22. This is relative deviation (EFSA 2022,
+section 2.6.2; OECD 2006, paragraph 306), the mirror of the decreasing form. For
+a proportion, however, the span is the distance from the control to 1, so the
+reference is $\text{control} + p\,(1 - \text{control})$, which is extra risk
+(i.e. Abbott's formula; US EPA 2012).
 
 For example, the straight line $y = 20 + 2x$ was evaluated over
 $0 \le x \le 10$ as a `gaussian` response. Its EC10 and EC50 references are 22
@@ -802,13 +813,13 @@ and the row has `NA` estimates only where no other realisation crosses.
 
 ## Direction in the result
 
-`ecx()` returns both directions on each call, as rows identified by the
+An effect can be a decrease or an increase in the response, and some curves show
+both. `ecx()` returns both directions on each call, as rows identified by the
 `direction` column (for each curve and proportion, one row for the first
-decreasing crossing and one for the first increasing crossing), and there is
-no argument for choosing a direction. A direction in which no realisation
-crosses is returned with `NA` estimates, as in the examples above, because the
-crossing was sought and not found, and its `control` and `reference` are still
-given.
+decreasing crossing and one for the first increasing crossing), and there is no
+argument for choosing a direction. A direction in which no realisation crosses
+is returned with `NA` estimates, as in the examples above, because the crossing
+was sought and not found, and its `control` and `reference` are still given.
 
 A hormetic curve (one that rises above its control at low concentrations
 before it falls) can have both crossings. We evaluated the quadratic
@@ -866,12 +877,14 @@ direction is needed, it can be kept by filtering the result (e.g.
 
 ## The `proportion` and `reference` arguments
 
-`proportion` accepts several values, each giving its own rows, and the
-`proportion` column of the result gives the value for each row. Under
-`type = "direct"` the value is a response, not a proportion, so it is supplied
-as `reference` (also the name of the column that gives it). `reference` is
-required under `direct` and refused under the other types, whereas
-`proportion` is refused under `direct`, where the `proportion` column is `NA`.
+Two arguments give the size of the effect: `proportion` under `absolute`,
+`relative` and `range`, and `reference` under `direct`. `proportion` accepts
+several values, each giving its own rows, and the `proportion` column of the
+result gives the value for each row. Under `type = "direct"` the value is a
+response, not a proportion, so it is supplied as `reference` (also the name of
+the column that gives it). `reference` is required under `direct` and refused
+under the other types, whereas `proportion` is refused under `direct`, where the
+`proportion` column is `NA`.
 
 ```{r}
 #| label: reference-errors
