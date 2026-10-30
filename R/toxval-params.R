@@ -27,7 +27,9 @@
 #'   to summarise the realisations by, in that order.
 #' @param xform A function applied to the per-realisation concentrations before
 #'   they are summarised, such as `exp` for a model fitted on log
-#'   concentration.
+#'   concentration. It must be monotone over the evaluated range, and may be
+#'   decreasing, such as `function(d) 3.5 - d` for a predictor fitted as a
+#'   reduction from 3.5.
 #' @param posterior `r lifecycle::badge("defunct")` Supplying it is an
 #'   error. Use `draws`.
 #' @param hormesis_def,horme `r lifecycle::badge("deprecated")` Both

@@ -506,7 +506,8 @@ Settled 2026-10-21 (AP). Each cell is a tibble with one row per realisation:
 `.draw`, the realisation index; `value.draw`, the metric for that realisation;
 and, for `nsec`, `ecnsec.draw`, the effect at the NSEC for the same
 realisation. A realisation with no crossing in the evaluated range is `Inf`,
-so it ranks above `max(x_vec)` (T21), and an excluded one is `NA`.
+or `-Inf` where `xform` is decreasing, so it ranks beyond `max(x_vec)` (T21),
+and an excluded one is `NA`.
 
 The `.draw` suffix marks the three as a group and keeps them distinct from the
 summary columns. An inner column named `ecnsec` would share its name with the

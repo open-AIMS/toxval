@@ -78,8 +78,10 @@
 #'   - `asymptote`: the asymptote the span is measured to, or `NA` unless `type`
 #'     is `"relative"`.
 #'   - `draws`: where `draws = TRUE`, a tibble per row of `.draw` and
-#'     `value.draw`, the ECx of each realisation. A realisation that does not
-#'     reach the reference is `Inf`, and one excluded from the summary is `NA`.
+#'     `value.draw`, the ECx of each realisation, after `xform`. A realisation
+#'     that does not reach the reference is `Inf`, or `-Inf` where `xform` is
+#'     decreasing, so that it ranks beyond the highest concentration. One
+#'     excluded from the summary is `NA`.
 #'
 #'   `control`, `reference` and `asymptote` are on the response scale, as the
 #'   central `prob_vals` quantile of the realisations. The tibble prints the

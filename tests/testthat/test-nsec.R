@@ -566,6 +566,22 @@ test_that("brmsfit nsec xform changes output values with grouping", {
   expect_equal(output_1$ecnsec.high, output_2$ecnsec.high)
 })
 
+test_that("a decreasing xform mirrors a censored NSEC and its draws (#69)", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(censored_nsec_curves(x_vec)), x_vec)
+
+  ident <- suppressWarnings(nsec(pred, draws = TRUE))
+  neg <- suppressWarnings(nsec(pred, draws = TRUE, xform = function(x) -x))
+
+  expect_equal(neg$estimate[[1]], -ident$estimate[[1]])
+  expect_equal(neg$conf.low[[1]], -ident$conf.high[[1]])
+  expect_equal(neg$conf.high[[1]], -ident$conf.low[[1]])
+  expect_identical(
+    neg$draws[[1]]$value.draw,
+    -ident$draws[[1]]$value.draw
+  )
+})
+
 # nsec.drc — additional tests ---------------------------------------------
 
 test_that("nsec drc model has expected structure and shape", {

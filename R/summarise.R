@@ -18,9 +18,10 @@
 #'   space, is excluded, except that under `range` a span of zero or less is
 #'   censored, since the curve never leaves its control in that
 #'   direction;
-#' - any other has no crossing within the evaluated range. It ranks above
-#'   `max(x_vec)` and is given no value, so a quantile that falls among such
-#'   realisations is reported as `xform(max(x_vec))`.
+#' - any other has no crossing within the evaluated range. It ranks beyond
+#'   `max(x_vec)`, so above every other realisation, or below them where
+#'   `xform` is decreasing. It is given no value, so a quantile that falls
+#'   among such realisations is reported as `xform(max(x_vec))`.
 #'
 #' Where any realisation is censored, the summary uses an observed order
 #' statistic, so it does not interpolate between a known concentration and an
@@ -44,11 +45,12 @@
 #' @param pred The `toxval_pred` the rows were computed on.
 #' @param metric A string, the value of the `metric` column.
 #' @param prob_vals The central, lower and upper quantiles.
-#' @param xform A function applied to the realisations.
+#' @param xform A function applied to the realisations, monotone over the
+#'   grid.
 #' @param draws A flag. If `TRUE` a `draws` list column holds, for each row, a
 #'   tibble of the realisations with columns `.draw` and `value.draw`, and
-#'   `ecnsec.draw` for an NSEC. A censored realisation is `Inf` and an
-#'   excluded one `NA`.
+#'   `ecnsec.draw` for an NSEC. A censored realisation is `Inf`, or `-Inf`
+#'   where `xform` is decreasing, and an excluded one `NA`.
 #'
 #' @return An object of class `toxval`.
 #'
@@ -70,9 +72,12 @@ summarise_metric <- function(
   x_control <- pred$meta$x_control
   x_max <- max(pred$x_vec)
   key_cols <- names(pred$keys)
+  # Rank a censored realisation by the direction of xform, not by xform(Inf),
+  # which need not be defined.
+  censored_at <- if (xform_decreasing(xform, pred$x_vec)) -Inf else Inf
 
   summaries <- lapply(seq_len(nrow(rows)), function(i) {
-    summarise_row(rows[i, ], x_control, x_max, prob_vals, xform)
+    summarise_row(rows[i, ], x_control, x_max, prob_vals, xform, censored_at)
   })
 
   # the column groups of the result, left to right
@@ -101,6 +106,9 @@ summarise_metric <- function(
 #' @param x_control The concentration given to a realisation whose control is
 #'   already past the reference.
 #' @param x_max The highest grid value.
+#' @param censored_at The value a censored realisation takes after `xform`:
+#'   `Inf`, or `-Inf` where `xform` is decreasing, so that it ranks beyond
+#'   `xform(x_max)`.
 #' @inheritParams summarise_metric
 #'
 #' @return A list with `estimates`, a one-row tibble of the estimate and
@@ -110,7 +118,14 @@ summarise_metric <- function(
 #'   `censored`, whether a reported quantile is censored.
 #'
 #' @noRd
-summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
+summarise_row <- function(
+  row,
+  x_control,
+  x_max,
+  prob_vals,
+  xform,
+  censored_at
+) {
   values <- row$draws[[1]]
   control <- row$control[[1]]
   # one value per realisation for an ECx, one for the curve for an NSEC
@@ -154,7 +169,7 @@ summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
   placed <- values
   placed[beyond] <- x_control
   placed <- xform(placed)
-  placed[censored] <- Inf
+  placed[censored] <- censored_at
 
   quantiles <- rep(NA_real_, 3)
   quantile_censored <- FALSE
@@ -165,8 +180,11 @@ summarise_row <- function(row, x_control, x_max, prob_vals, xform) {
       names = FALSE,
       type = if (any(censored)) 1 else 7
     )
-    quantile_censored <- any(is.infinite(quantiles))
-    quantiles[is.infinite(quantiles)] <- xform(x_max)
+    # Match the sign as well: xform can map x_control or a crossing to an
+    # infinite value, such as log(0), and that quantile is not censored.
+    at_censored <- quantiles == censored_at
+    quantile_censored <- any(at_censored)
+    quantiles[at_censored] <- xform(x_max)
   }
 
   if (identical(row$type, "direct")) {
@@ -220,6 +238,32 @@ central <- function(x, prob_vals) {
     return(NA_real_)
   }
   stats::quantile(x, prob_vals[1], names = FALSE, na.rm = TRUE)
+}
+
+#' Whether `xform` reverses the order of concentrations over the grid
+#'
+#' Reads `xform` at two points strictly inside the grid, so a map that is
+#' undefined or infinite at an end, such as `log` at 0, still gives an answer.
+#' Where those two points give no answer, the images of the two ends decide.
+#'
+#' @param xform A function, monotone over the grid.
+#' @param x_vec The grid of concentrations.
+#'
+#' @return A flag, `FALSE` unless the inner points or the ends show a
+#'   decrease.
+#'
+#' @noRd
+xform_decreasing <- function(xform, x_vec) {
+  lo <- min(x_vec)
+  hi <- max(x_vec)
+  # Muffle the NaN warning of a map undefined at either point; the ends then
+  # decide.
+  probe <- suppressWarnings(xform(lo + (hi - lo) * c(1, 2) / 3))
+  if (length(probe) == 2 && all(is.finite(probe)) && probe[1] != probe[2]) {
+    return(probe[2] < probe[1])
+  }
+  ends <- suppressWarnings(xform(c(lo, hi)))
+  isTRUE(length(ends) == 2 && ends[2] < ends[1])
 }
 
 #' Warn once for censored quantiles and excluded realisations
