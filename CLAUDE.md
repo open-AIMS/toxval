@@ -23,7 +23,9 @@ Actions, pkgdown site, testthat, roxygen2.
 
 The toxval R package extracts toxicity threshold estimates — No-Significant-Effect Concentrations (NSECs) and ECx values — from fitted concentration–response models. It addresses the challenge of deriving these endpoints consistently across modelling frameworks.
 
-It currently supports Bayesian models fitted with brms (`ecx()`, `nsec()`, and `nsec_multi()` for multivariate fits) and frequentist models fitted with drc (`nsec()` only). `toxval_predict()` returns the predictions of a brms or drc fit over a grid of x values; phase 4 of the refactor (`REFACTOR-human.md`) rebuilds the metrics on it. Models fitted with bayesnec are handled by bayesnec's own `ecx()` and `nsec()`: toxval stopped depending on bayesnec in phase 3, and bayesnec support returns at phase 7 through methods in bayesnec.
+It currently supports Bayesian models fitted with brms (`ecx()`, `nsec()`, and `nsec_multi()` for multivariate fits) and frequentist models fitted with drc (`nsec()` only). `toxval_predict()` returns the predictions of a brms or drc fit over a grid of x values; phase 4 of the refactor (`REFACTOR-human.md`) rebuilds the metrics on it. Models fitted with bayesnec are handled by `toxval_predict()` methods in toxval, with bayesnec in `Suggests` (T35).
+
+bayesnec keeps its own `ecx()`, `nsec()` and `ecnsec()`. RF develops both packages and keeps their results in agreement (T42). A change here that alters a value returned for a `bayesnecfit` or `bayesmanecfit`, or by `nsec()` for a `brmsfit` or `drc` fit, is compared with bayesnec under matching options before it merges. Record the result, and whether bayesnec is to follow, on a bayesnec issue. A change that leaves every returned value unchanged needs neither. Both packages export `ecx()` and `nsec()`, and the one attached last masks the other without a warning, so with both attached call each with its package prefix.
 
 Key inputs are fitted model objects, and the primary outputs are standardised toxicity metrics (e.g. NSEC, EC10, EC50) that can be used in environmental risk assessment or guideline derivation.
 

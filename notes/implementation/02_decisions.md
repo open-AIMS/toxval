@@ -952,6 +952,26 @@ concentration was preferred to predicting the control separately, which would
 add a slot to `toxval_pred`. A call whose `x_range` starts elsewhere now errors,
 which is a breaking change.
 
+## T42 — agreement with `bayesnec` (bayesnec #255)
+
+Settled 2026-10-30 (RF), with `bayesnec` decision D46, which closed bayesnec
+#255.
+
+`bayesnec` keeps its own `ecx()`, `nsec()` and `ecnsec()` and does not import
+`toxval`, so the two packages compute the same endpoints independently. For a
+`bayesnecfit` or `bayesmanecfit`, and for `nsec()` on a `brmsfit` or `drc` fit,
+they are to return the same estimates under matching options. Where a default or
+the shape of the output differs, the difference is recorded: `ecx()` and `nsec()`
+here return the increasing direction as a separate row (T10), and the predictor
+scale is open on #82. A change to either package that alters one of those values
+is compared with the other before it merges, and `CLAUDE.md` §2 gives the check.
+
+On 2026-10-29 paired NSEC draws from the two packages agreed on a model-averaged
+fixture and on a heavily censored `brmsfit`. By then `bayesnec` had adopted T21
+as amended on #74 and the 500-point grid of T31 (bayesnec #527), and `toxval`
+used each equation's control for a model average (T12). The `drc` method was not
+compared.
+
 ---
 
 ## Still to decide
