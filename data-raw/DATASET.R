@@ -25,6 +25,9 @@ strip_stanmodel <- function(file) {
 
   if ("brmsfit" %in% cls) {
     obj$fit@stanmodel <- methods::new("stanmodel")
+    # a cmdstanr fit keeps its compiled model here, which warns on load where
+    # cmdstanr is not installed
+    attr(obj$fit, "CmdStanModel") <- NULL
   } else if ("bayesnecfit" %in% cls) {
     obj$fit$fit@stanmodel <- methods::new("stanmodel")
   } else if ("bayesmanecfit" %in% cls) {
