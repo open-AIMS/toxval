@@ -499,6 +499,11 @@ The decreasing reference is now `r ctl(dec_05$reference[1])` (the sixth
 control), and the `r n_below_05` realisations with lower controls are below it
 from the start. They decline, as do all realisations of this set, so they are
 placed at `x_control`, and the lower limit is `r fmt(dec_05$conf.low[1])`.
+Fisher and Fox (2023, p. 2026) describe the same result: where the significance
+level is higher than the lower probability of the interval (typically 0.025),
+the lower limit of the NSEC is zero (e.g. at levels of 0.05, 0.10 and 0.20 in
+their Table 3). Where they give zero, `nsec()` gives `x_control`, which is 0 for
+these realisations.
 
 Those realisations would instead be censored if they showed no effect. To show
 this, the next set keeps the controls and the declining curves of the
