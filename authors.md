@@ -19,7 +19,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/open-aims/toxval/blob/main/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/open-aims/toxval/blob/v2.0.0/DESCRIPTION)
 
 Fisher R, Barneche D, Koppel D, Fox D, Pearson A (2026). *toxval:
 Functions for Extracting NSEC and ECx Values from Fitted Frequentist and

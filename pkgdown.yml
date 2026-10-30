@@ -4,7 +4,7 @@ pkgdown_sha: ~
 articles:
   ecx-definition: ecx-definition.html
   nsec-definition: nsec-definition.html
-last_built: 2026-10-30T18:11Z
+last_built: 2026-10-30T18:19Z
 urls:
   reference: https://open-aims.github.io/toxval/reference
   article: https://open-aims.github.io/toxval/articles
