@@ -86,11 +86,13 @@ The examples are built by hand with `new_toxval_pred()`, so that every value
 whose controls are evenly spaced. These values are constructed, not sampled from
 a fit.
 
-`nsec()` takes quantiles with R's default method (type 7). For 101 values the
-quantile at probability $p$ is the value at position $1 + 100p$ in sorted order,
-interpolated where that position is not a whole number. The 0.01 quantile is
-therefore the second-smallest control, and the 0.99 quantile the
-hundredth.
+`nsec()` takes the reference with R's default quantile method (type 7). For 101
+values the quantile at probability $p$ is the value at position $1 + 100p$ in
+sorted order, interpolated where that position is not a whole number. The 0.01
+quantile is therefore the second-smallest control, and the 0.99 quantile the
+hundredth. The crossings are summarised by the same method unless a realisation
+in that row is censored, as described under
+[Realisations with no crossing](#realisations-with-no-crossing).
 
 The helper below evaluates one curve shape at each control and stores the
 result. The `meta` list follows the slot contract documented in
@@ -423,12 +425,21 @@ decreasing set.
 
 ## Realisations with no crossing
 
-A realisation that never crosses the reference within the grid has no NSEC of
-its own. `nsec()` places it by one of three rules.
+A realisation that never crosses the reference in the direction sought, within
+the grid, has no NSEC of its own. `nsec()` treats it in one of four ways.
 
 - A realisation whose control already lies at or beyond the reference, in the
   direction sought, is given `x_control`, the control concentration: by
   default the lowest concentration in the data the model was fitted to.
+- The exception is such a realisation that shows no effect in the tested
+  range. Its response first changes away from the effect as concentration
+  rises from the control: it rises, for a decreasing NSEC, or falls, for an
+  increasing one. It then passes to the no-effect side of the reference, above
+  it for a decreasing NSEC and below it for an increasing one, and does not
+  return. It is censored, as below. Changes smaller
+  than `1e-8` times the realisation's largest absolute response are ignored in
+  finding the first change, so a curve that is flat at the control is judged
+  by the direction of its first larger change.
 - A realisation that does not reach the reference within the grid is given
   `Inf`, which ranks it above every crossing. A quantile that falls among such
   realisations is reported as the highest concentration, and the call warns
@@ -437,18 +448,33 @@ its own. `nsec()` places it by one of three rules.
   the parameter space of the model, is excluded from the summary and counted
   in the warning.
 
-The second rule follows from what a missing crossing means. A realisation that
-has not reached the reference by the highest concentration would reach it, if at
-all, at a higher one, so it belongs in the upper tail. Dropping it would report a
+Censoring follows from what a missing crossing means. A realisation that has not
+reached the reference by the highest concentration would reach it, if at all, at
+a higher one, so it belongs in the upper tail. Dropping it would report a
 quantile of the realisations that crossed, which lies below the same quantile of
-all of them. Keeping its rank leaves every quantile below the censored
-realisations unchanged.
+all of them. A realisation that starts past the reference and then passes to the
+no-effect side is past it only because its own control lies in the tail of the
+control realisations. Within the tested range it never departs from the control
+towards the effect, so it is censored in the same way.
 
-The first rule applies to about a fraction `sig_val` of the realisations, by
-construction of the reference. In the decreasing set it applies to one
-realisation, whose control of `r ctl(controls[1])` lies below the reference of
-`r ctl(r_dec)`. With `sig_val = 0.05` it applies to more than 2.5 per cent of
-the realisations, so it sets the lower limit of the interval.
+A censored realisation has a rank but no value, so a row that contains one is
+summarised by observed order statistics, `quantile()` type 1, rather than by
+type 7. Type 7 interpolates between adjacent sorted values. An interpolation
+between the last crossing and a censored realisation has no finite value, so
+under type 7 a quantile only partly among the censored realisations would be
+reported as the highest concentration. Under type 1 the quantile at probability
+$p$ of $n$ values is the value at position $\lceil np \rceil$ in sorted order.
+The two types agree where the type 7 position, $1 + (n - 1)p$, is a whole
+number, as it is for the median of 101 values. Elsewhere the switch changes the
+quantile, including one well below the censored realisations, by at most the
+gap between the two sorted values that type 7 interpolates between.
+
+About a fraction `sig_val` of the realisations have a control at or beyond the
+reference, by construction of the reference. In the decreasing set there is
+one, whose control of `r ctl(controls[1])` lies below the reference of
+`r ctl(r_dec)`. Its response falls, towards the effect, so it is placed at
+`x_control`. With `sig_val = 0.05` more than 2.5 per cent of the realisations
+are placed there, so they set the lower limit of the interval.
 
 ```{r}
 #| label: sig-val
@@ -468,14 +494,75 @@ stopifnot(
 ```
 
 The decreasing reference is now `r ctl(dec_05$reference[1])`, the sixth control.
-The `r n_below_05` realisations with lower controls lie below it from the start
-and are placed at `x_control`, so the lower limit is
-`r fmt(dec_05$conf.low[1])`.
+The `r n_below_05` realisations with lower controls lie below it from the start.
+They decline, as every realisation of this set does, so they are placed at
+`x_control`, and the lower limit is `r fmt(dec_05$conf.low[1])`.
 
-The second rule is shown by evaluating the decreasing set over a shorter grid,
-from 0 to 0.9. The realisations with the highest controls decline too little in
-that range to reach the reference. For a fitted model the range is set with
-`x_range`. For a constructed `toxval_pred` it is the grid supplied, and
+Those realisations are censored instead if they show no effect. The next set
+keeps the controls and the declining curves of the decreasing set, except that
+the `r n_below_05` realisations with controls below `r ctl(controls[6])` rise
+slowly, $y = c\,e^{x/100}$.
+
+```{r}
+#| label: no-effect
+rise_slowly <- function(control, x) control * exp(x / 100)
+mixed_shape <- function(control, x) {
+  if (control < controls[6]) rise_slowly(control, x) else decline(control, x)
+}
+mixed_pred <- build_pred(mixed_shape, controls, seq(0, 10, length.out = 500))
+mixed <- nsec(mixed_pred, sig_val = 0.05, draws = TRUE)
+show_nsec(mixed)
+head(mixed$draws[[1]], 7)
+```
+
+```{r}
+#| label: no-effect-check
+#| echo: false
+n_rise <- sum(controls < controls[6])
+r_05 <- dec_05$reference[1]
+# each rising realisation passes above the reference at 100 log(r / c)
+rise_cross <- 100 * log(r_05 / controls[seq_len(n_rise)])
+nsec_mixed_hand <- c(rep(Inf, n_rise), 5 * log(controls[-seq_len(n_rise)] / r_05))
+q_mixed_hand <- quantile(nsec_mixed_hand, probs, names = FALSE, type = 1)
+q_mixed_hand[is.infinite(q_mixed_hand)] <- max(mixed_pred$x_vec)
+draws_mixed <- mixed$draws[[1]]$value.draw
+stopifnot(
+  n_rise == n_below_05,
+  isTRUE(all.equal(mixed$reference[1], r_05)),
+  # the rising realisations stay below the increasing reference
+  rise_slowly(controls[n_rise], 10) < mixed$reference[2],
+  all(is.infinite(draws_mixed[seq_len(n_rise)])),
+  all(is.finite(draws_mixed[-seq_len(n_rise)])),
+  all(abs(unlist(mixed[1, c("estimate", "conf.low", "conf.high")]) - q_mixed_hand) <
+    grid_step(mixed_pred)),
+  mixed$conf.high[1] == max(mixed_pred$x_vec),
+  mixed$conf.low[1] > dec_05$conf.low[1],
+  mixed$estimate[1] > dec_05$estimate[1],
+  n_rise / length(controls) > 0.025
+)
+```
+
+The reference is still `r ctl(mixed$reference[1])`, since the controls are
+unchanged. Each of the `r n_rise` rising realisations passes above it by
+$x = `r fmt(max(rise_cross))`$ and stays above it to the end of the grid. Its
+response first changes away from a decreasing effect, and it then lies on the
+no-effect side, so it shows no effect in the tested range. `nsec()` censors
+it, and it is `Inf` in the `draws` column. Ranked above every crossing, the
+censored realisations raise the lower limit from
+`r fmt(dec_05$conf.low[1])` to `r fmt(mixed$conf.low[1])` and the median from
+`r fmt(dec_05$estimate[1])` to `r fmt(mixed$estimate[1])`. They are
+`r pct(n_rise / length(controls))` of the realisations, so the 97.5 per cent quantile
+falls among them. It is reported as the highest concentration,
+`r fmt(mixed$conf.high[1])`, and the call warns. A wider range would not remove
+the censoring, since the response of these realisations rises further above the
+reference as concentration increases. Each value agrees to within one grid step
+with the order statistics of the crossings $5 \log(c / `r ctl(r_05)`)$ of the
+declining realisations, with the rising ones ranked above them.
+
+The decreasing set was also evaluated over a shorter grid, from 0 to 0.9. The
+realisations with the highest controls decline too little in that range to
+reach the reference, so they are censored. For a fitted model the range is set
+with `x_range`. For a constructed `toxval_pred` it is the grid supplied, and
 `nsec()` refuses `x_range`.
 
 ```{r}
@@ -494,14 +581,22 @@ tail(short$draws[[1]], 3)
 n_censored <- sum(nsec_dec_hand >= max(short_pred$x_vec))
 draws_short <- short$draws[[1]]$value.draw
 n_real <- length(controls)
+short_hand <- ifelse(nsec_dec_hand >= max(short_pred$x_vec), Inf, nsec_dec_hand)
+q_short_hand <- quantile(short_hand, probs, names = FALSE, type = 1)
 stopifnot(
   sum(is.infinite(draws_short)) == n_censored,
   # the censored realisations are those with the highest controls
   all(is.infinite(draws_short) == (seq_len(n_real) > n_real - n_censored)),
   n_censored / length(controls) > 0.025,
   short$conf.high[1] == max(short_pred$x_vec),
+  is.infinite(q_short_hand[3]),
+  all(abs(unlist(short[1, c("estimate", "conf.low")]) - q_short_hand[1:2]) <
+    grid_step(short_pred)),
+  # the lower limit is the third crossing, and the median the 51st
+  short$conf.low[1] == sort(draws_short)[3],
+  short$estimate[1] == sort(draws_short)[51],
   abs(short$estimate[1] - dec$estimate[1]) < grid_step(dec_pred),
-  abs(short$conf.low[1] - dec$conf.low[1]) < grid_step(dec_pred)
+  short$conf.low[1] < dec$conf.low[1]
 )
 ```
 
@@ -511,8 +606,12 @@ reach the reference beyond `r fmt(max(short_pred$x_vec))`. They are `Inf` in the
 `draws` column, and are `r pct(n_censored / n_real)` of the realisations. The 97.5 per
 cent quantile has 2.5 per cent of the realisations above it, so it falls among
 the censored ones. It is reported as `r fmt(short$conf.high[1])`, the highest
-concentration, and the call warns. The median, `r fmt(short$estimate[1])`, and
-the lower limit, `r fmt(short$conf.low[1])`, are those of the full grid.
+concentration, and the call warns. The median, `r fmt(short$estimate[1])`, is
+that of the full grid. The lower limit is `r fmt(short$conf.low[1])`, against
+`r fmt(dec$conf.low[1])` on the full grid, although the realisations that set it
+crossed within both ranges. With censored realisations in the row, the lower
+limit is the third crossing. The full grid takes the value halfway between the
+third and the fourth.
 
 The upper limit should then be read as "at least `r fmt(short$conf.high[1])`":
 the tested range did not extend far enough to bound it. Where the censored
@@ -529,17 +628,27 @@ show_nsec(few)
 ```{r}
 #| label: censored-few-check
 #| echo: false
-n_few <- sum(is.infinite(few$draws[[1]]$value.draw))
+draws_few <- few$draws[[1]]$value.draw
+n_few <- sum(is.infinite(draws_few))
+few_hand <- ifelse(nsec_dec_hand >= max(few_pred$x_vec), Inf, nsec_dec_hand)
+q_few_hand <- quantile(few_hand, probs, names = FALSE, type = 1)
 stopifnot(
   n_few == sum(nsec_dec_hand >= max(few_pred$x_vec)),
   n_few / length(controls) < 0.025,
-  abs(few$conf.high[1] - dec$conf.high[1]) < grid_step(dec_pred)
+  all(abs(unlist(few[1, c("estimate", "conf.low", "conf.high")]) - q_few_hand) <
+    grid_step(few_pred)),
+  # the upper limit is the 99th crossing, below the censored realisations
+  few$conf.high[1] == sort(draws_few)[99],
+  is.finite(few$conf.high[1]),
+  few$conf.high[1] > dec$conf.high[1]
 )
 ```
 
-On a grid to `r fmt(max(few_pred$x_vec))`, `r n_few` realisations are censored. The upper limit is
-`r fmt(few$conf.high[1])`, as on the full grid, since the realisations that set
-it crossed within the range.
+On a grid to `r fmt(max(few_pred$x_vec))`, `r n_few` realisations are censored.
+They lie above the 97.5 per cent quantile, so the upper limit is a crossing,
+`r fmt(few$conf.high[1])`, and there is no warning. It is the 99th crossing.
+The full grid gives `r fmt(dec$conf.high[1])`, halfway between the 98th and the
+99th, because that row has no censored realisation.
 
 ## A hormetic response
 
@@ -593,7 +702,8 @@ horm_inc_hand <- vapply(
   numeric(1)
 )
 q_horm_dec <- quantile(horm_dec_hand, probs, names = FALSE)
-q_horm_inc <- quantile(horm_inc_hand, probs, names = FALSE)
+# the increasing row has censored realisations, so it takes order statistics
+q_horm_inc <- quantile(horm_inc_hand, probs, names = FALSE, type = 1)
 q_horm_inc[is.infinite(q_horm_inc)] <- max(horm_pred$x_vec)
 n_horm_censored <- sum(is.infinite(horm_inc_hand))
 # the realisations themselves, to read the value given to the first one; the
@@ -622,7 +732,8 @@ part of each curve falls through `r ctl(r_dec)`. The increasing NSEC is
 `r fmt(horm$estimate[2])` (`r fmt(horm$conf.low[2])` to
 `r fmt(horm$conf.high[2])`), where the rising part passes `r ctl(r_inc)`. Both
 agree with crossings found by `uniroot()` to within one grid step
-(`r fmt(grid_step(horm_pred))`).
+(`r fmt(grid_step(horm_pred))`). The increasing row has censored realisations,
+so its crossings are compared as order statistics.
 
 ```{r}
 #| label: fig-hormetic
@@ -637,8 +748,9 @@ are absent from the monotone sets.
 
 The realisation with control `r ctl(controls[1])` starts below the decreasing
 reference, but it rises above the reference and falls through it at
-`r fmt(horm_first_dec)`. That is a crossing, so `nsec()` gives it that
-concentration rather than `x_control`.
+`r fmt(horm_first_dec)`. That is a crossing in the direction sought, so `nsec()`
+gives it that concentration, although its response first rises away from the
+effect.
 
 The `r n_horm_censored` realisations with the lowest controls peak below the
 increasing reference. The highest of them peaks at
@@ -705,7 +817,7 @@ avg_pred <- build_pred(
   draw_model = draw_model
 )
 avg_component <- nsec(avg_pred, anchor = "component")
-avg_component
+avg_component[, c("direction", "estimate", "conf.low", "conf.high", "anchor")]
 ```
 
 ```{r}
@@ -724,8 +836,8 @@ measured against `r ctl(ref_by_component[["a"]])`. The
 `r ctl(range_by_component[["b"]][1])` to `r ctl(range_by_component[["b"]][2])`, are
 measured against `r ctl(ref_by_component[["b"]])`. Each is the 0.01 quantile of
 that equation's own controls. Applying `nsec()` to the realisations of each
-equation alone, and summarising their crossings together, gives the same
-NSEC.
+equation alone, and summarising their crossings together, gives the same NSEC as
+`anchor = "component"`.
 
 ```{r}
 #| label: anchor-average-component

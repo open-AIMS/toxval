@@ -75,7 +75,10 @@ proportion are the control, so the EC10 references are 0.9 and 1.1 times the
 control. The section on the span named by `type` tabulates the spans of the
 other types. Under `type = "direct"` there is no proportion and no span, and the
 response supplied as `reference` is the reference in both directions. A span of
-zero or less gives no reference, and that realisation is excluded. The
+zero gives no reference, and that realisation is excluded; under `range` it is
+censored instead, since its curve never departs from its control in that
+direction. A span counts as zero when it is no larger than rounding error,
+`sqrt(.Machine$double.eps)` times the absolute value of the control. The
 decreasing ECx of a realisation is the first concentration at which its curve
 passes downward through the decreasing reference, and the increasing ECx is
 the first at which it passes upward through the increasing reference. `ecx()`
@@ -289,6 +292,8 @@ exp_reference <- c(50, 60, 100 - (100 - exp_min) / 2, 40)
 exp_span <- (ec50_exp$control - ec50_exp$reference) / ec50_exp$proportion
 stopifnot(
   identical(ec50_exp$type, names(exp_exact)),
+  # the increasing row is NA under every type that has a span
+  all(vapply(by_type[c("absolute", "relative", "range")], function(r) is.na(r$estimate[2]), TRUE)),
   within_step(ec50_exp$estimate, exp_exact, x_exp),
   isTRUE(all.equal(ec50_exp$reference, exp_reference)),
   isTRUE(all.equal(exp_span[1:3], c(100, 80, 100 - exp_min))),
@@ -432,11 +437,13 @@ absolute ECx is a change relative to the control and a relative ECx is a
 change relative to the maximum achievable effect.
 
 Every call that supplies `type = "relative"` warns about the definition of
-`relative`; the warning does not depend on the data. The `relative` and `range`
-calls also warn that every realisation was excluded from the increasing row. The
-curve never rises above its control and has no upper asymptote. The increasing
-span is therefore zero under `range` and undefined under `relative`. A span of
-zero or less gives no reference, so that row is returned with `NA` estimates.
+`relative`; the warning does not depend on the data. The curve never rises above
+its control and has no upper asymptote, so its increasing span is undefined
+under `relative` and zero under `range`. Under `relative` the realisation has no
+reference and is excluded. The call also warns that every realisation was
+excluded from the increasing row. Under `range` the realisation is censored
+instead. Either way no realisation has an increasing ECx, so that row is
+returned with `NA` estimates.
 Excluded and censored realisations, and the warning that reports them, are
 described in `vignette("nsec-definition", package = "toxval")`.
 
@@ -497,9 +504,10 @@ How the slot is filled depends on the class of the fitted object.
 - For a fit from `bayesnec::bnec()`, `toxval_predict()` takes the lower
   asymptote from the `bot` parameter of the equation, or 0 for an equation
   without `bot` whose family is bounded below, and the upper asymptote as 1 for
-  a proportion. A direction without an asymptote, such as the increasing
-  direction of a gaussian fit, has no span, so its realisations are excluded
-  and its estimate is `NA`.
+  a proportion. Both are taken only for an identity link, and a fit with any
+  other link has no asymptote in either direction. A direction without an
+  asymptote, such as the increasing direction of a gaussian fit, has no span,
+  so its realisations are excluded and its estimate is `NA`.
 
 Where the realisations come from several equations, as in a model average,
 each realisation is measured to the asymptote of its own equation. For a
@@ -609,7 +617,10 @@ stopifnot(
   boot_absolute$conf.low[1] < ll4[["e"]],
   ll4[["e"]] < boot_absolute$conf.high[1],
   n_rounding > 0,
-  max(abs(rounding_span)) < 1e-12
+  max(abs(rounding_span)) < 1e-12,
+  # every span is within the tolerance, so no replicate has a reference
+  all(rounding_span <= sqrt(.Machine$double.eps) * abs(pred_boot$curves[[1]][, 1])),
+  is.na(boot_relative$reference[2])
 )
 ```
 
@@ -620,12 +631,12 @@ interval of `r fmt_drc(boot_relative$conf.low[1])` to
 to `r fmt_drc(boot_absolute$conf.high[1])`). Each estimate is the median over
 the replicates, so it differs from the value at the parameter estimates, which
 each interval contains. The increasing row of the relative call has no
-estimate, because a decreasing `LL.4()` curve starts at its upper limit. In
-`r fmt_drc(n_boot - n_rounding)` of the `r fmt_drc(n_boot)` replicates the
-span from the control to that limit is zero or negative by rounding error, and
-the replicate is excluded. In the other `r fmt_drc(n_rounding)` the span is
-positive by rounding error, below $10^{-12}$, so the warning reports fewer than
-all replicates excluded. None of those replicates crosses its reference.
+estimate, because a decreasing `LL.4()` curve starts at its upper limit. The
+span from the control to that limit is zero up to rounding error in every
+replicate: zero or negative in `r fmt_drc(n_boot - n_rounding)` of the
+`r fmt_drc(n_boot)`, and positive but below $10^{-12}$ in the other
+`r fmt_drc(n_rounding)`. Each counts as zero, so every replicate is excluded,
+as the warning reports.
 
 ```{r}
 #| label: fig-ryegrass-ll4
