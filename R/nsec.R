@@ -37,7 +37,7 @@
 #' `bayesnec::bnec()` when `bayesnec` is installed. `bayesnec` has its own
 #' `nsec()`, and when both packages are loaded with `library()`, the one loaded
 #' last is used. Call `toxval::nsec()` to make sure this function runs.
-#' 
+#'
 #' The two functions can give different estimates for the same fit, because
 #' they evaluate the curve at different concentrations and handle realisations
 #' that never reach the reference differently.
@@ -81,9 +81,10 @@
 #'   - `ecnsec`, `ecnsec.low`, `ecnsec.high`: the effect at the NSEC, as a
 #'     proportion of the span named by `type`, summarised by `prob_vals`.
 #'   - `draws`: where `draws = TRUE`, a tibble per row of `.draw`,
-#'     `value.draw`, the NSEC of each realisation, and `ecnsec.draw`. A
-#'     realisation that does not reach the reference is `Inf` in `value.draw`,
-#'     and one excluded from the summary is `NA`.
+#'     `value.draw`, the NSEC of each realisation after `xform`, and
+#'     `ecnsec.draw`. A realisation that does not reach the reference is `Inf`
+#'     in `value.draw`, or `-Inf` where `xform` is decreasing, so that it ranks
+#'     beyond the highest concentration. One excluded from the summary is `NA`.
 #'
 #'   `control`, `reference` and `asymptote` are on the response scale, as the
 #'   central `prob_vals` quantile of the realisations. The tibble prints the

@@ -321,6 +321,30 @@ test_that("xform function is applied to the values", {
   )
 })
 
+test_that("a decreasing xform mirrors a censored ECx and its draws (#69)", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(censored_ecx_curves(x_vec)), x_vec)
+
+  ident <- suppressWarnings(
+    ecx(pred, type = "direct", reference = 5, draws = TRUE)
+  )
+  neg <- suppressWarnings(ecx(
+    pred,
+    type = "direct",
+    reference = 5,
+    draws = TRUE,
+    xform = function(x) -x
+  ))
+
+  expect_equal(neg$estimate[[1]], -ident$estimate[[1]])
+  expect_equal(neg$conf.low[[1]], -ident$conf.high[[1]])
+  expect_equal(neg$conf.high[[1]], -ident$conf.low[[1]])
+  expect_identical(
+    neg$draws[[1]]$value.draw,
+    -ident$draws[[1]]$value.draw
+  )
+})
+
 test_that("xform fails if function not passed", {
   expect_error(
     ecx(brms_model_1, x_var = "x", xform = 1),

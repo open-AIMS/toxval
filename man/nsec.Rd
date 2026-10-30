@@ -74,7 +74,9 @@ to summarise the realisations by, in that order.}
 
 \item{xform}{A function applied to the per-realisation concentrations before
 they are summarised, such as \code{exp} for a model fitted on log
-concentration.}
+concentration. It must be monotone over the evaluated range, and may be
+decreasing, such as \code{function(d) 3.5 - d} for a predictor fitted as a
+reduction from 3.5.}
 
 \item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#defunct}{\figure{lifecycle-defunct.svg}{options: alt='[Defunct]'}}}{\strong{[Defunct]}} Supplying it is an
 error. Use \code{draws}.}
@@ -106,9 +108,10 @@ is \code{"relative"}.
 \item \code{ecnsec}, \code{ecnsec.low}, \code{ecnsec.high}: the effect at the NSEC, as a
 proportion of the span named by \code{type}, summarised by \code{prob_vals}.
 \item \code{draws}: where \code{draws = TRUE}, a tibble per row of \code{.draw},
-\code{value.draw}, the NSEC of each realisation, and \code{ecnsec.draw}. A
-realisation that does not reach the reference is \code{Inf} in \code{value.draw},
-and one excluded from the summary is \code{NA}.
+\code{value.draw}, the NSEC of each realisation after \code{xform}, and
+\code{ecnsec.draw}. A realisation that does not reach the reference is \code{Inf}
+in \code{value.draw}, or \code{-Inf} where \code{xform} is decreasing, so that it ranks
+beyond the highest concentration. One excluded from the summary is \code{NA}.
 }
 
 \code{control}, \code{reference} and \code{asymptote} are on the response scale, as the

@@ -123,7 +123,8 @@ test_that("censored quantiles use observed order statistics", {
     x_control = 0,
     x_max = 10,
     prob_vals = c(0.5, 0.025, 0.975),
-    xform = identity
+    xform = identity,
+    censored_at = Inf
   )
 
   expect_equal(result$estimates$conf.low, 3)
@@ -515,6 +516,122 @@ test_that("summarise_metric reports a censored quantile as xform of the highest 
   expect_equal(result$conf.high[1], 100)
 })
 
+test_that("summarise_metric ranks a censored ECx realisation lowest under a decreasing xform (#69)", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(censored_ecx_curves(x_vec)), x_vec)
+  rows <- compute_ecx(pred, reference = 5, type = "direct")
+  cols <- c("estimate", "conf.low", "conf.high")
+
+  ident <- suppressWarnings(summarise_metric(rows, pred, "ecx"))
+  expect_warning(
+    neg <- summarise_metric(rows, pred, "ecx", xform = function(x) -x),
+    regexp = "decreasing: 27.3% censored"
+  )
+
+  expect_equal(
+    unlist(ident[1, cols]),
+    c(estimate = 6, conf.low = 1, conf.high = 10)
+  )
+  expect_equal(
+    unlist(neg[1, cols]),
+    c(estimate = -6, conf.low = -10, conf.high = -1)
+  )
+})
+
+test_that("summarise_metric ranks a censored NSEC realisation lowest under a decreasing xform (#69)", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(censored_nsec_curves(x_vec)), x_vec)
+  rows <- compute_nsec(pred)
+  cols <- c("estimate", "conf.low", "conf.high")
+
+  ident <- suppressWarnings(summarise_metric(rows, pred, "nsec"))
+  expect_warning(
+    neg <- summarise_metric(rows, pred, "nsec", xform = function(d) 3.5 - d),
+    regexp = "decreasing: 27.3% censored"
+  )
+
+  # the first realisation takes x_control, 0
+  expect_equal(
+    unlist(ident[1, cols]),
+    c(estimate = 5, conf.low = 0, conf.high = 10)
+  )
+  expect_equal(
+    unlist(neg[1, cols]),
+    c(estimate = -1.5, conf.low = -6.5, conf.high = 3.5)
+  )
+  expect_equal(neg$ecnsec, ident$ecnsec)
+})
+
+test_that("summarise_metric keeps the order under an increasing nonlinear xform (#69)", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(censored_ecx_curves(x_vec)), x_vec)
+
+  result <- suppressWarnings(summarise_metric(
+    compute_ecx(pred, reference = 5, type = "direct"),
+    pred,
+    "ecx",
+    xform = exp,
+    draws = TRUE
+  ))
+
+  expect_equal(
+    unlist(result[1, c("estimate", "conf.low", "conf.high")]),
+    c(estimate = exp(6), conf.low = exp(1), conf.high = exp(10))
+  )
+  expect_identical(result$draws[[1]]$value.draw[9:11], rep(Inf, 3))
+})
+
+test_that("summarise_metric does not censor a quantile that xform maps to an infinite value (#69)", {
+  x_vec <- 0:10
+  # The first two realisations start below the `direct` reference of 5, so
+  # they take x_control, 0, which log() maps to -Inf.
+  curves <- rbind(
+    4 - x_vec / 10,
+    4 - x_vec / 10,
+    censored_ecx_curves(x_vec)[-(1:2), ]
+  )
+  pred <- compute_pred(list(curves), x_vec)
+  rows <- compute_ecx(pred, reference = 5, type = "direct")
+  cols <- c("estimate", "conf.low", "conf.high")
+
+  up <- suppressWarnings(summarise_metric(rows, pred, "ecx", xform = log))
+  down <- suppressWarnings(summarise_metric(
+    rows,
+    pred,
+    "ecx",
+    xform = function(x) -log(x),
+    draws = TRUE
+  ))
+
+  expect_equal(
+    unlist(up[1, cols]),
+    c(estimate = log(6), conf.low = -Inf, conf.high = log(10))
+  )
+  expect_equal(
+    unlist(down[1, cols]),
+    c(estimate = -log(6), conf.low = -log(10), conf.high = Inf)
+  )
+  expect_identical(
+    down$draws[[1]]$value.draw[c(1:2, 9:11)],
+    c(Inf, Inf, -Inf, -Inf, -Inf)
+  )
+})
+
+test_that("xform_decreasing reads the direction of xform inside the grid", {
+  x_vec <- 0:10
+
+  expect_false(xform_decreasing(identity, x_vec))
+  expect_false(xform_decreasing(exp, x_vec))
+  expect_true(xform_decreasing(function(x) -x, x_vec))
+  # infinite at the lower end of the grid
+  expect_false(xform_decreasing(log, x_vec))
+  expect_true(xform_decreasing(function(x) -log(x), x_vec))
+  # NaN at the lower end, so only the points inside the grid give an answer
+  expect_true(xform_decreasing(function(x) -sqrt(x), -1:10))
+  # equal at the points inside the grid, so the ends decide
+  expect_true(xform_decreasing(function(x) -floor(x / 10), x_vec))
+})
+
 # draws ----------------------------------------------------------------------
 
 test_that("summarise_metric adds a draws list column when draws = TRUE", {
@@ -529,6 +646,24 @@ test_that("summarise_metric adds a draws list column when draws = TRUE", {
   expect_equal(
     result$draws[[1]],
     dplyr::tibble(.draw = 1:2, value.draw = c(1, Inf))
+  )
+})
+
+test_that("summarise_metric gives a censored realisation -Inf in draws under a decreasing xform (#69)", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 10 - x_vec / 20)), x_vec)
+
+  result <- suppressWarnings(summarise_metric(
+    compute_ecx(pred),
+    pred,
+    "ecx",
+    xform = function(x) -x,
+    draws = TRUE
+  ))
+
+  expect_equal(
+    result$draws[[1]],
+    dplyr::tibble(.draw = 1:2, value.draw = c(-1, -Inf))
   )
 })
 
