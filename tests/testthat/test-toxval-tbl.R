@@ -134,6 +134,7 @@ test_that("tbl_sum.toxval describes a brmsfit result", {
 })
 
 test_that("tbl_sum.toxval describes a drc result", {
+  skip_if_not_installed("drc")
   pred <- toxval_predict(nsec_drc_1, resolution = 200, n_boot = 100, seed = 42)
   result <- summarise_metric(compute_nsec(pred), pred, "nsec")
 
@@ -195,6 +196,7 @@ test_that("the header lines survive a dplyr filter", {
 })
 
 test_that("toxval tibbles with the same settings combine and keep the header", {
+  skip_if_not_installed("drc")
   ecx_rows <- ecx(nsec_drc_1, seed = 1)
   nsec_rows <- nsec(nsec_drc_1, seed = 1)
 
@@ -206,6 +208,7 @@ test_that("toxval tibbles with the same settings combine and keep the header", {
 })
 
 test_that("toxval tibbles with different settings do not combine", {
+  skip_if_not_installed("drc")
   brms_rows <- nsec(brms_model_3, x_var = "x")
   drc_rows <- nsec(nsec_drc_1, seed = 1)
 

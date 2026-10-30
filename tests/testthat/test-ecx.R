@@ -99,6 +99,7 @@ test_that("proper resolution values can be passed", {
 })
 
 test_that("ecx posterior is defunct, draws replaced it", {
+  skip_if_not_installed("drc")
   lifecycle::expect_defunct(ecx(nsec_drc_1, posterior = TRUE, seed = 1))
   lifecycle::expect_defunct(ecx(brms_model_1, x_var = "x", posterior = TRUE))
 })
@@ -710,6 +711,7 @@ test_that("proportion must be finite", {
 # Comparison to drc::ED() -------------------------------------------------
 
 test_that("ecx direct matches drc::ED absolute", {
+  skip_if_not_installed("drc")
   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
 
   output <- ecx(fit, type = "direct", reference = 5, seed = 1)
@@ -719,6 +721,7 @@ test_that("ecx direct matches drc::ED absolute", {
 })
 
 test_that("ecx absolute matches drc::ED for a curve with a lower limit of 0", {
+  skip_if_not_installed("drc")
   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.3())
 
   output <- ecx(fit, proportion = 0.5, seed = 1)
@@ -728,6 +731,7 @@ test_that("ecx absolute matches drc::ED for a curve with a lower limit of 0", {
 })
 
 test_that("ecx relative matches drc::ED relative", {
+  skip_if_not_installed("drc")
   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
 
   output <- suppressWarnings(
@@ -823,12 +827,14 @@ test_that("ecx relative takes a named parameter of a brmsfit on the response sca
 })
 
 test_that("ecx gives an NA asymptote unless type is relative", {
+  skip_if_not_installed("drc")
   output <- ecx(nsec_drc_1, seed = 1, n_boot = 50, resolution = 50)
 
   expect_equal(output$asymptote, c(NA_real_, NA_real_))
 })
 
 test_that("ecx relative caps proportion at 1", {
+  skip_if_not_installed("drc")
   expect_error(
     suppressWarnings(
       ecx(nsec_drc_1, type = "relative", proportion = 1.5, n_boot = 10)
@@ -838,6 +844,7 @@ test_that("ecx relative caps proportion at 1", {
 })
 
 test_that("ecx relative errors for a drc function that supplies no asymptote", {
+  skip_if_not_installed("drc")
   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::W1.4())
 
   expect_error(
@@ -866,6 +873,7 @@ test_that("ecx errors when asymptote is supplied for a multivariate brmsfit", {
 })
 
 test_that("ecx reports the control at the lowest concentration in the data", {
+  skip_if_not_installed("drc")
   fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
   pred <- toxval_predict(fit, n_boot = 50, seed = 1)
   at_zero <- stats::median(pred$curves[[1]][, 1])

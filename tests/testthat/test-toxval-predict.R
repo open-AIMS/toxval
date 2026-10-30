@@ -22,6 +22,7 @@ test_that("toxval_predict errors when a brmsfit is given no x_var", {
 })
 
 test_that("a misspelt argument errors rather than being ignored", {
+  skip_if_not_installed("drc")
   expect_error(
     ecx(brms_model_1, x_var = "x", proprtion = 0.5),
     "`...` must be unused for a `brmsfit`, not 'proprtion'"
@@ -33,6 +34,7 @@ test_that("a misspelt argument errors rather than being ignored", {
 })
 
 test_that("an abbreviated argument errors rather than partially matching", {
+  skip_if_not_installed("drc")
   expect_error(
     ecx(brms_model_1, x_var = "x", resol = 20),
     "`...` must be unused for a `brmsfit`, not 'resol'"
@@ -44,6 +46,7 @@ test_that("an abbreviated argument errors rather than partially matching", {
 })
 
 test_that("an argument passed by position after object errors", {
+  skip_if_not_installed("drc")
   expect_error(
     ecx(nsec_drc_1, 0.5),
     "Arguments after `object` must be named, not passed by position"
@@ -67,6 +70,7 @@ test_that("toxval_predict errors for a class with no method", {
 })
 
 test_that("toxval_predict errors when x_var is not a string", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = 1),
     "`x_var` must be a string"
@@ -74,6 +78,7 @@ test_that("toxval_predict errors when x_var is not a string", {
 })
 
 test_that("toxval_predict errors when group_var is not a string", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", group_var = 1),
     "`group_var` must be a string .* or NULL"
@@ -88,6 +93,7 @@ test_that("toxval_predict errors when group_var is the same column as x_var", {
 })
 
 test_that("toxval_predict errors when resolution is not a whole number", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", resolution = 2.5),
     "`resolution` must be a whole number"
@@ -95,6 +101,7 @@ test_that("toxval_predict errors when resolution is not a whole number", {
 })
 
 test_that("toxval_predict errors when resolution is 1 or less", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", resolution = 1),
     "`resolution` must be greater than 1, not 1"
@@ -107,6 +114,7 @@ test_that("toxval_predict errors when resolution is 1 or less", {
 })
 
 test_that("toxval_predict errors when x_range is not length 2", {
+  skip_if_not_installed("drc")
   # a length-2 `x_range` must reach the comparisons below without being tested
   # element-wise first, as `is.na(x_range)` would
   expect_error(
@@ -121,6 +129,7 @@ test_that("toxval_predict errors when x_range is not length 2", {
 })
 
 test_that("toxval_predict errors when x_range contains a missing value", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", x_range = c(0, NA)),
     "`x_range` must not have any missing values"
@@ -128,6 +137,7 @@ test_that("toxval_predict errors when x_range contains a missing value", {
 })
 
 test_that("toxval_predict errors when x_range is not finite", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", x_range = c(0, Inf)),
     "`x_range` must be finite"
@@ -135,6 +145,7 @@ test_that("toxval_predict errors when x_range is not finite", {
 })
 
 test_that("toxval_predict errors when x_range is not increasing", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", x_range = c(3, 0)),
     "`x_range` must be increasing"
@@ -305,6 +316,7 @@ test_that("toxval_predict has no asymptote for a brmsfit unless one is named", {
 # toxval_predict.drc --------------------------------------------------------
 
 test_that("toxval_predict takes the asymptotes of a drc fit from its limits", {
+  skip_if_not_installed("drc")
   # nsec_drc_2 is LL.3, whose lower limit is fixed at 0
   result <- toxval_predict(nsec_drc_2, resolution = 5, n_boot = 10, seed = 42)
 
@@ -313,6 +325,7 @@ test_that("toxval_predict takes the asymptotes of a drc fit from its limits", {
 })
 
 test_that("toxval_predict reads x_var from a drc fit when it is not supplied", {
+  skip_if_not_installed("drc")
   result <- toxval_predict(nsec_drc_1, resolution = 5, n_boot = 10, seed = 42)
   supplied <- toxval_predict(
     nsec_drc_1,
@@ -327,6 +340,7 @@ test_that("toxval_predict reads x_var from a drc fit when it is not supplied", {
 })
 
 test_that("toxval_predict errors when x_var is not the dose variable of a drc fit", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "y", n_boot = 10),
     "`x_var` must be 'x', the dose variable of `object`, not 'y'"
@@ -334,6 +348,7 @@ test_that("toxval_predict errors when x_var is not the dose variable of a drc fi
 })
 
 test_that("toxval_predict returns a toxval_pred for an ungrouped drc fit", {
+  skip_if_not_installed("drc")
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
@@ -360,6 +375,7 @@ test_that("toxval_predict returns a toxval_pred for an ungrouped drc fit", {
 })
 
 test_that("toxval_predict returns one curve per curveid for a grouped drc fit", {
+  skip_if_not_installed("drc")
   result <- toxval_predict(
     daphnids_fit(),
     x_var = "dose",
@@ -376,6 +392,7 @@ test_that("toxval_predict returns one curve per curveid for a grouped drc fit", 
 })
 
 test_that("toxval_predict errors when a grouped drc fit is given no group_var", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(
       daphnids_fit(),
@@ -388,6 +405,7 @@ test_that("toxval_predict errors when a grouped drc fit is given no group_var", 
 })
 
 test_that("toxval_predict errors when an ungrouped drc fit is given a group_var", {
+  skip_if_not_installed("drc")
   # the curves are read from the coefficient names, so a `group_var` that names
   # a real column of a single-curve fit is still an error (#34)
   expect_error(
@@ -403,6 +421,7 @@ test_that("toxval_predict errors when an ungrouped drc fit is given a group_var"
 })
 
 test_that("toxval_predict errors when group_var is not the curveid of a drc fit", {
+  skip_if_not_installed("drc")
   # `dose` is a column of the data, so only the comparison with the `curveid`
   # stops it being recorded as the grouping variable. `x_var` is left to be
   # read from the fit, since `x_var = "dose"` would stop the call earlier, at
@@ -419,6 +438,7 @@ test_that("toxval_predict errors when group_var is not the curveid of a drc fit"
 })
 
 test_that("toxval_predict orders the curves of a drc fit by level, not by row", {
+  skip_if_not_installed("drc")
   # with the rows reversed and `time` a character column, `coef()` names the
   # 48h curve first; each curve is compared with `predict()` for its level, so
   # a reordering of `keys` without the curves also fails
@@ -469,6 +489,7 @@ test_that("toxval_predict orders the curves of a drc fit by level, not by row", 
 })
 
 test_that("toxval_predict errors when n_boot is not a positive whole number", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", n_boot = 2.5),
     "`n_boot` must be a whole number"
@@ -480,6 +501,7 @@ test_that("toxval_predict errors when n_boot is not a positive whole number", {
 })
 
 test_that("toxval_predict errors when seed is not a whole number", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", seed = "42"),
     "`seed` must be a whole number .* or NULL"
@@ -494,6 +516,7 @@ test_that("toxval_predict errors when seed is not a whole number", {
 # the predictor grid --------------------------------------------------------
 
 test_that("toxval_predict builds the grid from x_control, x_range and resolution", {
+  skip_if_not_installed("drc")
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
@@ -509,6 +532,7 @@ test_that("toxval_predict builds the grid from x_control, x_range and resolution
 })
 
 test_that("toxval_predict takes the grid range from the data when x_range is NULL", {
+  skip_if_not_installed("drc")
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
@@ -527,6 +551,7 @@ test_that("toxval_predict records the lowest concentration in the data as x_cont
 })
 
 test_that("toxval_predict starts the grid at the lowest concentration in the data", {
+  skip_if_not_installed("drc")
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
@@ -539,6 +564,7 @@ test_that("toxval_predict starts the grid at the lowest concentration in the dat
 })
 
 test_that("toxval_predict refuses an x_range that does not start at the control concentration", {
+  skip_if_not_installed("drc")
   # a lower bound of x_range would otherwise move the control
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", x_range = c(1, 3), n_boot = 5),
@@ -559,6 +585,7 @@ test_that("toxval_predict refuses an x_range that does not start at the control 
 })
 
 test_that("toxval_predict ends the grid at the data when only x_control is supplied", {
+  skip_if_not_installed("drc")
   result <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
@@ -572,6 +599,7 @@ test_that("toxval_predict ends the grid at the data when only x_control is suppl
 })
 
 test_that("toxval_predict warns when x_control lies outside the range of the data", {
+  skip_if_not_installed("drc")
   # ryegrass without its controls, so the lowest tested concentration is 0.94
   no_controls <- drc::drm(
     rootl ~ conc,
@@ -598,6 +626,7 @@ test_that("toxval_predict warns when x_control lies outside the range of the dat
 })
 
 test_that("toxval_predict errors when x_control is not a finite number below the end of the grid", {
+  skip_if_not_installed("drc")
   expect_error(
     toxval_predict(nsec_drc_1, x_var = "x", x_control = "0"),
     "`x_control` must be a number"
@@ -618,6 +647,7 @@ test_that("toxval_predict errors when x_control is not a finite number below the
 })
 
 test_that("toxval_predict errors when the predictor takes a single value", {
+  skip_if_not_installed("drc")
   # every observation at one concentration, so there is no range to build a
   # grid from
   fit <- nsec_drc_1
@@ -641,6 +671,7 @@ test_that("toxval_predict errors when the predictor takes a single value", {
 # the parametric bootstrap --------------------------------------------------
 
 test_that("toxval_predict is reproducible for a given seed", {
+  skip_if_not_installed("drc")
   args <- list(
     nsec_drc_1,
     x_var = "x",
@@ -656,6 +687,7 @@ test_that("toxval_predict is reproducible for a given seed", {
 })
 
 test_that("toxval_predict gives different realisations for different seeds", {
+  skip_if_not_installed("drc")
   first <- toxval_predict(
     nsec_drc_1,
     x_var = "x",
@@ -675,6 +707,7 @@ test_that("toxval_predict gives different realisations for different seeds", {
 })
 
 test_that("toxval_predict leaves the random number state alone", {
+  skip_if_not_installed("drc")
   set.seed(1)
   before <- .Random.seed
   toxval_predict(
@@ -689,6 +722,7 @@ test_that("toxval_predict leaves the random number state alone", {
 })
 
 test_that("toxval_predict at the fitted coefficients reproduces predict()", {
+  skip_if_not_installed("drc")
   # with every replicate set to coef(), the curve must be the fitted curve, so
   # this checks that each parameter reaches the drc mean function in the
   # position it expects; with b and e swapped, the same grid gives 0.897, 0.883,
@@ -725,6 +759,7 @@ test_that("toxval_predict at the fitted coefficients reproduces predict()", {
 })
 
 test_that("boot_parms draws from MVN(coef(object), vcov(object))", {
+  skip_if_not_installed("drc")
   # tested on the parameter scale rather than against the fitted curve: the
   # curve is nonlinear in its parameters, so the mean bootstrap curve differs
   # from the fitted curve by more than Monte Carlo error (0.0376 against 0.0351
@@ -758,6 +793,7 @@ test_that("boot_parms draws from MVN(coef(object), vcov(object))", {
 # the log scale ----------------------------------------------------------------
 
 test_that("toxval_predict gives a finite curve for every replicate of nsec_drc_2", {
+  skip_if_not_installed("drc")
   # SE(e) is 2.25 against e of 1.58, so on its own scale about a quarter of the
   # draws of e are at or below 0, where LL.3 evaluates log(dose / e)
   expect_equal(toxval:::drc_log_parms(nsec_drc_2), "e:(Intercept)")
@@ -780,6 +816,7 @@ test_that("toxval_predict gives a finite curve for every replicate of nsec_drc_2
 })
 
 test_that("boot_parms draws a log_scale parameter from the delta-method normal", {
+  skip_if_not_installed("drc")
   # with J diagonal, 1 / e for e and 1 otherwise, (b, d, log(e)) is drawn from
   # MVN((b, d, log(e)), J V J')
   n_boot <- 10000
@@ -809,6 +846,7 @@ test_that("boot_parms draws a log_scale parameter from the delta-method normal",
 })
 
 test_that("boot_parms leaves the draw unchanged when log_scale is empty", {
+  skip_if_not_installed("drc")
   expect_identical(
     toxval:::boot_parms(nsec_drc_2, n_boot = 20, seed = 3),
     toxval:::boot_parms(
@@ -821,6 +859,7 @@ test_that("boot_parms leaves the draw unchanged when log_scale is empty", {
 })
 
 test_that("drc_log_parms names the e of every curve of a grouped drc fit", {
+  skip_if_not_installed("drc")
   fit <- daphnids_fit()
   shared <- drc::drm(
     (total - no) / total ~ dose,
@@ -845,6 +884,7 @@ test_that("drc_log_parms names the e of every curve of a grouped drc fit", {
 })
 
 test_that("drc_log_parms finds e in a fit with a fixed or renamed parameter", {
+  skip_if_not_installed("drc")
   # fixing b removes it from coef(), so e is the third coefficient rather than
   # the fourth, under the name the fit gives it
   renamed <- drc::drm(
@@ -866,6 +906,7 @@ test_that("drc_log_parms finds e in a fit with a fixed or renamed parameter", {
 })
 
 test_that("drc_log_parms leaves the draw of a fit outside the set unchanged", {
+  skip_if_not_installed("drc")
   # G.4 has no parameter that must be positive; LL2.4 and LN.4(loge = TRUE)
   # share a class with LL.4 and LN.4 but estimate log(e), which takes any sign
   fits <- list(
@@ -892,6 +933,7 @@ test_that("drc_log_parms leaves the draw of a fit outside the set unchanged", {
 })
 
 test_that("drc_positive_parms finds the parameters drc requires to be positive", {
+  skip_if_not_installed("drc")
   dose <- c(0.5, 1, 2, 4)
   # a value for every parameter name the constructors below use
   values <- c(
@@ -946,6 +988,7 @@ test_that("drc_positive_parms finds the parameters drc requires to be positive",
 })
 
 test_that("the realisations of a grouped drc fit come from one joint parameter draw", {
+  skip_if_not_installed("drc")
   # alignment: replicate i of every curve is the same draw of the whole
   # parameter vector, which is what makes per-realisation quantities from
   # different curves comparable row by row
@@ -985,6 +1028,7 @@ test_that("the realisations of a grouped drc fit come from one joint parameter d
 })
 
 test_that("drc_eval_curve reproduces the drc mean function row by row", {
+  skip_if_not_installed("drc")
   x_vec <- c(0.5, 1, 2)
   parms <- rbind(coef(nsec_drc_1), coef(nsec_drc_1) * 1.1)
   result <- toxval:::drc_eval_curve(nsec_drc_1, x_vec, parms)
@@ -1017,6 +1061,7 @@ test_that("drc_split_parm_names splits drc coefficient names on the first colon"
 })
 
 test_that("toxval_predict keeps a curveid level that contains a colon", {
+  skip_if_not_installed("drc")
   data <- drc::daphnids
   data$time <- ifelse(data$time == "24h", "t:24h", "t:48h")
   fit <- drc::drm(
@@ -1040,6 +1085,7 @@ test_that("toxval_predict keeps a curveid level that contains a colon", {
 })
 
 test_that("drc_split_parm_names splits drc coefficients as expected", {
+  skip_if_not_installed("drc")
   # nsec_drc_1 uses LL.4 is the four parameter log-logistic model
   result <- toxval:::drc_split_parm_names(names(coef(nsec_drc_1)))
 
@@ -1058,6 +1104,7 @@ test_that("drc_split_parm_names errors on a name it cannot split", {
 })
 
 test_that("toxval_predict builds each curve of a drc fit with shared parameters", {
+  skip_if_not_installed("drc")
   # `pmodels` fits one slope across both curves and an ED50 for each, so the
   # coefficients are `b:(Intercept)`, `e:24h` and `e:48h`: a curve is assembled
   # from its own parameters plus the shared one. With every replicate set to
@@ -1219,6 +1266,7 @@ test_that("group_levels keeps the declared order of a factor", {
 })
 
 test_that("toxval_predict handles a single bootstrap replicate", {
+  skip_if_not_installed("drc")
   # n_boot = 1 is the edge case where a draw is most easily returned as a
   # vector rather than a 1-row matrix. The values also pin the draw for a
   # seed: the Cholesky factor of `vcov()` is unique, so they are the same on

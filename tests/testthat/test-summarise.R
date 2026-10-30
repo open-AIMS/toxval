@@ -768,6 +768,7 @@ test_that("summarise_metric warns for the censored increasing EC10 on brms_model
 })
 
 test_that("summarise_metric summarises a drc NSEC from bootstrap realisations", {
+  skip_if_not_installed("drc")
   pred <- toxval_predict(
     nsec_drc_1,
     resolution = 200,

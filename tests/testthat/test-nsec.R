@@ -41,6 +41,7 @@ test_that("xform errors if function not passed ", {
 })
 
 test_that("x_range can be passed various values", {
+  skip_if_not_installed("drc")
   expect_error(
     nsec(nsec_drc_1, x_range = c(100), x_var = "x"),
     regexp = "`x_range` must be length 2 not 1"
@@ -117,6 +118,7 @@ test_that("additional examples brms 2", {
 })
 
 test_that("nsec works for drc using continuous data", {
+  skip_if_not_installed("drc")
   model_LL4 <- drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::LL.4())
   output <- nsec(model_LL4, x_var = "x", seed = 1)
 
@@ -134,6 +136,7 @@ test_that("nsec works for drc using continuous data", {
 })
 
 test_that("nsec for drc works for curveid and binomial data", {
+  skip_if_not_installed("drc")
   daphnids_m2 <- drc::drm(
     (total - no) / total ~ dose,
     weights = total,
@@ -152,6 +155,7 @@ test_that("nsec for drc works for curveid and binomial data", {
 })
 
 test_that("nsec for drc returns an error for an nec model", {
+  skip_if_not_installed("drc")
   rye_NEC4 <- drc::drm(
     rootl ~ conc,
     data = drc::ryegrass,
@@ -164,6 +168,7 @@ test_that("nsec for drc returns an error for an nec model", {
 })
 
 test_that("nsec for drc throws an error for an increasing function", {
+  skip_if_not_installed("drc")
   daphnids_m1 <- drc::drm(
     no / total ~ dose,
     weights = total,
@@ -188,6 +193,7 @@ test_that("nsec for drc throws an error for an increasing function", {
 })
 
 test_that("nsec drc additional example 1", {
+  skip_if_not_installed("drc")
   data <- bayesnec_herbicide[bayesnec_herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
   output_drc <- drc::drm(
@@ -209,6 +215,7 @@ test_that("nsec drc additional example 1", {
 })
 
 test_that("nsec drc additional example 2", {
+  skip_if_not_installed("drc")
   data <- bayesnec_herbicide[bayesnec_herbicide$herbicide == "ametryn", ]
   data$concentration <- sqrt(data$concentration)
   output_drc <- drc::drm(
@@ -431,10 +438,12 @@ test_that("brms model when posterior is true and group_var is na", {
 # drc ---------------------------------------------------------------------
 
 test_that("drc model can read x_var from the fit", {
+  skip_if_not_installed("drc")
   expect_no_error(nsec(nsec_drc_1))
 })
 
 test_that("drc model errors if wrong x_var is supplied", {
+  skip_if_not_installed("drc")
   expect_error(
     nsec(nsec_drc_1, x_var = "a"),
     regexp = "`x_var` must be 'x', the dose variable of `object`, not 'a'"
@@ -442,6 +451,7 @@ test_that("drc model errors if wrong x_var is supplied", {
 })
 
 test_that("drc model errors if more then 1 sig val is passed", {
+  skip_if_not_installed("drc")
   expect_error(
     nsec(nsec_drc_1, x_var = "x", sig_val = c(0.1, 0.2)),
     regexp = "`sig_val` must be a number \\(non-missing numeric scalar\\)"
@@ -449,6 +459,7 @@ test_that("drc model errors if more then 1 sig val is passed", {
 })
 
 test_that("drc model output attributes", {
+  skip_if_not_installed("drc")
   output <- nsec(nsec_drc_1, x_var = "x", seed = 1)
   output <- output[1, ]
 
@@ -466,6 +477,7 @@ test_that("drc model output attributes", {
 })
 
 test_that("drc curveid is translated to group_var", {
+  skip_if_not_installed("drc")
   fit <- drc::drm(
     (total - no) / total ~ dose,
     weights = total,
@@ -482,6 +494,7 @@ test_that("drc curveid is translated to group_var", {
 })
 
 test_that("drc curveid must name the curveid column of the fit", {
+  skip_if_not_installed("drc")
   expect_error(
     suppressWarnings(nsec(nsec_drc_1, curveid = "a")),
     "`group_var` must name a column of the data in `object`, not 'a'"
@@ -489,6 +502,7 @@ test_that("drc curveid must name the curveid column of the fit", {
 })
 
 test_that("drc model curveid switches attributes to have a matrix for ecnsec_relativeP", {
+  skip_if_not_installed("drc")
   output <- nsec(nsec_drc_1, x_var = "x", seed = 1)
 
   expect_equal(output$estimate[[1]], 1.183707, tolerance = 0.001)
@@ -498,6 +512,7 @@ test_that("drc model curveid switches attributes to have a matrix for ecnsec_rel
 })
 
 test_that("drc model provides NA estimates when no realisation crosses the reference", {
+  skip_if_not_installed("drc")
   # SE(e) exceeds e in nsec_drc_2; e is drawn on the log scale, so no
   # replicate is excluded, but none crosses the reference in either direction
   expect_no_warning(output <- nsec(nsec_drc_2, seed = 1, draws = TRUE))
@@ -583,6 +598,7 @@ test_that("a decreasing xform mirrors a censored NSEC and its draws (#69)", {
 # nsec.drc — additional tests ---------------------------------------------
 
 test_that("nsec drc model has expected structure and shape", {
+  skip_if_not_installed("drc")
   output <- nsec(
     nsec_drc_1,
     x_var = "x",
@@ -617,6 +633,7 @@ test_that("nsec drc model has expected structure and shape", {
 })
 
 test_that("drc nsec xform changes output values", {
+  skip_if_not_installed("drc")
   output_1 <- nsec(nsec_drc_1, x_var = "x", seed = 1)
   output_2 <- nsec(nsec_drc_1, x_var = "x", xform = function(x) x * 2, seed = 1)
 
@@ -669,6 +686,7 @@ test_that("nsec errors when a toxval_pred is given predict-level arguments", {
 })
 
 test_that("curveid must not be supplied with group_var", {
+  skip_if_not_installed("drc")
   expect_error(
     suppressWarnings(nsec(nsec_drc_1, curveid = "time", group_var = "time")),
     "`curveid` must not be supplied with `group_var`"
