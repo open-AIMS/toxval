@@ -68,9 +68,8 @@ to summarise the realisations by, in that order.}
 
 \item{xform}{A function applied to the per-realisation concentrations before
 they are summarised, such as \code{exp} for a model fitted on log
-concentration. It must be monotone over the evaluated range, and may be
-decreasing, such as \code{function(d) 3.5 - d} for a predictor fitted as a
-reduction from 3.5.}
+concentration. It must be monotone over the evaluated range and may be
+decreasing.}
 
 \item{ecx_val}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#deprecated}{\figure{lifecycle-deprecated.svg}{options: alt='[Deprecated]'}}}{\strong{[Deprecated]}} Use \code{proportion}, or
 \code{reference} under \code{type = "direct"}.}
@@ -104,8 +103,7 @@ is \code{"relative"}.
 \item \code{draws}: where \code{draws = TRUE}, a tibble per row of \code{.draw} and
 \code{value.draw}, the ECx of each realisation, after \code{xform}. A realisation
 that does not reach the reference is \code{Inf}, or \code{-Inf} where \code{xform} is
-decreasing, so that it ranks beyond the highest concentration. One
-excluded from the summary is \code{NA}.
+decreasing, and one excluded from the summary is \code{NA}.
 }
 
 \code{control}, \code{reference} and \code{asymptote} are on the response scale, as the
@@ -151,10 +149,11 @@ A realisation that does not reach the reference within the evaluated range
 ranks above the highest concentration, and an interval limit that falls
 among such realisations is reported as the highest concentration, with a
 warning. When any realisation is censored, the reported quantiles are
-observed order statistics. Under \code{"range"} this includes a realisation that never falls below,
-or rises above, its control. Under \code{"absolute"} and \code{"relative"}, a
-realisation with nothing to take the proportion of, such as a control at or
-below 0 or a missing asymptote, is excluded from the summary, with a warning.
+observed order statistics. Under \code{"range"} this includes a realisation that
+never falls below, or rises above, its control. Under \code{"absolute"} and
+\code{"relative"}, a realisation with nothing to take the proportion of, such as
+a control at or below 0 or a missing asymptote, is excluded from the
+summary, with a warning.
 }
 \section{Fits from bayesnec}{
 

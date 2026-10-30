@@ -32,9 +32,9 @@ object.}
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
 \code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
 
-\item{sig_val}{A number strictly between 0 and 0.5, the quantile of the control
-realisations that sets the decreasing reference; \code{1 - sig_val} sets the
-increasing one.}
+\item{sig_val}{A number strictly between 0 and 0.5, the quantile of the
+control realisations that sets the decreasing reference; \code{1 - sig_val}
+sets the increasing one.}
 
 \item{type}{One of \code{"absolute"}, \code{"relative"} or \code{"range"}, naming the span
 \code{ecnsec} is a proportion of. See \code{\link[=ecx]{ecx()}}.}
@@ -74,9 +74,8 @@ to summarise the realisations by, in that order.}
 
 \item{xform}{A function applied to the per-realisation concentrations before
 they are summarised, such as \code{exp} for a model fitted on log
-concentration. It must be monotone over the evaluated range, and may be
-decreasing, such as \code{function(d) 3.5 - d} for a predictor fitted as a
-reduction from 3.5.}
+concentration. It must be monotone over the evaluated range and may be
+decreasing.}
 
 \item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#defunct}{\figure{lifecycle-defunct.svg}{options: alt='[Defunct]'}}}{\strong{[Defunct]}} Supplying it is an
 error. Use \code{draws}.}
@@ -110,8 +109,8 @@ proportion of the span named by \code{type}, summarised by \code{prob_vals}.
 \item \code{draws}: where \code{draws = TRUE}, a tibble per row of \code{.draw},
 \code{value.draw}, the NSEC of each realisation after \code{xform}, and
 \code{ecnsec.draw}. A realisation that does not reach the reference is \code{Inf}
-in \code{value.draw}, or \code{-Inf} where \code{xform} is decreasing, so that it ranks
-beyond the highest concentration. One excluded from the summary is \code{NA}.
+in \code{value.draw}, or \code{-Inf} where \code{xform} is decreasing, and one excluded
+from the summary is \code{NA}.
 }
 
 \code{control}, \code{reference} and \code{asymptote} are on the response scale, as the

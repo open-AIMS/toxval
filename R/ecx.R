@@ -37,10 +37,11 @@
 #' ranks above the highest concentration, and an interval limit that falls
 #' among such realisations is reported as the highest concentration, with a
 #' warning. When any realisation is censored, the reported quantiles are
-#' observed order statistics. Under `"range"` this includes a realisation that never falls below,
-#' or rises above, its control. Under `"absolute"` and `"relative"`, a
-#' realisation with nothing to take the proportion of, such as a control at or
-#' below 0 or a missing asymptote, is excluded from the summary, with a warning.
+#' observed order statistics. Under `"range"` this includes a realisation that
+#' never falls below, or rises above, its control. Under `"absolute"` and
+#' `"relative"`, a realisation with nothing to take the proportion of, such as
+#' a control at or below 0 or a missing asymptote, is excluded from the
+#' summary, with a warning.
 #'
 #' @section Fits from bayesnec:
 #' `ecx()` also accepts a `bayesnecfit` or `bayesmanecfit` from
@@ -80,8 +81,7 @@
 #'   - `draws`: where `draws = TRUE`, a tibble per row of `.draw` and
 #'     `value.draw`, the ECx of each realisation, after `xform`. A realisation
 #'     that does not reach the reference is `Inf`, or `-Inf` where `xform` is
-#'     decreasing, so that it ranks beyond the highest concentration. One
-#'     excluded from the summary is `NA`.
+#'     decreasing, and one excluded from the summary is `NA`.
 #'
 #'   `control`, `reference` and `asymptote` are on the response scale, as the
 #'   central `prob_vals` quantile of the realisations. The tibble prints the

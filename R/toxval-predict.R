@@ -6,10 +6,12 @@
 #'
 #' @details
 #' Realisations are posterior draws for a Bayesian fit and parametric bootstrap
-#' replicates for a frequentist one.
+#' replicates for a frequentist one. A bootstrap replicate is drawn from a
+#' multivariate normal with the coefficients as its mean and their covariance.
 #'
-#' Supply `group_var` to get one curve per level rather than a single curve. The curves follow the order of the levels of a factor, and
-#' otherwise their sorted order. Each method states what `group_var` must name.
+#' Supply `group_var` to get one curve per level rather than a single curve.
+#' The curves follow the order of the levels of a factor, and otherwise their
+#' sorted order. Each method states what `group_var` must name.
 #'
 #' The grid starts at the control concentration, where the control response is
 #' predicted, and every reference, ECx and NSEC is measured from that response.
@@ -162,12 +164,10 @@ toxval_predict.brmsfit <- function(
 }
 
 #' @describeIn toxval_predict Method for a fit from [drc::drm()].
-#'   Realisations are parametric bootstrap replicates, drawn from a
-#'   multivariate normal with the coefficients and their covariance, so
-#'   results vary between calls unless `seed` is supplied. A parameter the
-#'   fitted function requires to be positive, such as `e` in `LL.4()`, is
-#'   drawn on the log scale, so every replicate is a valid curve. `x_var` is
-#'   read from the fit if not supplied. `group_var` must name the column passed
+#'   Realisations are parametric bootstrap replicates, so results vary between
+#'   calls unless `seed` is supplied. A parameter that must be positive, such
+#'   as `e` in `LL.4()`, is drawn on the log scale. `x_var` is read from the
+#'   fit if not supplied. `group_var` must name the column passed
 #'   as `curveid`. The asymptotes used by `type = "relative"` are the lower and
 #'   upper limits of the fitted function.
 #'
@@ -241,10 +241,10 @@ toxval_predict.drc <- function(
 #'   `group_var` must be `NULL`. A predictor transformed inside `crf()`, such
 #'   as `crf(log(x), ...)`, is reported in units of `x`, so `xform = exp` must
 #'   not be supplied. A binomial or beta-binomial response is predicted at one
-#'   trial, so its curve is a proportion. The asymptotes used by `type = "relative"`
-#'   are the `bot` parameter, or 0 for an equation without one, and 1 for a
-#'   proportion. An asymptote is `NA` where the family has no such bound or
-#'   the link is not identity.
+#'   trial, so its curve is a proportion. The asymptotes used by
+#'   `type = "relative"` are the `bot` parameter, or 0 for an equation without
+#'   one, and 1 for a proportion. An asymptote is `NA` where the family has no
+#'   such bound or the link is not identity.
 #'
 #' @export
 toxval_predict.bayesnecfit <- function(

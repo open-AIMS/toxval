@@ -36,9 +36,8 @@ to summarise the realisations by, in that order.}
 
 \item{xform}{A function applied to the per-realisation concentrations before
 they are summarised, such as \code{exp} for a model fitted on log
-concentration. It must be monotone over the evaluated range, and may be
-decreasing, such as \code{function(d) 3.5 - d} for a predictor fitted as a
-reduction from 3.5.}
+concentration. It must be monotone over the evaluated range and may be
+decreasing.}
 
 \item{posterior}{\ifelse{html}{\href{https://lifecycle.r-lib.org/articles/stages.html#defunct}{\figure{lifecycle-defunct.svg}{options: alt='[Defunct]'}}}{\strong{[Defunct]}} Supplying it is an
 error. Use \code{draws}.}

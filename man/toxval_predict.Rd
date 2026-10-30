@@ -129,10 +129,12 @@ and \code{\link[=nsec]{nsec()}} in place of the fitted model.
 }
 \details{
 Realisations are posterior draws for a Bayesian fit and parametric bootstrap
-replicates for a frequentist one.
+replicates for a frequentist one. A bootstrap replicate is drawn from a
+multivariate normal with the coefficients as its mean and their covariance.
 
-Supply \code{group_var} to get one curve per level rather than a single curve. The curves follow the order of the levels of a factor, and
-otherwise their sorted order. Each method states what \code{group_var} must name.
+Supply \code{group_var} to get one curve per level rather than a single curve.
+The curves follow the order of the levels of a factor, and otherwise their
+sorted order. Each method states what \code{group_var} must name.
 
 The grid starts at the control concentration, where the control response is
 predicted, and every reference, ECx and NSEC is measured from that response.
@@ -162,12 +164,10 @@ not depend on the number of trials.
 multivariate fit.
 
 \item \code{toxval_predict(drc)}: Method for a fit from \code{\link[drc:drm]{drc::drm()}}.
-Realisations are parametric bootstrap replicates, drawn from a
-multivariate normal with the coefficients and their covariance, so
-results vary between calls unless \code{seed} is supplied. A parameter the
-fitted function requires to be positive, such as \code{e} in \code{LL.4()}, is
-drawn on the log scale, so every replicate is a valid curve. \code{x_var} is
-read from the fit if not supplied. \code{group_var} must name the column passed
+Realisations are parametric bootstrap replicates, so results vary between
+calls unless \code{seed} is supplied. A parameter that must be positive, such
+as \code{e} in \code{LL.4()}, is drawn on the log scale. \code{x_var} is read from the
+fit if not supplied. \code{group_var} must name the column passed
 as \code{curveid}. The asymptotes used by \code{type = "relative"} are the lower and
 upper limits of the fitted function.
 
@@ -178,10 +178,10 @@ effects excluded. \code{x_var} is read from the \code{crf()} term if not supplie
 \code{group_var} must be \code{NULL}. A predictor transformed inside \code{crf()}, such
 as \code{crf(log(x), ...)}, is reported in units of \code{x}, so \code{xform = exp} must
 not be supplied. A binomial or beta-binomial response is predicted at one
-trial, so its curve is a proportion. The asymptotes used by \code{type = "relative"}
-are the \code{bot} parameter, or 0 for an equation without one, and 1 for a
-proportion. An asymptote is \code{NA} where the family has no such bound or
-the link is not identity.
+trial, so its curve is a proportion. The asymptotes used by
+\code{type = "relative"} are the \code{bot} parameter, or 0 for an equation without
+one, and 1 for a proportion. An asymptote is \code{NA} where the family has no
+such bound or the link is not identity.
 
 \item \code{toxval_predict(bayesmanecfit)}: Method for a model average from
 \code{bayesnec::bnec()}, of class \code{bayesmanecfit}, which requires \code{bayesnec} to

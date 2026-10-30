@@ -48,9 +48,9 @@
 #' existing calls.
 #'
 #' @inheritParams toxval_params
-#' @param sig_val A number strictly between 0 and 0.5, the quantile of the control
-#'   realisations that sets the decreasing reference; `1 - sig_val` sets the
-#'   increasing one.
+#' @param sig_val A number strictly between 0 and 0.5, the quantile of the
+#'   control realisations that sets the decreasing reference; `1 - sig_val`
+#'   sets the increasing one.
 #' @param type One of `"absolute"`, `"relative"` or `"range"`, naming the span
 #'   `ecnsec` is a proportion of. See [ecx()].
 #' @param anchor For a model-averaged fit, the control the reference is taken
@@ -83,8 +83,8 @@
 #'   - `draws`: where `draws = TRUE`, a tibble per row of `.draw`,
 #'     `value.draw`, the NSEC of each realisation after `xform`, and
 #'     `ecnsec.draw`. A realisation that does not reach the reference is `Inf`
-#'     in `value.draw`, or `-Inf` where `xform` is decreasing, so that it ranks
-#'     beyond the highest concentration. One excluded from the summary is `NA`.
+#'     in `value.draw`, or `-Inf` where `xform` is decreasing, and one excluded
+#'     from the summary is `NA`.
 #'
 #'   `control`, `reference` and `asymptote` are on the response scale, as the
 #'   central `prob_vals` quantile of the realisations. The tibble prints the
