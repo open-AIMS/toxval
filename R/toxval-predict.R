@@ -162,11 +162,14 @@ toxval_predict.brmsfit <- function(
 }
 
 #' @describeIn toxval_predict Method for a fit from [drc::drm()].
-#'   Realisations are parametric bootstrap replicates, so results vary between
-#'   calls unless `seed` is supplied. `x_var` is read from the fit if not
-#'   supplied. `group_var` must name the column passed as `curveid`. The
-#'   asymptotes used by `type = "relative"` are the lower and upper limits of
-#'   the fitted function.
+#'   Realisations are parametric bootstrap replicates, drawn from a
+#'   multivariate normal with the coefficients and their covariance, so
+#'   results vary between calls unless `seed` is supplied. A parameter the
+#'   fitted function requires to be positive, such as `e` in `LL.4()`, is
+#'   drawn on the log scale, so every replicate is a valid curve. `x_var` is
+#'   read from the fit if not supplied. `group_var` must name the column passed
+#'   as `curveid`. The asymptotes used by `type = "relative"` are the lower and
+#'   upper limits of the fitted function.
 #'
 #' @param n_boot A whole number giving the number of parametric bootstrap
 #'   replicates to draw.
@@ -897,7 +900,7 @@ drc_eval_curve <- function(object, x_vec, parms) {
 #'
 #' @noRd
 drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
-  parms <- boot_parms(object, n_boot, seed)
+  parms <- boot_parms(object, n_boot, seed, log_scale = drc_log_parms(object))
   split <- drc_split_parm_names(colnames(parms))
 
   # `drc` suffixes a parameter with `(Intercept)` when it is shared across every
@@ -961,6 +964,114 @@ drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
     keys = group_keys(if (grouped) curve_ids),
     asymptote = asymptote
   )
+}
+
+#' The coefficients of a `drc` fit to bootstrap on the log scale
+#'
+#' A parameter that the mean function requires to be positive is drawn on the
+#' log scale by `boot_parms()`, so that no replicate falls outside the
+#' parameter space. Such a parameter is sought only in a fit of the classes in
+#' `drc_log_classes`. Every parameter of a fit of any other class is drawn on
+#' the scale of its coefficient.
+#'
+#' @param object A fitted model of class `drc`.
+#'
+#' @return The names of the coefficients, as `coef(object)` names them, to draw
+#'   on the log scale: every curve's coefficient for each parameter that
+#'   `drc_positive_parms()` returns.
+#'
+#' @noRd
+drc_log_parms <- function(object) {
+  if (!inherits(object$fct, drc_log_classes)) {
+    return(character())
+  }
+  mu <- stats::coef(object)
+  split <- drc_split_parm_names(names(mu))
+  is_shared <- split$curve == "(Intercept)"
+  # every curve has the same mean function, so the first is tested for all
+  first_curve <- c(split$curve[!is_shared], "(Intercept)")[1]
+  cols <- drc_curve_cols(split, is_shared, first_curve)
+  dose <- object$dataList$dose
+  positive <- drc_positive_parms(
+    object$fct,
+    stats::setNames(mu[cols], split$param[cols]),
+    dose[dose > 0]
+  )
+  # a log needs a positive estimate on every curve, not only the first
+  positive <- positive[vapply(
+    positive,
+    function(param) all(mu[split$param == param] > 0),
+    logical(1)
+  )]
+  names(mu)[split$param %in% positive]
+}
+
+#' The classes of `drc` mean functions with a parameter that must be positive
+#'
+#' The mean function evaluates `log(dose / e)` or `log(e)` in `llogistic()`
+#' (`LL.*`, `l*`, `MM.*`), `weibull1()` (`W1.*`, `w*`, `EXD.*`), `weibull2()`
+#' and `weibull2x()` (`W2.*`, `AR.*`, `W2x.*`), `lnormal()` (`LN.*`),
+#' `braincousens()` (`BC.*`, `bcl*`), `cedergreen()` (`CRS.4*`, `CRS.5*`,
+#' `ml*`), `CRS.6()`, `ucedergreen()` (`UCRS.*`, `uml*`), `lgaussian()` and
+#' `baro5()`, and `log(dose / e1)` and `log(dose / e2)` in `twophase()`. In
+#' `gammadr()` `e` is the shape of a gamma distribution. `drc_positive_parms()`
+#' decides which parameter of a fit of these classes is drawn on the log
+#' scale.
+#'
+#' @noRd
+drc_log_classes <- c(
+  "llogistic",
+  "Weibull-1",
+  "Weibull-2",
+  "log-normal",
+  "braincousens",
+  "mllogistic",
+  "cedergreen.extended",
+  "UCRS",
+  "lgaussian",
+  "baro5",
+  "two-phase",
+  "gamma"
+)
+
+#' The parameters a `drc` mean function requires to be positive
+#'
+#' A parameter is returned when its value in `parm` is positive and the mean
+#' function gives `NaN` at some value of `dose` once that value is negated. The
+#' test is on the mean function rather than on the name of the parameter:
+#' `LL2.*` shares the class of `LL.*`, and `LN.*(loge = TRUE)` that of `LN.*`,
+#' but each estimates `log(e)`, which may take either sign.
+#'
+#' @param fct The `fct` of a `drc` fit.
+#' @param parm A named numeric vector, one value of every parameter of one
+#'   curve, in the order the mean function takes them.
+#' @param dose Positive doses at which to evaluate the mean function.
+#'
+#' @return The names of `parm` that must be positive.
+#'
+#' @noRd
+drc_positive_parms <- function(fct, parm, dose) {
+  parm_mat <- matrix(
+    parm,
+    nrow = length(dose),
+    ncol = length(parm),
+    byrow = TRUE
+  )
+  is_positive <- vapply(
+    seq_along(parm),
+    function(j) {
+      if (parm[j] <= 0) {
+        return(FALSE)
+      }
+      probe <- parm_mat
+      probe[, j] <- -probe[, j]
+      # drc warns "NaNs produced" for the negated value, which is the result
+      # sought here
+      any(is.nan(suppressWarnings(fct$fct(dose, probe))))
+    },
+    logical(1)
+  )
+  names(parm)[is_positive]
 }
 
 #' The asymptotes of a `drc` curve at every parameter draw

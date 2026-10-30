@@ -178,7 +178,7 @@ test_that("nsec for drc throws an error for an increasing function", {
   expect_equal(output$estimate[c(1, 3)], c(NA_real_, NA_real_))
   expect_equal(
     output$estimate[c(2, 4)],
-    c(513.0672, 274.9758),
+    c(523.0816, 270.7910),
     tolerance = 0.001
   )
 
@@ -454,7 +454,7 @@ test_that("drc model output attributes", {
 
   expect_equal(
     c(output$estimate, output$conf.low, output$conf.high),
-    c(1.183707, 0.99448, 1.2846),
+    c(1.183818, 0.995025, 1.284760),
     tolerance = 0.0001
   )
   expect_equal(output$control, 0.897248, tolerance = 0.0001)
@@ -497,18 +497,16 @@ test_that("drc model curveid switches attributes to have a matrix for ecnsec_rel
   expect_equal(output$ecnsec[[1]], 0.016873, tolerance = 0.001)
 })
 
-test_that("drc model provides NA estimates when draws are excluded and not enough info to generate", {
-  warnings <- capture_warnings(output <- nsec(nsec_drc_2, seed = 1))
+test_that("drc model provides NA estimates when no realisation crosses the reference", {
+  # SE(e) exceeds e in nsec_drc_2; e is drawn on the log scale, so no
+  # replicate is excluded, but none crosses the reference in either direction
+  expect_no_warning(output <- nsec(nsec_drc_2, seed = 1, draws = TRUE))
 
-  expect_match(warnings, "NaNs produced", all = FALSE)
-  expect_match(
-    warnings,
-    "increasing: 24.6% excluded",
-    all = FALSE,
-    fixed = TRUE
-  )
   expect_equal(output$direction, c("decreasing", "increasing"))
-  expect_equal(output$estimate[[2]], NA_real_)
+  expect_equal(output$estimate, c(NA_real_, NA_real_))
+  for (row_draws in output$draws) {
+    expect_false(anyNA(row_draws$value.draw))
+  }
 })
 
 # nsec.brmsfit — additional tests ------------------------------------------
