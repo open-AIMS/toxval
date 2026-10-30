@@ -927,7 +927,9 @@ test_that("drc_positive_parms finds the parameters drc requires to be positive",
     drc::BC.5(),
     drc::CRS.4a(),
     drc::CRS.6(),
-    drc::UCRS.4a(),
+    # not UCRS.4a: drc 4.0-0 lists its fixed `c` in `names`, so the vector
+    # built from `names` is one too long and drm() cannot fit it either
+    drc::UCRS.5a(),
     drc::lgaussian(),
     drc::gammadr()
   )) {
