@@ -57,8 +57,8 @@ cols <- unname(grDevices::palette.colors(9, "Okabe-Ito")[c(2, 6, 4, 7)])
 
 An ECx is the concentration at which a fitted response has changed by x per
 cent, so the EC10 is where it has changed by 10 per cent. Software and guidance
-differ in what that change is a percentage of, so the same fit can give
-different ECx values (Daniels et al. 2026). `ecx()` estimates the concentration
+differ in what that change is a percentage of, so one fit can give different
+ECx values (Daniels et al. 2026). `ecx()` estimates the concentration
 at which a fitted curve crosses a reference response. The estimate is computed
 separately for each realisation of the fit (a posterior draw of a Bayesian fit,
 or a parametric bootstrap replicate of a frequentist fit), and in two
@@ -86,6 +86,12 @@ realisation is then the first concentration at which its curve passes downward
 through the decreasing reference, and the increasing ECx is the first at which
 it passes upward through the increasing reference. `ecx()` returns the median
 of these values over the realisations, with a 95 per cent interval by default.
+
+Both directions are sought on each call and returned as rows identified by the
+`direction` column (for each curve and proportion, one row for the first
+decreasing crossing and one for the first increasing crossing), and there is no
+argument for choosing a direction. A direction in which no realisation crosses
+is returned with `NA` estimates, because the crossing was sought and not found.
 
 The examples below use curves defined by formulas with chosen parameter
 values, so that each ECx has an exact value. `ecx()` computes on a
@@ -132,7 +138,7 @@ hand_pred <- function(curve, params, x_vec, family = "gaussian",
 
 The argument `type` sets what the effect in an ECx is a proportion of, and
 therefore the response at which the ECx is read. Its four values can give
-different ECx values from the same curve, which we illustrate with one
+different ECx values from one curve, which we illustrate with one
 realisation of the exponential decay $y = 20 + 80\,e^{-x/2}$, evaluated over
 $0 \le x \le 6$. Its control is 100, and its lower asymptote (the limit of the
 response as $x$ increases without bound) is 20, which is supplied in the
@@ -302,12 +308,13 @@ in the table agrees with the exact crossing to within one grid step of
   be negative (e.g. a growth rate) has more than complete inhibition when it
   falls below 0, and the equation in paragraph 50 of that guideline places no
   upper limit on the inhibition. The increasing form is described under
-  [Increasing responses](#increasing-responses).
+  [An increasing response](#an-increasing-response).
 - `relative` measures from the control to the asymptote of the fitted equation
   (the lower asymptote for a decrease and the upper asymptote for an increase),
-  so the effect is a proportion of the maximum achievable effect. The asymptote is usually a parameter of the equation, and where it is
-  estimated beyond the observed responses it is an extrapolation, whose
-  uncertainty is included in the ECx.
+  so the effect is a proportion of the maximum achievable effect. The asymptote
+  is usually a parameter of the equation, and where it is estimated beyond the
+  observed responses it is an extrapolation, whose uncertainty is included in
+  the ECx.
 - `range` measures from the control to the lowest response predicted over the
   grid (or the highest, for an increase). It therefore depends on the
   concentrations evaluated; for example, the minimum here,
@@ -316,27 +323,40 @@ in the table agrees with the exact crossing to within one grid step of
   response value supplied as `reference`, which is used in both directions
   (i.e. the first downward crossing in the decreasing row and the first upward
   crossing in the increasing row). The `control` column is `NA`, although the
-  control is still compared with the reference: a realisation with no crossing
-  whose control is already past the reference is placed at the control
-  concentration rather than above the highest.
+  control is still compared with the reference (see
+  [Realisations without an ECx](#realisations-without-an-ecx)).
 
 The names `absolute` and `relative` follow Daniels et al. (2026), for whom an
 absolute ECx is a change relative to the control and a relative ECx is a
-change relative to the maximum achievable effect.
+change relative to the maximum achievable effect. Before toxval 2.0.0,
+`relative` measured to the extent of the curve, which is now `range`, so a call
+that supplies `type = "relative"` warns about its definition, whatever the
+data.
 
-A call that supplies `type = "relative"` warns about the definition of
-`relative`, whatever the data. This curve never rises above its control and
-has no upper asymptote, so its increasing span is undefined under `relative`
-and zero under `range`. A realisation whose span is undefined or zero has no
-reference and is excluded, and the `relative` call also warns that all
-realisations were excluded from the increasing row. However, under `range` a
-zero span means that the curve never departs from its control in that
-direction, so the realisation is censored instead. A span counts as zero when
-it is no larger than rounding error (`sqrt(.Machine$double.eps)` times the
-absolute value of the control). In either case no realisation has an
-increasing ECx, so that row is returned with `NA` estimates. Excluded and
-censored realisations, and the warning that gives their proportion, are
-described in `vignette("nsec-definition", package = "toxval")`.
+### The `proportion` and `reference` arguments
+
+Two arguments give the size of the effect: `proportion` under `absolute`,
+`relative` and `range`, and `reference` under `direct`. `proportion` accepts
+several values, each giving its own rows, and the `proportion` column of the
+result gives the value for each row. Under `type = "direct"` the value is a
+response, not a proportion, so it is supplied as `reference` (also the name of
+the column that gives it). `reference` is required under `direct` and refused
+under the other types, whereas `proportion` is refused under `direct`, where the
+`proportion` column is `NA`.
+
+```{r}
+#| label: reference-errors
+#| error: true
+ecx(pred_exp, type = "direct")
+ecx(pred_exp, type = "direct", proportion = 0.5, reference = 40)
+ecx(pred_exp, proportion = 0.5, reference = 40)
+```
+
+These names differ from those of `drc::ED()`, whose `type = "absolute"` is
+toxval's `direct`. `drc::ED()` takes the response value in `respLev` (the
+argument that gives the percentage under its `type = "relative"`), and its own
+`reference` argument chooses between the control and the upper limit as the
+starting point.
 
 `proportion` above 1 is refused under `relative` and `range`, since the
 reference would then be beyond the asymptote or the extent of the curve, but it
@@ -361,13 +381,368 @@ stopifnot(within_step(ec120$estimate[1], 8, x_neg))
 `ecx()` returns `r fmt(ec120$estimate[1])` for the EC120, with the reference
 `r fmt(ec120$reference[1], 2)`.
 
+## An increasing response
+
+Some responses increase with concentration (e.g. the proportion of organisms
+affected). A decrease under `absolute` is measured against a fall to 0, but an
+increase has no such end point unless the response is a proportion, so under
+`absolute` the span of an increase depends on the kind of response. For a
+response with no upper bound the span is the control itself, so a 10 per cent
+increase from a control of 20 is 22. This is relative deviation (EFSA 2022,
+section 2.6.2; OECD 2006, paragraph 306), the mirror of the decreasing form. For
+a proportion, however, the span is the distance from the control to 1, so the
+reference is $\text{control} + p\,(1 - \text{control})$, which is extra risk
+(i.e. Abbott's formula; US EPA 2012).
+
+For example, the straight line $y = 20 + 2x$ was evaluated over
+$0 \le x \le 10$ as a `gaussian` response. Its EC10 and EC50 references are 22
+and 30, which it crosses at $x = 1$ and $x = 5$.
+
+```{r}
+#| label: increasing
+x_inc <- seq(0, 10, length.out = 501)
+rise <- function(x, control, slope) control + slope * x
+pred_rise <- hand_pred(rise, data.frame(control = 20, slope = 2), x_inc)
+ec_rise <- ecx(pred_rise, proportion = c(0.1, 0.5))
+ec_rise[c("direction", "estimate", "proportion", "control", "reference")]
+```
+
+```{r}
+#| label: increasing-check
+#| echo: false
+rise_inc <- ec_rise[ec_rise$direction == "increasing", ]
+rise_dec <- ec_rise[ec_rise$direction == "decreasing", ]
+stopifnot(
+  isTRUE(all.equal(rise_inc$reference, c(22, 30))),
+  isTRUE(all.equal(rise_dec$reference, c(18, 10))),
+  within_step(rise_inc$estimate, c(1, 5), x_inc),
+  all(is.na(ec_rise$estimate[ec_rise$direction == "decreasing"]))
+)
+```
+
+`proportion = c(0.1, 0.5)` gives two rows for each value (one per direction).
+The increasing EC10 and EC50 are `r fmt(rise_inc$estimate[1])` and
+`r fmt(rise_inc$estimate[2])`, whereas the decreasing rows have references of
+`r rise_dec$reference[1]` and `r rise_dec$reference[2]` but no estimate,
+because the curve never falls below its control.
+
+The family recorded in the `toxval_pred` determines which span applies. A
+proportion is recognised from the `brms` families `bernoulli`, `beta`,
+`zero_inflated_beta`, `zero_one_inflated_beta`, `binomial`, `beta_binomial`
+and `zero_inflated_binomial`, and from a `drc` fit whose `type` is
+`"binomial"`. A binomial family is included because `toxval_predict()`
+predicts it at one trial, on the proportion scale. To compare relative
+deviation with extra risk, we built the line $y = 0.2 + 0.08x$ twice over the
+grid above, once as a `beta` response and once as a `gaussian` one.
+
+```{r}
+#| label: proportion-scale
+line_params <- data.frame(control = 0.2, slope = 0.08)
+pred_beta <- hand_pred(rise, line_params, x_inc, family = "beta")
+pred_unbounded <- hand_pred(rise, line_params, x_inc, family = "gaussian")
+extra_risk <- ecx(pred_beta, proportion = 0.1)
+relative_deviation <- ecx(pred_unbounded, proportion = 0.1)
+extra_risk[c("direction", "estimate", "control", "reference")]
+relative_deviation[c("direction", "estimate", "control", "reference")]
+```
+
+```{r}
+#| label: proportion-scale-check
+#| echo: false
+share_of_possible <- 100 * (0.22 - 0.2) / (1 - 0.2)
+ratio_ec10 <- relative_deviation$estimate[2] / extra_risk$estimate[2]
+stopifnot(
+  isTRUE(all.equal(extra_risk$reference[2], 0.2 + 0.1 * 0.8)),
+  within_step(extra_risk$estimate[2], 1, x_inc),
+  isTRUE(all.equal(relative_deviation$reference[2], 0.2 * 1.1)),
+  within_step(relative_deviation$estimate[2], 0.25, x_inc)
+)
+# the increasing span recovered from the output of each call
+inc_span <- c(
+  gaussian = (relative_deviation$reference[2] - relative_deviation$control[2]) /
+    relative_deviation$proportion[2],
+  beta = (extra_risk$reference[2] - extra_risk$control[2]) /
+    extra_risk$proportion[2]
+)
+stopifnot(isTRUE(all.equal(unname(inc_span), c(0.2, 0.8))))
+```
+
+```{r}
+#| label: fig-increasing
+#| echo: false
+#| fig-cap: "The line $y = 0.2 + 0.08x$ as a response that is not a proportion (left) and as a proportion (right): its control (grey dotted line), the increasing span (double-headed arrow) to the level it is measured to (grey dotted line), the EC10 reference (dashed line) and the crossing `ecx()` returns (point, and tick on the concentration axis)."
+#| fig-width: 6.5
+#| fig-height: 3.6
+inc_rows <- list(gaussian = relative_deviation[2, ], beta = extra_risk[2, ])
+inc_titles <- c(gaussian = "gaussian: relative deviation",
+                beta = "beta: extra risk")
+inc_far_labels <- c(gaussian = "2 × control", beta = "upper bound")
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 1.5, 0.5), mgp = c(2.2, 0.7, 0))
+for (i in seq_along(inc_rows)) {
+  row <- inc_rows[[i]]
+  span_panel(
+    x_inc, pred_beta$curves[[1]][1, ], row$control, row$control + inc_span[i],
+    row$reference, row$estimate, cols[i], inc_titles[i],
+    labels = list(
+      control = paste("control", num(row$control)),
+      far = paste(inc_far_labels[i], num(row$control + inc_span[i])),
+      span = paste("S =", num(inc_span[i])),
+      point = paste0("reference ", num(row$reference), "\nEC10 ",
+                     fmt(row$estimate, 3))
+    ),
+    # the curve crosses 0.4 near the arrow, so that label goes at the right
+    # end, below its line, where the curve is above it
+    control_adj = c(1, 1.5),
+    far_adj = if (i == 1) c(1, 1.5) else c(-0.1, -0.5),
+    point_adj = NULL, ylim = c(-0.1, 1.1), point_corner = TRUE
+  )
+}
+par(op)
+```
+
+The increasing span of the `gaussian` response runs from the control of 0.2 to
+twice the control (a span of `r fmt(inc_span[["gaussian"]], 2)`), whereas that
+of the `beta` response runs from the control to 1 (a span of
+`r fmt(inc_span[["beta"]], 2)`; @fig-increasing). As a proportion, the EC10
+reference is $0.2 + 0.1 \times 0.8$ = `r fmt(extra_risk$reference[2])`, crossed
+at `r fmt(extra_risk$estimate[2])`. As an unbounded response it is
+$0.2 \times 1.1$ = `r fmt(relative_deviation$reference[2])`, crossed at
+`r fmt(relative_deviation$estimate[2])`. Applied to this proportion, relative
+deviation sets the reference above the control by 10 per cent of the control,
+which is `r fmt(share_of_possible, 2)` per cent of the increase still possible
+(from 0.2 to 1), so its EC10 is `r fmt(ratio_ec10, 2)` times the extra-risk
+EC10.
+
+## A hormetic response
+
+A hormetic curve (one that rises above its control at low concentrations
+before it falls) can cross both references, the increasing one on the way up
+and the decreasing one on the way down. `ecx()` returns an ECx for each
+direction, and the example shows how each is read.
+
+We evaluated the quadratic
+$y = 100 + 5x(4 - x)$ over $0 \le x \le 6$, which rises from a control of 100
+to 120 at $x = 2$ and falls to 40 at $x = 6$. Its absolute EC10 references are
+110 and 90. The curve crosses 110 on the way up where $x^2 - 4x + 2 = 0$ (at
+$2 - \sqrt{2}$), and crosses 90 on the way down where $x^2 - 4x - 2 = 0$ (at
+$2 + \sqrt{6}$).
+
+```{r}
+#| label: hormetic
+x_horme <- seq(0, 6, length.out = 601)
+hump <- function(x, a) 100 + a * x * (4 - x)
+pred_horme <- hand_pred(hump, data.frame(a = 5), x_horme)
+ec10_horme <- ecx(pred_horme, proportion = 0.1)
+ec10_horme[c("direction", "estimate", "control", "reference")]
+```
+
+```{r}
+#| label: hormetic-check
+#| echo: false
+horme_exact <- c(decreasing = 2 + sqrt(6), increasing = 2 - sqrt(2))
+stopifnot(
+  identical(ec10_horme$direction, names(horme_exact)),
+  within_step(ec10_horme$estimate, horme_exact, x_horme),
+  isTRUE(all.equal(ec10_horme$reference, c(90, 110)))
+)
+```
+
+```{r}
+#| label: fig-hormetic
+#| echo: false
+#| fig-cap: "The hormetic curve $y = 100 + 5x(4 - x)$ with its control (dotted line), its absolute EC10 references (dashed lines) and the two crossings `ecx()` returns (points)."
+#| fig-width: 6
+#| fig-height: 4.2
+op <- par(mar = c(4, 4, 1, 1))
+plot(x_horme, hump(x_horme, 5), type = "l", lwd = 2,
+     xlab = "Concentration", ylab = "Response")
+abline(h = 100, lty = 3, col = "grey40")
+abline(h = ec10_horme$reference, col = cols[1:2], lty = 2)
+points(ec10_horme$estimate, ec10_horme$reference, pch = 19, col = cols[1:2])
+legend("bottomleft", legend = ec10_horme$direction, col = cols[1:2], lty = 2,
+       pch = 19, bty = "n")
+par(op)
+```
+
+The increasing EC10 is `r fmt(ec10_horme$estimate[2])`, against
+$2 - \sqrt{2}$ = `r fmt(horme_exact[["increasing"]])`, and the decreasing EC10
+is `r fmt(ec10_horme$estimate[1])`, against $2 + \sqrt{6}$ =
+`r fmt(horme_exact[["decreasing"]])` (@fig-hormetic). The decreasing EC10 is
+the first downward crossing of 90, which is beyond the peak at $x = 2$, so the
+rise above the control does not prevent it from being found. Where only one
+direction is needed, it can be kept by filtering the result (e.g.
+`dplyr::filter(ec10_horme, direction == "decreasing")`).
+
+## Realisations without an ECx
+
+A realisation can lack an ECx in a direction in two ways. It is excluded when
+it has no span in that direction, so that no reference can be set, and it is
+censored when it has a reference but does not cross it within the grid. How
+such realisations are treated changes the interval, and sometimes the
+estimate.
+
+A span is undefined where the asymptote it is measured to is missing, and it
+counts as zero when it is no larger than rounding error
+(`sqrt(.Machine$double.eps)` times the absolute value of the control). The
+exponential decay of [ECx definitions](#ecx-definitions) never rises above its
+control and has no upper asymptote, so its increasing span is undefined under
+`relative` and zero under `range`.
+
+```{r}
+#| label: no-ecx
+by_type$relative[c("direction", "estimate", "control", "reference")]
+by_type$range[c("direction", "estimate", "control", "reference")]
+```
+
+```{r}
+#| label: no-ecx-check
+#| echo: false
+stopifnot(
+  is.na(by_type$relative$control[2]),
+  is.na(by_type$relative$reference[2]),
+  isTRUE(all.equal(by_type$range$control[2], 100)),
+  is.na(by_type$range$reference[2]),
+  is.na(by_type$relative$estimate[2]),
+  is.na(by_type$range$estimate[2])
+)
+```
+
+Under `relative` the realisation has no reference and is excluded, so the
+increasing row has no `control` or `reference`, and the call warns that all
+realisations were excluded from that row. Under `range`, however, a zero span
+means that the curve never departs from its control in that direction, so the
+realisation is censored instead, and the row keeps its `control`. In either
+case no realisation has an increasing ECx, so that row is returned with `NA`
+estimates. A span of zero or less also arises for a proportion whose control is
+at or above 1. Such a realisation is excluded, and the row has `NA` estimates
+only where no other realisation crosses. A fitted example in which all
+realisations are excluded, because its span is zero up to rounding error, is
+given under [A fitted model](#a-fitted-model).
+
+A realisation that has a reference but does not reach it by the highest
+concentration is `Inf` in the `draws` column, which ranks it above all
+crossings. A quantile that falls among such realisations is reported as the
+highest concentration, and the call warns. Under `direct`, a realisation with no
+crossing whose control is already past the reference is placed at the control
+concentration rather than above the highest. Excluded and censored
+realisations, and the warning that gives their proportion, are described in
+`vignette("nsec-definition", package = "toxval")`.
+
+## Uncertainty in the control
+
+The control of a fitted curve is uncertain, so it differs from one realisation
+to the next. An EC10 could therefore be measured against 90 per cent of each
+realisation's own control, or against one response shared by all realisations
+(e.g. 90 per cent of the median control). `ecx()` uses the first, so the EC10
+of a realisation is the concentration at which that realisation has fallen by
+10 per cent of its own control.
+
+To show the difference, we constructed three realisations of the line
+$y = c\,(1 - x/10)$ over $0 \le x \le 10$, with controls $c$ of 95, 100 and
+105. Each falls to 90 per cent of its own control at $x = 1$.
+
+```{r}
+#| label: per-realisation
+x_line <- seq(0, 10, length.out = 501)
+line <- function(x, control) control * (1 - x / 10)
+pred_line <- hand_pred(line, data.frame(control = c(95, 100, 105)), x_line)
+
+ec10_line <- ecx(pred_line, proportion = 0.1, draws = TRUE)
+ec10_line[c("direction", "estimate", "conf.low", "conf.high", "control")]
+ec10_line$draws[[1]]
+```
+
+```{r}
+#| label: per-realisation-check
+#| echo: false
+stopifnot(
+  within_step(ec10_line$draws[[1]]$value.draw, 1, x_line),
+  within_step(ec10_line$estimate[1], 1, x_line),
+  is.na(ec10_line$estimate[2]),
+  ec10_line$conf.low[1] == ec10_line$conf.high[1]
+)
+```
+
+Each realisation crosses its own reference (0.9 × 95, 0.9 × 100 and 0.9 × 105)
+at $x = 1$ (the `value.draw` column), so the EC10 is
+`r fmt(ec10_line$estimate[1])`, with an interval of zero width. The `control`
+column gives the central quantile of the controls, here the median of
+`r fmt(ec10_line$control[1])`.
+
+For comparison, one reference of 90 per cent of the median control is
+0.9 × 100 = 90. `ecx()` with `type = "direct"` (see
+[ECx definitions](#ecx-definitions)) finds where each
+realisation crosses a reference supplied in this way.
+
+```{r}
+#| label: one-reference
+fixed_level <- ecx(pred_line, type = "direct", reference = 90, draws = TRUE)
+fixed_level$draws[[1]]
+```
+
+```{r}
+#| label: one-reference-check
+#| echo: false
+fixed_exact <- 10 * (1 - 90 / c(95, 100, 105))
+stopifnot(within_step(fixed_level$draws[[1]]$value.draw, fixed_exact, x_line))
+```
+
+```{r}
+#| label: fig-per-realisation
+#| echo: false
+#| fig-cap: "Three realisations of $y = c\\,(1 - x/10)$, labelled by their controls. Left, each with its own EC10 reference, 0.9 times its control (dashed lines). Right, all three with the one reference of 90 (dashed line). Points and ticks on the concentration axis mark the crossings `ecx()` returns."
+#| fig-width: 6.5
+#| fig-height: 3.3
+line_curves <- pred_line$curves[[1]]
+line_controls <- line_curves[, 1]
+own_reference <- line_controls * (1 - ec10_line$proportion[1])
+own_crossing <- ec10_line$draws[[1]]$value.draw
+fixed_crossing <- fixed_level$draws[[1]]$value.draw
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 1.5, 0.5), mgp = c(2.2, 0.7, 0))
+for (panel in c("own", "fixed")) {
+  plot(NA, xlim = c(0, 2), ylim = c(80, 108), xlab = "Concentration",
+       ylab = "Response", cex.axis = 0.8, cex.main = 0.95, font.main = 1,
+       main = if (panel == "own") "Reference of each realisation" else
+         "One reference of 90")
+  for (j in seq_along(line_controls)) {
+    lines(x_line, line_curves[j, ], lwd = 2, col = cols[j])
+    text(0.03, line_controls[j], paste("c =", line_controls[j]),
+         adj = c(0, -0.7), cex = 0.7)
+    if (panel == "own") {
+      segments(0, own_reference[j], own_crossing[j], own_reference[j],
+               lty = 2, col = cols[j], lwd = 1.5)
+      points(own_crossing[j], own_reference[j], pch = 19, col = cols[j])
+    } else {
+      points(fixed_crossing[j], 90, pch = 19, col = cols[j])
+      axis(1, at = fixed_crossing[j], labels = FALSE, col.ticks = cols[j],
+           lwd.ticks = 2, tcl = -0.6)
+    }
+  }
+  if (panel == "own") {
+    axis(1, at = own_crossing[1], labels = FALSE, lwd.ticks = 2, tcl = -0.6)
+  } else {
+    abline(h = 90, lty = 2, lwd = 1.5)
+  }
+}
+par(op)
+```
+
+With a reference for each realisation (@fig-per-realisation, left), the
+references are `r paste(fmt(own_reference), collapse = ", ")`, and all three
+are crossed at $x = 1$. The one reference of 90 (@fig-per-realisation, right) is
+a fall of 5 from the control of 95 but of 15 from the control of 105, so the
+three realisations cross it at
+`r paste(fmt(fixed_level$draws[[1]]$value.draw), collapse = ", ")`. The three
+realisations have the same shape, so this spread of crossings comes only from
+the spread of their controls.
+
 ## Sources of the asymptote
 
 Under `type = "relative"` the effect is measured against the asymptote of the
 fitted equation, so each realisation needs a value for that asymptote. The
 value depends on the form of the equation: `LL.4()` estimates its lower limit,
-whereas `LL.3()` fixes it at 0. A fitted `LL.4()` example below
-compares the relative and absolute EC50. `ecx()` reads the asymptote from the
+whereas `LL.3()` fixes it at 0. [A fitted model](#a-fitted-model) compares
+the relative and absolute EC50 of a fitted `LL.4()`. `ecx()` reads the asymptote from the
 `asymptote` slot of the `toxval_pred`, and refuses the call when there is
 none.
 
@@ -411,6 +786,14 @@ each realisation is measured to the asymptote of its own equation. For a
 excluded with a warning, and the remaining equations are averaged. Because the
 proportion corresponds to a different response in each equation, a
 model-averaged `relative` ECx does not correspond to a single response level.
+
+## A fitted model
+
+The examples above are constructed so that each answer is known exactly. For a
+fitted model the calculation is unchanged, and only the source of the
+realisations differs. The example compares the relative and absolute EC50 of
+two equations fitted to the same data: `LL.4()`, whose lower limit is
+estimated, and `LL.3()`, whose lower limit is fixed at 0.
 
 We fitted the `LL.4()` equation,
 $f(x) = c + (d - c)/(1 + \exp(b(\ln x - \ln e)))$, to the root lengths of
@@ -678,337 +1061,6 @@ an interval of `r fmt_drc(ll3_relative$conf.low[1])` to
 `LL.3()` curve falls to `r fmt_drc(ll3_at_max)` at the highest concentration
 (`r fmt_drc(max(rye_tested), 2)`), below the lower limit $c$ of the `LL.4()`
 fit, because its own lower limit is fixed at 0.
-
-## Increasing responses
-
-Some responses increase with concentration (e.g. the proportion of organisms
-affected). A decrease under `absolute` is measured against a fall to 0, but an
-increase has no such end point unless the response is a proportion, so under
-`absolute` the span of an increase depends on the kind of response. For a
-response with no upper bound the span is the control itself, so a 10 per cent
-increase from a control of 20 is 22. This is relative deviation (EFSA 2022,
-section 2.6.2; OECD 2006, paragraph 306), the mirror of the decreasing form. For
-a proportion, however, the span is the distance from the control to 1, so the
-reference is $\text{control} + p\,(1 - \text{control})$, which is extra risk
-(i.e. Abbott's formula; US EPA 2012).
-
-For example, the straight line $y = 20 + 2x$ was evaluated over
-$0 \le x \le 10$ as a `gaussian` response. Its EC10 and EC50 references are 22
-and 30, which it crosses at $x = 1$ and $x = 5$.
-
-```{r}
-#| label: increasing
-x_inc <- seq(0, 10, length.out = 501)
-rise <- function(x, control, slope) control + slope * x
-pred_rise <- hand_pred(rise, data.frame(control = 20, slope = 2), x_inc)
-ec_rise <- ecx(pred_rise, proportion = c(0.1, 0.5))
-ec_rise[c("direction", "estimate", "proportion", "control", "reference")]
-```
-
-```{r}
-#| label: increasing-check
-#| echo: false
-rise_inc <- ec_rise[ec_rise$direction == "increasing", ]
-rise_dec <- ec_rise[ec_rise$direction == "decreasing", ]
-stopifnot(
-  isTRUE(all.equal(rise_inc$reference, c(22, 30))),
-  isTRUE(all.equal(rise_dec$reference, c(18, 10))),
-  within_step(rise_inc$estimate, c(1, 5), x_inc),
-  all(is.na(ec_rise$estimate[ec_rise$direction == "decreasing"]))
-)
-```
-
-`proportion = c(0.1, 0.5)` gives two rows for each value (one per direction).
-The increasing EC10 and EC50 are `r fmt(rise_inc$estimate[1])` and
-`r fmt(rise_inc$estimate[2])`, whereas the decreasing rows have references of
-`r rise_dec$reference[1]` and `r rise_dec$reference[2]` but no estimate,
-because the curve never falls below its control.
-
-The family recorded in the `toxval_pred` determines which span applies. A
-proportion is recognised from the `brms` families `bernoulli`, `beta`,
-`zero_inflated_beta`, `zero_one_inflated_beta`, `binomial`, `beta_binomial`
-and `zero_inflated_binomial`, and from a `drc` fit whose `type` is
-`"binomial"`. A binomial family is included because `toxval_predict()`
-predicts it at one trial, on the proportion scale. To compare relative
-deviation with extra risk, we built the line $y = 0.2 + 0.08x$ twice over the
-grid above, once as a `beta` response and once as a `gaussian` one.
-
-```{r}
-#| label: proportion-scale
-line_params <- data.frame(control = 0.2, slope = 0.08)
-pred_beta <- hand_pred(rise, line_params, x_inc, family = "beta")
-pred_unbounded <- hand_pred(rise, line_params, x_inc, family = "gaussian")
-extra_risk <- ecx(pred_beta, proportion = 0.1)
-relative_deviation <- ecx(pred_unbounded, proportion = 0.1)
-extra_risk[c("direction", "estimate", "control", "reference")]
-relative_deviation[c("direction", "estimate", "control", "reference")]
-```
-
-```{r}
-#| label: proportion-scale-check
-#| echo: false
-share_of_possible <- 100 * (0.22 - 0.2) / (1 - 0.2)
-ratio_ec10 <- relative_deviation$estimate[2] / extra_risk$estimate[2]
-stopifnot(
-  isTRUE(all.equal(extra_risk$reference[2], 0.2 + 0.1 * 0.8)),
-  within_step(extra_risk$estimate[2], 1, x_inc),
-  isTRUE(all.equal(relative_deviation$reference[2], 0.2 * 1.1)),
-  within_step(relative_deviation$estimate[2], 0.25, x_inc)
-)
-# the increasing span recovered from the output of each call
-inc_span <- c(
-  gaussian = (relative_deviation$reference[2] - relative_deviation$control[2]) /
-    relative_deviation$proportion[2],
-  beta = (extra_risk$reference[2] - extra_risk$control[2]) /
-    extra_risk$proportion[2]
-)
-stopifnot(isTRUE(all.equal(unname(inc_span), c(0.2, 0.8))))
-```
-
-```{r}
-#| label: fig-increasing
-#| echo: false
-#| fig-cap: "The line $y = 0.2 + 0.08x$ as a response that is not a proportion (left) and as a proportion (right): its control (grey dotted line), the increasing span (double-headed arrow) to the level it is measured to (grey dotted line), the EC10 reference (dashed line) and the crossing `ecx()` returns (point, and tick on the concentration axis)."
-#| fig-width: 6.5
-#| fig-height: 3.6
-inc_rows <- list(gaussian = relative_deviation[2, ], beta = extra_risk[2, ])
-inc_titles <- c(gaussian = "gaussian: relative deviation",
-                beta = "beta: extra risk")
-inc_far_labels <- c(gaussian = "2 × control", beta = "upper bound")
-op <- par(mfrow = c(1, 2), mar = c(4, 4, 1.5, 0.5), mgp = c(2.2, 0.7, 0))
-for (i in seq_along(inc_rows)) {
-  row <- inc_rows[[i]]
-  span_panel(
-    x_inc, pred_beta$curves[[1]][1, ], row$control, row$control + inc_span[i],
-    row$reference, row$estimate, cols[i], inc_titles[i],
-    labels = list(
-      control = paste("control", num(row$control)),
-      far = paste(inc_far_labels[i], num(row$control + inc_span[i])),
-      span = paste("S =", num(inc_span[i])),
-      point = paste0("reference ", num(row$reference), "\nEC10 ",
-                     fmt(row$estimate, 3))
-    ),
-    # the curve crosses 0.4 near the arrow, so that label goes at the right
-    # end, below its line, where the curve is above it
-    control_adj = c(1, 1.5),
-    far_adj = if (i == 1) c(1, 1.5) else c(-0.1, -0.5),
-    point_adj = NULL, ylim = c(-0.1, 1.1), point_corner = TRUE
-  )
-}
-par(op)
-```
-
-The increasing span of the `gaussian` response runs from the control of 0.2 to
-twice the control (a span of `r fmt(inc_span[["gaussian"]], 2)`), whereas that
-of the `beta` response runs from the control to 1 (a span of
-`r fmt(inc_span[["beta"]], 2)`; @fig-increasing). As a proportion, the EC10
-reference is $0.2 + 0.1 \times 0.8$ = `r fmt(extra_risk$reference[2])`, crossed
-at `r fmt(extra_risk$estimate[2])`. As an unbounded response it is
-$0.2 \times 1.1$ = `r fmt(relative_deviation$reference[2])`, crossed at
-`r fmt(relative_deviation$estimate[2])`. Applied to this proportion, relative
-deviation sets the reference above the control by 10 per cent of the control,
-which is `r fmt(share_of_possible, 2)` per cent of the increase still possible
-(from 0.2 to 1), so its EC10 is `r fmt(ratio_ec10, 2)` times the extra-risk
-EC10. Where the span is zero or less (e.g. a proportion whose control is at or
-above 1), the realisation has no reference and is excluded from the summary,
-and the row has `NA` estimates only where no other realisation crosses.
-
-## Direction in the result
-
-An effect can be a decrease or an increase in the response, and some curves show
-both. `ecx()` returns both directions on each call, as rows identified by the
-`direction` column (for each curve and proportion, one row for the first
-decreasing crossing and one for the first increasing crossing), and there is no
-argument for choosing a direction. A direction in which no realisation crosses
-is returned with `NA` estimates, as in the examples above, because the crossing
-was sought and not found, and its `control` and `reference` are still given.
-
-A hormetic curve (one that rises above its control at low concentrations
-before it falls) can have both crossings. We evaluated the quadratic
-$y = 100 + 5x(4 - x)$ over $0 \le x \le 6$, which rises from a control of 100
-to 120 at $x = 2$ and falls to 40 at $x = 6$. Its absolute EC10 references are
-110 and 90. The curve crosses 110 on the way up where $x^2 - 4x + 2 = 0$ (at
-$2 - \sqrt{2}$), and crosses 90 on the way down where $x^2 - 4x - 2 = 0$ (at
-$2 + \sqrt{6}$).
-
-```{r}
-#| label: hormetic
-x_horme <- seq(0, 6, length.out = 601)
-hump <- function(x, a) 100 + a * x * (4 - x)
-pred_horme <- hand_pred(hump, data.frame(a = 5), x_horme)
-ec10_horme <- ecx(pred_horme, proportion = 0.1)
-ec10_horme[c("direction", "estimate", "control", "reference")]
-```
-
-```{r}
-#| label: hormetic-check
-#| echo: false
-horme_exact <- c(decreasing = 2 + sqrt(6), increasing = 2 - sqrt(2))
-stopifnot(
-  identical(ec10_horme$direction, names(horme_exact)),
-  within_step(ec10_horme$estimate, horme_exact, x_horme),
-  isTRUE(all.equal(ec10_horme$reference, c(90, 110)))
-)
-```
-
-```{r}
-#| label: fig-hormetic
-#| echo: false
-#| fig-cap: "The hormetic curve $y = 100 + 5x(4 - x)$ with its control (dotted line), its absolute EC10 references (dashed lines) and the two crossings `ecx()` returns (points)."
-#| fig-width: 6
-#| fig-height: 4.2
-op <- par(mar = c(4, 4, 1, 1))
-plot(x_horme, hump(x_horme, 5), type = "l", lwd = 2,
-     xlab = "Concentration", ylab = "Response")
-abline(h = 100, lty = 3, col = "grey40")
-abline(h = ec10_horme$reference, col = cols[1:2], lty = 2)
-points(ec10_horme$estimate, ec10_horme$reference, pch = 19, col = cols[1:2])
-legend("bottomleft", legend = ec10_horme$direction, col = cols[1:2], lty = 2,
-       pch = 19, bty = "n")
-par(op)
-```
-
-The increasing EC10 is `r fmt(ec10_horme$estimate[2])`, against
-$2 - \sqrt{2}$ = `r fmt(horme_exact[["increasing"]])`, and the decreasing EC10
-is `r fmt(ec10_horme$estimate[1])`, against $2 + \sqrt{6}$ =
-`r fmt(horme_exact[["decreasing"]])` (@fig-hormetic). The decreasing EC10 is
-the first downward crossing of 90, which is beyond the peak at $x = 2$, so the
-rise above the control does not prevent it from being found. Where only one
-direction is needed, it can be kept by filtering the result (e.g.
-`dplyr::filter(ec10_horme, direction == "decreasing")`).
-
-## The `proportion` and `reference` arguments
-
-Two arguments give the size of the effect: `proportion` under `absolute`,
-`relative` and `range`, and `reference` under `direct`. `proportion` accepts
-several values, each giving its own rows, and the `proportion` column of the
-result gives the value for each row. Under `type = "direct"` the value is a
-response, not a proportion, so it is supplied as `reference` (also the name of
-the column that gives it). `reference` is required under `direct` and refused
-under the other types, whereas `proportion` is refused under `direct`, where the
-`proportion` column is `NA`.
-
-```{r}
-#| label: reference-errors
-#| error: true
-ecx(pred_exp, type = "direct")
-ecx(pred_exp, type = "direct", proportion = 0.5, reference = 40)
-ecx(pred_exp, proportion = 0.5, reference = 40)
-```
-
-These names differ from those of `drc::ED()`, whose `type = "absolute"` is
-toxval's `direct`. `drc::ED()` takes the response value in `respLev` (the
-argument that gives the percentage under its `type = "relative"`), and its own
-`reference` argument chooses between the control and the upper limit as the
-starting point.
-
-## Uncertainty in the control
-
-The control of a fitted curve is uncertain, so it differs from one realisation
-to the next. An EC10 could therefore be measured against 90 per cent of each
-realisation's own control, or against one response shared by all realisations
-(e.g. 90 per cent of the median control). `ecx()` uses the first, so the EC10
-of a realisation is the concentration at which that realisation has fallen by
-10 per cent of its own control.
-
-To show the difference, we constructed three realisations of the line
-$y = c\,(1 - x/10)$ over $0 \le x \le 10$, with controls $c$ of 95, 100 and
-105. Each falls to 90 per cent of its own control at $x = 1$.
-
-```{r}
-#| label: per-realisation
-x_line <- seq(0, 10, length.out = 501)
-line <- function(x, control) control * (1 - x / 10)
-pred_line <- hand_pred(line, data.frame(control = c(95, 100, 105)), x_line)
-
-ec10_line <- ecx(pred_line, proportion = 0.1, draws = TRUE)
-ec10_line[c("direction", "estimate", "conf.low", "conf.high", "control")]
-ec10_line$draws[[1]]
-```
-
-```{r}
-#| label: per-realisation-check
-#| echo: false
-stopifnot(
-  within_step(ec10_line$draws[[1]]$value.draw, 1, x_line),
-  within_step(ec10_line$estimate[1], 1, x_line),
-  is.na(ec10_line$estimate[2]),
-  ec10_line$conf.low[1] == ec10_line$conf.high[1]
-)
-```
-
-Each realisation crosses its own reference (0.9 × 95, 0.9 × 100 and 0.9 × 105)
-at $x = 1$ (the `value.draw` column), so the EC10 is
-`r fmt(ec10_line$estimate[1])`, with an interval of zero width. The `control`
-column gives the central quantile of the controls, here the median of
-`r fmt(ec10_line$control[1])`.
-
-For comparison, one reference of 90 per cent of the median control is
-0.9 × 100 = 90. `ecx()` with `type = "direct"` (see
-[ECx definitions](#ecx-definitions)) finds where each
-realisation crosses a reference supplied in this way.
-
-```{r}
-#| label: one-reference
-fixed_level <- ecx(pred_line, type = "direct", reference = 90, draws = TRUE)
-fixed_level$draws[[1]]
-```
-
-```{r}
-#| label: one-reference-check
-#| echo: false
-fixed_exact <- 10 * (1 - 90 / c(95, 100, 105))
-stopifnot(within_step(fixed_level$draws[[1]]$value.draw, fixed_exact, x_line))
-```
-
-```{r}
-#| label: fig-per-realisation
-#| echo: false
-#| fig-cap: "Three realisations of $y = c\\,(1 - x/10)$, labelled by their controls. Left, each with its own EC10 reference, 0.9 times its control (dashed lines). Right, all three with the one reference of 90 (dashed line). Points and ticks on the concentration axis mark the crossings `ecx()` returns."
-#| fig-width: 6.5
-#| fig-height: 3.3
-line_curves <- pred_line$curves[[1]]
-line_controls <- line_curves[, 1]
-own_reference <- line_controls * (1 - ec10_line$proportion[1])
-own_crossing <- ec10_line$draws[[1]]$value.draw
-fixed_crossing <- fixed_level$draws[[1]]$value.draw
-op <- par(mfrow = c(1, 2), mar = c(4, 4, 1.5, 0.5), mgp = c(2.2, 0.7, 0))
-for (panel in c("own", "fixed")) {
-  plot(NA, xlim = c(0, 2), ylim = c(80, 108), xlab = "Concentration",
-       ylab = "Response", cex.axis = 0.8, cex.main = 0.95, font.main = 1,
-       main = if (panel == "own") "Reference of each realisation" else
-         "One reference of 90")
-  for (j in seq_along(line_controls)) {
-    lines(x_line, line_curves[j, ], lwd = 2, col = cols[j])
-    text(0.03, line_controls[j], paste("c =", line_controls[j]),
-         adj = c(0, -0.7), cex = 0.7)
-    if (panel == "own") {
-      segments(0, own_reference[j], own_crossing[j], own_reference[j],
-               lty = 2, col = cols[j], lwd = 1.5)
-      points(own_crossing[j], own_reference[j], pch = 19, col = cols[j])
-    } else {
-      points(fixed_crossing[j], 90, pch = 19, col = cols[j])
-      axis(1, at = fixed_crossing[j], labels = FALSE, col.ticks = cols[j],
-           lwd.ticks = 2, tcl = -0.6)
-    }
-  }
-  if (panel == "own") {
-    axis(1, at = own_crossing[1], labels = FALSE, lwd.ticks = 2, tcl = -0.6)
-  } else {
-    abline(h = 90, lty = 2, lwd = 1.5)
-  }
-}
-par(op)
-```
-
-With a reference for each realisation (@fig-per-realisation, left), the
-references are `r paste(fmt(own_reference), collapse = ", ")`, and all three
-are crossed at $x = 1$. The one reference of 90 (@fig-per-realisation, right) is
-a fall of 5 from the control of 95 but of 15 from the control of 105, so the
-three realisations cross it at
-`r paste(fmt(fixed_level$draws[[1]]$value.draw), collapse = ", ")`. The three
-realisations have the same shape, so this spread of crossings comes only from
-the spread of their controls.
 
 ## References
 
