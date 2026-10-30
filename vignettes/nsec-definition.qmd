@@ -269,22 +269,26 @@ an ECx. It is the effect that the NSEC reference represents, expressed as a
 proportion of the span named by `type`. It is the inverse of the ECx reference
 under that `type`: an ECx at proportion $p$ sets its reference $p$ of the span
 away from the control, and `ecnsec` gives the $p$ at which that reference would
-equal the NSEC reference. Under the default, `type = "absolute"`, the decreasing
-span of a realisation is its control, so for a realisation with control $c$ and
-reference $R$
+equal the NSEC reference. Under the default, `type = "absolute"`, both spans of
+a response that is not a proportion are the control, so for a realisation with
+control $c$, decreasing reference $R_{\text{dec}}$ and increasing reference
+$R_{\text{inc}}$
 
 $$
-\text{ecnsec} = \frac{c - R}{c}.
+\text{ecnsec} = \frac{c - R_{\text{dec}}}{c} \ \text{(decreasing)}, \qquad
+\text{ecnsec} = \frac{R_{\text{inc}} - c}{c} \ \text{(increasing)}.
 $$
 
 `ecnsec` is computed for each realisation and summarised by the quantiles used
-for the NSEC. For the decreasing set its median is
+for the NSEC. For the decreasing set the median decreasing `ecnsec` is
 $1 - `r ctl(r_dec)` / 10 = `r fmt(dec$ecnsec[1])`$ (i.e. the decreasing
-reference is `r pct(dec$ecnsec[1])` below the median control). The increasing
-span is also the control, since this response is not a proportion, and the
-increasing reference is `r pct(dec$ecnsec[2])` above the median control. The
-span for each `type` and direction is given in
-`vignette("ecx-definition", package = "toxval")`.
+reference is `r pct(dec$ecnsec[1])` below the median control), and the median
+increasing `ecnsec` is
+$`r ctl(r_inc)` / 10 - 1 = `r fmt(dec$ecnsec[2])`$ (the increasing reference is
+`r pct(dec$ecnsec[2])` above it). For a proportion the increasing span is
+instead the distance from the control to 1, as described under
+[An increasing response](#an-increasing-response), and the span for each `type`
+and direction is given in `vignette("ecx-definition", package = "toxval")`.
 
 We can test the inverse relation by calling `ecx()` at the median `ecnsec`.
 
@@ -301,7 +305,8 @@ stopifnot(
   abs(ecx_at_ecnsec$estimate[1] - dec$estimate[1]) < grid_step(dec_pred),
   # every realisation has the same shape, so the interval has zero width
   isTRUE(all.equal(ecx_at_ecnsec$conf.low[1], ecx_at_ecnsec$conf.high[1])),
-  abs(ecx_at_ecnsec$estimate[1] + 5 * log(1 - dec$ecnsec[1])) < grid_step(dec_pred)
+  abs(ecx_at_ecnsec$estimate[1] + 5 * log(1 - dec$ecnsec[1])) < grid_step(dec_pred),
+  isTRUE(all.equal(dec$ecnsec[2], r_inc / median_control - 1))
 )
 ```
 
@@ -422,17 +427,143 @@ median control of `r prop(median_inc)` is
 in agreement with the formula to within one grid step. The decreasing row is
 `NA`, since no realisation falls.
 
-For a response that is not a proportion the increasing span is the control
-itself (as in the decreasing set), whereas for a proportion the increasing span
-under `"absolute"` is $1 - c$ (the distance from the control to the upper bound
-of the response), so
+For a proportion, however, the increasing span under `"absolute"` is $1 - c$
+(the distance from the control to the upper bound of the response), so
 
 $$
-\text{ecnsec} = \frac{R - c}{1 - c},
+\text{ecnsec} = \frac{R_{\text{inc}} - c}{1 - c},
 $$
 
 which is the extra risk at the NSEC. Its median is
 $(`r prop(r_up)` - `r prop(median_inc)`) / (1 - `r prop(median_inc)`) = `r fmt(inc$ecnsec[2])`$.
+
+## A hormetic response
+
+A hormetic response rises above its control at low concentrations and then
+falls, so a realisation can cross the increasing reference and then the
+decreasing one. `nsec()` returns an NSEC for each direction, and the example
+shows how each is read.
+
+The third set uses the controls of the decreasing set with a hormetic shape,
+$y = c\,(1 + x/2)\,e^{-x/4}$, over a grid of 500 concentrations from 0 to 20.
+Each realisation rises to $2e^{-1/2} = `r fmt(2 * exp(-0.5))`$ times its control
+at $x = 2$ and then declines. Because the controls are unchanged, the
+references are those of the decreasing set.
+
+```{r}
+#| label: hormetic
+hormesis <- function(control, x) control * (1 + x / 2) * exp(-x / 4)
+horm_pred <- build_pred(hormesis, controls, seq(0, 20, length.out = 500))
+horm <- nsec(horm_pred)
+show_nsec(horm)
+```
+
+```{r}
+#| label: hormetic-check
+#| echo: false
+peak <- 2 * exp(-0.5)
+shape <- function(x) (1 + x / 2) * exp(-x / 4)
+# the first downward crossing lies after the peak for every realisation,
+# including those whose control starts below the reference
+horm_dec_hand <- vapply(
+  controls,
+  function(control) {
+    stats::uniroot(
+      function(x) control * shape(x) - r_dec,
+      c(2, 20),
+      tol = 1e-10
+    )$root
+  },
+  numeric(1)
+)
+horm_inc_hand <- vapply(
+  controls,
+  function(control) {
+    if (control >= r_inc) {
+      return(0)
+    }
+    if (control * peak <= r_inc) {
+      return(Inf)
+    }
+    stats::uniroot(
+      function(x) control * shape(x) - r_inc,
+      c(0, 2),
+      tol = 1e-10
+    )$root
+  },
+  numeric(1)
+)
+q_horm_dec <- quantile(horm_dec_hand, probs, names = FALSE)
+# the increasing row has censored realisations, so it takes order statistics
+q_horm_inc <- quantile(horm_inc_hand, probs, names = FALSE, type = 1)
+q_horm_inc[is.infinite(q_horm_inc)] <- max(horm_pred$x_vec)
+n_horm_censored <- sum(is.infinite(horm_inc_hand))
+# the realisations themselves, to read the value given to the first one; the
+# censoring warning was already shown by the call above
+horm_draws <- suppressWarnings(nsec(horm_pred, draws = TRUE))$draws
+horm_first_dec <- horm_draws[[1]]$value.draw[1]
+stopifnot(
+  controls[1] < r_dec,
+  abs(horm_first_dec - horm_dec_hand[1]) < grid_step(horm_pred),
+  # the censored realisations are those with the lowest controls
+  all(is.infinite(horm_inc_hand) == (seq_len(length(controls)) <= n_horm_censored)),
+  all(is.infinite(horm_draws[[2]]$value.draw) == is.infinite(horm_inc_hand)),
+  all(abs(unlist(horm[1, c("estimate", "conf.low", "conf.high")]) - q_horm_dec) <
+    grid_step(horm_pred)),
+  all(abs(unlist(horm[2, c("estimate", "conf.low", "conf.high")]) - q_horm_inc) <
+    grid_step(horm_pred)),
+  horm$conf.high[2] == max(horm_pred$x_vec),
+  n_horm_censored / length(controls) > 0.025,
+  horm_dec_hand[1] > 2,
+  isTRUE(all.equal(
+    unlist(horm[, c("ecnsec", "ecnsec.low", "ecnsec.high")]),
+    unlist(dec[, c("ecnsec", "ecnsec.low", "ecnsec.high")])
+  ))
+)
+```
+
+Both rows have estimates. The decreasing NSEC is `r fmt(horm$estimate[1])`
+(`r fmt(horm$conf.low[1])` to `r fmt(horm$conf.high[1])`), where the declining
+part of each curve falls through `r ctl(r_dec)`, and the increasing NSEC is
+`r fmt(horm$estimate[2])` (`r fmt(horm$conf.low[2])` to
+`r fmt(horm$conf.high[2])`), where the rising part passes `r ctl(r_inc)`. Both
+agree to within one grid step (`r fmt(grid_step(horm_pred))`) with crossings
+found by `uniroot()`. The increasing row has censored realisations, which
+never reach the reference and are ranked above every crossing (see
+[Realisations with no crossing](#realisations-with-no-crossing)), so its
+crossings are compared as order statistics. The `ecnsec` values are those of
+the decreasing set, because under `absolute` the effect at the NSEC depends
+only on the controls and the references, which are unchanged.
+
+```{r}
+#| label: fig-hormetic
+#| echo: false
+#| fig-cap: "Every tenth realisation of the hormetic set, with both references and both NSECs and their intervals."
+plot_nsec(horm_pred, horm)
+```
+
+Most curves cross twice (@fig-hormetic), with an increasing crossing before the
+peak at $x = 2$ and a decreasing crossing after it. The result also has two
+features that are absent from the monotone sets.
+
+First, the realisation with control `r ctl(controls[1])` starts below the
+decreasing reference, but it rises above the reference and then falls through
+it at `r fmt(horm_first_dec)`. Because this is a crossing in the direction
+sought, `nsec()` gives it that concentration, although its response first rises
+away from the effect.
+
+Second, the `r n_horm_censored` realisations with the lowest controls peak below
+the increasing reference (the highest of them peaks at
+$2e^{-1/2} \times `r ctl(controls[n_horm_censored])` = `r fmt(peak * controls[n_horm_censored], 5)`$,
+against `r ctl(r_inc)`). They never cross upward, so they are censored.
+Because they are `r pct(n_horm_censored / length(controls))` of the realisations, the
+upper limit of the increasing NSEC is reported as the highest concentration
+(`r fmt(horm$conf.high[2])`), and the call warns. The warning suggests a wider
+`x_range`. However, a wider range would not resolve the censoring, because
+these realisations decline beyond $x = 2$. The upper limit would instead be
+reported at the new highest concentration. It indicates that more than 2.5 per
+cent of the realisations show no increase past the reference anywhere in the
+tested range.
 
 ## Realisations with no crossing
 
@@ -678,126 +809,6 @@ censored. They are above the 97.5 per cent quantile, so the upper limit is a
 crossing (`r fmt(few$conf.high[1])`, the 99th), and there is no warning. The
 full grid gives `r fmt(dec$conf.high[1])`, halfway between the 98th and the
 99th crossings, because that row has no censored realisation.
-
-## A hormetic response
-
-A hormetic response rises above its control at low concentrations and then
-falls, so a realisation can cross the increasing reference and then the
-decreasing one. `nsec()` returns an NSEC for each direction, and the example
-shows how each is read.
-
-The third set uses the controls of the decreasing set with a hormetic shape,
-$y = c\,(1 + x/2)\,e^{-x/4}$, over a grid of 500 concentrations from 0 to 20.
-Each realisation rises to $2e^{-1/2} = `r fmt(2 * exp(-0.5))`$ times its control
-at $x = 2$ and then declines. Because the controls are unchanged, the
-references are those of the decreasing set.
-
-```{r}
-#| label: hormetic
-hormesis <- function(control, x) control * (1 + x / 2) * exp(-x / 4)
-horm_pred <- build_pred(hormesis, controls, seq(0, 20, length.out = 500))
-horm <- nsec(horm_pred)
-show_nsec(horm)
-```
-
-```{r}
-#| label: hormetic-check
-#| echo: false
-peak <- 2 * exp(-0.5)
-shape <- function(x) (1 + x / 2) * exp(-x / 4)
-# the first downward crossing lies after the peak for every realisation,
-# including those whose control starts below the reference
-horm_dec_hand <- vapply(
-  controls,
-  function(control) {
-    stats::uniroot(
-      function(x) control * shape(x) - r_dec,
-      c(2, 20),
-      tol = 1e-10
-    )$root
-  },
-  numeric(1)
-)
-horm_inc_hand <- vapply(
-  controls,
-  function(control) {
-    if (control >= r_inc) {
-      return(0)
-    }
-    if (control * peak <= r_inc) {
-      return(Inf)
-    }
-    stats::uniroot(
-      function(x) control * shape(x) - r_inc,
-      c(0, 2),
-      tol = 1e-10
-    )$root
-  },
-  numeric(1)
-)
-q_horm_dec <- quantile(horm_dec_hand, probs, names = FALSE)
-# the increasing row has censored realisations, so it takes order statistics
-q_horm_inc <- quantile(horm_inc_hand, probs, names = FALSE, type = 1)
-q_horm_inc[is.infinite(q_horm_inc)] <- max(horm_pred$x_vec)
-n_horm_censored <- sum(is.infinite(horm_inc_hand))
-# the realisations themselves, to read the value given to the first one; the
-# censoring warning was already shown by the call above
-horm_draws <- suppressWarnings(nsec(horm_pred, draws = TRUE))$draws
-horm_first_dec <- horm_draws[[1]]$value.draw[1]
-stopifnot(
-  controls[1] < r_dec,
-  abs(horm_first_dec - horm_dec_hand[1]) < grid_step(horm_pred),
-  # the censored realisations are those with the lowest controls
-  all(is.infinite(horm_inc_hand) == (seq_len(n_real) <= n_horm_censored)),
-  all(is.infinite(horm_draws[[2]]$value.draw) == is.infinite(horm_inc_hand)),
-  all(abs(unlist(horm[1, c("estimate", "conf.low", "conf.high")]) - q_horm_dec) <
-    grid_step(horm_pred)),
-  all(abs(unlist(horm[2, c("estimate", "conf.low", "conf.high")]) - q_horm_inc) <
-    grid_step(horm_pred)),
-  horm$conf.high[2] == max(horm_pred$x_vec),
-  n_horm_censored / length(controls) > 0.025,
-  horm_dec_hand[1] > 2
-)
-```
-
-Both rows have estimates. The decreasing NSEC is `r fmt(horm$estimate[1])`
-(`r fmt(horm$conf.low[1])` to `r fmt(horm$conf.high[1])`), where the declining
-part of each curve falls through `r ctl(r_dec)`, and the increasing NSEC is
-`r fmt(horm$estimate[2])` (`r fmt(horm$conf.low[2])` to
-`r fmt(horm$conf.high[2])`), where the rising part passes `r ctl(r_inc)`. Both
-agree to within one grid step (`r fmt(grid_step(horm_pred))`) with crossings
-found by `uniroot()`. The increasing row has censored realisations, so its
-crossings are compared as order statistics.
-
-```{r}
-#| label: fig-hormetic
-#| echo: false
-#| fig-cap: "Every tenth realisation of the hormetic set, with both references and both NSECs and their intervals."
-plot_nsec(horm_pred, horm)
-```
-
-Most curves cross twice (@fig-hormetic), with an increasing crossing before the
-peak at $x = 2$ and a decreasing crossing after it. The result also has two
-features that are absent from the monotone sets.
-
-First, the realisation with control `r ctl(controls[1])` starts below the
-decreasing reference, but it rises above the reference and then falls through
-it at `r fmt(horm_first_dec)`. Because this is a crossing in the direction
-sought, `nsec()` gives it that concentration, although its response first rises
-away from the effect.
-
-Second, the `r n_horm_censored` realisations with the lowest controls peak below
-the increasing reference (the highest of them peaks at
-$2e^{-1/2} \times `r ctl(controls[n_horm_censored])` = `r fmt(peak * controls[n_horm_censored], 5)`$,
-against `r ctl(r_inc)`). They never cross upward, so they are censored.
-Because they are `r pct(n_horm_censored / n_real)` of the realisations, the
-upper limit of the increasing NSEC is reported as the highest concentration
-(`r fmt(horm$conf.high[2])`), and the call warns. The warning suggests a wider
-`x_range`. However, a wider range would not resolve the censoring, because
-these realisations decline beyond $x = 2$. The upper limit would instead be
-reported at the new highest concentration. It indicates that more than 2.5 per
-cent of the realisations show no increase past the reference anywhere in the
-tested range.
 
 ## The anchor argument
 
