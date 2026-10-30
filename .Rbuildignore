@@ -18,3 +18,5 @@
 ^air.toml$
 ^BAYESNEC-claude\.md$
 ^BAYESNEC-human\.md$
+^\.quarto$
+^vignettes/\.quarto$

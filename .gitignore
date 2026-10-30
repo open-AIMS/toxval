@@ -70,3 +70,8 @@ docs
 # that also holds tracked files, so a directory-level `git add` picks them up.
 notes/implementation/00_protocol.md
 notes/implementation/04_alignment_audit.md
+
+# Quarto vignette build files
+/.quarto/
+vignettes/.quarto/
+vignettes/*_files/

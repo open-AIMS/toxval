@@ -34,10 +34,14 @@ Suggests:
     BH,
     covr,
     drc,
+    knitr,
+    quarto,
     RcppEigen,
     rmarkdown,
     testthat (>= 3.1.7),
     tidyr
+VignetteBuilder: 
+    quarto
 Remotes:
     open-AIMS/bayesnec@predev
 Biarch: true
