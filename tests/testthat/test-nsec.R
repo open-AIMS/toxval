@@ -450,7 +450,7 @@ test_that("drc model errors if wrong x_var is supplied", {
   )
 })
 
-test_that("drc model errors if more then 1 sig val is passed", {
+test_that("drc model errors if more than 1 sig_val is passed", {
   skip_if_not_installed("drc")
   expect_error(
     nsec(nsec_drc_1, x_var = "x", sig_val = c(0.1, 0.2)),
@@ -458,7 +458,7 @@ test_that("drc model errors if more then 1 sig val is passed", {
   )
 })
 
-test_that("drc model output attributes", {
+test_that("drc model gives the expected NSEC and ecnsec values", {
   skip_if_not_installed("drc")
   output <- nsec(nsec_drc_1, x_var = "x", seed = 1)
   output <- output[1, ]
@@ -499,16 +499,6 @@ test_that("drc curveid must name the curveid column of the fit", {
     suppressWarnings(nsec(nsec_drc_1, curveid = "a")),
     "`group_var` must name a column of the data in `object`, not 'a'"
   )
-})
-
-test_that("drc model curveid switches attributes to have a matrix for ecnsec_relativeP", {
-  skip_if_not_installed("drc")
-  output <- nsec(nsec_drc_1, x_var = "x", seed = 1)
-
-  expect_equal(output$estimate[[1]], 1.183707, tolerance = 0.001)
-  expect_equal(output$conf.low[[1]], 0.994483, tolerance = 0.001)
-  expect_equal(output$conf.high[[1]], 1.284687, tolerance = 0.001)
-  expect_equal(output$ecnsec[[1]], 0.016873, tolerance = 0.001)
 })
 
 test_that("drc model provides NA estimates when no realisation crosses the reference", {

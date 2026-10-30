@@ -400,7 +400,7 @@ test_that("check prob_vals argument errors if the 3nd value is not the highest",
   )
 })
 
-test_that("check prob_vals errors with more then 3 values", {
+test_that("check prob_vals errors with more than 3 values", {
   expect_error(
     ecx(
       brms_model_1,
@@ -413,7 +413,7 @@ test_that("check prob_vals errors with more then 3 values", {
 
 # BRMS specific tests -----------------------------------------------------
 
-test_that("can only pass a single exc_val argument", {
+test_that("ecx_val must be a single number, but proportion can take several", {
   expect_error(
     suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = c(10, 50, 100))),
     "`ecx_val` must be a number"
@@ -429,7 +429,7 @@ test_that("can only pass a single exc_val argument", {
   expect_equal(output$proportion, c(0.10, 0.10, 0.50, 0.50, 1, 1))
 })
 
-test_that("when type is not direct ecx_val has to between 1 and 99", {
+test_that("proportion must be greater than 0, and at most 1 under range", {
   x_vec <- 0:10
   pred <- compute_pred(list(rbind(10 - x_vec, 10 - 2 * x_vec)), x_vec)
 
