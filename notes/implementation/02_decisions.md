@@ -196,13 +196,16 @@ fourth phase 0 item, the `anchor` default, is T12; #43 is T11.
 
 ## T11 — frequentist realisations come from a parametric bootstrap (#43)
 
-Settled 2026-09-05 (RF). Stated in full in `REFACTOR-claude.md` §3.4.
+Settled 2026-09-05 (RF); amended 2026-10-30 (RF, #76) for the log-scale draw.
+Stated in full in `REFACTOR-claude.md` §3.4.
 
 Realisations are generated the same way for every model class: posterior draws
 for a Bayesian fit, a parametric bootstrap for a frequentist one — draw
 `n_boot` parameter vectors from `MVN(coef(fit), vcov(fit))` and evaluate the
-mean function at each. There is no second mode in which the three columns of
-`predict(drc_fit, interval = "confidence")` are treated as three curves.
+mean function at each. A parameter that the mean function requires to be
+positive is drawn on the log scale, as set out below. There is no second mode
+in which the three columns of `predict(drc_fit, interval = "confidence")` are
+treated as three curves.
 
 **Why.** Inverting a pointwise confidence band on `y` does not give a valid
 confidence interval on `x`. Coverage is wrong and degrades worst where the
@@ -215,11 +218,32 @@ current ones but a different quantity, so this needs a NEWS entry and the
 reasoning in the documentation, not a silent substitution. Built in phase 2.
 
 **Invalid replicates** (RF, 2026-10-24, ruling 5 on PR #66). A replicate
-outside the parameter space gives non-finite predictions: on `nsec_drc_2`,
-24.6% of replicates have `e < 0`. Such a replicate is excluded from the summary
-with a warning, in `ecx()` and `nsec()` alike. The remedies, dropping invalid
-replicates in `toxval_predict.drc()` or bootstrapping on a transformed scale,
-amend this entry and need their own evidence: #76.
+outside the parameter space gives non-finite predictions. Such a replicate is
+excluded from the summary with a warning, in `ecx()` and `nsec()` alike.
+
+RF ruled on 2026-10-30, adopting option 2 of #76, that a parameter the mean
+function requires to be positive is drawn on the log scale. `boot_parms()`
+draws its logarithm from a normal with mean `log(coef)` and the delta-method
+covariance `J V J'`, where `V` is `vcov(fit)` and `J` is diagonal, `1 / coef`
+for each such parameter and 1 for the others. It returns `exp()` of the draw,
+so every replicate is inside the parameter space. The exclusion of ruling 5
+remains for any `drc` function outside this set.
+
+The set was read from the `drc` source. It is `e` wherever the mean function
+evaluates `log(dose / e)` or `log(e)`: `LL.*`, `W1.*`, `W2.*`, `W2x.*`,
+`LN.*`, `BC.*`, `CRS.*`, `UCRS.*`, `lgaussian()` and `baro5()`, with `e1` and
+`e2` in `twophase()`. It also includes `e` in `gammadr()`, the shape of a gamma
+distribution, which must be positive for the same reason. `LL2.*` and
+`LN.*(loge = TRUE)` estimate `log(e)` already and are drawn unchanged.
+
+On `nsec_drc_2` (`LL.3`, eight points) SE(e) is 2.25 against e of 1.58. Drawn
+on the scale of `e`, 24.6% of replicates had `e <= 0` and were excluded
+(`n_boot = 1000`, `seed = 1`). Those replicates are the lower tail of `e`, and a
+log-logistic ECx is proportional to `e`, so excluding them conditions the
+interval on `e` being above 0 without saying so. On the log scale none is
+excluded and `drc` no longer warns "NaNs produced". Option 1, dropping invalid
+replicates in `toxval_predict.drc()`, would have reported the truncation but
+kept it. The evidence is in the pull request that closes #76.
 
 This is an approach rather than a definition, so it did not gate phase 0.
 

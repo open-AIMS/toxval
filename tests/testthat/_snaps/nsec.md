@@ -49,7 +49,7 @@
       # Settings: resolution 500 | 1000 bootstrap realisations
         metric direction  estimate conf.low conf.high sig_val type     anchor control
         <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>    <dbl>
-      1 nsec   decreasing     1.18    0.994      1.28    0.01 absolute model    0.897
+      1 nsec   decreasing     1.18    0.995      1.28    0.01 absolute model    0.897
       2 nsec   increasing    NA      NA         NA       0.01 absolute model    0.897
         reference asymptote ecnsec ecnsec.low ecnsec.high
             <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
@@ -66,16 +66,16 @@
       # Settings: resolution 500 | 1000 bootstrap realisations
         metric direction  group estimate conf.low conf.high sig_val type     anchor
         <chr>  <chr>      <fct>    <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr> 
-      1 nsec   decreasing 24h       517.     143.      946.    0.01 absolute model 
+      1 nsec   decreasing 24h       524.     145.      957.    0.01 absolute model 
       2 nsec   increasing 24h        NA       NA        NA     0.01 absolute model 
-      3 nsec   decreasing 48h       287.     130.      462.    0.01 absolute model 
+      3 nsec   decreasing 48h       288.     130.      466.    0.01 absolute model 
       4 nsec   increasing 48h        NA       NA        NA     0.01 absolute model 
         control reference asymptote ecnsec ecnsec.low ecnsec.high
           <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1   0.989     0.933        NA 0.0564     0.0134      0.0644
-      2   0.989     0.998        NA 0.837      0.252       0.967 
-      3   0.993     0.955        NA 0.0379     0.0106      0.0436
-      4   0.993     0.999        NA 0.855      0.246       0.969 
+      1   0.990     0.934        NA 0.0557     0.0129      0.0634
+      2   0.990     0.998        NA 0.836      0.247       0.968 
+      3   0.993     0.955        NA 0.0379     0.0112      0.0435
+      4   0.993     0.999        NA 0.857      0.260       0.970 
 
 # nsec for drc throws an error for an increasing function
 
@@ -88,15 +88,15 @@
         metric direction  group estimate conf.low conf.high sig_val type     anchor
         <chr>  <chr>      <fct>    <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr> 
       1 nsec   decreasing 24h        NA       NA        NA     0.01 absolute model 
-      2 nsec   increasing 24h       513.     147.      970.    0.01 absolute model 
+      2 nsec   increasing 24h       523.     148.      984.    0.01 absolute model 
       3 nsec   decreasing 48h        NA       NA        NA     0.01 absolute model 
-      4 nsec   increasing 48h       275.     130.      447.    0.01 absolute model 
+      4 nsec   increasing 48h       271.     129.      451.    0.01 absolute model 
         control reference asymptote ecnsec ecnsec.low ecnsec.high
           <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1 0.0106   0.00159         NA 0.850      0.210       0.969 
-      2 0.0106   0.0653          NA 0.0554     0.0145      0.0634
-      3 0.00735  0.000901        NA 0.877      0.343       0.972 
-      4 0.00735  0.0421          NA 0.0350     0.0107      0.0408
+      1 0.0102   0.00157         NA 0.846     0.194        0.969 
+      2 0.0102   0.0647          NA 0.0551    0.0142       0.0629
+      3 0.00723  0.000861        NA 0.881     0.361        0.972 
+      4 0.00723  0.0406          NA 0.0336    0.00964      0.0393
 
 # nsec drc additional example 1
 
@@ -112,8 +112,8 @@
       2 nsec   increasing   NA       NA        NA        0.01 absolute model    0.679
         reference asymptote ecnsec ecnsec.low ecnsec.high
             <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1     0.664        NA 0.0220    0.00487      0.0381
-      2     0.693        NA 0.0203    0.00340      0.0381
+      1     0.664        NA 0.0220    0.00490      0.0381
+      2     0.693        NA 0.0203    0.00341      0.0381
 
 # nsec drc additional example 2
 

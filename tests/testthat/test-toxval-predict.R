@@ -306,10 +306,7 @@ test_that("toxval_predict has no asymptote for a brmsfit unless one is named", {
 
 test_that("toxval_predict takes the asymptotes of a drc fit from its limits", {
   # nsec_drc_2 is LL.3, whose lower limit is fixed at 0
-  # some bootstrap draws fall outside the parameter space and warn
-  result <- suppressWarnings(
-    toxval_predict(nsec_drc_2, resolution = 5, n_boot = 10, seed = 42)
-  )
+  result <- toxval_predict(nsec_drc_2, resolution = 5, n_boot = 10, seed = 42)
 
   expect_equal(result$asymptote[[1]]$decreasing, rep(0, 10))
   expect_length(result$asymptote[[1]]$increasing, 10)
@@ -437,7 +434,12 @@ test_that("toxval_predict orders the curves of a drc fit by level, not by row", 
   )
   mu <- coef(fit)
   local_mocked_bindings(
-    boot_parms = function(object, n_boot, seed = NULL) {
+    boot_parms = function(
+      object,
+      n_boot,
+      seed = NULL,
+      log_scale = character()
+    ) {
       matrix(
         mu,
         nrow = n_boot,
@@ -693,7 +695,12 @@ test_that("toxval_predict at the fitted coefficients reproduces predict()", {
   # 0.842 and 0.782
   mu <- coef(nsec_drc_1)
   local_mocked_bindings(
-    boot_parms = function(object, n_boot, seed = NULL) {
+    boot_parms = function(
+      object,
+      n_boot,
+      seed = NULL,
+      log_scale = character()
+    ) {
       matrix(
         mu,
         nrow = n_boot,
@@ -748,6 +755,196 @@ test_that("boot_parms draws from MVN(coef(object), vcov(object))", {
   )
 })
 
+# the log scale ----------------------------------------------------------------
+
+test_that("toxval_predict gives a finite curve for every replicate of nsec_drc_2", {
+  # SE(e) is 2.25 against e of 1.58, so on its own scale about a quarter of the
+  # draws of e are at or below 0, where LL.3 evaluates log(dose / e)
+  expect_equal(toxval:::drc_log_parms(nsec_drc_2), "e:(Intercept)")
+  expect_no_warning(
+    result <- toxval_predict(nsec_drc_2, n_boot = 1000, seed = 1)
+  )
+  parms <- toxval:::boot_parms(
+    nsec_drc_2,
+    n_boot = 1000,
+    seed = 1,
+    log_scale = "e:(Intercept)"
+  )
+
+  expect_true(all(is.finite(result$curves[[1]])))
+  expect_true(all(parms[, "e:(Intercept)"] > 0))
+  expect_equal(
+    result$curves[[1]],
+    toxval:::drc_eval_curve(nsec_drc_2, result$x_vec, parms)
+  )
+})
+
+test_that("boot_parms draws a log_scale parameter from the delta-method normal", {
+  # with J diagonal, 1 / e for e and 1 otherwise, (b, d, log(e)) is drawn from
+  # MVN((b, d, log(e)), J V J')
+  n_boot <- 10000
+  parms <- toxval:::boot_parms(
+    nsec_drc_2,
+    n_boot = n_boot,
+    seed = 42,
+    log_scale = "e:(Intercept)"
+  )
+  mu <- coef(nsec_drc_2)
+  jacobian <- c(1, 1, 1 / mu[["e:(Intercept)"]])
+  sigma <- vcov(nsec_drc_2) * outer(jacobian, jacobian)
+  mu[["e:(Intercept)"]] <- log(mu[["e:(Intercept)"]])
+  draws <- parms
+  draws[, "e:(Intercept)"] <- log(draws[, "e:(Intercept)"])
+  sample_sigma <- stats::cov(draws)
+
+  # the tolerances follow the MVN test above: 4 Monte Carlo standard errors
+  # for a mean, about 7 for a variance and 5 for a correlation
+  z <- (colMeans(draws) - mu) / sqrt(diag(sigma) / n_boot)
+  expect_lt(max(abs(z)), 4)
+  expect_lt(max(abs(diag(sample_sigma) / diag(sigma) - 1)), 0.1)
+  expect_lt(
+    max(abs(stats::cov2cor(sample_sigma) - stats::cov2cor(sigma))),
+    0.05
+  )
+})
+
+test_that("boot_parms leaves the draw unchanged when log_scale is empty", {
+  expect_identical(
+    toxval:::boot_parms(nsec_drc_2, n_boot = 20, seed = 3),
+    toxval:::boot_parms(
+      nsec_drc_2,
+      n_boot = 20,
+      seed = 3,
+      log_scale = character()
+    )
+  )
+})
+
+test_that("drc_log_parms names the e of every curve of a grouped drc fit", {
+  fit <- daphnids_fit()
+  shared <- drc::drm(
+    (total - no) / total ~ dose,
+    weights = total,
+    curveid = time,
+    data = drc::daphnids,
+    fct = drc::LL.2(),
+    type = "binomial",
+    pmodels = data.frame(1, time)
+  )
+  parms <- toxval:::boot_parms(
+    fit,
+    n_boot = 200,
+    seed = 5,
+    log_scale = toxval:::drc_log_parms(fit)
+  )
+
+  expect_equal(toxval:::drc_log_parms(fit), c("e:24h", "e:48h"))
+  # the slope is shared and the ED50 is fitted for each curve
+  expect_equal(toxval:::drc_log_parms(shared), c("e:24h", "e:48h"))
+  expect_true(all(parms[, c("e:24h", "e:48h")] > 0))
+})
+
+test_that("drc_log_parms finds e in a fit with a fixed or renamed parameter", {
+  # fixing b removes it from coef(), so e is the third coefficient rather than
+  # the fourth, under the name the fit gives it
+  renamed <- drc::drm(
+    y ~ x,
+    data = bayesnec_nec_data,
+    fct = drc::LL.4(
+      fixed = c(8, NA, NA, NA),
+      names = c("slope", "lower", "upper", "ed50")
+    )
+  )
+  fixed_e <- drc::drm(
+    y ~ x,
+    data = bayesnec_nec_data,
+    fct = drc::LL.4(fixed = c(NA, NA, NA, 2))
+  )
+
+  expect_equal(toxval:::drc_log_parms(renamed), "ed50:(Intercept)")
+  expect_equal(toxval:::drc_log_parms(fixed_e), character())
+})
+
+test_that("drc_log_parms leaves the draw of a fit outside the set unchanged", {
+  # G.4 has no parameter that must be positive; LL2.4 and LN.4(loge = TRUE)
+  # share a class with LL.4 and LN.4 but estimate log(e), which takes any sign
+  fits <- list(
+    gompertz = drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::G.4()),
+    ll2 = drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::LL2.4()),
+    ln_loge = drc::drm(
+      y ~ x,
+      data = bayesnec_nec_data,
+      fct = drc::LN.4(loge = TRUE)
+    )
+  )
+  for (fit in fits) {
+    expect_equal(toxval:::drc_log_parms(fit), character())
+    result <- toxval_predict(fit, resolution = 5, n_boot = 10, seed = 9)
+    expect_equal(
+      result$curves[[1]],
+      toxval:::drc_eval_curve(
+        fit,
+        result$x_vec,
+        toxval:::boot_parms(fit, n_boot = 10, seed = 9)
+      )
+    )
+  }
+})
+
+test_that("drc_positive_parms finds the parameters drc requires to be positive", {
+  dose <- c(0.5, 1, 2, 4)
+  # a value for every parameter name the constructors below use
+  values <- c(
+    b = 1.5,
+    c = 0.1,
+    d = 2,
+    e = 1.7,
+    f = 0.8,
+    g = 0.5,
+    t0 = 0.2,
+    b1 = 1.2,
+    b2 = 2.5,
+    c1 = 0,
+    d1 = 1,
+    e1 = 1.3,
+    d2 = 1,
+    e2 = 3
+  )
+  positive <- function(fct) {
+    toxval:::drc_positive_parms(fct, values[fct$names], dose)
+  }
+
+  for (fct in list(
+    drc::LL.4(),
+    drc::LL.5(),
+    drc::MM.3(),
+    drc::W1.4(),
+    drc::EXD.3(),
+    drc::W2.4(),
+    drc::AR.3(),
+    drc::W2x.4(),
+    drc::LN.4(),
+    drc::BC.5(),
+    drc::CRS.4a(),
+    drc::CRS.6(),
+    # not UCRS.4a: drc 4.0-0 lists its fixed `c` in `names`, so the vector
+    # built from `names` is one too long and drm() cannot fit it either
+    drc::UCRS.5a(),
+    drc::lgaussian(),
+    drc::gammadr()
+  )) {
+    expect_equal(positive(fct), "e")
+    expect_true(inherits(fct, toxval:::drc_log_classes))
+  }
+  expect_equal(positive(drc::baro5()), "e")
+  expect_equal(positive(drc::twophase()), c("e1", "e2"))
+  expect_equal(positive(drc::LL2.4()), character())
+  expect_equal(positive(drc::LN.4(loge = TRUE)), character())
+  for (fct in list(drc::G.4(), drc::L.4(), drc::NEC.4())) {
+    expect_false(inherits(fct, toxval:::drc_log_classes))
+  }
+})
+
 test_that("the realisations of a grouped drc fit come from one joint parameter draw", {
   # alignment: replicate i of every curve is the same draw of the whole
   # parameter vector, which is what makes per-realisation quantities from
@@ -761,7 +958,12 @@ test_that("the realisations of a grouped drc fit come from one joint parameter d
     n_boot = 5,
     seed = 11
   )
-  parms <- toxval:::boot_parms(fit, n_boot = 5, seed = 11)
+  parms <- toxval:::boot_parms(
+    fit,
+    n_boot = 5,
+    seed = 11,
+    log_scale = c("e:24h", "e:48h")
+  )
 
   expect_equal(as.character(result$keys$group), c("24h", "48h"))
   expect_equal(
@@ -871,7 +1073,12 @@ test_that("toxval_predict builds each curve of a drc fit with shared parameters"
   )
   mu <- coef(fit)
   local_mocked_bindings(
-    boot_parms = function(object, n_boot, seed = NULL) {
+    boot_parms = function(
+      object,
+      n_boot,
+      seed = NULL,
+      log_scale = character()
+    ) {
       matrix(
         mu,
         nrow = n_boot,
@@ -1035,7 +1242,7 @@ test_that("toxval_predict handles a single bootstrap replicate", {
   expect_equal(result$meta$n_realisation, 1)
   expect_equal(
     as.numeric(result$curves[[1]]),
-    c(0.9002389, 0.8941983, 0.4380216, 0.0091685),
+    c(0.9002389, 0.8941995, 0.4380654, 0.0091772),
     tolerance = 1e-6
   )
 })

@@ -6,19 +6,27 @@
 #' and replicate *i* of another come from the same parameter draw, which is the
 #' alignment invariant `toxval_pred` carries.
 #'
-#' The draw uses the Cholesky factor of `vcov(object)`, so a seed gives the
+#' A parameter named in `log_scale` is drawn as its logarithm and returned as
+#' `exp()` of the draw, so every replicate of it is positive. The normal on
+#' that scale has mean `log(coef)` and the delta-method covariance `J V J'`,
+#' where `V` is `vcov(object)` and `J` is diagonal, `1 / coef` for each such
+#' parameter and 1 for the others.
+#'
+#' The draw uses the Cholesky factor of the covariance, so a seed gives the
 #' same replicates on every platform, and the deviates fill by row, so
 #' increasing `n_boot` appends replicates rather than redrawing the first ones.
 #'
 #' @param object A fitted model with `coef()` and `vcov()` methods.
 #' @param n_boot Number of bootstrap replicates.
 #' @param seed Seed for the draw, or `NULL` to use the current RNG state.
+#' @param log_scale Names of coefficients to draw on the log scale, each with a
+#'   positive estimate.
 #'
 #' @return A numeric matrix, `n_boot` rows by one column per parameter, with
 #'   the parameter names as column names.
 #'
 #' @noRd
-boot_parms <- function(object, n_boot, seed = NULL) {
+boot_parms <- function(object, n_boot, seed = NULL, log_scale = character()) {
   mu <- stats::coef(object)
   sigma <- stats::vcov(object)
 
@@ -35,6 +43,11 @@ boot_parms <- function(object, n_boot, seed = NULL) {
     )
   }
 
+  is_log <- names(mu) %in% log_scale
+  jacobian <- ifelse(is_log, 1 / mu, 1)
+  mu[is_log] <- log(mu[is_log])
+  sigma <- sigma * outer(jacobian, jacobian)
+
   root <- tryCatch(chol(sigma), error = function(e) NULL)
   if (is.null(root)) {
     chk::abort_chk(
@@ -48,6 +61,7 @@ boot_parms <- function(object, n_boot, seed = NULL) {
   }
   z <- matrix(stats::rnorm(n_boot * length(mu)), nrow = n_boot, byrow = TRUE)
   parms <- sweep(z %*% root, 2, mu, "+")
+  parms[, is_log] <- exp(parms[, is_log])
   colnames(parms) <- names(mu)
   parms
 }

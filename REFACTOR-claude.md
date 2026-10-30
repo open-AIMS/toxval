@@ -388,6 +388,18 @@ draws are treated. For `drc` this is available directly — `fit$fct$fct(x, parm
 evaluates the mean curve at an arbitrary parameter matrix, and `coef()` and
 `vcov()` are both defined.
 
+A parameter that the mean function requires to be positive is drawn on the log
+scale (RF, 2026-10-30, #76). Its logarithm is drawn with mean `log(coef)` and
+the delta-method covariance `J V J'`, where `J` is diagonal with `1 / coef` for
+each such parameter and 1 for the others, and the draw is returned through
+`exp()`. Every replicate is then inside the parameter space. For `drc` the
+parameter is `e` wherever the mean function evaluates `log(dose / e)` or
+`log(e)` (`LL.*`, `W1.*`, `W2.*`, `W2x.*`, `LN.*`, `BC.*`, `CRS.*`, `UCRS.*`,
+`lgaussian()`, `baro5()`), `e1` and `e2` in `twophase()`, and the gamma shape
+`e` in `gammadr()`. `LL2.*` and `LN.*(loge = TRUE)` already estimate `log(e)`.
+A replicate of any other function that falls outside the parameter space gives
+non-finite predictions and is excluded from the summary with a warning (T11).
+
 | Case | `curves` list | realisation source | `n_realisation` |
 |---|---|---|---|
 | Ungrouped Bayesian | 1 element | draws | n_draws |
