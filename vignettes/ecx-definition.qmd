@@ -77,26 +77,19 @@ proportion are the control, so the EC10 references are 0.9 and 1.1 times the
 control. Under `type = "direct"` there is no proportion and no span, and the
 response supplied as `reference` is used as the reference in both directions.
 The spans of the other types are tabulated under
-[The span named by `type`](#the-span-named-by-type). The decreasing ECx of a
+[ECx definitions](#ecx-definitions). The decreasing ECx of a
 realisation is then the first concentration at which its curve passes downward
 through the decreasing reference, and the increasing ECx is the first at which
 it passes upward through the increasing reference. `ecx()` returns the median
 of these values over the realisations, with a 95 per cent interval by default.
 
-## Curves with a known ECx
-
-Each curve below is defined by a formula with chosen parameter values, so that
-its ECx has an exact value against which the value returned by `ecx()` is
-checked. The exceptions are the bootstrap results for two `drc` fits, which
-have no closed form.
-
-`ecx()` computes on a `toxval_pred` (the object `toxval_predict()` builds from a
-fitted model), which contains realisations of the curve evaluated over a grid
-of concentrations, one row per realisation. The object can also be built
-directly with `new_toxval_pred()`, and `ecx()` accepts it in place of a fit.
-Here we use the helper `hand_pred()`, defined for this vignette, which
-evaluates a formula once for each row of a table of parameter values, so that
-each row stands in for one realisation.
+The examples below use curves defined by formulas with chosen parameter
+values, so that each ECx has an exact value. `ecx()` computes on a
+`toxval_pred` (the object `toxval_predict()` builds from a fitted model, with
+realisations of each curve evaluated over a grid of concentrations), and the
+object can also be built directly with `new_toxval_pred()`. We build it with
+the helper `hand_pred()`, which evaluates a formula once for each row of a
+table of parameter values, so that each row stands in for one realisation.
 
 ```{r}
 #| label: hand-pred
@@ -131,120 +124,7 @@ hand_pred <- function(curve, params, x_vec, family = "gaussian",
 }
 ```
 
-Because the curve is evaluated only at the grid values, `ecx()` locates a
-crossing by linear interpolation between the grid values on either side of it.
-On a monotone segment the estimate is therefore within one grid step of the
-exact concentration, and each check below uses that tolerance.
-
-## The reference of each realisation
-
-Three realisations of the straight line $y = c\,(1 - x/10)$ were evaluated over
-$0 \le x \le 10$, with controls $c$ of 95, 100 and 105. Whatever its control,
-each realisation falls to 90 per cent of its own control at $x = 1$.
-
-```{r}
-#| label: per-realisation
-x_line <- seq(0, 10, length.out = 501)
-line <- function(x, control) control * (1 - x / 10)
-pred_line <- hand_pred(line, data.frame(control = c(95, 100, 105)), x_line)
-
-ec10_line <- ecx(pred_line, proportion = 0.1, draws = TRUE)
-ec10_line[c("direction", "estimate", "conf.low", "conf.high", "control")]
-ec10_line$draws[[1]]
-```
-
-```{r}
-#| label: per-realisation-check
-#| echo: false
-stopifnot(
-  within_step(ec10_line$draws[[1]]$value.draw, 1, x_line),
-  within_step(ec10_line$estimate[1], 1, x_line),
-  is.na(ec10_line$estimate[2]),
-  ec10_line$conf.low[1] == ec10_line$conf.high[1]
-)
-```
-
-The reference of each realisation is computed from its own control (0.9 × 95,
-0.9 × 100 and 0.9 × 105), and each realisation crosses its reference at $x = 1$
-(the `value.draw` column). The EC10 is therefore
-`r fmt(ec10_line$estimate[1])`, with an interval of zero width. The `control`
-column gives the central quantile of the controls, here the median of
-`r fmt(ec10_line$control[1])`.
-
-The alternative is a single reference for all realisations, such as 90 per cent
-of the median control. For these realisations that reference is
-0.9 × 100 = 90, and `ecx()` with `type = "direct"` (described below) finds
-where each realisation crosses it.
-
-```{r}
-#| label: one-reference
-fixed_level <- ecx(pred_line, type = "direct", reference = 90, draws = TRUE)
-fixed_level$draws[[1]]
-```
-
-```{r}
-#| label: one-reference-check
-#| echo: false
-fixed_exact <- 10 * (1 - 90 / c(95, 100, 105))
-fixed_fall <- 100 * (c(95, 105) - 90) / c(95, 105)
-stopifnot(within_step(fixed_level$draws[[1]]$value.draw, fixed_exact, x_line))
-```
-
-```{r}
-#| label: fig-per-realisation
-#| echo: false
-#| fig-cap: "Three realisations of $y = c\\,(1 - x/10)$, labelled by their controls. Left, each with its own EC10 reference, 0.9 times its control (dashed lines). Right, all three with the one reference of 90 (dashed line). Points and ticks on the concentration axis mark the crossings `ecx()` returns."
-#| fig-width: 6.5
-#| fig-height: 3.3
-line_curves <- pred_line$curves[[1]]
-line_controls <- line_curves[, 1]
-own_reference <- line_controls * (1 - ec10_line$proportion[1])
-own_crossing <- ec10_line$draws[[1]]$value.draw
-fixed_crossing <- fixed_level$draws[[1]]$value.draw
-op <- par(mfrow = c(1, 2), mar = c(4, 4, 1.5, 0.5), mgp = c(2.2, 0.7, 0))
-for (panel in c("own", "fixed")) {
-  plot(NA, xlim = c(0, 2), ylim = c(80, 108), xlab = "Concentration",
-       ylab = "Response", cex.axis = 0.8, cex.main = 0.95, font.main = 1,
-       main = if (panel == "own") "Reference of each realisation" else
-         "One reference of 90")
-  for (j in seq_along(line_controls)) {
-    lines(x_line, line_curves[j, ], lwd = 2, col = cols[j])
-    text(0.03, line_controls[j], paste("c =", line_controls[j]),
-         adj = c(0, -0.7), cex = 0.7)
-    if (panel == "own") {
-      segments(0, own_reference[j], own_crossing[j], own_reference[j],
-               lty = 2, col = cols[j], lwd = 1.5)
-      points(own_crossing[j], own_reference[j], pch = 19, col = cols[j])
-    } else {
-      points(fixed_crossing[j], 90, pch = 19, col = cols[j])
-      axis(1, at = fixed_crossing[j], labels = FALSE, col.ticks = cols[j],
-           lwd.ticks = 2, tcl = -0.6)
-    }
-  }
-  if (panel == "own") {
-    axis(1, at = own_crossing[1], labels = FALSE, lwd.ticks = 2, tcl = -0.6)
-  } else {
-    abline(h = 90, lty = 2, lwd = 1.5)
-  }
-}
-par(op)
-```
-
-With a reference for each realisation (@fig-per-realisation, left), the dashed
-references are 10 per cent below their controls, at
-`r paste(fmt(own_reference), collapse = ", ")`, and all three are crossed at
-the same concentration. The single reference of 90 is instead crossed at three
-concentrations (@fig-per-realisation, right), because it is a fall of 5 from a
-control of 95 (`r fmt(fixed_fall[1], 2)` per cent) and of 15 from a control of
-105 (`r fmt(fixed_fall[2], 3)` per cent). The three crossings are
-`r paste(fmt(fixed_level$draws[[1]]$value.draw), collapse = ", ")`, against
-$10\,(1 - 90/c)$ = `r paste(fmt(fixed_exact), collapse = ", ")`. Thus, although
-the three realisations have the same shape, a fixed reference gives them
-different ECx values, because each control is a different distance above 90.
-With a reference for each realisation, in contrast, each is measured by the
-same proportion of its own control.
-
-## The span named by `type`
+## ECx definitions
 
 `type` takes four values, which we illustrate with one realisation of the
 exponential decay $y = 20 + 80\,e^{-x/2}$, evaluated over $0 \le x \le 6$. Its
@@ -408,16 +288,18 @@ crossed last, at `r fmt(ec50_exp$estimate[4])`. Each value returned by `ecx()`
 in the table agrees with the exact crossing to within one grid step of
 `r fmt(diff(x_exp[1:2]), 1)`.
 
-- `absolute`, the default, measures a decrease from the control to 0 (the
-  percent inhibition of OECD Test Guideline 201; OECD 2011, paragraph 50).
+- `absolute`, the default, measures a decrease from the control to 0, so the
+  effect is a percent change in the control level (OECD 2006, paragraph 297),
+  as in the percent inhibition of OECD Test Guideline 201 (OECD 2011,
+  paragraph 50).
   `proportion` is not capped at 1 under `absolute`, because a response that can
   be negative (e.g. a growth rate) has more than complete inhibition when it
   falls below 0, and the equation in paragraph 50 of that guideline places no
   upper limit on the inhibition. The increasing form is described under
   [Increasing responses](#increasing-responses).
 - `relative` measures from the control to the asymptote of the fitted equation
-  (the lower asymptote for a decrease and the upper asymptote for an increase).
-  The asymptote is usually a parameter of the equation, and where it is
+  (the lower asymptote for a decrease and the upper asymptote for an increase),
+  so the effect is a proportion of the maximum achievable effect. The asymptote is usually a parameter of the equation, and where it is
   estimated beyond the observed responses it is an extrapolation, whose
   uncertainty is included in the ECx.
 - `range` measures from the control to the lowest response predicted over the
@@ -1005,6 +887,114 @@ argument that gives the percentage under its `type = "relative"`), and its own
 `reference` argument chooses between the control and the upper limit as the
 starting point.
 
+## Uncertainty in the control
+
+The control of a fitted curve is uncertain, so it differs from one realisation
+to the next. An EC10 could therefore be measured against 90 per cent of each
+realisation's own control, or against one response shared by all realisations
+(e.g. 90 per cent of the median control). `ecx()` uses the first, so the EC10
+of a realisation is the concentration at which that realisation has fallen by
+10 per cent of its own control.
+
+To show the difference, we constructed three realisations of the line
+$y = c\,(1 - x/10)$ over $0 \le x \le 10$, with controls $c$ of 95, 100 and
+105. Each falls to 90 per cent of its own control at $x = 1$.
+
+```{r}
+#| label: per-realisation
+x_line <- seq(0, 10, length.out = 501)
+line <- function(x, control) control * (1 - x / 10)
+pred_line <- hand_pred(line, data.frame(control = c(95, 100, 105)), x_line)
+
+ec10_line <- ecx(pred_line, proportion = 0.1, draws = TRUE)
+ec10_line[c("direction", "estimate", "conf.low", "conf.high", "control")]
+ec10_line$draws[[1]]
+```
+
+```{r}
+#| label: per-realisation-check
+#| echo: false
+stopifnot(
+  within_step(ec10_line$draws[[1]]$value.draw, 1, x_line),
+  within_step(ec10_line$estimate[1], 1, x_line),
+  is.na(ec10_line$estimate[2]),
+  ec10_line$conf.low[1] == ec10_line$conf.high[1]
+)
+```
+
+Each realisation crosses its own reference (0.9 × 95, 0.9 × 100 and 0.9 × 105)
+at $x = 1$ (the `value.draw` column), so the EC10 is
+`r fmt(ec10_line$estimate[1])`, with an interval of zero width. The `control`
+column gives the central quantile of the controls, here the median of
+`r fmt(ec10_line$control[1])`.
+
+For comparison, one reference of 90 per cent of the median control is
+0.9 × 100 = 90. `ecx()` with `type = "direct"` (see
+[ECx definitions](#ecx-definitions)) finds where each
+realisation crosses a reference supplied in this way.
+
+```{r}
+#| label: one-reference
+fixed_level <- ecx(pred_line, type = "direct", reference = 90, draws = TRUE)
+fixed_level$draws[[1]]
+```
+
+```{r}
+#| label: one-reference-check
+#| echo: false
+fixed_exact <- 10 * (1 - 90 / c(95, 100, 105))
+stopifnot(within_step(fixed_level$draws[[1]]$value.draw, fixed_exact, x_line))
+```
+
+```{r}
+#| label: fig-per-realisation
+#| echo: false
+#| fig-cap: "Three realisations of $y = c\\,(1 - x/10)$, labelled by their controls. Left, each with its own EC10 reference, 0.9 times its control (dashed lines). Right, all three with the one reference of 90 (dashed line). Points and ticks on the concentration axis mark the crossings `ecx()` returns."
+#| fig-width: 6.5
+#| fig-height: 3.3
+line_curves <- pred_line$curves[[1]]
+line_controls <- line_curves[, 1]
+own_reference <- line_controls * (1 - ec10_line$proportion[1])
+own_crossing <- ec10_line$draws[[1]]$value.draw
+fixed_crossing <- fixed_level$draws[[1]]$value.draw
+op <- par(mfrow = c(1, 2), mar = c(4, 4, 1.5, 0.5), mgp = c(2.2, 0.7, 0))
+for (panel in c("own", "fixed")) {
+  plot(NA, xlim = c(0, 2), ylim = c(80, 108), xlab = "Concentration",
+       ylab = "Response", cex.axis = 0.8, cex.main = 0.95, font.main = 1,
+       main = if (panel == "own") "Reference of each realisation" else
+         "One reference of 90")
+  for (j in seq_along(line_controls)) {
+    lines(x_line, line_curves[j, ], lwd = 2, col = cols[j])
+    text(0.03, line_controls[j], paste("c =", line_controls[j]),
+         adj = c(0, -0.7), cex = 0.7)
+    if (panel == "own") {
+      segments(0, own_reference[j], own_crossing[j], own_reference[j],
+               lty = 2, col = cols[j], lwd = 1.5)
+      points(own_crossing[j], own_reference[j], pch = 19, col = cols[j])
+    } else {
+      points(fixed_crossing[j], 90, pch = 19, col = cols[j])
+      axis(1, at = fixed_crossing[j], labels = FALSE, col.ticks = cols[j],
+           lwd.ticks = 2, tcl = -0.6)
+    }
+  }
+  if (panel == "own") {
+    axis(1, at = own_crossing[1], labels = FALSE, lwd.ticks = 2, tcl = -0.6)
+  } else {
+    abline(h = 90, lty = 2, lwd = 1.5)
+  }
+}
+par(op)
+```
+
+With a reference for each realisation (@fig-per-realisation, left), the
+references are `r paste(fmt(own_reference), collapse = ", ")`, and all three
+are crossed at $x = 1$. The one reference of 90 (@fig-per-realisation, right) is
+a fall of 5 from the control of 95 but of 15 from the control of 105, so the
+three realisations cross it at
+`r paste(fmt(fixed_level$draws[[1]]$value.draw), collapse = ", ")`. The three
+realisations have the same shape, so this spread of crossings comes only from
+the spread of their controls.
+
 ## References
 
 Daniels B, Hommen U, Ratte M (2026). Four-parameter nonlinear regression and
@@ -1043,4 +1033,8 @@ deterministic and written out above, and were evaluated over grids of
 `r paste(range(hand_grids), collapse = " to ")` values. The `LL.4()` and
 `LL.3()` fits are to `drc::ryegrass`, with `r fmt_drc(n_boot)` parametric
 bootstrap replicates drawn with `seed = 2026` over the default grid of
-`r fmt_drc(attr(boot_relative, "settings")$resolution)` values.
+`r fmt_drc(attr(boot_relative, "settings")$resolution)` values. Each ECx of a
+hand-built curve was checked against its exact value to within one grid step,
+because `ecx()` interpolates linearly between grid values. The bootstrap
+results of the `drc` fits have no exact value, so the values at the parameter
+estimates were checked against `drc::ED()` instead.
