@@ -52,9 +52,10 @@ probs <- c(0.5, 0.025, 0.975)
 
 The no-significant-effect concentration (NSEC) is the lowest concentration at
 which the fitted response differs from the control response by more than the
-uncertainty in the control allows. `nsec()` computes it from realisations of the
-fitted curve (a posterior draw of a Bayesian fit, or a parametric bootstrap
-replicate of a frequentist fit), each evaluated over a grid of concentrations.
+uncertainty in the control allows (Fisher and Fox 2023). `nsec()` computes it
+from realisations of the fitted curve (a posterior draw of a Bayesian fit, or a
+parametric bootstrap replicate of a frequentist fit), each evaluated over a grid
+of concentrations.
 `toxval_predict()` builds that grid and those realisations, and stores them in a
 `toxval_pred` object.
 
@@ -773,8 +774,9 @@ tested range.
 ## The anchor argument
 
 `anchor` names where the reference comes from when the realisations come from a
-model average. A model average combines several fitted equations by weight, and
-each of its realisations is drawn from one of those equations (its component).
+model average. A model average combines several fitted equations by weight
+(Fisher et al. 2024), and each of its realisations is drawn from one of those
+equations (its component).
 `anchor` is also returned as a column of the result.
 
 `anchor = "model"` takes the reference from all the control realisations of the
@@ -1014,6 +1016,17 @@ Because the NSEC is located on the bootstrap curves, not at a tested
 concentration, it can fall between or below the concentrations tested. The
 increasing reference is above the band of replicates at all concentrations
 drawn.
+
+## References
+
+Fisher R, Fox DR (2023). Introducing the no-significant-effect concentration.
+*Environmental Toxicology and Chemistry* 42(9):2019-2028.
+<https://doi.org/10.1002/etc.5610>
+
+Fisher R, Fox DR, Negri AP, van Dam J, Flores F, Koppel D (2024). Methods for
+estimating no-effect toxicity concentrations in ecotoxicology. *Integrated
+Environmental Assessment and Management* 20(1):279-293.
+<https://doi.org/10.1002/ieam.4809>
 
 ## Provenance
 
