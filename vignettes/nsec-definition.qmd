@@ -1,0 +1,916 @@
+---
+title: "The NSEC definition"
+vignette: >
+  %\VignetteIndexEntry{The NSEC definition}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+    fig-width: 6
+    fig-height: 4
+execute:
+  echo: true
+  warning: true
+  message: true
+---
+
+```{r}
+#| label: setup
+library(toxval)
+has_drc <- requireNamespace("drc", quietly = TRUE)
+# the columns read in the text; each result also has `metric`, `sig_val`,
+# `type`, `anchor` and `asymptote`
+show_nsec <- function(x) {
+  x[, c(
+    "direction", "estimate", "conf.low", "conf.high",
+    "control", "reference", "ecnsec", "ecnsec.low", "ecnsec.high"
+  )]
+}
+```
+
+```{r}
+#| label: formatting
+#| echo: false
+# wide enough for the nine columns `show_nsec()` prints
+options(width = 100)
+fmt <- function(x, digits = 3) {
+  formatC(signif(x, digits), digits = digits, format = "fg", flag = "#")
+}
+# controls and references are stated to the step of the constructed controls
+ctl <- function(x) sprintf("%.2f", x)
+prop <- function(x) sprintf("%.3f", x)
+pct <- function(x) paste(format(round(100 * x, 1), nsmall = 1), "per cent")
+# inline values from the `drc` fit are evaluated only when `drc` is installed,
+# so the vignette still builds without it
+if_drc <- function(expr) if (has_drc) expr else "(not computed: drc is not installed)"
+probs <- c(0.5, 0.025, 0.975)
+```
+
+## Background
+
+The no-significant-effect concentration (NSEC) is the lowest concentration at
+which the fitted response differs from the control response by more than the
+uncertainty in the control allows. `nsec()` computes it from realisations of the
+fitted curve. A realisation is one posterior draw of a Bayesian fit, or one
+parametric bootstrap replicate of a frequentist fit, evaluated over a grid of
+concentrations. `toxval_predict()` builds that grid and those realisations, and
+stores them in a `toxval_pred` object.
+
+For each curve, `nsec()` does three things.
+
+1. It sets one reference response for each direction. The decreasing reference
+   is the `sig_val` quantile of the control realisations, and the increasing
+   reference is the `1 - sig_val` quantile. The control realisation is a
+   realisation's predicted response at the control concentration, the lowest
+   concentration in the data, where the grid starts. At the commit loaded
+   here the control is read at the first grid value, `x_vec[1]`, which differs
+   from the lowest concentration in the data when `x_range` starts elsewhere
+   (toxval#73). `sig_val` defaults to 0.01.
+2. It finds, for each realisation, the first concentration at which that
+   realisation crosses the reference in each direction. Between grid points the
+   crossing is found by linear interpolation.
+3. It summarises the crossings by the quantiles in `prob_vals`, by default the
+   median and the 2.5 and 97.5 per cent quantiles.
+
+Both directions are sought on every call, and each is returned as a row with a
+`direction` column. A direction in which no realisation crosses is returned with
+`NA` estimates. The NSEC reference is one value per curve, shared by every
+realisation. The ECx reference differs on this point: it is computed for each
+realisation from that realisation's own control, as
+`vignette("ecx-definition", package = "toxval")` describes.
+
+## Constructed realisations
+
+The examples are built by hand with `new_toxval_pred()`, so that every value
+`nsec()` returns can be computed independently. Each set has 101 realisations
+whose controls are evenly spaced. These values are constructed, not sampled from
+a fit.
+
+`nsec()` takes quantiles with R's default method (type 7). For 101 values the
+quantile at probability $p$ is the value at position $1 + 100p$ in sorted order,
+interpolated where that position is not a whole number. The 0.01 quantile is
+therefore the second-smallest control, and the 0.99 quantile the
+hundredth.
+
+The helper below evaluates one curve shape at each control and stores the
+result. The `meta` list follows the slot contract documented in
+`?new_toxval_pred`. `family = "beta"` marks a response on the proportion scale,
+and `x_control` is the control concentration, 0 here, which is also the first
+grid value.
+
+```{r}
+#| label: build-pred
+build_pred <- function(shape, controls, x_vec, family = "gaussian", ...) {
+  curves <- t(vapply(
+    controls,
+    function(control) shape(control, x_vec),
+    numeric(length(x_vec))
+  ))
+  new_toxval_pred(
+    curves = list(curves),
+    keys = data.frame(row.names = 1L),
+    x_vec = x_vec,
+    meta = list(
+      source_class = "constructed",
+      x_var = "x",
+      group_var = NULL,
+      multi_var = NULL,
+      resolution = length(x_vec),
+      x_range = range(x_vec),
+      x_control = 0,
+      family = family,
+      realisation = "draws",
+      n_realisation = length(controls),
+      seed = NULL,
+      ...
+    )
+  )
+}
+```
+
+```{r}
+#| label: plot-helper
+#| echo: false
+# Grey lines are every tenth realisation; dashed lines the references;
+# solid and dotted vertical lines the NSEC estimate and its interval, in the
+# colour of the direction.
+direction_col <- c(decreasing = "#2a78d6", increasing = "#eb6834")
+plot_nsec <- function(pred, result, ylab = "Response", every = 10) {
+  x <- pred$x_vec
+  curves <- pred$curves[[1]]
+  shown <- seq(1, nrow(curves), by = every)
+  # room above the highest reference for its label
+  y_lim <- range(curves[shown, ], result$reference)
+  y_lim[2] <- y_lim[2] + 0.08 * diff(y_lim)
+  old_par <- graphics::par(mar = c(4, 4, 1, 1))
+  on.exit(graphics::par(old_par))
+  graphics::matplot(
+    x,
+    t(curves[shown, , drop = FALSE]),
+    type = "l",
+    lty = 1,
+    col = "grey75",
+    ylim = y_lim,
+    xlab = "Concentration",
+    ylab = ylab,
+    las = 1,
+    bty = "l"
+  )
+  for (i in seq_len(nrow(result))) {
+    d <- result$direction[i]
+    graphics::abline(h = result$reference[i], col = direction_col[[d]], lty = 2, lwd = 2)
+    graphics::text(
+      max(x),
+      result$reference[i],
+      paste(d, "reference"),
+      adj = c(1, -0.4),
+      col = "grey20",
+      cex = 0.8
+    )
+    if (!is.na(result$estimate[i])) {
+      graphics::abline(v = result$estimate[i], col = direction_col[[d]], lwd = 2)
+      graphics::abline(
+        v = c(result$conf.low[i], result$conf.high[i]),
+        col = direction_col[[d]],
+        lty = 3,
+        lwd = 1.5
+      )
+    }
+  }
+}
+```
+
+## A decreasing response
+
+The first set has controls from 9.00 to 11.00 in steps of 0.02. Every
+realisation declines exponentially from its control, $y = c\,e^{-x/5}$, over a
+grid of 500 concentrations from 0 to 10.
+
+```{r}
+#| label: decreasing
+controls <- seq(9, 11, by = 0.02)
+decline <- function(control, x) control * exp(-x / 5)
+dec_pred <- build_pred(decline, controls, seq(0, 10, length.out = 500))
+dec <- nsec(dec_pred)
+print(dec, width = Inf)
+```
+
+```{r}
+#| label: decreasing-check
+#| echo: false
+grid_step <- function(pred) diff(pred$x_vec)[1]
+r_dec <- controls[2]
+r_inc <- controls[100]
+# a realisation whose control is below the reference does not cross it and is
+# placed at `x_control`, 0 here; one whose control equals the reference crosses
+# at the first grid value, also 0
+nsec_dec_hand <- ifelse(controls > r_dec, 5 * log(controls / r_dec), 0)
+q_dec_hand <- quantile(nsec_dec_hand, probs, names = FALSE)
+ecnsec_dec_hand <- quantile(1 - r_dec / controls, probs, names = FALSE)
+median_control <- median(controls)
+stopifnot(
+  sum(controls < r_dec) == 1,
+  which(controls < r_dec) == 1,
+  max(controls) > r_inc,
+  abs(dec$estimate[1] - 5 * log(median_control / r_dec)) < grid_step(dec_pred),
+  isTRUE(all.equal(dec$reference, c(r_dec, r_inc))),
+  all(abs(unlist(dec[1, c("estimate", "conf.low", "conf.high")]) - q_dec_hand) <
+    grid_step(dec_pred)),
+  isTRUE(all.equal(
+    unlist(dec[1, c("ecnsec", "ecnsec.low", "ecnsec.high")]),
+    ecnsec_dec_hand,
+    check.attributes = FALSE
+  )),
+  all(is.na(dec$estimate[2]))
+)
+```
+
+The decreasing reference is `r ctl(dec$reference[1])`, the second-smallest
+control, and the increasing reference is `r ctl(dec$reference[2])`, the
+hundredth. A realisation with control $c$ reaches the decreasing reference at
+$x = 5 \log(c / `r ctl(r_dec)`)$. The median realisation has a control of
+`r ctl(median_control)`, so its NSEC is
+$5 \log(`r ctl(median_control)` / `r ctl(r_dec)`) = `r fmt(5 * log(median_control / r_dec))`$,
+and `nsec()` reports `r fmt(dec$estimate[1])`. The interval is
+`r fmt(dec$conf.low[1])` to `r fmt(dec$conf.high[1])`. It agrees to within one
+grid step (`r fmt(grid_step(dec_pred))`) with the 2.5 and 97.5 per cent
+quantiles of the `r length(controls)` crossings given by this formula, taking 0 for the
+realisation with control `r ctl(controls[1])`. That realisation starts below the
+decreasing reference, and is placed by the rule given under
+[Realisations with no crossing](#realisations-with-no-crossing).
+
+The increasing row has `NA` estimates because no realisation rises. Its
+`reference` and `ecnsec` still describe the response level that was sought.
+
+```{r}
+#| label: fig-decreasing
+#| echo: false
+#| fig-cap: "Every tenth realisation of the decreasing set, with both references and the decreasing NSEC and its interval."
+plot_nsec(dec_pred, dec)
+```
+
+@fig-decreasing shows that the realisations differ only in their control, so
+the spread of the NSEC comes entirely from the spread of the control. The
+lowest curve shown, with control `r ctl(controls[1])`, starts below the
+decreasing reference. The highest, with control `r ctl(max(controls))`, starts
+above the increasing reference, and no curve rises towards it.
+
+## The effect at the NSEC
+
+`ecnsec` is the effect that the reference represents, expressed as a proportion
+of the span named by `type`. It is the inverse of the ECx reference under the
+same `type`: an ECx at proportion $p$ sets its reference $p$ of the span away
+from the control, and `ecnsec` gives the $p$ at which that reference would equal
+the NSEC reference. Under the default, `type = "absolute"`, the decreasing span
+of a realisation is its control, so for a realisation with control $c$ and
+reference $R$
+
+$$
+\text{ecnsec} = \frac{c - R}{c}.
+$$
+
+`ecnsec` is computed for each realisation and summarised by the same quantiles
+as the NSEC. For the decreasing set its median is
+$1 - `r ctl(r_dec)` / 10 = `r fmt(dec$ecnsec[1])`$: the decreasing reference
+lies `r pct(dec$ecnsec[1])` below the median control. For the increasing row the
+span is again the control, since this response is not a proportion, and the
+reference lies `r pct(dec$ecnsec[2])` above the median control. The
+`vignette("ecx-definition", package = "toxval")` gives the span for each `type`
+and direction.
+
+Calling `ecx()` at the median `ecnsec` tests the inverse relation.
+
+```{r}
+#| label: ecx-inverse
+ecx(dec_pred, proportion = dec$ecnsec[1])
+```
+
+```{r}
+#| label: ecx-inverse-check
+#| echo: false
+ecx_at_ecnsec <- ecx(dec_pred, proportion = dec$ecnsec[1])
+stopifnot(
+  abs(ecx_at_ecnsec$estimate[1] - dec$estimate[1]) < grid_step(dec_pred),
+  # every realisation has the same shape, so the interval has zero width
+  isTRUE(all.equal(ecx_at_ecnsec$conf.low[1], ecx_at_ecnsec$conf.high[1])),
+  abs(ecx_at_ecnsec$estimate[1] + 5 * log(1 - dec$ecnsec[1])) < grid_step(dec_pred)
+)
+```
+
+The decreasing ECx at proportion `r fmt(dec$ecnsec[1])` is
+`r fmt(ecx_at_ecnsec$estimate[1])`, the NSEC of the median realisation. Its
+interval has zero width because every realisation here has the same shape, so
+each reaches a given proportion of its own control at the same concentration,
+$-5 \log(1 - p)$.
+
+`type` changes `ecnsec` but not the NSEC. Under `type = "range"` the decreasing
+span is the control minus the lowest response of the realisation over the grid,
+here $c\,(1 - e^{-2})$.
+
+```{r}
+#| label: ecnsec-range
+dec_range <- nsec(dec_pred, type = "range")
+show_nsec(dec_range)
+```
+
+```{r}
+#| label: ecnsec-range-check
+#| echo: false
+stopifnot(
+  identical(dec_range$estimate, dec$estimate),
+  identical(dec_range$conf.low, dec$conf.low),
+  identical(dec_range$conf.high, dec$conf.high),
+  isTRUE(all.equal(dec_range$ecnsec[1], dec$ecnsec[1] / (1 - exp(-2)))),
+  is.na(dec_range$ecnsec[2])
+)
+```
+
+The NSEC and its interval are identical to those under `"absolute"`. The median
+decreasing `ecnsec` is `r fmt(dec_range$ecnsec[1])`, which is
+$`r fmt(dec$ecnsec[1])` / (1 - e^{-2})$. The increasing `ecnsec` is `NA` because
+a declining curve has no response above its control, so its increasing span
+under `"range"` is zero. `type = "relative"` measures to the asymptote of the
+fitted equation, which a constructed `toxval_pred` supplies only through its
+`asymptote` slot.
+
+`nsec()` refuses `type = "direct"`.
+
+```{r}
+#| label: direct
+#| error: true
+nsec(dec_pred, type = "direct")
+```
+
+Under `"direct"` the ECx reference is a response value supplied by the user,
+with no span. The `ecnsec` would then be the NSEC reference itself, the same in
+every realisation, and the `reference` column already reports it. `ecx()` keeps
+`type = "direct"`, where the supplied value sets the reference and the ECx
+varies between realisations.
+
+## An increasing response
+
+The second set is a proportion, such as mortality, that rises from its control
+towards 1, $y = 1 - (1 - c)\,e^{-x/5}$. The controls run from 0.050 to 0.150 in
+steps of 0.001, over the same grid. `family = "beta"` records that the response
+is a proportion.
+
+```{r}
+#| label: increasing
+inc_controls <- seq(0.05, 0.15, by = 0.001)
+rise <- function(control, x) 1 - (1 - control) * exp(-x / 5)
+inc_pred <- build_pred(
+  rise,
+  inc_controls,
+  seq(0, 10, length.out = 500),
+  family = "beta"
+)
+inc <- nsec(inc_pred)
+show_nsec(inc)
+```
+
+```{r}
+#| label: increasing-check
+#| echo: false
+r_up <- inc_controls[100]
+median_inc <- median(inc_controls)
+nsec_inc_hand <- ifelse(
+  inc_controls < r_up,
+  5 * log((1 - inc_controls) / (1 - r_up)),
+  0
+)
+q_inc_hand <- quantile(nsec_inc_hand, probs, names = FALSE)
+ecnsec_inc_hand <- quantile(
+  (r_up - inc_controls) / (1 - inc_controls),
+  probs,
+  names = FALSE
+)
+stopifnot(
+  isTRUE(all.equal(inc$reference, inc_controls[c(2, 100)])),
+  abs(inc$estimate[2] - 5 * log((1 - median_inc) / (1 - r_up))) <
+    grid_step(inc_pred),
+  isTRUE(all.equal(inc$ecnsec[2], (r_up - median_inc) / (1 - median_inc))),
+  all(abs(unlist(inc[2, c("estimate", "conf.low", "conf.high")]) - q_inc_hand) <
+    grid_step(inc_pred)),
+  isTRUE(all.equal(
+    unlist(inc[2, c("ecnsec", "ecnsec.low", "ecnsec.high")]),
+    ecnsec_inc_hand,
+    check.attributes = FALSE
+  )),
+  is.na(inc$estimate[1])
+)
+```
+
+The increasing reference is the 0.99 quantile of the controls,
+`r prop(inc$reference[2])`, the hundredth value. A realisation with control $c$
+reaches it at $x = 5 \log\{(1 - c) / (1 - `r prop(r_up)`)\}$, which for the median
+control of `r prop(median_inc)` is
+`r fmt(5 * log((1 - median_inc) / (1 - r_up)))`. `nsec()` reports
+`r fmt(inc$estimate[2])` (`r fmt(inc$conf.low[2])` to `r fmt(inc$conf.high[2])`),
+in agreement with the formula to within one grid step. The decreasing row is
+`NA`, since no realisation falls.
+
+For a proportion the increasing span under `"absolute"` is $1 - c$, the distance
+from the control to the upper bound of the response, so
+
+$$
+\text{ecnsec} = \frac{R - c}{1 - c},
+$$
+
+which is the extra risk at the NSEC. Its median is
+$(`r prop(r_up)` - `r prop(median_inc)`) / (1 - `r prop(median_inc)`) = `r fmt(inc$ecnsec[2])`$. For a response that is
+not a proportion the increasing span is the control itself, as in the
+decreasing set.
+
+## Realisations with no crossing
+
+A realisation that never crosses the reference within the grid has no NSEC of
+its own. `nsec()` places it by one of three rules.
+
+- A realisation whose control already lies at or beyond the reference, in the
+  direction sought, is given `x_control`, the control concentration: the
+  lowest concentration in the data the model was fitted to.
+- A realisation that does not reach the reference within the grid is given
+  `Inf`, which ranks it above every crossing. A quantile that falls among such
+  realisations is reported as the highest concentration, and the call warns
+  with the fraction of realisations that are censored.
+- A realisation with no finite control, such as a bootstrap replicate outside
+  the parameter space of the model, is excluded from the summary and counted
+  in the warning.
+
+The second rule follows from what a missing crossing means. A realisation that
+has not reached the reference by the highest concentration would reach it, if at
+all, at a higher one, so it belongs in the upper tail. Dropping it would report a
+quantile of the realisations that crossed, which lies below the same quantile of
+all of them. Keeping its rank leaves every quantile below the censored
+realisations unchanged.
+
+The first rule applies to about a fraction `sig_val` of the realisations, by
+construction of the reference. In the decreasing set it applies to one
+realisation, whose control of `r ctl(controls[1])` lies below the reference of
+`r ctl(r_dec)`. With `sig_val = 0.05` it applies to more than 2.5 per cent of
+the realisations, so it sets the lower limit of the interval.
+
+```{r}
+#| label: sig-val
+dec_05 <- nsec(dec_pred, sig_val = 0.05)
+show_nsec(dec_05)
+```
+
+```{r}
+#| label: sig-val-check
+#| echo: false
+n_below_05 <- sum(controls < dec_05$reference[1])
+stopifnot(
+  isTRUE(all.equal(dec_05$reference[1], controls[6])),
+  n_below_05 / length(controls) > 0.025,
+  dec_05$conf.low[1] == dec_pred$meta$x_control
+)
+```
+
+The decreasing reference is now `r ctl(dec_05$reference[1])`, the sixth control.
+The `r n_below_05` realisations with lower controls lie below it from the start
+and are placed at `x_control`, so the lower limit is
+`r fmt(dec_05$conf.low[1])`.
+
+The second rule is shown by evaluating the decreasing set over a shorter grid,
+from 0 to 0.9. The realisations with the highest controls decline too little in
+that range to reach the reference. For a fitted model the range is set with
+`x_range`. For a constructed `toxval_pred` it is the grid supplied, and
+`nsec()` refuses `x_range`.
+
+```{r}
+#| label: censored
+short_pred <- build_pred(decline, controls, seq(0, 0.9, length.out = 500))
+short <- nsec(short_pred, draws = TRUE)
+show_nsec(short)
+tail(short$draws[[1]], 3)
+```
+
+```{r}
+#| label: censored-check
+#| echo: false
+# the last grid point starts no interval, so a crossing at or beyond it is not
+# found within the grid
+n_censored <- sum(nsec_dec_hand >= max(short_pred$x_vec))
+draws_short <- short$draws[[1]]$value.draw
+n_real <- length(controls)
+stopifnot(
+  sum(is.infinite(draws_short)) == n_censored,
+  # the censored realisations are those with the highest controls
+  all(is.infinite(draws_short) == (seq_len(n_real) > n_real - n_censored)),
+  n_censored / length(controls) > 0.025,
+  short$conf.high[1] == max(short_pred$x_vec),
+  abs(short$estimate[1] - dec$estimate[1]) < grid_step(dec_pred),
+  abs(short$conf.low[1] - dec$conf.low[1]) < grid_step(dec_pred)
+)
+```
+
+`r n_censored` of the `r n_real` realisations, those with controls from
+`r ctl(controls[n_real - n_censored + 1])` to `r ctl(max(controls))`, would
+reach the reference beyond `r fmt(max(short_pred$x_vec))`. They are `Inf` in the
+`draws` column, and are `r pct(n_censored / n_real)` of the realisations. The 97.5 per
+cent quantile has 2.5 per cent of the realisations above it, so it falls among
+the censored ones. It is reported as `r fmt(short$conf.high[1])`, the highest
+concentration, and the call warns. The median, `r fmt(short$estimate[1])`, and
+the lower limit, `r fmt(short$conf.low[1])`, are those of the full grid.
+
+The upper limit should then be read as "at least `r fmt(short$conf.high[1])`":
+the tested range did not extend far enough to bound it. Where the censored
+realisations are fewer than 2.5 per cent, the upper limit lies below all of
+them, and there is no warning.
+
+```{r}
+#| label: censored-few
+few_pred <- build_pred(decline, controls, seq(0, 0.98, length.out = 500))
+few <- nsec(few_pred, draws = TRUE)
+show_nsec(few)
+```
+
+```{r}
+#| label: censored-few-check
+#| echo: false
+n_few <- sum(is.infinite(few$draws[[1]]$value.draw))
+stopifnot(
+  n_few == sum(nsec_dec_hand >= max(few_pred$x_vec)),
+  n_few / length(controls) < 0.025,
+  abs(few$conf.high[1] - dec$conf.high[1]) < grid_step(dec_pred)
+)
+```
+
+On a grid to `r fmt(max(few_pred$x_vec))`, `r n_few` realisations are censored. The upper limit is
+`r fmt(few$conf.high[1])`, as on the full grid, since the realisations that set
+it crossed within the range.
+
+## A hormetic response
+
+The third set uses the controls of the decreasing set with a hormetic shape,
+$y = c\,(1 + x/2)\,e^{-x/4}$, over a grid of 500 concentrations from 0 to 20.
+Each realisation rises to $2e^{-1/2} = `r fmt(2 * exp(-0.5))`$ times its control
+at $x = 2$ and then declines. The references are those of the decreasing set,
+since the controls are the same.
+
+```{r}
+#| label: hormetic
+hormesis <- function(control, x) control * (1 + x / 2) * exp(-x / 4)
+horm_pred <- build_pred(hormesis, controls, seq(0, 20, length.out = 500))
+horm <- nsec(horm_pred)
+show_nsec(horm)
+```
+
+```{r}
+#| label: hormetic-check
+#| echo: false
+peak <- 2 * exp(-0.5)
+shape <- function(x) (1 + x / 2) * exp(-x / 4)
+# the first downward crossing lies after the peak for every realisation,
+# including those whose control starts below the reference
+horm_dec_hand <- vapply(
+  controls,
+  function(control) {
+    stats::uniroot(
+      function(x) control * shape(x) - r_dec,
+      c(2, 20),
+      tol = 1e-10
+    )$root
+  },
+  numeric(1)
+)
+horm_inc_hand <- vapply(
+  controls,
+  function(control) {
+    if (control >= r_inc) {
+      return(0)
+    }
+    if (control * peak <= r_inc) {
+      return(Inf)
+    }
+    stats::uniroot(
+      function(x) control * shape(x) - r_inc,
+      c(0, 2),
+      tol = 1e-10
+    )$root
+  },
+  numeric(1)
+)
+q_horm_dec <- quantile(horm_dec_hand, probs, names = FALSE)
+q_horm_inc <- quantile(horm_inc_hand, probs, names = FALSE)
+q_horm_inc[is.infinite(q_horm_inc)] <- max(horm_pred$x_vec)
+n_horm_censored <- sum(is.infinite(horm_inc_hand))
+# the realisations themselves, to read the value given to the first one; the
+# censoring warning was already shown by the call above
+horm_draws <- suppressWarnings(nsec(horm_pred, draws = TRUE))$draws
+horm_first_dec <- horm_draws[[1]]$value.draw[1]
+stopifnot(
+  controls[1] < r_dec,
+  abs(horm_first_dec - horm_dec_hand[1]) < grid_step(horm_pred),
+  # the censored realisations are those with the lowest controls
+  all(is.infinite(horm_inc_hand) == (seq_len(n_real) <= n_horm_censored)),
+  all(is.infinite(horm_draws[[2]]$value.draw) == is.infinite(horm_inc_hand)),
+  all(abs(unlist(horm[1, c("estimate", "conf.low", "conf.high")]) - q_horm_dec) <
+    grid_step(horm_pred)),
+  all(abs(unlist(horm[2, c("estimate", "conf.low", "conf.high")]) - q_horm_inc) <
+    grid_step(horm_pred)),
+  horm$conf.high[2] == max(horm_pred$x_vec),
+  n_horm_censored / length(controls) > 0.025,
+  horm_dec_hand[1] > 2
+)
+```
+
+Both rows have estimates. The decreasing NSEC is `r fmt(horm$estimate[1])`
+(`r fmt(horm$conf.low[1])` to `r fmt(horm$conf.high[1])`), where the declining
+part of each curve falls through `r ctl(r_dec)`. The increasing NSEC is
+`r fmt(horm$estimate[2])` (`r fmt(horm$conf.low[2])` to
+`r fmt(horm$conf.high[2])`), where the rising part passes `r ctl(r_inc)`. Both
+agree with crossings found by `uniroot()` to within one grid step
+(`r fmt(grid_step(horm_pred))`).
+
+```{r}
+#| label: fig-hormetic
+#| echo: false
+#| fig-cap: "Every tenth realisation of the hormetic set, with both references and both NSECs and their intervals."
+plot_nsec(horm_pred, horm)
+```
+
+@fig-hormetic shows the two crossings on most curves: an increasing one before
+the peak at $x = 2$, and a decreasing one after it. Two features of the result
+are absent from the monotone sets.
+
+The realisation with control `r ctl(controls[1])` starts below the decreasing
+reference, but it rises above the reference and falls through it at
+`r fmt(horm_first_dec)`. That is a crossing, so `nsec()` gives it that
+concentration rather than `x_control`.
+
+The `r n_horm_censored` realisations with the lowest controls peak below the
+increasing reference. The highest of them peaks at
+$2e^{-1/2} \times `r ctl(controls[n_horm_censored])` = `r fmt(peak * controls[n_horm_censored], 5)`$,
+against `r ctl(r_inc)`. They never cross upward, so they are censored. They are
+`r pct(n_horm_censored / n_real)` of the realisations, so the upper limit of the
+increasing NSEC is reported as the highest concentration,
+`r fmt(horm$conf.high[2])`, and the call warns. The warning suggests a wider
+`x_range`, but a wider range would not resolve the censoring, because these
+realisations decline beyond $x = 2$. The upper limit would be reported at the
+new highest concentration. It records that more than 2.5 per cent of the
+realisations show no increase past the reference anywhere in the tested range.
+
+## The anchor argument
+
+`anchor` names where the reference comes from when the realisations come from a
+model average. A model average combines several fitted equations by weight, and
+each of its realisations is drawn from one of those equations, its component.
+`anchor` is reported as a column of the result.
+
+`anchor = "model"`, the default, takes the reference from all the control
+realisations of the curve, pooled across components, as in every example above.
+Every realisation is then measured against one response level, which can be
+drawn on a plot as in @fig-decreasing.
+
+`anchor = "component"` would measure the realisations of each component against
+the `sig_val` quantile of that component's own control realisations. That is the
+strict Bayesian model average, and it is the reference `bayesnec::nsec()` uses
+for a model set. For a fit that is not a model average there is one component, so the
+two anchors give the same values.
+
+```{r}
+#| label: anchor-single
+dec_component <- nsec(dec_pred, anchor = "component")
+dec_component[, c("direction", "estimate", "conf.low", "conf.high", "anchor")]
+```
+
+```{r}
+#| label: anchor-single-check
+#| echo: false
+stopifnot(
+  identical(dec_component$estimate, dec$estimate),
+  identical(dec_component$conf.low, dec$conf.low),
+  identical(dec_component$conf.high, dec$conf.high)
+)
+```
+
+For a model average `nsec()` refuses `"component"` at present. A model average is
+recognised from `meta$draw_model`, which names the component of each
+realisation. The constructed set below assigns the realisations of the
+decreasing set with controls up to the median to an equation `a`, and the rest
+to an equation `b`.
+
+```{r}
+#| label: anchor-average
+#| error: true
+draw_model <- ifelse(controls <= median(controls), "a", "b")
+avg_pred <- build_pred(
+  decline,
+  controls,
+  seq(0, 10, length.out = 500),
+  model_weights = c(table(draw_model)) / length(draw_model),
+  draw_model = draw_model
+)
+nsec(avg_pred, anchor = "component")
+```
+
+```{r}
+#| label: anchor-average-values
+#| echo: false
+ref_by_component <- tapply(controls, draw_model, quantile, probs = 0.01)
+n_by_component <- table(draw_model)
+range_by_component <- tapply(controls, draw_model, range)
+```
+
+Under `"model"` every realisation is measured against `r ctl(r_dec)`. Under
+`"component"` the `r n_by_component[["a"]]` realisations of `a`, with controls
+from `r ctl(range_by_component[["a"]][1])` to `r ctl(range_by_component[["a"]][2])`, would
+be measured against `r ctl(ref_by_component[["a"]])`. The
+`r n_by_component[["b"]]` realisations of `b`, with controls from
+`r ctl(range_by_component[["b"]][1])` to `r ctl(range_by_component[["b"]][2])`, would be
+measured against `r ctl(ref_by_component[["b"]])`. Each is the 0.01 quantile of
+that equation's own controls. The NSEC under `"component"` is computed below by
+applying `nsec()` to the realisations of each equation alone, and summarising
+their crossings together.
+
+```{r}
+#| label: anchor-average-component
+component_nsec <- lapply(split(seq_along(controls), draw_model), function(rows) {
+  one_equation <- build_pred(decline, controls[rows], seq(0, 10, length.out = 500))
+  nsec(one_equation, draws = TRUE)$draws[[1]]$value.draw
+})
+model_nsec <- nsec(avg_pred, draws = TRUE)
+rbind(
+  model = unlist(model_nsec[1, c("estimate", "conf.low", "conf.high")]),
+  component = quantile(unlist(component_nsec), probs, names = FALSE)
+)
+```
+
+```{r}
+#| label: anchor-average-component-check
+#| echo: false
+q_component <- quantile(unlist(component_nsec), probs, names = FALSE)
+model_draws <- model_nsec$draws[[1]]$value.draw
+stopifnot(
+  identical(model_nsec$estimate, dec$estimate),
+  identical(model_nsec$conf.low, dec$conf.low),
+  identical(model_nsec$conf.high, dec$conf.high),
+  # the component interval is narrower, and its upper limit lower
+  diff(q_component[2:3]) < model_nsec$conf.high[1] - model_nsec$conf.low[1],
+  q_component[3] < model_nsec$conf.high[1],
+  # under "model" every realisation above the upper limit belongs to `b`,
+  # whose own reference lies above the pooled one
+  all(draw_model[model_draws > model_nsec$conf.high[1]] == "b"),
+  ref_by_component[["b"]] > r_dec
+)
+```
+
+Under `"component"` the NSEC is `r fmt(q_component[1])` (`r fmt(q_component[2])`
+to `r fmt(q_component[3])`), against `r fmt(model_nsec$estimate[1])`
+(`r fmt(model_nsec$conf.low[1])` to `r fmt(model_nsec$conf.high[1])`) under
+`"model"`. Here the interval is narrower. The NSEC of each realisation decreases
+when its equation's own reference lies above the pooled one, and increases when
+it lies below. Which way the width changes depends on which realisations set the
+limits under `"model"`. Here the realisations of `b` set the upper limit, because
+they are measured against a reference well below their controls. Under
+`"component"` they are measured against `r ctl(ref_by_component[["b"]])`, their
+NSECs decrease, and the upper limit decreases with them. Where an equation whose
+reference lies above the pooled one holds the lowest NSECs instead, its NSECs
+decrease further and the interval widens. The
+[`bayesnec` case study](case-bayesnec.html) applies the default anchor to a
+fitted model set and shows the refusal of `"component"`.
+
+`anchor = "control"`, a reference taken from a model fitted to the control
+observations alone, was proposed and is not implemented. `nsec()` refuses it.
+
+```{r}
+#| label: anchor-control
+#| error: true
+nsec(dec_pred, anchor = "control")
+```
+
+## A fitted model
+
+The same calculation applies to a fitted model. `drc::drm()` fits the
+four-parameter log-logistic equation `LL.4()` to the root lengths of ryegrass
+exposed to ferulic acid, `drc::ryegrass`. `toxval_predict()` draws parametric
+bootstrap replicates of the curve,
+`r formals(toxval:::toxval_predict.drc)$n_boot` by default (`n_boot`), and
+`nsec()` is called on the result.
+
+```{r}
+#| label: drc-fit
+#| eval: !expr has_drc
+fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+rye_pred <- toxval_predict(fit, seed = 42)
+rye <- nsec(rye_pred)
+show_nsec(rye)
+```
+
+```{r}
+#| label: drc-check
+#| echo: false
+#| eval: !expr has_drc
+rye_control <- rye_pred$curves[[1]][, 1]
+# a replicate with no increasing crossing is either placed at `x_control` or
+# censored (`Inf`); none has a crossing above the control concentration
+rye_inc <- nsec(rye_pred, draws = TRUE)$draws[[2]]$value.draw
+stopifnot(
+  isTRUE(all.equal(
+    rye$reference,
+    unname(quantile(rye_control, c(0.01, 0.99)))
+  )),
+  isTRUE(all.equal(
+    as.data.frame(nsec(fit, seed = 42)),
+    as.data.frame(rye)
+  )),
+  length(rye_control) == formals(toxval:::toxval_predict.drc)$n_boot,
+  !any(is.finite(rye_inc) & rye_inc > rye_pred$meta$x_control),
+  isTRUE(all.equal(
+    rye$ecnsec[1],
+    quantile(1 - rye$reference[1] / rye_control, 0.5, names = FALSE)
+  ))
+)
+# the lowest two concentrations tested, against which the figure is read
+rye_tested <- sort(unique(drc::ryegrass$conc[drc::ryegrass$conc > 0]))[1:2]
+stopifnot(
+  rye$conf.low[1] < rye_tested[1],
+  rye_tested[1] < rye$estimate[1],
+  rye$conf.high[1] < rye_tested[2]
+)
+```
+
+The decreasing reference is `r if_drc(fmt(rye$reference[1]))`, the 0.01
+quantile of the `r if_drc(length(rye_control))` bootstrap controls, whose median
+is `r if_drc(fmt(rye$control[1]))`. The NSEC is
+`r if_drc(fmt(rye$estimate[1]))` (`r if_drc(fmt(rye$conf.low[1]))` to
+`r if_drc(fmt(rye$conf.high[1]))`), and the reference lies
+`r if_drc(pct(rye$ecnsec[1]))` below the control at the median. `nsec(fit,
+seed = 42)` gives the same result in one call. No replicate crosses the
+increasing reference, so the increasing row is `NA`.
+
+```{r}
+#| label: fig-ryegrass-nsec
+#| echo: false
+#| eval: !expr has_drc
+#| fig-cap: "The `LL.4()` fit to `drc::ryegrass`: root lengths (grey points), the curve at the parameter estimates (black line) and the 95 per cent band of the bootstrap replicates (grey band), on a log concentration axis with the controls drawn at the tick labelled 0. Dashed lines are the two references; the vermillion line and band are the decreasing NSEC and its 95 per cent interval, from `nsec(rye_pred)` and identically from `nsec(fit, seed = 42)`. The increasing NSEC is `NA` and is not drawn."
+#| fig-width: 6.5
+#| fig-height: 4.2
+rye_data <- drc::ryegrass
+# A log axis cannot show the control at 0, so the controls are drawn at
+# `x_zero`, left of the lowest concentration tested, as drc's own plot method
+# does; the curve and band start clear of that position.
+x_zero <- 0.4
+rye_x <- ifelse(rye_data$conc == 0, x_zero, rye_data$conc)
+on_axis <- rye_pred$x_vec >= 0.6
+x_log <- exp(seq(log(0.6), log(30), length.out = 300))
+band <- apply(rye_pred$curves[[1]][, on_axis], 2, quantile, c(0.025, 0.975))
+stopifnot(max(band[2, ]) < rye$reference[2])
+nsec_col <- "#D55E00"
+op <- par(mar = c(4, 4, 1, 1))
+plot(rye_x, rye_data$rootl, log = "x", type = "n", xaxt = "n", las = 1,
+     bty = "l", xlab = "Concentration", ylab = "Root length")
+axis(1, at = c(x_zero, sort(unique(rye_data$conc))[-1]),
+     labels = sort(unique(rye_data$conc)))
+polygon(c(rye_pred$x_vec[on_axis], rev(rye_pred$x_vec[on_axis])),
+        c(band[1, ], rev(band[2, ])), col = "grey85", border = NA)
+rect(rye$conf.low[1], par("usr")[3], rye$conf.high[1], par("usr")[4],
+     col = adjustcolor(nsec_col, 0.2), border = NA)
+points(rye_x, rye_data$rootl, pch = 19, col = "grey50")
+lines(x_log, predict(fit, newdata = data.frame(conc = x_log)), lwd = 2)
+abline(h = rye$reference, lty = 2, col = "grey20")
+text(30, rye$reference, paste(rye$direction, "reference"), adj = c(1, -0.4),
+     col = "grey20", cex = 0.8)
+abline(v = rye$estimate[1], col = nsec_col, lwd = 2)
+legend("bottomleft", bty = "n", cex = 0.85,
+       legend = c("decreasing NSEC", "95% interval", "bootstrap 95% band"),
+       col = c(nsec_col, adjustcolor(nsec_col, 0.2), "grey85"),
+       lty = 1, lwd = c(2, 10, 10))
+par(op)
+```
+
+In @fig-ryegrass-nsec the NSEC lies between the two lowest concentrations
+tested, `r if_drc(rye_tested[1])` and `r if_drc(rye_tested[2])`, and the lower
+limit of its interval lies below `r if_drc(rye_tested[1])`. The NSEC is located
+on the bootstrap curves rather than at a tested concentration, so it can fall
+between or below the concentrations tested. The increasing reference lies above
+the band of replicates at every concentration drawn. The
+[`drc` case study](case-drc.html) uses fits to `bayesnec::nec_data`. It compares
+toxval's bootstrap interval on the EC10 with the delta-method interval of
+`drc::ED()`, and toxval's NSEC with a hand calculation from the fitted
+parameters.
+
+## Provenance
+
+The realisations in every example except the last are constructed, with no
+random element. The `drc` example draws its bootstrap replicates with
+`seed = 42`, passed to `toxval_predict()`, and uses `drc::ryegrass` as
+distributed with `drc`. Every grid has 500 points, the default `resolution`, and
+every hand-computed NSEC is checked against `nsec()` to within one grid step.
+
+```{r}
+#| label: provenance
+#| echo: false
+versions <- c(
+  R = paste(R.version$major, R.version$minor, sep = "."),
+  toxval = as.character(utils::packageVersion("toxval"))
+)
+if (has_drc) {
+  versions["drc"] <- as.character(utils::packageVersion("drc"))
+}
+versions
+```
