@@ -16,6 +16,11 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="articles/ecx-definition.html">The ECx definition</a></li>
+    <li><a class="dropdown-item" href="articles/nsec-definition.html">The NSEC definition</a></li>
+  </ul></li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json"></form></li>
@@ -100,7 +105,7 @@
 <li>Exposes the estimator on <strong>plain inputs</strong> — a posterior matrix and an <code>x_vec</code> — so any caller can drive it without a fitted object. This is what makes toxval #21 (<code>glm</code> and other classes) tractable later.</li>
 <li>Drops <code>ecx.bnecfit</code>, <code>nsec.bnecfit</code>, <code>predict.bayesnecfit</code>, <code>predict.bayesmanecfit</code> and the <code>bnecfit</code> branch of <code>newdata_eval()</code>.</li>
 <li>
-<code>bayesnec</code> moves from <code>Imports</code> to <code>Suggests</code> (still needed by examples and tests that build fixtures from real <code><a href="https://open-aims.github.io/bayesnec/reference/bnec.html" class="external-link">bnec()</a></code> fits).</li>
+<code>bayesnec</code> leaves <code>Imports</code>. What the examples and remaining tests read from it is stored as fixtures, so it is listed in <code>Suggests</code> only for a test that compares against it (<code>REFACTOR-claude.md</code> §4, phase 3).</li>
 </ul><p><strong><code>bayesnec</code> owns everything that knows about its own classes.</strong></p>
 <ul><li>
 <code>Imports: toxval</code>, and re-exports the <code>ecx</code> / <code>nsec</code> generics so <code><a href="https://open-aims.github.io/bayesnec/" class="external-link">library(bayesnec)</a></code> alone still works for existing users.</li>
@@ -127,14 +132,14 @@
 </div>
 <div class="section level3">
 <h3 id="step-2--toxval-shed-the-bayesnec-dependency">Step 2 — <code>toxval</code>: shed the bayesnec dependency<a class="anchor" aria-label="anchor" href="#step-2--toxval-shed-the-bayesnec-dependency"></a></h3>
-<p>Delete <code>ecx.bnecfit</code>, <code>nsec.bnecfit</code>, <code>predict.bayesnecfit</code>, <code>predict.bayesmanecfit</code> and the <code>bayesmanecfit</code> branch of <code>newdata_eval()</code>. Move <code>bayesnec</code> from <code>Imports</code> to <code>Suggests</code>. Guard any example or test that uses a <code><a href="https://open-aims.github.io/bayesnec/reference/bnec.html" class="external-link">bnec()</a></code> fit behind <code><a href="https://open-aims.github.io/bayesnec/" class="external-link">requireNamespace("bayesnec")</a></code>.</p>
+<p>Delete <code>ecx.bnecfit</code>, <code>nsec.bnecfit</code>, <code>predict.bayesnecfit</code>, <code>predict.bayesmanecfit</code> and the <code>bayesmanecfit</code> branch of <code>newdata_eval()</code>, with the tests of them, and remove <code>bayesnec</code> from <code>Imports</code>. Store what the remaining tests and examples read from <code>bayesnec</code> as fixtures rather than skipping them. <code>REFACTOR-claude.md</code> §4, “Phase 3 without <code>bayesnec</code>”, lists them.</p>
 <p><strong>Done when</strong> <code>grep -rn "bayesnec::" R/</code> returns nothing, <code>NAMESPACE</code> has no <code>bayesnecfit</code> / <code>bayesmanecfit</code> / <code>bnecfit</code> method, and R CMD check is clean with <code>bayesnec</code> not installed.</p>
 <p><strong>This is <em>a</em> breaking release, but not the last one.</strong> The output-shape change (the <code>toxval</code> tibble) is also breaking and now lands <em>before</em> CRAN submission — see the note at the top of this file. Bump the version, write the NEWS entry naming <code>bayesnec</code> as the new home of the <code>bnecfit</code> methods, and tag it, but do not treat this as the API <code>bayesnec</code> will consume.</p>
 </div>
 <div class="section level3">
 <h3 id="step-0b--release-bayesnecs-current-backlog-first-added-2026-08-20">Step 0b — release <code>bayesnec</code>’s current backlog first <em>(added 2026-08-20)</em>
 <a class="anchor" aria-label="anchor" href="#step-0b--release-bayesnecs-current-backlog-first-added-2026-08-20"></a></h3>
-<p><strong>Ship what is already on <code>bayesnec</code> <code>dev</code> to CRAN before the untangle lands there.</strong> CRAN has 2.1.3.1; <code>dev</code> is at 2.1.3.7 and carries the <code>brms &gt;= 2.23.0</code> requirement, the <code>disp()</code> dispersion sub-model and variance functions, and the whole of bayesnec Tier 1 — zero-inflated families, the <code>cens()</code> aterm, hurdle models, <code>get_priors()</code>, failed-model reporting. If <code>Imports: toxval</code> lands on <code>dev</code> first, none of that can be released until <code>toxval</code> is published on CRAN, which is a long way off (Step 2b, toxval #45).</p>
+<p><strong>Ship what is already on <code>bayesnec</code> <code>dev</code> to CRAN before the untangle lands there.</strong> CRAN has 2.1.3.1; <code>dev</code> is at 2.1.3.7 and carries the <code>brms &gt;= 2.23.0</code> requirement, the <code>disp()</code> dispersion sub-model and variance functions, and the whole of bayesnec Tier 1 — zero-inflated families, the <code>cens()</code> aterm, hurdle models, <code><a href="https://open-aims.github.io/bayesnec/reference/get_priors.html" class="external-link">get_priors()</a></code>, failed-model reporting. If <code>Imports: toxval</code> lands on <code>dev</code> first, none of that can be released until <code>toxval</code> is published on CRAN, which is a long way off (Step 2b, toxval #45).</p>
 <p><strong>And keep the untangle on a branch until <code>toxval</code> is on CRAN</strong>, so <code>dev</code> stays submittable. CRAN can require a submission at short notice — a new R version, a dependency change, a policy tightening, typically with a two-week deadline. A <code>dev</code> that imports a package CRAN cannot see is not submittable, and reverting the untangle under a deadline is the worst time to do it.</p>
 </div>
 <div class="section level3">
@@ -148,7 +153,7 @@
 <h3 id="step-3--bayesnec-consume-toxval">Step 3 — <code>bayesnec</code>: consume toxval<a class="anchor" aria-label="anchor" href="#step-3--bayesnec-consume-toxval"></a></h3>
 <p>On a branch off <code>dev</code>: add <code>Imports: toxval</code>, re-export the generics, rewrite the class methods to unwrap and delegate, delete <code>R/ecx.R</code> and <code>R/nsec.R</code>, <strong>and adapt <code>bind_ecx()</code> / <code>plot</code> / <code>summary</code> to the <code>toxval</code> tibble</strong> (they currently consume <code><a href="reference/ecx.html">ecx()</a></code> positionally as a length-3 vector).</p>
 <p><code>Remotes: open-AIMS/toxval</code> is fine for testing this branch before <code>toxval</code> is published, but it cannot be part of a CRAN submission.</p>
-<p><strong>Done when</strong> every <code><a href="reference/ecx.html">ecx()</a></code> / <code><a href="reference/nsec.html">nsec()</a></code> / <code>ecnsec()</code> test in <code>bayesnec</code> passes against the delegated implementation, with no change in returned values.</p>
+<p><strong>Done when</strong> every <code><a href="reference/ecx.html">ecx()</a></code> / <code><a href="reference/nsec.html">nsec()</a></code> / <code><a href="https://open-aims.github.io/bayesnec/reference/ecnsec.html" class="external-link">ecnsec()</a></code> test in <code>bayesnec</code> passes against the delegated implementation, with no change in returned values.</p>
 </div>
 <div class="section level3">
 <h3 id="step-4--land-and-drop-remotes">Step 4 — land and drop <code>Remotes:</code>

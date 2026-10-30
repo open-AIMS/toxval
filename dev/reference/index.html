@@ -16,6 +16,11 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/ecx-definition.html">The ECx definition</a></li>
+    <li><a class="dropdown-item" href="../articles/nsec-definition.html">The NSEC definition</a></li>
+  </ul></li>
 <li class="nav-item"><a class="nav-link" href="../news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="../search.json"></form></li>
@@ -46,28 +51,21 @@
           <code><a href="ecx.html">ecx()</a></code>
 
         </dt>
-        <dd>Extracts the predicted ECx value as desired from a supported class.</dd>
+        <dd>Estimate ECx values from a fitted model</dd>
 
         <dt>
 
           <code><a href="nsec.html">nsec()</a></code>
 
         </dt>
-        <dd>Extracts the predicted NSEC value as desired from a supported class.</dd>
+        <dd>Estimate NSEC values from a fitted model</dd>
 
         <dt>
 
-          <code><a href="nsec_multi.html">nsec_multi()</a></code>
+          <code><a href="toxval_predict.html">toxval_predict()</a></code>
 
         </dt>
-        <dd>Extracts the predicted NSEC values from a multivariate brmsfit.</dd>
-
-        <dt>
-
-          <code><a href="predict.html">predict(<i>&lt;bayesnecfit&gt;</i>)</a></code> <code><a href="predict.html">predict(<i>&lt;bayesmanecfit&gt;</i>)</a></code>
-
-        </dt>
-        <dd>Generates mean posterior predictions for objects fitted by <code><a href="https://open-aims.github.io/bayesnec/reference/bnec.html" class="external-link">bayesnec::bnec()</a></code></dd>
+        <dd>Generate realisations of a fitted curve over a predictor grid</dd>
       </dl></div>
   </main></div>
 

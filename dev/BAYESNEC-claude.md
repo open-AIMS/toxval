@@ -1,0 +1,1126 @@
+# Specification for bayesnec support in toxval
+
+The implementation specification for
+[`toxval_predict()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+methods for fits made with `bayesnec`: function signatures, the calls
+each method makes, invariants, edge cases, the measurements behind each
+decision, and the alternatives rejected.
+
+`BAYESNEC-human.md` is the plan. Read it first. Section numbers are the
+same in both documents. Each decision is stated in full here and once
+only.
+
+Facts about `bayesnec` are cited as `file:line` on `origin/predev` at
+`116ea91b` (2026-10-20, version 2.1.3.42) unless marked `[master]`,
+which is the CRAN release 2.1.3.1 at `6f6bd25d`. `toxval` facts are
+cited on `phase-7-bayesnec-methods` at `6bdd99c`, the head of PR \#66.
+Measurements were run on 2026-10-23 in R 4.6.1 under WSL with `bayesnec`
+2.1.3.39 installed.
+
+T35 was written into `notes/implementation/02_decisions.md` on
+2026-10-29 (task 0).
+
+## 1. The decision (T35)
+
+`toxval` contains the
+[`toxval_predict()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+methods for `bayesnec` fits. Agreed by RF and AP on 2026-10-23, and
+proposed in \#68.
+
+### 1.1 Reason
+
+A `toxval_pred` holds facts that `toxval` defines for its own compute
+functions and that `bayesnec` has no use for: the `keys` table (T14),
+`meta$x_control` (T21), the per-realisation asymptotes (T24), the
+per-curve trials (T26), and, for a model-averaged fit, the equation
+behind each realisation (§3.2). Each of these was added or changed
+during phases 2 to 4. Had the methods been in `bayesnec`, each change
+would have needed a `bayesnec` release made after the `toxval` release
+that introduced it, and `bayesnec` could not import `toxval` at all
+until `toxval` was on CRAN (#45).
+
+### 1.2 Passages the decision overrides
+
+Each passage below states or depends on the earlier split, in which
+`bayesnec` held the methods and imported `toxval`. Task 0 edits them.
+
+`toxval`:
+
+- `REFACTOR-human.md` §3.3, last paragraph: `toxval_pred` is public
+  “under \#39” because `bayesnec` constructs one.
+- `REFACTOR-human.md` §4: the constraint “`toxval` must reach CRAN
+  before `bayesnec` can depend on it”, phases 6 and 7, and the closing
+  paragraph (“`bayesnec` sees one finished API at phase 7”).
+- `REFACTOR-claude.md` §2, the sequencing constraint paragraph.
+- `REFACTOR-claude.md` §3.3, the paragraph “`toxval_pred` is public
+  API”.
+- `REFACTOR-claude.md` §3.4, realisation alignment: “Both of these are
+  `bayesnec` fixes, implemented in
+  [`toxval_predict.bayesmanecfit()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+  and in `bayesnec`’s averaging helpers. `toxval` only states the
+  invariant and tests it.”
+- `REFACTOR-claude.md` §3.7, “Where class-specific guards go”: the
+  `dpar` home is unchanged in name but is now in `toxval`; the gaussian
+  guard is deleted (§3.5).
+- `REFACTOR-claude.md` §3.8, the first consequence bullet (`bayesnec`’s
+  resampling machinery goes “(#39)”).
+- `REFACTOR-claude.md` §4: the paragraphs from “`toxval` must reach CRAN
+  before \#39 can ship” to “before the `bayesnec` PR”; table rows 6 and
+  7; the closing paragraph; and the last sentence of the `bayesmanecfit`
+  paragraph in “Phase 3 without `bayesnec`” (“so it is checked at phase
+  7”).
+- `REFACTOR-claude.md` §5: the bullet on `bayesnec` \#216, which
+  `bayesnec` has since fixed (§3.2), and the sub-paragraph stating that
+  [`toxval_predict.bayesnecfit()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+  “lives in `bayesnec`”.
+- `notes/implementation/02_decisions.md` T4, first sentence (“`bayesnec`
+  is deleting its own
+  [`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md)/[`nsec()`](https://open-aims.github.io/toxval/dev/reference/nsec.md)”).
+- `notes/implementation/01_work_queue.md`, Tier 0 “The dependency
+  untangle”.
+- Issue \#39: the split table in the comment of 2026-08-19, and the
+  ordering in the follow-up of the same day. \#45 no longer blocks \#39.
+
+`bayesnec`, for its maintainers to revise; this work does not edit them:
+
+- `notes/implementation/02_deferred.md:10-21`:
+  [`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md),
+  [`nsec()`](https://open-aims.github.io/toxval/dev/reference/nsec.md),
+  `ecnsec()` and `zero_crossings()` are to be relocated to `toxval`,
+  “which will become a dependency of bayesnec”.
+- `notes/implementation/03_decisions.md` D10 (:82-109), D8 (:111-120),
+  D11 (:137-172).
+- `bayesnec` issue \#255.
+
+### 1.3 Parts of the earlier plan that stand
+
+`toxval_pred` stays exported and documented, and changes to its contract
+stay breaking changes. Another package may still supply a
+[`toxval_predict()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+method, and \#21 (`glm`, `gam`) uses the same seam. Only the reason
+given for it in §3.3 of the refactor plan changes.
+
+### 1.4 Rejected alternative
+
+The methods in `bayesnec`, as \#39 proposed. Rejected for the reason in
+§1.1: every `toxval_pred` contract change becomes a two-package release,
+and support for `bayesnec` fits waits on CRAN publication of `toxval`.
+
+## 2. User-visible behaviour
+
+### 2.1 The predictor scale
+
+`toxval` reports estimates on the scale of the variable named inside
+`crf()`. For `crf(log(x), ...)` that is `x`.
+[`bayesnec::ecx()`](https://open-aims.github.io/bayesnec/reference/ecx.html)
+and
+[`bayesnec::nsec()`](https://open-aims.github.io/bayesnec/reference/nsec.html)
+report the same fit on the `log(x)` scale.
+
+The mechanism:
+
+- `bayesnec` takes the predictor as
+  [`all.vars()`](https://rdrr.io/r/base/allnames.html) of the first
+  argument of `crf()` (`bayesnecformula.R:821-826`), so
+  `bnec_pop["x_var"]` is `"x"`.
+- The transformed term is substituted into the `brms` nonlinear formula
+  (`bayesnecformula.R:843-845`, `:868-872`), so Stan applies
+  [`log()`](https://rdrr.io/r/base/Log.html) and the `brmsfit` data hold
+  raw `x`.
+- `prediction_grid()` builds the grid over raw `x`
+  (`expand_classes.R:319-326`; the comment at `helpers.R:2380-2386`).
+- `bayesnec` finds the crossing on that grid, then applies the `crf()`
+  transformation to the estimate with `sub_x_transformation()`
+  (`helpers.R:2409-2430`, called at `ecx.R:267` and `nsec.R:310`), and
+  prints a once-per-call message (`ecx.R:84-88`). Reporting on the
+  recorded scale by default is decided for `bayesnec` 3.0 as D41
+  (`03_decisions.md:568`) and not implemented.
+
+`toxval` takes `x_vec` from the same grid column and applies no
+transformation, so its estimates are on the raw scale. `xform` is
+applied afterwards (T6), so a user who supplies `xform = exp` for an
+inline [`log()`](https://rdrr.io/r/base/Log.html) gets `exp(x)`. The
+method documentation says so. A predictor transformed into its own
+column before fitting, such as `x = log(concentration)` in the data, is
+unaffected: the grid is then over that column.
+
+Test (task 5, `tests/local/`): on the `crf(log(x))` fixture, each
+`toxval` ECx realisation equals
+[`exp()`](https://rdrr.io/r/base/Log.html) of the matching
+`bayesnec::ecx(posterior = TRUE)` realisation.
+
+### 2.2 Differences from bayesnec’s numbers
+
+| quantity | `toxval` | `bayesnec` | source |
+|----|----|----|----|
+| `nsec` reference, model-averaged fit | each equation’s control by default (`anchor = "component"`, T12) | each equation’s own control | T12 |
+| realisation with no crossing | placed by amended T21 | corresponding NSEC rule, with a bound when censored | T21, D17 amendment |
+| directions | both, as rows (T10) | decreasing | — |
+| default `resolution` | 500 (T31) | 500 for post-fit endpoints | T31 |
+| control | first grid value, `x_control`, the lowest observed `x` unless `x_control` is supplied (T41) | prediction at the lowest observed `x` | `helpers.R:2697-2742` |
+| interpolation | linear between grid points | linear | `helpers.R:2483-2507` |
+
+The last two rows agree, so under `type = "absolute"`, at equal
+`resolution` and with `x_range` and `x_control` unset, the decreasing
+ECx of every realisation that crosses within the grid should equal
+`bayesnec`’s up to the accuracy of `bayesnec`’s root-finding. `toxval`
+interpolates the crossing exactly. `bayesnec`’s `crossing_x()` instead
+finds the root of the same piecewise-linear interpolant with
+`modelbased`’s `.uniroot.all()`, at a tolerance of
+`.Machine$double.eps^0.2` in grid steps. On `bayesnec_nec4param` at
+`resolution = 200` (2026-10-29, `bayesnec` 2.1.3.43), the interpolant at
+`toxval`’s crossing differed from the reference by at most 8.9e-16, and
+at `bayesnec`’s by up to 2.8e-6. The two crossings differed by at most
+3.2e-7 relative. Task 5 therefore tests that they agree to that
+tolerance times the grid step. A larger discrepancy means that one of
+the packages locates the crossing incorrectly.
+
+T21 as amended on \#74 (RF, 2026-10-27) now also applies in `bayesnec`.
+A draw past the reference at control with no later decreasing crossing
+is censored above the range when its first meaningful response change is
+an increase and it later lies on the no-effect side. A later decreasing
+crossing is returned. Historical comparisons to the old control rule are
+recorded in T21. Realisations that cross are unaffected, so the task 5
+comparison stands.
+
+## 3. Design
+
+### 3.1 Sources of the grid and the curves
+
+#### Signature
+
+``` r
+toxval_predict.bayesnecfit <- function(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL
+)
+```
+
+`resolution` follows the generic’s default of 500 (T31, `6bdd99c`).
+`...` follows `object` and an unused argument is an error (T39).
+`x_control` is the argument \#73 adds (T41).
+
+#### Body
+
+``` r
+
+check_bayesnec_installed()
+chk_bayesnec_supported(object)
+chk_no_group_var(group_var, "`bayesnecfit`")
+x_var <- bnec_x_var(object$bayesnecformula, object$fit$data, x_var)
+newdata <- bnec_grid(
+  object,
+  predict_grid(x_range, object$fit$data[[x_var]], resolution, x_control)
+)
+x_vec <- newdata[[x_var]]
+curve <- posterior_epred(object$fit, newdata = newdata, re_formula = NA)
+chk_defined_grid(list(curve), x_vec)
+
+new_toxval_pred(
+  curves = list(curve),
+  keys = group_keys(),
+  x_vec = x_vec,
+  meta = build_meta(
+    object = object,
+    x_vec = x_vec,
+    x_var = x_var,
+    curves = list(curve),
+    realisation = "draws",
+    family = object$fit$family$family
+  )
+)
+```
+
+#### Helpers
+
+`check_bayesnec_installed()` stops with “`bayesnec` must be installed to
+compute on a `<class>`.” when
+[`requireNamespace("bayesnec", quietly = TRUE)`](https://rdrr.io/r/base/ns-load.html)
+is `FALSE`. The
+[`requireNamespace()`](https://rdrr.io/r/base/ns-load.html) call is in
+its own one-line function, `bayesnec_available()`, so that a test can
+replace it with
+[`testthat::local_mocked_bindings()`](https://testthat.r-lib.org/reference/local_mocked_bindings.html).
+
+`bnec_x_var(formula, data, x_var)`:
+
+``` r
+
+found <- attr(stats::model.frame(formula, data = data), "bnec_pop")[["x_var"]]
+```
+
+[`stats::model.frame()`](https://rdrr.io/r/stats/model.frame.html)
+dispatches to `bayesnec`’s registered method
+`model.frame.bayesnecformula` (`bayesnecformula.R:748-759`), which is
+also in the CRAN release `[master NAMESPACE]`. This is how
+`newdata_eval()` found the predictor before phase 3
+(`58c57a1^:R/helpers.R:23`). Rules:
+
+- `length(found) != 1` stops: the `crf()` term names more than one
+  variable. `bayesnec` refuses the same case when it back-transforms
+  (`sub_x_transformation()`, `helpers.R:2409-2430`).
+- `x_var = NULL` takes `found`.
+- A supplied `x_var` that differs from `found` stops, naming both, as
+  T17 does for a `drc` fit.
+
+`bnec_grid(object, x_vec)`:
+
+``` r
+
+bayesnec::bnec_newdata(
+  object,
+  resolution = length(x_vec),
+  x_range = range(x_vec)
+)
+```
+
+`predict_grid()` chooses the concentrations, so the refusals and
+warnings of T41 apply to a `bnec()` fit as to a `brmsfit`.
+`bnec_newdata()` builds its grid with
+`seq(min(x_range), max(x_range), length = resolution)`
+(`prediction_grid()`), as `predict_grid()` does, so its predictor column
+is identical to `x_vec`.
+
+`bnec_newdata()` is exported in both the CRAN and the development
+release. It sets the trials column to 1 for `binomial` and
+`beta_binomial` (`expand_classes.R:327-330`) and a `rate()` denominator
+to 1 (`expand_classes.R:331-345`), and adds level columns only for a
+joint refit, which is out of scope (§3.3). It builds no response column
+and no group-level variables, so group-level effects must be
+marginalised: `re_formula = NA`, as every `bayesnec` curve prediction
+does (`expand_classes.R:281-291`) and as T16 specifies for `brmsfit`.
+
+`build_meta()` takes `x_control` from `x_vec[1]` (T41), so it needs no
+access to the data of a `bnecfit`, which are `object$fit$data` rather
+than `object$data`. It gains `...`, a set of optional elements appended
+to the list (§3.4). The `brmsfit` and `drc` methods pass none and are
+unchanged.
+
+By default `x_control` is then the lowest observed predictor value,
+which is what `bayesnec` reads its control at (`control_x()`,
+`helpers.R:2554-2572`).
+
+#### Refusals
+
+`chk_bayesnec_supported(object)` stops, naming the class or family,
+when:
+
+- `inherits(object, "bayesnecjointlevel")`. The class is internal to
+  `bayesnec` (`bayesnecjointfit-methods.R:24-44`) and inherits
+  `bayesnecfit`, so dispatch would reach this method with a grid over
+  every level’s data.
+- `object$fit$family$family` is one of `hurdle_gamma`, `hurdle_poisson`,
+  `hurdle_negbinomial` or `zero_inflated_beta`. `bayesnec` fits these
+  with a second block for the zeros, named `hu` or `zi`
+  (`data-raw/sysdata.R:73-74`, `hurdle_family.R:21-36`). Their default
+  expected value is the combined mean, and `bayesnec` reports either
+  block through `dpar` (`hurdle_family.R:221-244`). Which to report is
+  the decision deferred to the hurdle pull request (§3.3).
+- `isTRUE(attr(object$bayesnecformula, "bayesnec_internal_truncation"))`
+  with a `poisson` or `negbinomial` family (`hurdle_family.R:154-157`).
+  For this formula `brms` returns a truncated expectation summed over a
+  finite grid, and `bayesnec` replaces it with the closed form
+  (`hurdle_family.R:171-207`). It arises only as the growth component of
+  `bnec_hurdle()` (`bnec_hurdle.R:275-288`), which a user can extract as
+  `hurdle_fit$growth`.
+- `group_var` is not `NULL`. A `bnec()` fit has one curve: its
+  group-level terms (`ogl()`, `pgl()`, `(par | g)`) are marginalised, as
+  under T16.
+
+[`toxval_predict.bnecfit()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+is the method for every other `bnecfit` subclass. It stops naming
+`class(object)[1]` and the two supported classes. The `bayesnecfit` and
+`bayesmanecfit` methods are more specific and dispatch first.
+
+#### Measurement
+
+On the `nec4param` component of `manec_example`, over a 50-point
+`bnec_newdata()` grid,
+`brms::posterior_epred(<component>$fit, newdata, re_formula = NA)` and
+`bayesnec`’s `posterior_epred()` on the pulled-out `bayesnecfit` gave
+identical 100 × 50 matrices (`all.equal(tolerance = 0)`).
+
+Calling
+[`brms::posterior_epred()`](https://mc-stan.org/rstantools/reference/posterior_epred.html)
+on a `bnecfit` object itself, rather than on `$fit`, fails with “no
+applicable method” unless the `bayesnec` namespace is loaded, and
+dispatches to `bayesnec`’s method once it is.
+
+#### Rejected alternatives
+
+- Curves from `bayesnec`‘s own `posterior_epred()` methods. They give
+  the same matrices for the classes in scope, but there is no method for
+  the `prebayesnecfit` components of a model set, and
+  `posterior_epred.bayesmanecfit()` binds the equations’ rows without
+  saying which rows came from which equation
+  (`posterior_epred.R:66-77`). One call on the `brmsfit` serves both
+  classes.
+- No use of `bayesnec` at all. The predictor would have to be found by
+  parsing the formula, which `bayesnec` does by evaluating the term with
+  its internal `crf()` (`bayesnecformula.R:786-788`, `:1709-1726`), and
+  the trials and rate rules of the grid would have to be copied. Both
+  have changed recently in `bayesnec` (#136 for the rate, \#382 for
+  level terms).
+- [`bayesnec::pull_brmsfit()`](https://open-aims.github.io/bayesnec/reference/pull_brmsfit.html)
+  in place of `object$fit`. It returns `object$fit` for a `bayesnecfit`
+  (`pull_brmsfit.R:30-32`) and has no method for a `prebayesnecfit`, so
+  the field is read directly in both methods.
+
+### 3.2 Model-averaged fits
+
+#### Structure
+
+A `bayesmanecfit` holds `mod_fits`, a named list of `prebayesnecfit`
+objects, each `list(fit, model, init, bayesnecformula)`
+(`fit_bayesnec.R:183-185`), and `mod_stats`, a data frame whose `wi`
+column holds the model weights with rows named by equation
+(`expand_classes.R:517-522`; row names confirmed on `manec_example`).
+Weights are pseudo-BMA by default (`helpers.R:1302-1304`). Since 2.1.3.7
+the object also holds `w_draw_seed` and `w_draw_index`
+(`expand_classes.R:537-539`, `:579`); earlier objects do not
+(`bayesmanecfit-class.R:41-44`), and the CRAN release has neither.
+
+#### The average in bayesnec
+
+`posterior_epred.bayesmanecfit()` (`posterior_epred.R:66-77`):
+
+1.  predicts each equation;
+2.  takes `n`, the smallest number of draws among the equations;
+3.  keeps, for each equation `m`, the rows `w_draw_index[[m]]`;
+4.  binds them in the order of `names(mod_fits)`.
+
+`pull_draw_index()` (`helpers.R:215-227`) uses the stored index when
+`object$sample_size == n` and every equation is named in it. Otherwise
+`weighted_draw_index()` (`helpers.R:180-196`) rebuilds it:
+
+``` r
+
+set.seed(seed, sample.kind = "Rejection")  # seed is w_draw_seed, or 216
+lapply(model_set, function(m) sample(seq_len(n), as.integer(round(n * wi[[m]]))))
+```
+
+inside a function that restores the caller’s random number state. Each
+equation contributes `round(n * wi)` draws, sampled without replacement.
+The total can differ from `n` by rounding. The CRAN release used an
+unseeded [`sample()`](https://rdrr.io/r/base/sample.html) on every call
+`[master helpers.R:84-87, 102-106]`.
+
+#### Specification
+
+[`toxval_predict.bayesmanecfit()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+has the signature of §3.1. Its body:
+
+1.  The checks of §3.1, applied to each component’s family and formula.
+2.  `model_set <- names(object$mod_fits)` and
+    `wi <- object$mod_stats[model_set, "wi"]`.
+3.  One family across the set, or stop. `bnec()` fits a set with one
+    family, so a failure here means a malformed object.
+4.  `x_var` from the first component, as
+    `bnec_x_var(mod_fits[[1]]$bayesnecformula, mod_fits[[1]]$fit$data, x_var)`.
+5.  The grid from `bnec_grid(object, ...)`.
+6.  For each equation,
+    `posterior_epred(mod_fits[[m]]$fit, newdata, re_formula = NA)`.
+7.  `n <- min(nrow(...))` over the equations.
+8.  The index from `bnec_draw_index(object, model_set, wi, n)`, which
+    reproduces `pull_draw_index()`: the stored `w_draw_index` under the
+    same three conditions, and otherwise the rebuild above, with the
+    seed taken from `object$w_draw_seed` or 216. The rebuild runs inside
+    [`withr::with_preserve_seed()`](https://withr.r-lib.org/reference/with_seed.html),
+    so the caller’s `.Random.seed` and
+    [`RNGkind()`](https://rdrr.io/r/base/Random.html) are unchanged.
+9.  The curve matrix is the equations’ rows at the index, bound in
+    `model_set` order, and is passed to `chk_defined_grid()` as in §3.1.
+    `meta$draw_model` is `rep(model_set, lengths(index))`.
+10. `meta$model_weights` is `stats::setNames(wi, model_set)`, and
+    `meta$seed` is the seed the index was built from.
+
+An equation whose `round(n * wi)` is 0 contributes no realisation. It is
+absent from `draw_model` and listed in `model_weights`.
+
+#### Measurement
+
+On `manec_example` (`bayesnec` 2.1.3.39, which holds no `w_draw_index`
+or `w_draw_seed`), a 50-point grid, and the rebuild with seed 216, the
+matrix built by steps 2 to 9 was identical to
+`bayesnec::posterior_epred(manec_example, newdata)`
+(`all.equal(tolerance = 0)`): 100 realisations, 83 from `nec4param` and
+17 from `ecx4param`.
+
+`bnec_newdata()` on a `bayesmanecfit` calls `pull_out()` on the first
+equation (`bnec_newdata.R:63-68`), which recomputes that equation’s
+summaries. With a 500-point grid it took 1.12 s on `manec_example`,
+against 0.007 s on a `bayesnecfit`. Since only the first equation is
+pulled out, its run time is set by that equation’s draws rather than by
+the number of equations, so a set of two equations measures it.
+
+Task 3 measured it on a set of `nec4param` and `ecx4param` fitted to
+`nec_data` with four chains of 1000 retained draws, 4000 per equation
+(`seed = 4000`, `bayesnec` 2.1.3.39). The 30 s at which the task was to
+stop was not approached:
+
+| resolution | `bnec_newdata()` | `posterior_epred()`, both equations |
+|------------|------------------|-------------------------------------|
+| 200        | 3.0 s            | 0.7 s                               |
+| 500        | 3.2 s            | 0.9 s                               |
+| 1000       | 4.9 s            | 1.6 s                               |
+
+[`toxval_predict()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+at the default 500 took 5.8 s, and
+[`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md) 3.7 s
+on a second call. The fit held a `w_draw_index` (seed 815105072, weights
+0.846 and 0.154), so the stored index was used, giving 3385 and 615
+realisations. The matrix was identical to
+[`bayesnec::posterior_epred()`](https://open-aims.github.io/bayesnec/reference/posterior_epred.html)
+over the same grid.
+
+#### The choice of index
+
+An index drawn by `toxval` from a `seed` argument, as
+[`toxval_predict.drc()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+draws its bootstrap, was rejected. It would give a second model-averaged
+posterior of the same object, so a `bayesnec` plot and a `toxval`
+estimate would describe different draws. `bayesnec` has already made its
+index reproducible without a user seed (#216); reproducing it takes
+about ten lines and one comparison test. The risk is that `bayesnec`
+changes its rule. The comparison test in task 3 fails if it does.
+
+#### The component anchor
+
+`anchor = "component"` (T23, `REFACTOR-claude.md` §3.8) takes each
+equation’s reference from the control of every draw of that equation’s
+fit, including the draws left out of the average:
+
+``` r
+
+reference[m] <- quantile(model_control[[i]][[m]], sig_val)
+```
+
+applied to that equation’s realisations, with `ecnsec` paired to it.
+[`toxval_predict.bayesmanecfit()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+predicts every draw of every equation before keeping the rows of the
+index, so `meta$model_control` is the first column of each equation’s
+prediction (§3.4) and needs no further prediction. Where a `toxval_pred`
+has `meta$draw_model` but no `meta$model_control`, as one built by
+another method might, `component_reference()` takes each equation’s
+quantile over its realisations. Without `meta$draw_model`, every
+realisation belongs to one equation and `"component"` equals `"model"`,
+which is T23’s statement for every other class.
+
+`compute_nsec()` then holds `reference` as one value per realisation, a
+list column as `compute_ecx()` already gives, and `summarise_metric()`
+reports its `prob_vals[1]` quantile, as it does for `control`. On
+`manec_example` that is the `nec4param` reference, which holds 83 of the
+100 realisations. Reporting one reference per equation would need a
+column whose length varies with the model set.
+
+[`bayesnec::nsec()`](https://open-aims.github.io/bayesnec/reference/nsec.html)
+on a model set computes each equation’s NSEC from that equation’s full
+posterior and then keeps the rows of the index (`nsec.R:425-456`; the
+per-equation reference at `:422-424`), so the two packages take the same
+references. On `manec_example`, in one deterministic run at
+`resolution = 200` and `sig_val = 0.01` with `bayesnec` 2.1.3.43
+(2026-10-29), the decreasing NSEC was 1.47399 (0.76562, 1.55067) from
+both. The NSEC of each realisation agreed to within `bayesnec`’s
+root-finding tolerance (§2.2), and the realisations past their reference
+at the control were the same in both.
+`tests/local/test-bayesnec-compare.R` asserts both.
+
+#### The reference over the realisations alone (rejected)
+
+Taking each equation’s reference over its realisations in the average,
+`quantile(control[draw_model == m], sig_val)`, was implemented first. RF
+accepted the resulting difference from `bayesnec` on 2026-10-23 and
+reversed that on 2026-10-29, once it was measured. Its reference for
+`ecx4param` on `manec_example` is a quantile of 17 control draws,
+against `bayesnec`’s 100. Both estimate the same quantile, so the 83
+`ecx4param` draws left out add information and nothing is gained by
+leaving them out. The rejection of storing the full control, that it
+would only reproduce `bayesnec` to within Monte Carlo error, assumed the
+difference was noise.
+
+Measured in the same run, the decreasing NSEC was 1.4741 (0.5900,
+1.5508) under this rule, against 1.4740 (0.7656, 1.5507) from
+[`bayesnec::nsec()`](https://open-aims.github.io/bayesnec/reference/nsec.html).
+The estimate and the upper limit agree to about 1e-4, and the lower
+limit is 0.176 lower.
+
+The `ecx4param` reference accounts for the lower limit. The type-7 1%
+quantile of 17 values lies 0.16 of the way from the lowest to the second
+lowest. The 17 realisations kept in the average exclude the two lowest
+of the equation’s 100 control draws, so the reference was 2.139 in
+`toxval` and 2.097 in `bayesnec`. Five of the 100 controls lie below the
+first and one below the second. The 16 `ecx4param` realisations that
+cross within the grid cross `toxval`’s reference 0.053 to 0.197 lower.
+The 17th, realisation 97, has a control of 2.131. It is past `toxval`’s
+reference at the control and crosses `bayesnec`’s at 0.385.
+
+The 2.5% limit of 100 realisations lies 0.475 of the way from the third
+lowest to the fourth. In both packages these are realisations 87 and 88,
+at 0.571 and 0.611 in `toxval` and at 0.728 and 0.808 in `bayesnec`. The
+two below them are realisation 6, a `nec4param` draw past its reference
+at the control in both, and realisation 97. Where realisation 97 is
+placed therefore does not change the limit. The `nec4param` reference is
+2.0345 in `toxval` and 2.0352 in `bayesnec`, which accounts for the
+differences of about 1e-4 in the estimate and the upper limit.
+
+The size of the shift depends on the number of realisations of an
+equation. For a continuous distribution, E\[F(X₍ₖ₎)\] = k / (n + 1), so
+the type-7 quantile at p of n values has on average about h / (n + 1) of
+the distribution below it, where h = 1 + p(n − 1). At p = 0.01 that is
+0.064 for n = 17, 0.020 for n = 100, 0.012 for n = 615 (the `ecx4param`
+realisations of the task 3 set) and 0.010 for n = 3385. A reference
+taken from few realisations therefore lies nearer the centre of the
+equation’s control distribution on average, and that equation’s NSECs
+are lower in both directions. `manec_example` holds 100 draws per
+equation. On a fit of 4000 draws per equation, an equation of weight
+0.01 contributes 40 realisations, whose 1% quantile has on average 0.034
+of the distribution below it.
+
+### 3.3 Classes
+
+| class | `[master]` | structure | first PR | needs |
+|----|----|----|----|----|
+| `bayesnecfit` | yes | `fit`, `model`, `bayesnecformula`, summaries (`expand_classes.R:243-252`) | yes | — |
+| `bayesmanecfit` | yes | `mod_fits`, `mod_stats`, `sample_size`, index (`expand_classes.R:577-584`) | yes | — |
+| `bayesnecfit`, two-block family | — | `hurdle` element (`expand_classes.R:172-221`) | no | `dpar` |
+| `bayesnechurdlefit` | no | `growth`, `survival` fits (`bnec_hurdle.R:342-344`) | no | `which` |
+| `bayesnecgroupfit` | no | one fit per level in `fits` (`bnec_group.R:478-485`) | no | per-curve grid |
+| `bayesnecjointfit` | no | one `brmsfit` over levels (`bnec_joint.R:436-444`) | no | per-curve grid |
+
+Class vectors: `bnec.R:1096`, `:1102`, `:1123`; `bnec_hurdle.R:345`;
+`bnec_group.R:486`; `bnec_joint.R:445`.
+
+The combined curve of a hurdle pair is the product of the growth and
+survival curves, paired by row after both are cut to the smaller number
+of draws (`bayesnechurdlefit-class.R:63-101`), over the survival fit’s
+range. `bayesnec` selects with
+`which = "combined" | "growth" | "survival"` and refuses
+`type = "relative"` (`:309-318`). A `toxval` method needs `which` and a
+ruling on `relative`.
+
+In a group fit each level is an independent `bnec()` fit to that level’s
+rows (`bnec_group.R:379-382`, `:424-426`), with its own concentrations
+and possibly its own number of draws. Rows of different levels are
+different, unrelated draws.
+
+A joint refit is one `brmsfit` with the level in the population-level
+part of every curve parameter, so its draws are aligned across levels.
+Since D40 (`ce670a39`) each level is read over its own concentrations
+(`bayesnecjointfit-methods.R:66-81`, `:291-302`). `bayesnec`’s
+`control_posterior()` has no branch for a level and reads the control at
+the lowest concentration across all levels (`helpers.R:2723-2742`),
+which disagrees with the level’s own search start (`nsec.R:298-300`)
+when levels do not share it.
+
+Both of the last two conflict with the `toxval_pred` contract: one
+`x_vec` checked against every curve (`chk_curves()`,
+`R/toxval-pred.R:373-403`), one `meta$x_control`, and one
+`meta$n_realisation`. Supporting them needs a ruling on whether `x_vec`
+and `x_control` become per curve. That is a breaking change to a public
+contract, so it is decided on its own pull request, not here.
+
+### 3.4 Additions to `toxval_pred`
+
+#### Optional metadata
+
+| element | type | rule |
+|----|----|----|
+| `meta$draw_model` | character, length `n_realisation` | no `NA`; every value in `names(meta$model_weights)` when that is present |
+| `meta$model_weights` | named numeric | names unique and non-empty; values in `[0, 1]`; sum equal to 1 by [`all.equal()`](https://rdrr.io/r/base/all.equal.html) |
+| `meta$model_control` | unnamed list, one element per row of `keys`, of named lists of numeric vectors | requires `meta$draw_model`; every model in `draw_model` named; each vector numeric, of any length |
+
+`draw_model` and `model_weights` are checked in `chk_meta()` when not
+`NULL`. `model_control` is checked in `chk_model_control()`, called from
+`validate_toxval_pred()` because its length is checked against `keys`.
+It has one element per curve, as `control` and `asymptote` do, because
+the control is a property of the curve. Each vector holds every draw of
+the equation’s own fit, so its length is that fit’s number of draws, not
+`n_realisation`. All three are documented in the Metadata section of
+[`?new_toxval_pred`](https://open-aims.github.io/toxval/dev/reference/new_toxval_pred.md)
+as optional. The change is additive: every existing object stays valid.
+`meta$seed` is documented as the seed of a bootstrap or of a
+model-averaging index.
+
+How the result reports `model_weights`, which `REFACTOR-claude.md` §3.10
+requires for a `relative` estimate that drops equations, is decided with
+the phase 4 implementation of `relative`. The `toxval` tibble keeps
+`meta[settings_required()]` only (`R/toxval-tbl.R:18-22`).
+
+#### The asymptote slot (after T24)
+
+Per realisation, from the equation that produced it:
+
+- decreasing: the `b_bot_Intercept` draw where
+  `"b_bot_Intercept" %in% brms::variables(fit)` (parameter names
+  `curve_params.R:536-543`, used as such at `ecx.R:510`); 0 where the
+  equation has no `bot` and the family is bounded below; `NA` where it
+  has none and the family is `gaussian` or `student`, the two with no
+  lower bound in `bayesnec`’s own test (`helpers.R:2694`);
+- increasing: `response_upper_bound()`, which is 1 for a proportion and
+  `NA` otherwise. No `bayesnec` equation has an upper-asymptote
+  parameter: `top` is the response at zero concentration of a decreasing
+  curve.
+
+The equations with `bot` are found from the draws rather than from a
+list. The result matches the nine named in `REFACTOR-claude.md` §3.10
+and `mod_groups$bot_free` (`data-raw/sysdata.R:20-23`). Under a link
+other than identity `bot` is on the link scale
+(`hurdle_family.R:45-49`). `bnec()` uses the identity link unless the
+user wrote one (`bayesnecformula.R:253-257`), so a non-identity link
+sets the asymptote to `NA` and `relative` then refuses the fit, as §3.10
+specifies for an undefined asymptote.
+
+On a model set the slot is filled from each equation’s rows at the
+index, so alignment holds by construction. Dropping the equations whose
+asymptote is `NA` and renormalising, as §3.10 specifies, is equivalent
+to excluding their realisations; the warning of T25 then gives the
+excluded fraction. §3.10 also asks for the equations to be named. Under
+`relative`, `compute_ecx()` and `compute_nsec()` warn with the names of
+the equations whose asymptote is `NA` in a direction where another
+equation has one. A direction with no asymptote in any equation is
+excluded for every realisation, and T25’s warning reports it, as for a
+single fit.
+
+#### The response bound
+
+A `bnec()` fit is predicted with one trial (`expand_classes.R:327-330`),
+so its `binomial` or `beta_binomial` curve is a proportion and the bound
+is 1. Task 2 implemented this as a branch on `source_class` in
+`response_upper_bound()` (`R/compute.R`), because a `brms` binomial fit
+was then bounded at `NA`. T26, amended on PR \#66 (`2436858`), predicts
+a `brms` binomial fit at one trial and bounds every binomial family at
+1, so the branch was removed (`c3c0dd8`).
+
+#### The threshold slot
+
+Left `NULL`. A NEC is `b_nec_Intercept` (`expand_classes.R:147`) and
+exists only for the ten NEC equations (`data-raw/sysdata.R:6-8`). In a
+model set it would be `NA` for the realisations of the others, and what
+such a realisation contributes to an N(S)EC is the question \#25 is open
+for. Filling the slot before \#25 rules would fix that meaning by
+default.
+
+### 3.5 bayesnec behaviour not reproduced
+
+- The back-transformation by the `crf()` term (§2.1; T6).
+- The refusal of an absolute ECx for a `gaussian` fit of an equation
+  without `bot`. `bayesnec` removed it, following OECD TG 201, with a
+  comment at `ecx.R:234-237`, which agrees with `REFACTOR-claude.md`
+  §3.10. The guard in §3.7 of the refactor plan, and the second of the
+  “two guards needing homes” on \#39, are deleted.
+- Per-equation computation then mixing (`ecx.R:398-428`,
+  `nsec.R:425-456`). Every metric is computed on the averaged matrix
+  (§3.2).
+- The decline from the peak, `hormesis_def = "max"`, which defines a
+  different reference and is not reimplemented (T28; further references
+  are the scope of \#63). `bayesnec` 2.1.3.43 no longer takes the
+  argument.
+
+### 3.6 The shared function names
+
+`bayesnec` exports
+[`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md),
+[`nsec()`](https://open-aims.github.io/toxval/dev/reference/nsec.md),
+`nec()` and `ecnsec()`. Its methods (`NAMESPACE`, checked 2026-10-23):
+
+- `origin/predev`: `ecx` for `bayesnecfit`, `bayesmanecfit`,
+  `bayesnecgroupfit`, `bayesnechurdlefit`, `bayesnecjointfit`; `nsec`
+  for the same five plus `brmsfit` and `drc`;
+- `[master]`: `ecx` and `nsec` for `bayesnecfit` and `bayesmanecfit`,
+  and `nsec` for `brmsfit` and `drc`.
+
+After phase 4
+[`toxval::ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md)
+and
+[`toxval::nsec()`](https://open-aims.github.io/toxval/dev/reference/nsec.md)
+are plain functions calling
+[`toxval_predict()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+(`REFACTOR-claude.md` §3.3). With both packages attached the later one
+masks the earlier. With `bayesnec` attached last, `ecx(<brmsfit>)` stops
+with “no applicable method” and `nsec(<brmsfit>)` runs `bayesnec`’s
+copy, the hazard \#39 measured on 2026-08-19.
+
+This work adds a paragraph to the README and to
+[`?ecx`](https://open-aims.github.io/toxval/dev/reference/ecx.md) and
+[`?nsec`](https://open-aims.github.io/toxval/dev/reference/nsec.md)
+advising
+[`toxval::ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md).
+An `.onAttach()` message was rejected. It would print for every user who
+attaches both packages and would not change which function runs.
+
+The remedy is in `bayesnec`: keep, rename or retire its functions, or
+call `toxval`’s. That is not decided here.
+
+### 3.7 Robustness across bayesnec structures
+
+After task 3, both methods were run on one fit of every structure a user
+can build on `bayesnec` `predev` at `116ea91b` (2.1.3.42), and on the
+five structures that CR_workflows fits. Two read-only surveys listed the
+structures: one of the `bayesnec` source and one of CR_workflows, whose
+only `bnec()` call is `pkg/R/fit_bayesnec.R:85`. `bayesnec` was loaded
+from an export of `116ea91b` with
+[`pkgload::load_all()`](https://pkgload.r-lib.org/reference/load_all.html),
+without installing it.
+
+Each fit was predicted at `resolution = 50`. The curve matrix was
+compared with [`identical()`](https://rdrr.io/r/base/identical.html)
+against `bayesnec`’s own method:
+`brms::posterior_epred(<fit>, newdata = bnec_newdata(fit, 50), re_formula = NA)`.
+`re_formula = NA` is passed because `bayesnec`’s `posterior_epred()`
+methods set neither `newdata` nor `re_formula`, while its own curve
+predictions in `expand_nec()` use `re_formula = NA`. Every equation of a
+model set was also pulled out with `pull_out()` and compared as a
+`bayesnecfit`, as were the per-level fits of a group fit and the two
+parts of a hurdle pair.
+[`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md), and
+`summarise_metric(compute_nsec())`, were then run on each prediction.
+Fits used two chains of 500 retained draws unless stated otherwise. The
+CR_workflows sets were refitted with that repository’s formulas,
+identity-link families and simulated datasets (`pkg/data/*.rda`), with
+the same short sampler.
+
+| structure | fits |
+|----|----|
+| families | `gaussian`, `beta`, `gamma`, `binomial` and `beta_binomial` with `trials()`, `poisson`, `poisson` with `rate()`, `negbinomial`, `bernoulli`, `zero_inflated_poisson` |
+| formula terms | `crf(log(x))`, `crf(sqrt(x))`, [`weights()`](https://rdrr.io/r/stats/weights.html), `cens()`, `pgl(g)` on beta, `ogl(g)` on beta and on gaussian, `(top \| g)` on gamma, `disp(~x)`, `disp("power")`, `log(y)` as response, beta with a logit link |
+| model sets | every equation on `nec_data` (17 kept); `amend(drop = )` to three; `+` of two fits; four chains with `thin = 3` |
+| CR_workflows | `decline` sets on gamma, binomial, negbinomial and beta, and an `all` set on gamma, each with a control at concentration 0 |
+| classes | the per-level fits of a `bnec_group()` fit; the gamma growth and Bernoulli survival parts of a `bnec_hurdle()` fit |
+
+The results:
+
+- All 128 predicted objects, 33 fits and 95 components, were identical
+  to `bayesnec`’s matrix. The predicted objects comprise the 24 single
+  fits, the 9 model sets, the 89 equations pulled out of those sets, the
+  4 group levels and the 2 hurdle parts.
+- [`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md) and
+  the NSEC computation ran without error on every one.
+- The refusals gave their messages on real objects. The objects were a
+  `hurdle_gamma` fit, a `bayesnecgroupfit`, a `bayesnechurdlefit`, a
+  `bayesnecjointfit`, and a `bayesnecjointlevel` built with
+  `bayesnec:::joint_level_fit()`.
+- With `thin = 3`, four chains and 500 post-warmup iterations, each
+  equation held 668 draws while `sample_size` recorded 667. At the time
+  of this measurement, toxval bypassed the stored index and rebuilt 668
+  realisations, while `bayesnec` kept the stored index of 667 draws.
+  Toxval now recognises this legacy undercount and uses the same stored
+  count and index as bayesnec (#477). `bayesnec_manec_example` holds 100
+  draws per equation and records 100, so the task 5 comparison on it is
+  unaffected. The `decline` sets on binomial and beta gave 1001 and 999
+  realisations, from rounding each equation’s share. Both packages do
+  the same.
+- In a session using `RNGkind("L'Ecuyer-CMRG")`, the rebuilt index again
+  matched `bayesnec`. It differed from the index rebuilt under the
+  default generator, because `weighted_draw_index()` fixes the seed and
+  the sample kind but not the generator.
+
+`zero_inflated_poisson` and `zero_inflated_negbinomial` are accepted.
+`bayesnec` leaves them out of its two-part registry
+(`data-raw/sysdata.R:60-74`): `brms` fits them as a mixture with a
+constant zero-inflation probability, so their expected value is one
+curve.
+
+Four structures could not be fitted, and so are not covered:
+
+- the zero-truncated count part of `bnec_hurdle()`, which needs `brms`
+  2.23.2 (2.23.0 is installed), so its refusal is tested on an altered
+  copy only;
+- `disp(~z)` with a covariate other than `x`, for which `bnec()` itself
+  fails after sampling (`bayesnec` \#443);
+- `+` on fits with different numbers of draws, which `bayesnec` refuses
+  (“Each object in the list must have the same dimensions”);
+- `pull_out()` with two equations, which 2.1.3.42 refuses (“Argument
+  model can only take one value”).
+
+One case gives a wrong upper bound, found from the code rather than from
+a fit. With a `trials()` expression rather than a column, such as
+`trials(n * 2)`, `bnec_newdata()` sets `n` to 1 and the curve is
+predicted for two trials. `response_upper_bound()` then gives 1 for a
+curve that reaches 2. A bare `trials()` column, the form in every
+example found, is unaffected.
+
+The scripts are in `tests/local/bayesnec-robustness/`, and its
+`README.md` gives their order and settings. `compare-fits.R` makes the
+comparison and `check-edges.R` the checks on the joint level, the log
+predictor, the thinned set and the generator. The fits are written to
+the user cache rather than the repository, because they take about 3.3
+GB.
+
+## 4. Tasks
+
+The exported methods go in `R/toxval-predict.R` after the `drc` method,
+documented with `@describeIn toxval_predict`. Their helpers go in
+`R/toxval-predict-bayesnec.R`. roxygen takes the `\name` of a merged
+topic from the first block it reads, and reads files in C-locale order,
+in which `toxval-predict-bayesnec.R` precedes `toxval-predict.R`. With
+the methods there, `man/toxval_predict.Rd` was named
+`toxval_predict.bayesnecfit` (found in task 2). An `@include` would fix
+the order only by adding a `Collate` field to `DESCRIPTION`. Tests go in
+`tests/testthat/test-toxval-predict-bayesnec.R`, which calls
+`skip_if_not_installed("bayesnec")` at the top. `air.toml` is present,
+so R code is formatted with `air` before each commit. `NEWS.md` is
+written by `fledge` from commit messages and is not edited by hand.
+
+### The decision record (task 0)
+
+- Add T35 to `notes/implementation/02_decisions.md` after T34, stating
+  §1.1 and §1.4.
+- Amend every `toxval` passage in §1.2.
+- Draft a decision comment for \#39 in
+  `notes/drafts/issue-39-toxval-methods-comment.md`, following CLAUDE.md
+  §14. \#68 holds the decision, its reason and the superseded split, so
+  the comment is the decision in one sentence and a link to \#68. RF
+  posts it.
+- Cite \#68 in T35.
+
+The refactor documents are also edited on PR \#66 (AP, T34;
+`REFACTOR-claude.md` in `4b90146`). Task 0 is therefore done after \#66
+merges into `phase-2`, as the last task before the pull request opens.
+By then the next free decision number is known, and the passages in §1.2
+no longer change under the edit. Edit only the passages listed.
+
+Done when no passage in §1.2 still places the methods in `bayesnec`,
+except as history.
+
+### Fixtures (task 1)
+
+Add to `data-raw/DATASET.R`, each saved with `compress = "xz"` and
+passed through `strip_stanmodel()`:
+
+| fixture | fit | tests |
+|----|----|----|
+| `bayesnec_manec_example` | [`bayesnec::manec_example`](https://open-aims.github.io/bayesnec/reference/manec_example.html) | model average, §3.2 |
+| `bayesnec_binomial` | `bnec(y \| trials(n) ~ crf(x, model = "nec3param"), family = binomial)` on simulated data, [`set.seed()`](https://rdrr.io/r/base/Random.html) recorded | proportion bound, §3.4; `bot`-free asymptote |
+| `bayesnec_logx` | `bnec(y ~ crf(log(x), model = "ecx4param"))` on `nec_data` | predictor scale, §2.1 |
+
+`bnec()` fits use `chains = 2, iter = 2000, thin = 2` like
+`bnec_model_1`. Record the `bayesnec` version in a comment, as the
+existing `bayesnec_` data fixtures do.
+
+The fixtures already total 5.4 MB, against the 5 MB CRAN suggests for a
+package tarball. `manec_example` was 1.09 MB as an unstripped `xz` file.
+RF ruled on 2026-10-23 that fixture size does not limit this work,
+because the tests are needed during development and CRAN submission is
+not near. Size is settled when phase 6 prepares the package for CRAN. A
+fit needed only by `tests/local/` can then be kept out of the built
+package, as `bayesnec` does with `^tests/local$` in its `.Rbuildignore`.
+Record the size of each new fixture in the pull request.
+
+Done when the fixtures load through `helper-fixtures.R`.
+
+Found in task 2: loaded without `bayesnec` installed, `bayesnec_logx`
+warns that the `bayesnec` namespace was replaced by `.GlobalEnv`. The
+family objects that `bayesnec`’s `validate_family()` returns hold a
+reference to a `bayesnec` function frame. This was shown for `"beta"`,
+for `Beta(link = "identity")` and for `binomial`, each saved and then
+loaded in a session with `bayesnec` removed from the library path.
+`brms::Beta(link = "identity")` called directly loads cleanly, as do
+`bnec_model_1` and `bayesnec_binomial`. The fit is stored as `bnec()`
+returned it. The tests that use it are skipped without `bayesnec`, so
+the warning is the only effect.
+
+### The single-fit method (task 2)
+
+- [`toxval_predict.bayesnecfit()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md),
+  [`toxval_predict.bnecfit()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md),
+  `check_bayesnec_installed()`, `bayesnec_available()`, `bnec_x_var()`,
+  `bnec_grid()`, `chk_bayesnec_supported()`, as §3.1.
+- `build_meta()` gains `...` (§3.1). The optional elements are added in
+  task 3, where they are first used and tested.
+- `bayesnec` in `Suggests`, approved by RF on 2026-10-23.
+
+Tests, on `bnec_model_1` (`nechorme`, beta), `bayesnec_nec4param`,
+`bayesnec_ecx4param` (both gaussian), `bayesnec_binomial` and
+`bayesnec_logx`:
+
+1.  `curves[[1]]` is identical to `bayesnec`’s
+    `posterior_epred(fit, newdata = bnec_newdata(fit, resolution = r))`.
+2.  `x_vec` equals the grid column; a supplied `x_range` ends the grid
+    and a supplied `x_control` starts it, and an `x_range` that starts
+    elsewhere stops (T41).
+3.  `meta`: `source_class`, `x_var`,
+    `x_control == min(fit$fit$data[[x_var]])`, `family`,
+    `realisation == "draws"`, `n_realisation == brms::ndraws(fit$fit)`.
+4.  `x_var = NULL` is read from the formula; a matching `x_var` is
+    accepted; a different one stops; a non-`NULL` `group_var` stops.
+5.  On `bayesnec_logx`, `range(x_vec)` equals the range of raw `x`.
+6.  On `bayesnec_binomial`, every curve value lies in `[0, 1]` and
+    `response_upper_bound()` is 1.
+7.  Each refusal in §3.1 stops with its message, on a copy of a fixture
+    altered for the purpose (a family name, a formula attribute, a class
+    vector). The method for other subclasses is tested on objects of
+    class `c("bayesnecgroupfit", "bnecfit")` and the other unsupported
+    classes.
+8.  With `bayesnec_available()` mocked to `FALSE`, the method stops
+    naming `bayesnec`.
+9.  The result passes through `compute_ecx()`, `compute_nsec()` and
+    `summarise_metric()` and returns a `toxval` tibble.
+10. [`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md)
+    on each fixture returns a `toxval` tibble.
+    [`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md)
+    calls
+    [`toxval_predict()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+    from `6bdd99c`, so this needs no change to
+    [`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md).
+
+Done when the tests pass, the file is skipped cleanly with `bayesnec`
+absent, and no other test fails that passes at the head of PR \#66. At
+`6bdd99c`, 21 tests fail in `test-compute.R`, `test-validate.R` and
+`test-summarise.R`, because they still call the `ecx_val` argument that
+T32 renamed `proportion`. AP is updating them on \#66. R CMD check is
+required to pass once they are.
+
+### The model-averaged method (task 3)
+
+- [`toxval_predict.bayesmanecfit()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+  and `bnec_draw_index()`, as §3.2.
+- The two `meta` elements and their checks, as §3.4.
+
+Tests, on `bayesnec_manec_example`:
+
+1.  The curve matrix is identical to `bayesnec`’s
+    `posterior_epred(fit, newdata = bnec_newdata(fit, resolution = r))`.
+2.  `table(meta$draw_model)` equals `round(n * wi)` per equation.
+3.  `meta$model_weights` equals `mod_stats$wi`, named.
+4.  `.Random.seed` and [`RNGkind()`](https://rdrr.io/r/base/Random.html)
+    are the same before and after the call, and two calls give identical
+    objects.
+5.  A copy given a `w_draw_index`, `w_draw_seed` and matching
+    `sample_size` uses that index; with `sample_size` changed, the index
+    is rebuilt.
+6.  A copy with weights `c(0.999, 0.001)` drops the second equation from
+    `draw_model` and keeps it in `model_weights`.
+7.  A copy with one component’s family changed stops.
+
+Tests of the `meta` checks go in `tests/testthat/test-toxval-pred.R`:
+wrong length, `NA`, a name not in `model_weights`, weights not summing
+to 1.
+
+Measure the run time of `bnec_newdata()` on a model set of the default
+equations at 4000 draws (§3.2).
+
+Done when the tests pass and the measurement is recorded in the pull
+request.
+
+### Asymptotes and the component anchor (task 4)
+
+Phase 4 added the `asymptote` slot (T24), `type = "relative"` and
+`anchor` (T23) on PR \#66 (`2436858`).
+
+- Fill `asymptote` as §3.4.
+- Make `anchor = "component"` group the realisations by
+  `meta$draw_model`, and take each equation’s reference from
+  `meta$model_control` (§3.2).
+
+Phase 4 records `anchor` on the result without grouping the realisations
+(`compute_nsec()` at `2436858`), so the grouping is added here, treating
+a `NULL` `meta$draw_model` as one equation. Until then `compute_nsec()`
+refuses `"component"` when `meta$draw_model` is present (`c3c0dd8`),
+because the pooled reference would otherwise be returned labelled
+`"component"`.
+
+Tests: on `bayesnec_nec4param` the decreasing asymptote equals the
+`b_bot_Intercept` draws; on `bnec_model_1` (`nechorme`, beta, no `bot`)
+it is 0; on a copy with the family set to `gaussian` it is `NA` and
+`relative` stops; on `bayesnec_manec_example` the `"component"`
+reference of each equation equals the `sig_val` quantile of that
+equation’s control over every draw of its fit, and `"model"` equals the
+pooled quantile. `meta$model_control` equals the control column of each
+equation’s `posterior_epred()`, and its rows at the index equal the
+realisations’ controls.
+
+Done when `type = "relative"` and both anchors are tested on the model
+set.
+
+### End-to-end tests and documentation (task 5)
+
+Waits for
+[`nsec()`](https://open-aims.github.io/toxval/dev/reference/nsec.md) to
+call
+[`toxval_predict()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md),
+which AP is doing next on \#66, and for task 4.
+[`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md) has
+called it since `6bdd99c`.
+
+- `tests/testthat/`:
+  [`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md) and
+  [`nsec()`](https://open-aims.github.io/toxval/dev/reference/nsec.md)
+  on every fixture return a `toxval` tibble with `# Model:` naming the
+  class.
+- `tests/local/test-bayesnec-compare.R`, run by hand:
+  - the decreasing absolute ECx, per realisation, against
+    `bayesnec::ecx(posterior = TRUE)` at the same `resolution`, for
+    realisations crossing within the grid, to the tolerance of
+    `bayesnec`’s root-finding (§2.2);
+  - on `bayesnec_logx`, `toxval` equals
+    [`exp()`](https://rdrr.io/r/base/Log.html) of `bayesnec` (§2.1);
+  - the default component NSEC against
+    [`bayesnec::nsec()`](https://open-aims.github.io/bayesnec/reference/nsec.html)
+    on `manec_example` at `sig_val = 0.01`, with paired draws and
+    quantiles asserted (§3.2).
+  - the fits of `tests/local/bayesnec-robustness/` (§3.7), where
+    structures beyond the fixtures are wanted. Legacy undercounted model
+    sets are included in the per-realisation comparison with
+    [`bayesnec::ecx()`](https://open-aims.github.io/bayesnec/reference/ecx.html).
+- The README section on `bayesnec` fits and the masking paragraph
+  (§3.6).
+- The `Description` field of `DESCRIPTION` names `bayesnec`.
+- An example on
+  [`?toxval_predict`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+  using `manec_example`, inside `\donttest{}` and guarded by
+  [`requireNamespace("bayesnec", quietly = TRUE)`](https://rdrr.io/r/base/ns-load.html).
+
+Done when R CMD check passes with `bayesnec` installed, and with it
+absent and `_R_CHECK_FORCE_SUGGESTS_=false`, and `tests/local/` passes.
+
+## 5. Branch and dependencies
+
+`phase-7-bayesnec-methods` was branched from
+`upstream/phase-4-5-spine-and-tibble` at `9a3b846`, and rebased onto
+`6bdd99c` on 2026-10-23 and onto `2436858` on 2026-10-26. \#66 merged
+into `phase-2` on 2026-10-28 with a merge commit, so its commits are
+ancestors of `phase-2` and no `--onto` rebase is needed.
+
+On 2026-10-29 the branch was rebased onto `issue-73-x-control` (PR \#78,
+at `aa43cda`), because \#73 changes how every method sets `x_control`.
+\#78 merged into `phase-2` the same day with a merge commit, whose
+content equals `aa43cda`. The pull request is opened from
+`beckyfisher:phase-7-bayesnec-methods` into `open-AIMS:phase-2`, ready
+for review. \#77, AP’s documentation review, is merged last. It edits
+the same comments in `R/compute.R`, `R/toxval-predict.R`, `test-ecx.R`
+and `test-nsec.R`, so it is rebased over this branch.
+
+A later rebase onto `upstream/phase-2` conflicts mainly in
+`R/toxval-predict.R`, where the methods sit beside the `brmsfit` and
+`drc` methods, and in `DESCRIPTION`, `NAMESPACE` and `man/`, which
+`devtools::document()` regenerates.
+
+| needed | by task | from | state on 2026-10-26 |
+|----|----|----|----|
+| [`toxval_predict()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md), [`new_toxval_pred()`](https://open-aims.github.io/toxval/dev/reference/new_toxval_pred.md), `group_keys()`, `build_meta()` | 2, 3 | phase 2 | merged into `phase-2` |
+| `compute_ecx()`, `compute_nsec()`, `summarise_metric()`, `new_toxval()` | 2, 3 | phases 2, 4 | on PR \#66 |
+| `resolution` default of 500 (T31), `chk_defined_grid()` | 2, 3 | phase 4 | on PR \#66 (`6bdd99c`) |
+| one trial for a binomial fit (T26, amended) | 2 | phase 4 | on PR \#66 (`2436858`) |
+| `asymptote` slot (T24), `type = "relative"` | 4 | phase 4 | on PR \#66 (`a550c52`) |
+| `anchor` (T23) | 4 | phase 4 | on PR \#66, recorded without grouping |
+| [`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md) on the spine; `proportion` (T32) | 2, 5 | phase 4 | on PR \#66 (`6bdd99c`) |
+| [`nsec()`](https://open-aims.github.io/toxval/dev/reference/nsec.md) on the spine | 5 | phase 5 | on PR \#66 (`9263d9d`) |
+
+Every task now needs only code that is merged or on PR \#66. Task 4 can
+start, and task 5 waits only for task 4. Phase 6, CRAN publication, is
+not a prerequisite of any task.
+
+## 6. Decisions and points for review
+
+RF approved two of these on 2026-10-23: `bayesnec` in `Suggests` (§3.1)
+and fixture size (task 1, §4). RF ruled on 2026-10-29 that under
+`anchor = "component"` each equation’s reference is taken over every
+draw of its fit (§3.2), reversing the acceptance on 2026-10-23 of the
+difference from using the realisations alone. The rest are listed in
+`BAYESNEC-human.md` §6. The arguments are in §3.2 (the draw index), §3.3
+(scope), §3.4 (`threshold`) and §2.1 (the predictor scale).

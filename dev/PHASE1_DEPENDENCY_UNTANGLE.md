@@ -93,10 +93,10 @@ example.
   what makes toxval \#21 (`glm` and other classes) tractable later.
 - Drops `ecx.bnecfit`, `nsec.bnecfit`, `predict.bayesnecfit`,
   `predict.bayesmanecfit` and the `bnecfit` branch of `newdata_eval()`.
-- `bayesnec` moves from `Imports` to `Suggests` (still needed by
-  examples and tests that build fixtures from real
-  [`bnec()`](https://open-aims.github.io/bayesnec/reference/bnec.html)
-  fits).
+- `bayesnec` leaves `Imports`. What the examples and remaining tests
+  read from it is stored as fixtures, so it is listed in `Suggests` only
+  for a test that compares against it (`REFACTOR-claude.md` §4, phase
+  3).
 
 **`bayesnec` owns everything that knows about its own classes.**
 
@@ -155,11 +155,10 @@ passes unchanged, and R CMD check is clean.
 
 Delete `ecx.bnecfit`, `nsec.bnecfit`, `predict.bayesnecfit`,
 `predict.bayesmanecfit` and the `bayesmanecfit` branch of
-`newdata_eval()`. Move `bayesnec` from `Imports` to `Suggests`. Guard
-any example or test that uses a
-[`bnec()`](https://open-aims.github.io/bayesnec/reference/bnec.html) fit
-behind
-[`requireNamespace("bayesnec")`](https://open-aims.github.io/bayesnec/).
+`newdata_eval()`, with the tests of them, and remove `bayesnec` from
+`Imports`. Store what the remaining tests and examples read from
+`bayesnec` as fixtures rather than skipping them. `REFACTOR-claude.md`
+§4, “Phase 3 without `bayesnec`”, lists them.
 
 **Done when** `grep -rn "bayesnec::" R/` returns nothing, `NAMESPACE`
 has no `bayesnecfit` / `bayesmanecfit` / `bnecfit` method, and R CMD
@@ -178,7 +177,8 @@ version, write the NEWS entry naming `bayesnec` as the new home of the
 lands there.** CRAN has 2.1.3.1; `dev` is at 2.1.3.7 and carries the
 `brms >= 2.23.0` requirement, the `disp()` dispersion sub-model and
 variance functions, and the whole of bayesnec Tier 1 — zero-inflated
-families, the `cens()` aterm, hurdle models, `get_priors()`,
+families, the `cens()` aterm, hurdle models,
+[`get_priors()`](https://open-aims.github.io/bayesnec/reference/get_priors.html),
 failed-model reporting. If `Imports: toxval` lands on `dev` first, none
 of that can be released until `toxval` is published on CRAN, which is a
 long way off (Step 2b, toxval \#45).
@@ -222,8 +222,9 @@ positionally as a length-3 vector).
 **Done when** every
 [`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md) /
 [`nsec()`](https://open-aims.github.io/toxval/dev/reference/nsec.md) /
-`ecnsec()` test in `bayesnec` passes against the delegated
-implementation, with no change in returned values.
+[`ecnsec()`](https://open-aims.github.io/bayesnec/reference/ecnsec.html)
+test in `bayesnec` passes against the delegated implementation, with no
+change in returned values.
 
 ### Step 4 — land and drop `Remotes:`
 

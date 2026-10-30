@@ -1,8 +1,8 @@
 # toxval: Functions for Extracting NSEC and ECx Values from Fitted Frequentist and Bayesian Model Objects
 
 Extracts NSEC or ECx estimates from supported fitted frequentist (drc)
-and Bayesian (bayesnec) model objects (see Fisher and Fox (2023)
-[doi:10.1002/etc.5610](https://doi.org/10.1002/etc.5610) ).
+and Bayesian (brms and bayesnec) model objects (see Fisher and Fox
+(2023) [doi:10.1002/etc.5610](https://doi.org/10.1002/etc.5610) ).
 
 ## See also
 

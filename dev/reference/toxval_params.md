@@ -8,66 +8,70 @@ intended to be called directly.
 
 - object:
 
-  An object of class
-  [bayesnec::bayesnecfit](https://open-aims.github.io/bayesnec/reference/bayesnecfit-class.html)
-  or
-  [bayesnec::bayesmanecfit](https://open-aims.github.io/bayesnec/reference/bayesmanecfit-class.html)
-  returned by
-  [`bayesnec::bnec()`](https://open-aims.github.io/bayesnec/reference/bnec.html).
-
-- sig_val:
-
-  Probability value to use as the lower quantile to test significance of
-  the predicted posterior values. against the lowest observed
-  concentration (assumed to be the control), to estimate NEC as an
-  interpolated NOEC value from smooth ECx curves.
-
-- resolution:
-
-  The number of unique x values over which to find the estimate – large
-  values will make the estimate more precise.
-
-- hormesis_def:
-
-  A character vector, taking values of "max" or "control". See Details.
-
-- xform:
-
-  A function to apply to the returned estimated concentration values.
-
-- x_range:
-
-  A range of x values over which to consider extracting the estimate.
-
-- prob_vals:
-
-  A vector indicating the probability values over which to return the
-  estimated value. Defaults to 0.5 (median) and 0.025 and 0.975 (95
-  percent credible intervals).
-
-- posterior:
-
-  A logical value indicating if the full posterior sample of calculated
-  values should be returned instead of just the median and 95 credible
-  intervals.
-
-- x_var:
-
-  A character indicating the name of the predictor (x) data in object.
-
-- group_var:
-
-  A character indicating the name of the grouping variable in object.
-
-- by_group:
-
-  A logical indicating if values should be returned for each level in
-  group_var, or marginalised across all groups.
-
-- horme:
-
-  Logical indicating if hormesis is evident.
+  A model fitted with brms, drc or bayesnec, or a
+  [toxval_pred](https://open-aims.github.io/toxval/dev/reference/new_toxval_pred.md)
+  object.
 
 - ...:
 
-  Additional arguments passed to class-specific methods.
+  Additional arguments passed to
+  [`toxval_predict()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md),
+  such as `n_boot` and `seed` for a `drc` fit, or `asymptote` for a
+  `brmsfit`.
+
+- x_var:
+
+  A string naming the predictor variable in `object`, or `NULL` where
+  the class of `object` records which of its variables is the predictor.
+  Each method states whether it accepts `NULL`.
+
+- group_var:
+
+  A string naming the grouping variable in `object`, or `NULL` for a
+  single curve.
+
+- resolution:
+
+  A whole number giving the number of predictor values to evaluate the
+  curve at. Larger values estimate a metric more precisely.
+
+- x_range:
+
+  A numeric vector of length 2 giving the range of predictor values to
+  evaluate over, or `NULL` to use the range in the model data. The first
+  value must equal the control concentration.
+
+- x_control:
+
+  A number, the control concentration, at which the control response is
+  predicted and the grid starts, or `NULL` for the lowest predictor
+  value in the data. A value outside the range of the data warns.
+
+- draws:
+
+  A flag. If `TRUE`, a `draws` list column holds the per-realisation
+  values of each row.
+
+- prob_vals:
+
+  A numeric vector of the central, lower and upper quantiles to
+  summarise the realisations by, in that order.
+
+- xform:
+
+  A function applied to the per-realisation concentrations before they
+  are summarised, such as `exp` for a model fitted on log concentration.
+  It must be monotone over the evaluated range and may be decreasing.
+
+- posterior:
+
+  **\[defunct\]** Supplying it is an error. Use `draws`.
+
+- hormesis_def, horme:
+
+  **\[deprecated\]** Both directions are now always estimated, so these
+  are ignored.
+
+- by_group:
+
+  **\[deprecated\]** Supplying `group_var` gives one estimate per level.

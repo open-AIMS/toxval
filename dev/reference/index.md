@@ -3,17 +3,8 @@
 ## All functions
 
 - [`ecx()`](https://open-aims.github.io/toxval/dev/reference/ecx.md) :
-  Extracts the predicted ECx value as desired from a supported class.
-
+  Estimate ECx values from a fitted model
 - [`nsec()`](https://open-aims.github.io/toxval/dev/reference/nsec.md) :
-  Extracts the predicted NSEC value as desired from a supported class.
-
-- [`nsec_multi()`](https://open-aims.github.io/toxval/dev/reference/nsec_multi.md)
-  : Extracts the predicted NSEC values from a multivariate brmsfit.
-
-- [`predict(`*`<bayesnecfit>`*`)`](https://open-aims.github.io/toxval/dev/reference/predict.md)
-  [`predict(`*`<bayesmanecfit>`*`)`](https://open-aims.github.io/toxval/dev/reference/predict.md)
-  :
-
-  Generates mean posterior predictions for objects fitted by
-  [`bayesnec::bnec()`](https://open-aims.github.io/bayesnec/reference/bnec.html)
+  Estimate NSEC values from a fitted model
+- [`toxval_predict()`](https://open-aims.github.io/toxval/dev/reference/toxval_predict.md)
+  : Generate realisations of a fitted curve over a predictor grid

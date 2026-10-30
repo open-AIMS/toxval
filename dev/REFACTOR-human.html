@@ -16,6 +16,11 @@
 
     <div id="navbar" class="collapse navbar-collapse ms-3">
       <ul class="navbar-nav me-auto"><li class="nav-item"><a class="nav-link" href="reference/index.html">Reference</a></li>
+<li class="nav-item dropdown">
+  <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="articles/ecx-definition.html">The ECx definition</a></li>
+    <li><a class="dropdown-item" href="articles/nsec-definition.html">The NSEC definition</a></li>
+  </ul></li>
 <li class="nav-item"><a class="nav-link" href="news/index.html">Changelog</a></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
  <input class="form-control" type="search" name="search-input" id="search-input" autocomplete="off" aria-label="Search site" placeholder="Search for" data-search-index="search.json"></form></li>
@@ -68,11 +73,11 @@
 <td>what the effect reported beside the NSEC is measured against</td>
 <td>#49</td>
 <td>settled</td>
-</tr></tbody></table><p><strong>The <code>ecx</code> reference (#19).</strong> The reference is computed for each realisation from that realisation’s own control, and the single reference built from posterior medians in <code>ecx.bnecfit</code> is deleted. <code>type</code> becomes a four-value vocabulary naming what the percentage is measured against: <code>absolute</code>, the control down to zero; <code>relative</code>, the control down to the equation’s own theoretical asymptote; <code>range</code>, the control down to the lowest response the curve predicts; and <code>direct</code>, a response value supplied by the user. <code>range</code> is new, and it is what <code>relative</code> means in the current code, so <code>relative</code> changes meaning and is deprecated into <code>range</code>. Decision T9 and <code>REFACTOR-claude.md</code> §3.10 state it in full.</p>
-<p><strong>The <code>ecnsec</code> definition (#49).</strong> <code>ecnsec</code> is the inverse of the <code>ecx</code> reference under the same <code>type</code>, and <code><a href="reference/nsec.html">nsec()</a></code> accepts the arguments <code><a href="reference/ecx.html">ecx()</a></code> accepts, so one <code>type</code> selects both. Under <code>direct</code>, <code>ecnsec</code> is the reference on the response scale rather than a percentage. Decision T8 and §3.9 state it in full.</p>
+</tr></tbody></table><p><strong>The <code>ecx</code> reference (#19).</strong> The reference is computed for each realisation from that realisation’s own control, and the single reference built from posterior medians in <code>ecx.bnecfit</code> is deleted. <code>type</code> becomes a four-value vocabulary naming what the percentage is measured against: <code>absolute</code>, the control down to zero; <code>relative</code>, the control down to the equation’s own theoretical asymptote; <code>range</code>, the control down to the lowest response the curve predicts; and <code>direct</code>, a response value supplied by the user. <code>range</code> is new, and it is what <code>relative</code> means in the current code, so <code>relative</code> changes meaning, and a call that supplies it warns and names <code>range</code> (decision T29). Decision T9 and <code>REFACTOR-claude.md</code> §3.10 state it in full. For an increasing response, <code>absolute</code> measures towards 1 for a proportion and as a percentage of the control otherwise, so a 10 per cent increase from a control of 20 is 22. These are the published definitions (decision T18). A count fit whose trials are a total rather than a ceiling, such as gene expression, is also treated as a proportion. That is accepted as an edge case for now, to be handled with #63 (decision T26).</p>
+<p><strong>The <code>ecnsec</code> definition (#49).</strong> <code>ecnsec</code> is the inverse of the <code>ecx</code> reference under the same <code>type</code>, and <code><a href="reference/nsec.html">nsec()</a></code> accepts the arguments <code><a href="reference/ecx.html">ecx()</a></code> accepts, so one <code>type</code> selects both. <code><a href="reference/nsec.html">nsec()</a></code> refuses <code>type = "direct"</code>, because its <code>ecnsec</code> would only repeat the <code>reference</code> column (decision T19). Decision T8 and §3.9 state it in full.</p>
 <p><strong>Direction (#20).</strong> An estimate is sought in both directions every time and <code>direction</code> is a column of the result, so <code>hormesis_def</code> is removed rather than repaired. Each direction has its own reference, as <code>nsec_multi</code> already does. Where a direction has no crossing the row is still returned, with <code>NA</code> — the direction was looked for and not found, which is information. Decision T10 and <code>REFACTOR-claude.md</code> §3.6 state it in full.</p>
-<p>All three are settled. Section 4’s phase 0 also required agreeing the default for the <code>nsec</code> reference, which is exposed as the <code>anchor</code> argument rather than fixed by the plan (section 3.8). That default was ratified as <code>"model"</code> on 5 September, so phase 0 is complete and phase 1 can begin.</p>
-<p>The <code>nsec</code> reference does <strong>not</strong> block, because §3.8 exposes it as an argument rather than settling it, so only the default had to be agreed. It was ratified as <code>"model"</code> on 5 September, and a default can be revisited later.</p>
+<p>All three are settled. Section 4’s phase 0 also required agreeing the default for the <code>nsec</code> reference, which is exposed as the <code>anchor</code> argument rather than fixed by the plan (section 3.8). That default was ratified as <code>"model"</code> on 5 September and amended for <code>bayesmanecfit</code> on 29 October (T12).</p>
+<p>The <code>nsec</code> reference does <strong>not</strong> block, because §3.8 exposes it as an argument rather than settling it, so only the default had to be agreed. It was ratified as <code>"model"</code> on 5 September, then revised on 29 October for <code>bayesmanecfit</code> (T12).</p>
 </div>
 <div class="section level2">
 <h2 id="id_3-design-decisions">3. Design decisions<a class="anchor" aria-label="anchor" href="#id_3-design-decisions"></a></h2>
@@ -87,8 +92,7 @@
 <li>
 <code>response</code> — one row per response, for multivariate fits</li>
 <li>
-<code>ecx_val</code> — <code>ecx</code>
-</li>
+<code>ecx_val</code> — <code>ecx</code>; renamed <code>proportion</code> in phase 5, with the <code>direct</code> value given as <code>reference</code> (decision T32)</li>
 <li>
 <code>type</code> — <code>ecx</code>, <code>nsec</code>
 </li>
@@ -105,7 +109,7 @@
 <code>ecnsec</code>, <code>ecnsec.low</code>, <code>ecnsec.high</code> — <code>nsec</code>
 </li>
 </ul><p><code>control</code> is reported for <code>nsec</code> even though the NSEC does not use it, because under <code>type = "absolute"</code> the control is the denominator of <code>ecnsec</code> and the percentage cannot be read without it. <code>type</code> appears for <code>nsec</code> because it selects the <code>ecnsec</code> definition, and with it whether <code>ecnsec</code> is a percentage or a response value (#49, decision T8).</p>
-<p><code>metric</code> is a closed vocabulary — <code>"ecx"</code>, <code>"nsec"</code>, <code>"nec"</code>, <code>"n(s)ec"</code>, <code>"noec"</code> — with the value that parameterises it in its own column: <code>metric = "ecx"</code> with <code>ecx_val = 10</code>, never <code>metric = "ec10"</code>. Run settings are displayed as tibble header lines via <code>tbl_sum()</code>, as <code># Groups:</code> is on a grouped tibble.</p>
+<p><code>metric</code> is a closed vocabulary — <code>"ecx"</code>, <code>"nsec"</code>, <code>"nec"</code>, <code>"n(s)ec"</code>, <code>"noec"</code> — with the value that parameterises it in its own column: <code>metric = "ecx"</code> with <code>ecx_val = 10</code>, never <code>metric = "ec10"</code>. Run settings are displayed as tibble header lines via <code>tbl_sum()</code>, as <code># Groups:</code> is on a grouped tibble. Results combine with <code><a href="https://dplyr.tidyverse.org/reference/bind_rows.html" class="external-link">dplyr::bind_rows()</a></code> only when their run settings match, since one header must describe every row (decision T40).</p>
 <p>Some examples of <code><a href="reference/ecx.html">ecx()</a></code>:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># basic output, all columns have values</span></span>
@@ -133,7 +137,7 @@
 <span><span class="co">#&gt; # Settings: resolution 1000 | 4000 posterior draws</span></span>
 <span><span class="co">#&gt; # Groups:   site [3]</span></span>
 <span><span class="co">#&gt;   metric direction  group estimate conf.low conf.high ecx_val type     control reference</span></span>
-<span><span class="co">#&gt;   &lt;chr&gt;  &lt;chr&gt;      &lt;chr&gt;    &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt; &lt;chr&gt;      &lt;dbl&gt;     &lt;dbl&gt;</span></span>
+<span><span class="co">#&gt;   &lt;chr&gt;  &lt;chr&gt;      &lt;fct&gt;    &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt; &lt;chr&gt;      &lt;dbl&gt;     &lt;dbl&gt;</span></span>
 <span><span class="co">#&gt; 1 ecx    decreasing A         0.71     0.55      0.88      10 absolute    0.98      0.88</span></span>
 <span><span class="co">#&gt; 2 ecx    decreasing B         1.02     0.83      1.24      10 absolute    1.10      0.99</span></span>
 <span><span class="co">#&gt; 3 ecx    decreasing C         0.44     0.31      0.58      10 absolute    0.87      0.78</span></span>
@@ -164,7 +168,8 @@
 </div>
 <div class="section level3">
 <h3 id="id_33-single-generic-architecture">3.3 Single-generic architecture<a class="anchor" aria-label="anchor" href="#id_33-single-generic-architecture"></a></h3>
-<p><code>toxval_predict()</code> is the only S3 generic. It dispatches on model class and returns a <code>toxval_pred</code>. The metric functions (<code>ecx</code>, <code>nsec</code>, <code>nsec_multi</code>, …) are plain, non-generic functions that compute on a <code>toxval_pred</code>.</p>
+<p><code><a href="reference/toxval_predict.html">toxval_predict()</a></code> is the only S3 generic. It dispatches on model class and returns a <code>toxval_pred</code>. The metric functions (<code>ecx</code>, <code>nsec</code>, …) are plain, non-generic functions that compute on a <code>toxval_pred</code>.</p>
+<p><code><a href="reference/nsec_multi.html">nsec_multi()</a></code> is folded into <code><a href="reference/nsec.html">nsec()</a></code> and made defunct, so one function serves ungrouped, grouped and multivariate fits (decision T15, <code>REFACTOR-claude.md</code> §3.3). A call to <code><a href="reference/nsec_multi.html">nsec_multi()</a></code> stops with an error that names <code><a href="reference/nsec.html">nsec()</a></code> (decision T37, amended 2026-10-24). The responses and any binomial trials are read from the fit, so neither <code>multi_var</code> nor <code>trials_var</code> is an argument (T15 and T26, amended 2026-10-23). Its <code>type = "lower"</code> option becomes a filter on the result, so <code><a href="reference/nsec.html">nsec()</a></code> needs no argument for it (decision T30).</p>
 <p>Metric functions accept <strong>either a fitted model or a pre-built <code>toxval_pred</code></strong> (one <code><a href="https://rdrr.io/r/base/class.html" class="external-link">inherits()</a></code> check at the top), which enables predict-once / compute-many and makes the compute functions testable in isolation.</p>
 <p>Adding a new model class is then one method and nothing else:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -173,21 +178,27 @@
 <span>  <span class="co"># 2. generate realisations of the curve (see 3.4)</span></span>
 <span>  <span class="co"># 3. return a toxval_pred</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<p><code>toxval_pred</code> is <strong>public API</strong>, not an internal convenience: under #39 the <code>bayesnec</code> classes are served by methods living in <code>bayesnec</code>, which constructs a <code>toxval_pred</code> from outside this package.</p>
+<p><code>toxval_pred</code> is <strong>public API</strong>, not an internal convenience: another package may supply a <code><a href="reference/toxval_predict.html">toxval_predict()</a></code> method, which then constructs a <code>toxval_pred</code> from outside this one. The methods for <code>bayesnec</code> fits are in <code>toxval</code> (decision T35), not in <code>bayesnec</code> as #39 planned.</p>
 </div>
 <div class="section level3">
 <h3 id="id_34-the-toxval_pred-intermediate-object">3.4 The <code>toxval_pred</code> intermediate object<a class="anchor" aria-label="anchor" href="#id_34-the-toxval_pred-intermediate-object"></a></h3>
-<p><code>toxval_pred</code> holds <strong>realisations</strong> of the fitted curve as a list, one element per group or response, plus metadata.</p>
+<p><code>toxval_pred</code> holds <strong>realisations</strong> of the fitted curve as a list, one element per curve, plus a table saying which curve is which, plus metadata.</p>
 <p>A <em>realisation</em> is one plausible version of the fitted curve. A Bayesian fit supplies thousands of them as posterior draws. A frequentist fit gets the same thing from a parametric bootstrap: repeatedly draw a parameter set from the model’s own uncertainty and evaluate the curve at each. Every estimate is computed once per realisation, and the spread across realisations gives the confidence interval.</p>
 <pre><code>toxval_pred:
-  curves    : named list of matrices, each [n_realisation x n_x]
+  curves    : list of matrices, each [n_realisation x n_x], one per row of keys
+  keys      : table with one row per curve and a `group` column, a `response`
+              column, both, or neither
   x_vec     : numeric [n_x]
   threshold : per-realisation threshold parameter (a NEC), or NULL
-  control   : realisations of a control-only fit, or NULL
+  control   : realisations of a control-only fit, one set per row of keys, or
+              NULL, since a grouped fit has one control per group
+  asymptote : per-realisation asymptotes for `type = "relative"`, one set per
+              row of keys, or NULL (decision T24)
   meta      : source_class, x_var, group_var / multi_var, resolution, x_range,
-              dimension, family, realisation source, n_realisation, ...</code></pre>
+              family, realisation source, n_realisation, ...</code></pre>
+<p><code>keys</code> lets one object hold a fit that is both grouped and multivariate, such as two endpoints measured at three sites, which gives six curves. <code><a href="reference/nsec.html">nsec()</a></code> has to accept such a fit once it absorbs <code><a href="reference/nsec_multi.html">nsec_multi()</a></code> (decision T14, <code>REFACTOR-claude.md</code> §3.4).</p>
 <p>One representation covers every case:</p>
-<table class="table"><thead><tr><th>Case</th>
+<table class="table"><colgroup><col width="25%"><col width="25%"><col width="25%"><col width="25%"></colgroup><thead><tr><th>Case</th>
 <th>
 <code>curves</code> list</th>
 <th>realisation source</th>
@@ -202,8 +213,12 @@
 <td>one per factor level</td>
 <td>draws</td>
 <td>n_draws</td>
-</tr><tr><td>Multivariate (<code>nsec_multi</code>)</td>
+</tr><tr><td>Multivariate (<code>multi_var</code>)</td>
 <td>one per response</td>
+<td>draws</td>
+<td>n_draws</td>
+</tr><tr><td>Grouped multivariate (T14)</td>
+<td>one per group and response</td>
 <td>draws</td>
 <td>n_draws</td>
 </tr><tr><td><code>drc</code></td>
@@ -223,81 +238,85 @@
 <h3 id="id_35-draws">3.5 Draws<a class="anchor" aria-label="anchor" href="#id_35-draws"></a></h3>
 <p>There is <strong>one function per metric</strong>, and it always returns a <code>toxval</code> tibble. The realisations are an optional list column, not a second function:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">pred</span> <span class="op">&lt;-</span> <span class="fu">toxval_predict</span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">pred</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/toxval_predict.html">toxval_predict</a></span><span class="op">(</span><span class="va">fit</span><span class="op">)</span></span>
 <span><span class="fu"><a href="reference/ecx.html">ecx</a></span><span class="op">(</span><span class="va">pred</span><span class="op">)</span>                  <span class="co"># summary</span></span>
 <span><span class="fu"><a href="reference/ecx.html">ecx</a></span><span class="op">(</span><span class="va">pred</span>, draws <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>    <span class="co"># summary + a `draws` list column, one cell per row</span></span></code></pre></div>
 <p>Long form is one pipe stage rather than a separate API:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/ecx.html">ecx</a></span><span class="op">(</span><span class="va">fit</span>, draws <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span> <span class="op">|&gt;</span> <span class="fu">tidyr</span><span class="fu">::</span><span class="fu"><a href="https://tidyr.tidyverse.org/reference/unnest.html" class="external-link">unnest</a></span><span class="op">(</span><span class="va">draws</span><span class="op">)</span></span>
 <span><span class="co">#&gt; # A tibble: 4,000 x 6</span></span>
-<span><span class="co">#&gt;   metric direction  ecx_val estimate .draw  value</span></span>
-<span><span class="co">#&gt;   &lt;chr&gt;  &lt;chr&gt;        &lt;dbl&gt;    &lt;dbl&gt; &lt;int&gt;  &lt;dbl&gt;</span></span>
-<span><span class="co">#&gt; 1 ecx    decreasing      10    0.832     1  0.841</span></span>
-<span><span class="co">#&gt; 2 ecx    decreasing      10    0.832     2  0.795</span></span>
-<span><span class="co">#&gt; 3 ecx    decreasing      10    0.832     3  0.826</span></span>
+<span><span class="co">#&gt;   metric direction  ecx_val estimate .draw value.draw</span></span>
+<span><span class="co">#&gt;   &lt;chr&gt;  &lt;chr&gt;        &lt;dbl&gt;    &lt;dbl&gt; &lt;int&gt;      &lt;dbl&gt;</span></span>
+<span><span class="co">#&gt; 1 ecx    decreasing      10    0.832     1      0.841</span></span>
+<span><span class="co">#&gt; 2 ecx    decreasing      10    0.832     2      0.795</span></span>
+<span><span class="co">#&gt; 3 ecx    decreasing      10    0.832     3      0.826</span></span>
 <span><span class="co">#&gt; # i 3,997 more rows</span></span></code></pre></div>
-<p>The list column keeps one row per estimate, so unnesting is the caller’s explicit choice; it satisfies §3.2 without a second function; and it keeps paired quantities such as NSEC and <code>ecnsec</code> aligned. <code>posterior</code> stays accepted for one release behind a deprecation warning, since 1.0.0 is released.</p>
+<p>Each <code>draws</code> cell is a tibble with <code>.draw</code>, <code>value.draw</code> and, for <code>nsec</code>, <code>ecnsec.draw</code>, so the NSEC and <code>ecnsec</code> of a realisation share a row.</p>
+<p>The list column keeps one row per estimate, so unnesting is the caller’s explicit choice; it satisfies §3.2 without a second function; and it keeps paired quantities such as NSEC and <code>ecnsec</code> aligned. <code>posterior</code> is defunct: a call that supplies it stops with an error that names <code>draws</code>, since code that used the old vector would fail later and further from the cause (decision T37, amended 2026-10-24).</p>
 </div>
 <div class="section level3">
 <h3 id="id_36-direction">3.6 Direction<a class="anchor" aria-label="anchor" href="#id_36-direction"></a></h3>
 <p><code>direction</code> is a <strong>property of the result, not an argument.</strong> For each curve the estimator looks for the first decreasing crossing and the first increasing crossing of the reference, and returns what it finds. If there is no crossing of a given direction, that estimate is <code>NA</code>.</p>
 <p>This replaces <code>hormesis_def</code>: a hormetic curve simply has both crossings, and both are reported. <code>hormesis_def</code> cannot be repaired in place, because the two <code>nsec</code> methods compute different quantities under it (<code>REFACTOR-claude.md</code> §3.6). #1 and #8 close as a consequence, and #20 is answered directly.</p>
-<p><strong>To pin down:</strong> whether a curve with no crossing in one direction emits a row with <code>NA</code> or omits the row.</p>
+<p>Where no draw crosses in a direction, the row is still returned with <code>NA</code> (decision T10). Where some draws cross and some do not (#60), a draw whose control is already past the reference takes the lowest concentration in the data. <code><a href="reference/nsec.html">nsec()</a></code> makes one exception (#74). A draw whose response first changes away from the effect, and then passes to the other side of the reference without returning, shows no effect in the tested range. It is treated as a draw that does not cross. A draw that does not cross within the tested range is ranked above the highest concentration. An interval limit that falls among such draws is reported as the highest concentration, with a warning giving the fraction (decisions T21 and T25).</p>
 </div>
 <div class="section level3">
 <h3 id="id_37-validation">3.7 Validation<a class="anchor" aria-label="anchor" href="#id_37-validation"></a></h3>
 <p><code>chk</code> is the default for all argument checks.</p>
-<ul><li>Predict-level arguments (<code>x_var</code>, <code>group_var</code>, <code>x_range</code>, <code>resolution</code>, and that the model has a <code>toxval_predict</code> method) are validated in <code>toxval_predict()</code>.</li>
+<ul><li>Predict-level arguments (<code>x_var</code>, <code>group_var</code>, <code>x_range</code>, <code>resolution</code>, and that the model has a <code>toxval_predict</code> method) are validated in <code><a href="reference/toxval_predict.html">toxval_predict()</a></code>.</li>
 <li>Metric arguments (<code>ecx_val</code>, <code>type</code>, <code>sig_val</code>, <code>prob_vals</code>, <code>xform</code>) are validated in the metric entry point, so every class gets identical checks.
 <ul><li>This fixes the current bug where <code>ecx.bnecfit</code> never validates the <code>ecx_val</code> range while <code>ecx.brmsfit</code> does.</li>
 </ul></li>
 <li>Shared checks (<code>prob_vals</code> ordering, <code>xform</code> is a function, <code>resolution</code>) live in one internal <code>chk</code> helper, replacing the four hand-rolled copies.</li>
 <li>
 <code><a href="https://rdrr.io/r/base/stop.html" class="external-link">stop()</a></code> calls are replaced.</li>
-</ul><p><code>REFACTOR-claude.md</code> §3.7 lists the specific unguarded defects to fold in, including <code>nsec.drc</code>’s positional <code>curveid</code> (#34) and the six differing <code>resolution</code> defaults.</p>
+</ul><p><code>REFACTOR-claude.md</code> §3.7 lists the specific unguarded defects to fold in, including <code>nsec.drc</code>’s positional <code>curveid</code> (#34) and the six differing <code>resolution</code> defaults, which become 500 (decision T31).</p>
+<p>Estimates from a <code>brmsfit</code> with group-level (random) effects are population-level estimates. A <code>group_var</code> that appears only in a group-level term, such as <code>site</code> in <code>y ~ x + (1 | site)</code>, is therefore an error, because every site would receive the same curve (decision T16). For a <code>drc</code> fit <code>x_var</code> may be left out, since the fit records its dose variable, and a supplied <code>x_var</code> must match it (decision T17). Both are in <code>REFACTOR-claude.md</code> §3.7.</p>
 </div>
 <div class="section level3">
 <h3 id="id_38-the-nsec-reference-the-anchor-argument">3.8 The <code>nsec</code> reference: the <code>anchor</code> argument<a class="anchor" aria-label="anchor" href="#id_38-the-nsec-reference-the-anchor-argument"></a></h3>
 <p>Where the <code>nsec</code> reference comes from becomes a visible choice rather than a hard-coded rule:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="reference/nsec.html">nsec</a></span><span class="op">(</span><span class="va">fit</span>, anchor <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"model"</span>, <span class="st">"component"</span>, <span class="st">"control"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
-<p><code>"model"</code> is the default: the threshold comes from the model-averaged control posterior, so every pooled value is measured against the same response level. <code>"component"</code> uses each component model’s own control, which is the strict Bayesian model average and reproduces what <code>bayesnec</code> returns today. <code>"control"</code> uses a separate control-only fit, specified here but not implemented.</p>
-<p><code>anchor</code> is a column on the result, so the choice travels with the estimate. The measurements behind the default, and the cost of choosing it, are in <code>REFACTOR-claude.md</code> §3.8.</p>
+<p><code>"model"</code> takes the threshold from the model-averaged control posterior, so every pooled value is measured against the same response level. <code>"component"</code> uses each component model’s own control, which is the strict Bayesian model average and reproduces what <code>bayesnec</code> returns. It is now the default for a <code>bayesmanecfit</code>; <code>"model"</code> remains the default for other classes (T12). <code>"control"</code> would use a separate control-only fit supplied by the user. It is left out of phase 4 and will probably be replaced, because it does not reproduce the LECx of de Bruyn and Elphick (2013), which it was meant to match (decision T23).</p>
+<p><code>anchor</code> is a column on the result, so the choice travels with the estimate. The measurements behind the original <code>"model"</code> default, and the tradeoff, are in <code>REFACTOR-claude.md</code> §3.8.</p>
 </div>
 </div>
 <div class="section level2">
 <h2 id="id_4-phased-implementation">4. Phased implementation<a class="anchor" aria-label="anchor" href="#id_4-phased-implementation"></a></h2>
 <p>Two constraints set the order.</p>
 <p><strong>#19 before the spine.</strong> <code>ecx.bnecfit</code> and <code>ecx.brmsfit</code> implement different estimators. Phase 1 locks the current numbers; #19 decides which should move. Answered afterwards, a refactor bug cannot be told apart from an intended change of definition.</p>
-<p><strong><code>toxval</code> must reach CRAN before <code>bayesnec</code> can depend on it.</strong> A CRAN package’s dependencies must resolve from CRAN, and <code>toxval</code> is not published. That puts the change of output shape <em>before</em> the submission, since publishing an API about to break would force two breaking releases in a row.</p>
+<p>The second is that the change of output shape comes before the CRAN submission, since publishing an API about to break would force two breaking releases in a row. It was first set because <code>bayesnec</code> was to import <code>toxval</code>, and a CRAN package’s dependencies must resolve from CRAN. Under decision T35 the methods for <code>bayesnec</code> fits are in <code>toxval</code> and <code>bayesnec</code> does not import it. Support for <code>bayesnec</code> fits therefore no longer waits for <code>toxval</code> to reach CRAN.</p>
 <ol start="0" style="list-style-type: decimal"><li>
 <strong>Decide #19, #20 and #49, and agree the <code>anchor</code> default.</strong> No code. Fixes what the numbers should be before anything locks them. Done when the answers are on the issues.</li>
 <li>
 <strong>Lock a regression net.</strong> Mark every test that a later phase is expected to change with a <code># EXPECTED-CHANGE</code> comment giving the reason and the issue. An unmarked test that changes should be treated as unintended until shown otherwise. Done when no <code>TODO</code> marker is left in <code>tests/</code> and the suite is green. Two changes are excluded because each alters almost every assertion: the phase-5 tibble (#4) and, if adopted, the grid replacement (#40).</li>
 <li>
-<strong>Build the new spine alongside the old code.</strong> <code>toxval_pred</code>, <code>toxval_predict()</code> and its methods, the shared <code>chk</code> validator, the class-agnostic compute functions, the parametric bootstrap. Purely additive. Done when it is tested and <code><a href="reference/ecx.html">ecx()</a></code> / <code><a href="reference/nsec.html">nsec()</a></code> still return today’s values.</li>
+<strong>Build the new spine alongside the old code.</strong> <code>toxval_pred</code>, <code><a href="reference/toxval_predict.html">toxval_predict()</a></code> and its methods, the shared <code>chk</code> validator, the class-agnostic compute functions, the parametric bootstrap. Purely additive. Done when it is tested and <code><a href="reference/ecx.html">ecx()</a></code> / <code><a href="reference/nsec.html">nsec()</a></code> still return today’s values.</li>
 <li>
-<strong><code>toxval</code> sheds <code>bayesnec</code>.</strong> Reverses a dependency pointing the wrong way. Done when <code>bayesnec</code> is no longer imported and <code>ecx</code> on a <code>bnecfit</code> follows the #19 answer.</li>
+<strong><code>toxval</code> sheds <code>bayesnec</code>.</strong> Reverses a dependency pointing the wrong way. The <code>bnecfit</code> methods and their tests are deleted. What the remaining tests and examples read from <code>bayesnec</code>, such as <code>nec_data</code>, is stored as test fixtures, so the suite runs without <code>bayesnec</code> installed. A test is skipped when <code>bayesnec</code> is absent only if its purpose is to compare against <code>bayesnec</code>. Done when <code>bayesnec</code> is no longer imported and the tests pass without it installed. <code>ecx</code> and <code>nsec</code> on a <code>bnecfit</code> are then computed by <code>bayesnec</code> alone until phase 7 (<code>REFACTOR-claude.md</code> §4, phase 3).</li>
 <li>
-<strong>Move metrics onto the spine one at a time</strong> (<code>ecx</code>, then <code>nsec</code>, then <code>nsec_multi</code>), each gaining <code>draws</code>. Done when all three compute from a <code>toxval_pred</code>, with <code>posterior</code> deprecated but working.</li>
+<strong>Move metrics onto the spine one at a time</strong> (<code>ecx</code>, then <code>nsec</code>), each gaining <code>draws</code>, with <code><a href="reference/nsec_multi.html">nsec_multi()</a></code> made defunct in favour of <code><a href="reference/nsec.html">nsec()</a></code> (decision T37, amended 2026-10-24). #60, which decides what the aggregation reports, is answered (decision T21). Also needs <code><a href="reference/toxval_predict.html">toxval_predict()</a></code> to return one curve per response for a multivariate <code>brmsfit</code>, which it refuses until then. It also adds <code>type = "relative"</code> and the <code>anchor</code> argument, which phase 2 left out. Done when <code><a href="reference/ecx.html">ecx()</a></code> and <code><a href="reference/nsec.html">nsec()</a></code> compute from a <code>toxval_pred</code>, with <code><a href="reference/nsec_multi.html">nsec_multi()</a></code> and <code>posterior</code> defunct (decision T37). Its rulings are decisions T21 to T33. It is done together with phase 5, so no interim version returns today’s shapes from the spine (decision T33).</li>
 <li>
-<strong>Swap outputs and clean up.</strong> The <code>toxval</code> tibble and <code>tbl_sum()</code> printing; update the tests; remove <code>posterior</code> and the dead blocks last. Done when every metric returns a tibble and the tests assert the new shapes.</li>
+<strong>Swap outputs and clean up.</strong> The <code>toxval</code> tibble and <code>tbl_sum()</code> printing, combined by <code>bind_rows()</code> only when the run settings match (decision T40); <code>ecx_val</code> becomes <code>proportion</code>, so an EC10 is <code>proportion = 0.1</code> rather than <code>ecx_val = 10</code>, and <code>type = "direct"</code> takes its response value as <code>reference</code> (decision T32); update the tests; remove <code>posterior</code> and the dead blocks last. Done when every metric returns a tibble and the tests assert the new shapes.</li>
 <li>
-<strong><code>toxval</code> to CRAN</strong>, carrying the final API. Unblocks #39. Done when published.</li>
+<strong><code>toxval</code> to CRAN</strong>, with the final API. Done when published. It is no longer a prerequisite of phase 7 (decision T35).</li>
 <li>
-<strong><code>bayesnec</code>.</strong> One PR: <code>Imports: toxval</code>, delete its copies of <code>ecx</code> and <code>nsec</code>, add the <code>toxval_predict</code> methods, adapt to the tibble. Then CRAN.</li>
-</ol><p>Phases 2 to 4 change who owns the code and what it computes; phase 5 changes what it returns. Separating them keeps each checkable against the regression net, and <code>bayesnec</code> sees one finished API at phase 7.</p>
+<strong>Support for <code>bayesnec</code> fits.</strong> <code><a href="reference/toxval_predict.html">toxval_predict()</a></code> methods for <code>bayesnecfit</code> and <code>bayesmanecfit</code>, in <code>toxval</code>, with <code>bayesnec</code> in <code>Suggests</code>, so <code><a href="reference/ecx.html">ecx()</a></code> and <code><a href="reference/nsec.html">nsec()</a></code> accept a <code><a href="https://open-aims.github.io/bayesnec/reference/bnec.html" class="external-link">bnec()</a></code> fit again (decision T35, <code>BAYESNEC-human.md</code>). Done when R CMD check passes with and without <code>bayesnec</code> installed. The other <code>bayesnec</code> classes follow in later pull requests. Under #39 this phase was a <code>bayesnec</code> pull request that added <code>toxval</code> to the <code>Imports</code> of <code>bayesnec</code>, deleted its copies of <code>ecx</code> and <code>nsec</code>, and added the methods there.</li>
+</ol><p>Phases 2 to 4 change who owns the code and what it computes; phase 5 changes what it returns. Phases 2 and 3 are kept separate, so each can be checked against the regression net. Phases 4 and 5 are done together (decision T33). Phase 7 adds the methods for <code>bayesnec</code> fits to <code>toxval</code>, on the API that phases 4 and 5 complete (decision T35).</p>
 </div>
 <div class="section level2">
 <h2 id="id_5-notes">5. Notes<a class="anchor" aria-label="anchor" href="#id_5-notes"></a></h2>
 <ul><li>
-<strong>Method gaps to keep in mind:</strong> <code>ecx</code> has no <code>drc</code> method, which becomes nearly free under §3.4 — whether it is in scope needs a decision. <code>nsec_multi</code> is brms-multivariate only.</li>
+<strong>Method gaps to keep in mind:</strong> <code>ecx</code> has no <code>drc</code> method, which becomes nearly free under §3.4 and is added in phase 4 (decision T27). <code>nsec_multi</code> is brms-multivariate only. Under decision T15 that support is provided by <code><a href="reference/toxval_predict.html">toxval_predict()</a></code> instead.</li>
 <li>
 <strong><code>n(s)ec</code> and <code>nec</code> are reserved in the vocabulary but not implemented here</strong> (#25, #18), so the vocabulary does not have to be reopened later.</li>
 <li>
-<strong><code>anchor = "control"</code> is specified but not implemented.</strong> It needs a control-only fit, which cannot be recovered from a fitted model, so it is supplied as an argument — an argument for fitting wrappers (#22).</li>
+<strong>Model averaging of <code>drc</code> fits is not in any phase yet.</strong> <code>anchor</code> applies to a <code>drc</code> model average as it does to a <code>bayesnec</code> one, so it is to be scoped with <code>relative</code> and the further <code>type</code> options in #63 (<code>REFACTOR-claude.md</code> §5).</li>
 <li>
-<strong>Model-averaged results are not reproducible today</strong> (<code>bayesnec</code> #216): the component resampling is unseeded. Not fixed by this plan, and it blocks regression-testing model-averaged output by equality.</li>
+<strong><code>anchor = "control"</code> is left out of phase 4</strong> (decision T23). It would need a control-only fit supplied by the user, and it does not reproduce the LECx it was meant to match. Fitting wrappers (#22) are not planned at this stage.</li>
+<li>
+<strong>Model-averaged results were not reproducible</strong> while <code>bayesnec</code> resampled the components unseeded (<code>bayesnec</code> #216, closed 2026-08-21). From <code>bayesnec</code> 2.1.3.7 the draw index is stored on the object or rebuilt from a seed, and <code><a href="reference/toxval_predict.html">toxval_predict.bayesmanecfit()</a></code> follows the same rule, so model-averaged output can be tested by equality (<code>REFACTOR-claude.md</code> §5).</li>
 <li>
 <strong><code>xform</code> stays user-supplied, and applies to realisations before summarising.</strong> Both are current behaviour; the second changes answers for any non-linear <code>xform</code>, so it belongs in the written contract.</li>
 </ul></div>
