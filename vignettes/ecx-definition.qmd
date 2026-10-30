@@ -53,53 +53,50 @@ within_step <- function(estimate, exact, x_vec) {
 cols <- unname(grDevices::palette.colors(9, "Okabe-Ito")[c(2, 6, 4, 7)])
 ```
 
-`ecx()` estimates the concentration at which a fitted curve reaches a reference
-response. The estimate is computed for each realisation of the fit, a posterior
-draw or a bootstrap replicate, and in two directions, a decrease and an
-increase. The control is the predicted response at the control concentration,
-by default the lowest concentration in the data, where the grid the curve is
-evaluated over starts. The argument `type` names a span, the difference
-in response of which the effect is a proportion, and the span is measured
-separately in each direction, $S_{\text{dec}}$ and $S_{\text{inc}}$. The
-argument `proportion` gives the proportion $p$, so `proportion = 0.1` is the
-EC10. The reference of each realisation is computed from its own control and
-spans,
+## Background
+
+`ecx()` estimates the concentration at which a fitted curve crosses a reference
+response. The estimate is computed separately for each realisation of the fit
+(a posterior draw of a Bayesian fit, or a parametric bootstrap replicate of a
+frequentist fit), and in two directions, a decrease and an increase. The
+control is the predicted response at the control concentration (by default the
+lowest concentration in the data, where the grid over which the curve is
+evaluated starts). The argument `proportion` gives the proportion $p$ (e.g.
+`proportion = 0.1` for the EC10), and the argument `type` names the span of
+which the effect is a proportion (i.e. a difference in response, measured
+separately in each direction as $S_{\text{dec}}$ and $S_{\text{inc}}$). The
+reference of each realisation is computed from its own control and spans:
 
 $$
 \text{reference} = \text{control} - p\,S_{\text{dec}} \ \text{(decreasing)}, \qquad
 \text{reference} = \text{control} + p\,S_{\text{inc}} \ \text{(increasing)}.
 $$
 
-Under `type = "absolute"`, the default, both spans of a response that is not a
+Under the default, `type = "absolute"`, both spans of a response that is not a
 proportion are the control, so the EC10 references are 0.9 and 1.1 times the
-control. The section on the span named by `type` tabulates the spans of the
-other types. Under `type = "direct"` there is no proportion and no span, and the
-response supplied as `reference` is the reference in both directions. A span of
-zero gives no reference, and that realisation is excluded; under `range` it is
-censored instead, since its curve never departs from its control in that
-direction. A span counts as zero when it is no larger than rounding error,
-`sqrt(.Machine$double.eps)` times the absolute value of the control. The
-decreasing ECx of a realisation is the first concentration at which its curve
-passes downward through the decreasing reference, and the increasing ECx is
-the first at which it passes upward through the increasing reference. `ecx()`
-reports the median of these values over the realisations, with a 95 per cent
-interval by default.
+control. Under `type = "direct"` there is no proportion and no span, and the
+response supplied as `reference` is used as the reference in both directions.
+The spans of the other types are tabulated under
+[The span named by `type`](#the-span-named-by-type). The decreasing ECx of a
+realisation is then the first concentration at which its curve passes downward
+through the decreasing reference, and the increasing ECx is the first at which
+it passes upward through the increasing reference. `ecx()` returns the median
+of these values over the realisations, with a 95 per cent interval by default.
 
 ## Curves with a known ECx
 
-Every curve below is written as a formula with chosen parameter values, so
-each ECx has an exact value against which the value returned by `ecx()` is
+Each curve below is defined by a formula with chosen parameter values, so that
+its ECx has an exact value against which the value returned by `ecx()` is
 checked. The exceptions are the bootstrap results for two `drc` fits, which
 have no closed form.
 
-`ecx()` computes on a `toxval_pred`, the object `toxval_predict()` builds from
-a fitted model. It holds realisations of the curve evaluated over a grid of
-concentrations, one row per realisation. A realisation is one posterior draw of
-a Bayesian fit, or one parametric bootstrap replicate of a frequentist fit.
-`new_toxval_pred()` builds the object directly, and `ecx()` accepts it in place
-of a fit. The helper `hand_pred()`, defined for this vignette, evaluates a
-formula once for each row of a table of parameter values, so each row stands
-in for one realisation.
+`ecx()` computes on a `toxval_pred` (the object `toxval_predict()` builds from a
+fitted model), which contains realisations of the curve evaluated over a grid
+of concentrations, one row per realisation. The object can also be built
+directly with `new_toxval_pred()`, and `ecx()` accepts it in place of a fit.
+Here we use the helper `hand_pred()`, defined for this vignette, which
+evaluates a formula once for each row of a table of parameter values, so that
+each row stands in for one realisation.
 
 ```{r}
 #| label: hand-pred
@@ -134,16 +131,16 @@ hand_pred <- function(curve, params, x_vec, family = "gaussian",
 }
 ```
 
-The curve is evaluated only at the grid values. `ecx()` locates a crossing by
-linear interpolation between the two grid values either side of it, so on a
-monotone segment the estimate lies within one grid step of the exact
-concentration. Each check below uses that tolerance.
+Because the curve is evaluated only at the grid values, `ecx()` locates a
+crossing by linear interpolation between the grid values on either side of it.
+On a monotone segment the estimate is therefore within one grid step of the
+exact concentration, and each check below uses that tolerance.
 
 ## The reference of each realisation
 
 Three realisations of the straight line $y = c\,(1 - x/10)$ were evaluated over
-$0 \le x \le 10$, with controls $c$ of 95, 100 and 105. Each realisation
-reaches 90 per cent of its own control at $x = 1$, whatever its control.
+$0 \le x \le 10$, with controls $c$ of 95, 100 and 105. Whatever its control,
+each realisation falls to 90 per cent of its own control at $x = 1$.
 
 ```{r}
 #| label: per-realisation
@@ -167,16 +164,17 @@ stopifnot(
 )
 ```
 
-The reference is computed for each realisation from that realisation's own
-control: 0.9 × 95, 0.9 × 100 and 0.9 × 105. Each realisation crosses its
-reference at $x = 1$, as the `value.draw` column shows, so the EC10 is
-`r fmt(ec10_line$estimate[1])` and its interval has no width. The `control`
-column reports the central quantile of the controls, here the median of
+The reference of each realisation is computed from its own control (0.9 × 95,
+0.9 × 100 and 0.9 × 105), and each realisation crosses its reference at $x = 1$
+(the `value.draw` column). The EC10 is therefore
+`r fmt(ec10_line$estimate[1])`, with an interval of zero width. The `control`
+column gives the central quantile of the controls, here the median of
 `r fmt(ec10_line$control[1])`.
 
-The alternative is one reference for every realisation, such as 90 per cent of
-the median control. On these realisations that reference is 0.9 × 100 = 90,
-and `type = "direct"`, described below, crosses it on each realisation.
+The alternative is a single reference for all realisations, such as 90 per cent
+of the median control. For these realisations that reference is
+0.9 × 100 = 90, and `ecx()` with `type = "direct"` (described below) finds
+where each realisation crosses it.
 
 ```{r}
 #| label: one-reference
@@ -232,27 +230,28 @@ for (panel in c("own", "fixed")) {
 par(op)
 ```
 
-In the left panel of the figure each dashed reference lies 10 per cent below
-its own control, at `r paste(fmt(own_reference), collapse = ", ")`, and all
-three are crossed at the same concentration. In the right panel the one
-reference is crossed at three concentrations. A fixed response of 90 is a fall
-of 5 from a control of 95 and of 15 from a control of 105, which are `r fmt(fixed_fall[1], 2)` and
-`r fmt(fixed_fall[2], 3)` per cent of those controls. The three crossings are
+With a reference for each realisation (@fig-per-realisation, left), the dashed
+references are 10 per cent below their controls, at
+`r paste(fmt(own_reference), collapse = ", ")`, and all three are crossed at
+the same concentration. The single reference of 90 is instead crossed at three
+concentrations (@fig-per-realisation, right), because it is a fall of 5 from a
+control of 95 (`r fmt(fixed_fall[1], 2)` per cent) and of 15 from a control of
+105 (`r fmt(fixed_fall[2], 3)` per cent). The three crossings are
 `r paste(fmt(fixed_level$draws[[1]]$value.draw), collapse = ", ")`, against
-$10\,(1 - 90/c)$ = `r paste(fmt(fixed_exact), collapse = ", ")`. Although the
-three realisations have the same shape, the fixed reference gives them
+$10\,(1 - 90/c)$ = `r paste(fmt(fixed_exact), collapse = ", ")`. Thus, although
+the three realisations have the same shape, a fixed reference gives them
 different ECx values, because each control is a different distance above 90.
-Under the per-realisation reference every realisation is measured by the same
-proportion of its own control.
+With a reference for each realisation, in contrast, each is measured by the
+same proportion of its own control.
 
 ## The span named by `type`
 
-`type` takes four values. One realisation of the exponential decay
-$y = 20 + 80\,e^{-x/2}$ was evaluated over $0 \le x \le 6$. Its control is 100.
-Its lower asymptote, the limit of the response as $x$ increases without bound,
-is 20. Its minimum over the grid is $20 + 80\,e^{-3}$ =
-`r fmt(20 + 80 * exp(-3), 4)`. The lower asymptote is supplied in the
-`asymptote` slot. The curve has no upper asymptote, so that value is `NA`.
+`type` takes four values, which we illustrate with one realisation of the
+exponential decay $y = 20 + 80\,e^{-x/2}$, evaluated over $0 \le x \le 6$. Its
+control is 100, and its lower asymptote (the limit of the response as $x$
+increases without bound) is 20, which is supplied in the `asymptote` slot. The
+curve has no upper asymptote, so that value is `NA`. Its minimum over the grid
+is $20 + 80\,e^{-3}$ = `r fmt(20 + 80 * exp(-3), 4)`.
 
 ```{r}
 #| label: types
@@ -397,60 +396,64 @@ for (i in seq_len(nrow(ec50_exp))) {
 par(op)
 ```
 
-In each panel the arrow runs from the control of `r fmt(exp_control, 3)`
-down to the level the `type` measures to: 0 under `absolute`, the asymptote of
-`r fmt(exp_far[2], 2)` under `relative`, and the grid minimum of
-`r fmt(exp_far[3], 4)` under `range`. The EC50 reference lies halfway along
-the arrow, so the shortest span, under `range`, gives the highest reference,
-which is crossed first, at `r fmt(ec50_exp$estimate[3])`. `direct` has no
-span, and its supplied reference of `r fmt(ec50_exp$reference[4], 2)`, the
-lowest of the four, is crossed last, at `r fmt(ec50_exp$estimate[4])`. Each
-value in the table returned by `ecx()` agrees with the exact crossing to
-within one grid step of `r fmt(diff(x_exp[1:2]), 1)`.
+In each panel of @fig-types the arrow runs from the control of
+`r fmt(exp_control, 3)` down to the level that `type` measures to (0 under
+`absolute`, the asymptote of `r fmt(exp_far[2], 2)` under `relative`, and the
+grid minimum of `r fmt(exp_far[3], 4)` under `range`). Because the EC50
+reference is halfway along the arrow, the shortest span (under `range`) gives
+the highest reference, which is crossed first, at
+`r fmt(ec50_exp$estimate[3])`. `direct` has no span, and its supplied reference
+of `r fmt(ec50_exp$reference[4], 2)` is lower than the other three, so it is
+crossed last, at `r fmt(ec50_exp$estimate[4])`. Each value returned by `ecx()`
+in the table agrees with the exact crossing to within one grid step of
+`r fmt(diff(x_exp[1:2]), 1)`.
 
-- `absolute`, the default, measures a decrease from the control to 0. It is
-  the percent inhibition of OECD Test Guideline 201 (OECD 2011, paragraph 50).
-  `proportion` is not capped at 1 under `absolute`: a response that can be
-  negative, such as a growth rate, has more than complete inhibition when it
+- `absolute`, the default, measures a decrease from the control to 0 (the
+  percent inhibition of OECD Test Guideline 201; OECD 2011, paragraph 50).
+  `proportion` is not capped at 1 under `absolute`, because a response that can
+  be negative (e.g. a growth rate) has more than complete inhibition when it
   falls below 0, and the equation in paragraph 50 of that guideline places no
-  upper limit on the inhibition. The increasing form is described
-  under increasing responses below.
-- `relative` measures from the control to the asymptote of the fitted
-  equation: the lower asymptote for a decrease and the upper asymptote for an
-  increase. The asymptote is usually a parameter of the equation, and where it
-  is estimated and lies outside the observed responses it is an extrapolation
-  whose uncertainty the ECx includes.
-- `range` measures from the control to the lowest response the curve predicts
-  over the grid, or the highest for an increase. It therefore depends on the
-  concentrations evaluated: the minimum here, `r fmt(exp_min, 4)`, is the value
-  at the end of the grid, $x = 6$.
-- `direct` takes no proportion. The ECx is where the curve crosses the response
-  value supplied as `reference`, the same value in both directions: the first
-  downward crossing in the decreasing row and the first upward crossing in the
-  increasing row. The `control` column is `NA`, but the control is still
-  compared with the reference. A realisation with no crossing whose control
-  already lies past the reference is placed at the control concentration
-  rather than above the highest.
+  upper limit on the inhibition. The increasing form is described under
+  [Increasing responses](#increasing-responses).
+- `relative` measures from the control to the asymptote of the fitted equation
+  (the lower asymptote for a decrease and the upper asymptote for an increase).
+  The asymptote is usually a parameter of the equation, and where it is
+  estimated beyond the observed responses it is an extrapolation, whose
+  uncertainty is included in the ECx.
+- `range` measures from the control to the lowest response predicted over the
+  grid (or the highest, for an increase). It therefore depends on the
+  concentrations evaluated; for example, the minimum here,
+  `r fmt(exp_min, 4)`, is the value at the end of the grid ($x = 6$).
+- `direct` takes no proportion, and the ECx is where the curve crosses the
+  response value supplied as `reference`, which is used in both directions
+  (i.e. the first downward crossing in the decreasing row and the first upward
+  crossing in the increasing row). The `control` column is `NA`, although the
+  control is still compared with the reference: a realisation with no crossing
+  whose control is already past the reference is placed at the control
+  concentration rather than above the highest.
 
 The names `absolute` and `relative` follow Daniels et al. (2026), for whom an
 absolute ECx is a change relative to the control and a relative ECx is a
 change relative to the maximum achievable effect.
 
-Every call that supplies `type = "relative"` warns about the definition of
-`relative`; the warning does not depend on the data. The curve never rises above
-its control and has no upper asymptote, so its increasing span is undefined
-under `relative` and zero under `range`. Under `relative` the realisation has no
-reference and is excluded. The call also warns that every realisation was
-excluded from the increasing row. Under `range` the realisation is censored
-instead. Either way no realisation has an increasing ECx, so that row is
-returned with `NA` estimates.
-Excluded and censored realisations, and the warning that reports them, are
+A call that supplies `type = "relative"` warns about the definition of
+`relative`, whatever the data. This curve never rises above its control and
+has no upper asymptote, so its increasing span is undefined under `relative`
+and zero under `range`. A realisation whose span is undefined or zero has no
+reference and is excluded, and the `relative` call also warns that all
+realisations were excluded from the increasing row. However, under `range` a
+zero span means that the curve never departs from its control in that
+direction, so the realisation is censored instead. A span counts as zero when
+it is no larger than rounding error (`sqrt(.Machine$double.eps)` times the
+absolute value of the control). In either case no realisation has an
+increasing ECx, so that row is returned with `NA` estimates. Excluded and
+censored realisations, and the warning that gives their proportion, are
 described in `vignette("nsec-definition", package = "toxval")`.
 
 `proportion` above 1 is refused under `relative` and `range`, since the
-reference would lie beyond the asymptote or the extent of the curve. Under
-`absolute` it is accepted. The line $y = 100 - 15x$ over $0 \le x \le 10$
-falls to −50, and its EC120 is the crossing of
+reference would then be beyond the asymptote or the extent of the curve, but it
+is accepted under `absolute`. For example, the line $y = 100 - 15x$ over
+$0 \le x \le 10$ falls to −50, and its EC120 is the crossing of
 $100 - 1.2 \times 100 = -20$, at $x = 8$.
 
 ```{r}
@@ -473,8 +476,8 @@ stopifnot(within_step(ec120$estimate[1], 8, x_neg))
 ## Sources of the asymptote
 
 `type = "relative"` needs the asymptote of each realisation, which `ecx()`
-reads from the `asymptote` slot of the `toxval_pred`. Without one the call is
-refused.
+reads from the `asymptote` slot of the `toxval_pred`, and the call is refused
+when there is none.
 
 ```{r}
 #| label: relative-refused
@@ -490,42 +493,42 @@ ecx(pred_no_asymptote, proportion = 0.5, type = "relative")
 How the slot is filled depends on the class of the fitted object.
 
 - For a `drc` fit, `toxval_predict()` takes the lower and upper limits of the
-  fitted function from `fct$lowerAs()` and `fct$upperAs()`, at each bootstrap
-  replicate. A limit the equation fixes, such as the lower limit of 0 in
-  `LL.3()`, is returned as well.
+  fitted function from `fct$lowerAs()` and `fct$upperAs()` at each bootstrap
+  replicate, including a limit that the equation fixes (e.g. the lower limit of
+  0 in `LL.3()`).
 - For a `brmsfit`, the parameter of a non-linear formula that is an asymptote
-  cannot be read from the fit. It is named with the `asymptote` argument of
-  `toxval_predict()`, which `ecx()` passes on. `asymptote = c(decreasing =
-  "bot")` names a parameter, which is taken for each draw on the link scale
-  and transformed to the response scale. A number is taken as a response
-  value.
-- For a hand-built `toxval_pred`, it is supplied to `new_toxval_pred()`, as
-  above.
+  cannot be read from the fit, so it is named with the `asymptote` argument of
+  `toxval_predict()`, which `ecx()` passes on. A parameter named in this way
+  (e.g. `asymptote = c(decreasing = "bot")`) is taken for each draw on the link
+  scale and transformed to the response scale, whereas a number is taken as a
+  response value.
+- For a hand-built `toxval_pred`, the asymptote is supplied to
+  `new_toxval_pred()`, as above.
 - For a fit from `bayesnec::bnec()`, `toxval_predict()` takes the lower
-  asymptote from the `bot` parameter of the equation, or 0 for an equation
-  without `bot` whose family is bounded below, and the upper asymptote as 1 for
-  a proportion. Both are taken only for an identity link, and a fit with any
-  other link has no asymptote in either direction. A direction without an
-  asymptote, such as the increasing direction of a gaussian fit, has no span,
-  so its realisations are excluded and its estimate is `NA`.
+  asymptote from the `bot` parameter of the equation (or 0, for an equation
+  without `bot` whose family is bounded below), and the upper asymptote as 1
+  for a proportion. Both are taken only under an identity link, and a fit with
+  any other link has no asymptote in either direction. A direction without an
+  asymptote (e.g. the increasing direction of a gaussian fit) has no span, so
+  its realisations are excluded and its estimate is `NA`.
 
 Where the realisations come from several equations, as in a model average,
 each realisation is measured to the asymptote of its own equation. For a
 `bayesmanecfit`, the realisations of an equation without an asymptote are
-excluded, with a warning, and the other equations are averaged. The proportion
-corresponds to a different response in each equation, so a model-averaged
-`relative` ECx does not correspond to a single response level.
+excluded with a warning, and the remaining equations are averaged. Because the
+proportion corresponds to a different response in each equation, a
+model-averaged `relative` ECx does not correspond to a single response level.
 
-The `LL.4()` equation, $f(x) = c + (d - c)/(1 + \exp(b(\ln x - \ln e)))$, was
-fitted to the root lengths of `drc::ryegrass` with `drc::drm()`. Its control is
-the upper limit $d$, since $f(0) = d$, and its lower limit $c$ is the lower
-asymptote. The relative EC50 is therefore the parameter $e$, the
-concentration at which the response is halfway between the two limits. The
-curve at the parameter estimates was first built by hand as a single
-realisation, with the asymptotes from `fct$lowerAs()` and `fct$upperAs()`. Its
-relative and absolute EC50 were compared with `drc::ED()`. For this equation
-the `type = "relative"` of `drc::ED()` is toxval's `relative`, and its
-`type = "absolute"` is toxval's `direct`.
+We fitted the `LL.4()` equation,
+$f(x) = c + (d - c)/(1 + \exp(b(\ln x - \ln e)))$, to the root lengths of
+`drc::ryegrass` with `drc::drm()`. Its control is the upper limit $d$ (since
+$f(0) = d$), and its lower limit $c$ is the lower asymptote, so the relative
+EC50 is the parameter $e$ (the concentration at which the response is halfway
+between $c$ and $d$). The curve at the parameter estimates was first built
+by hand as a single realisation, with the asymptotes from `fct$lowerAs()` and
+`fct$upperAs()`, and its relative and absolute EC50 were compared with those
+from `drc::ED()`. For this equation the `type = "relative"` of `drc::ED()` is
+toxval's `relative`, whereas its `type = "absolute"` is toxval's `direct`.
 
 ```{r}
 #| label: drc-fit
@@ -571,20 +574,21 @@ stopifnot(
 )
 ```
 
-At the estimates, $c$ = `r fmt_drc(ll4[["c"]])` and $d$ =
+At the parameter estimates, $c$ = `r fmt_drc(ll4[["c"]])` and $d$ =
 `r fmt_drc(ll4[["d"]])`. The relative EC50 reference is $(c + d)/2$ =
 `r fmt_drc(hand_relative$reference[1])`, and `ecx()` returns
-`r fmt_drc(hand_relative$estimate[1], 4)` against $e$ =
-`r fmt_drc(ll4[["e"]], 4)` and `drc::ED()`'s
-`r fmt_drc(ed_relative[1, "Estimate"], 4)`. The absolute EC50 reference is
-$d/2$ = `r fmt_drc(hand_absolute$reference[1])`, lower than the relative one
-because the curve levels off at $c$ above 0. Its EC50,
-`r fmt_drc(hand_absolute$estimate[1], 4)`, agrees with `drc::ED()` at the
-response $d/2$, `r fmt_drc(ed_absolute[1, "Estimate"], 4)`.
+`r fmt_drc(hand_relative$estimate[1], 4)`, against $e$ =
+`r fmt_drc(ll4[["e"]], 4)` and `r fmt_drc(ed_relative[1, "Estimate"], 4)` from
+`drc::ED()`. The absolute EC50 reference is $d/2$ =
+`r fmt_drc(hand_absolute$reference[1])`, which is lower than the relative
+reference because the curve levels off at $c$, above 0. The absolute EC50 from
+`ecx()`, `r fmt_drc(hand_absolute$estimate[1], 4)`, agrees with that from
+`drc::ED()` at the response $d/2$
+(`r fmt_drc(ed_absolute[1, "Estimate"], 4)`).
 
-`ecx()` on the fit itself draws parametric bootstrap replicates of the
-parameters, by default 1000, and finds the EC50 on each. Both calls use a seed
-of 2026, so they compute on the same replicates.
+Applied to the fit itself, `ecx()` draws parametric bootstrap replicates of the
+parameters (1000 by default) and finds the EC50 on each. Both calls below use a
+seed of 2026, so they compute on the same replicates.
 
 ```{r}
 #| label: drc-boot
@@ -629,14 +633,15 @@ interval of `r fmt_drc(boot_relative$conf.low[1])` to
 `r fmt_drc(boot_relative$conf.high[1])`, and the absolute EC50 is
 `r fmt_drc(boot_absolute$estimate[1])` (`r fmt_drc(boot_absolute$conf.low[1])`
 to `r fmt_drc(boot_absolute$conf.high[1])`). Each estimate is the median over
-the replicates, so it differs from the value at the parameter estimates, which
-each interval contains. The increasing row of the relative call has no
-estimate, because a decreasing `LL.4()` curve starts at its upper limit. The
-span from the control to that limit is zero up to rounding error in every
-replicate: zero or negative in `r fmt_drc(n_boot - n_rounding)` of the
-`r fmt_drc(n_boot)`, and positive but below $10^{-12}$ in the other
-`r fmt_drc(n_rounding)`. Each counts as zero, so every replicate is excluded,
-as the warning reports.
+the replicates, so it differs from the value at the parameter estimates,
+although each interval contains that value. The increasing row of the relative
+call has no estimate, because a decreasing `LL.4()` curve starts at its upper
+limit. The span from the control to that limit is therefore zero up to rounding
+error in each replicate (zero or negative in
+`r fmt_drc(n_boot - n_rounding)` of the `r fmt_drc(n_boot)`, and positive but
+below $10^{-12}$ in the other `r fmt_drc(n_rounding)`). Each of these spans
+counts as zero, so all replicates are excluded, and the call warns that they
+were.
 
 ```{r}
 #| label: fig-ryegrass-ll4
@@ -704,17 +709,18 @@ legend("top", inset = c(0, 1.32), xpd = NA, bty = "n", cex = 0.8, ncol = 2,
 par(op)
 ```
 
-In @fig-ryegrass-ll4 the absolute EC50 lies
-`r fmt_drc(hand_absolute$estimate[1] - hand_relative$estimate[1], 2)` to the
-right of the relative EC50 at the parameter estimates, where the values from
-`ecx()` and `drc::ED()` coincide for each `type`. Each bootstrap interval
-contains both values at the parameter estimates, so on these data the choice
-between `relative` and `absolute` changes the EC50 by less than the width of
-either interval.
+At the parameter estimates the values from `ecx()` and `drc::ED()` coincide for
+each `type`, and the absolute EC50 is
+`r fmt_drc(hand_absolute$estimate[1] - hand_relative$estimate[1], 2)` higher
+than the relative EC50 (@fig-ryegrass-ll4, bottom left). However, each
+bootstrap interval contains both values at the parameter estimates (compare the
+bottom panels of @fig-ryegrass-ll4), so on these data the choice between
+`relative` and `absolute` changes the EC50 by less than the width of either
+interval.
 
 `LL.3()` fixes the lower limit at 0, so its `relative` and `absolute` ECx
-should coincide. The same fit was made with `LL.3()` and both were computed on
-the same replicates.
+should coincide. We also fitted `LL.3()` to these data, and computed both ECx
+on the same bootstrap replicates.
 
 ```{r}
 #| label: drc-ll3
@@ -741,7 +747,7 @@ stopifnot(
 ```
 
 Both EC50 values are `r fmt_drc(ll3_absolute$estimate[1])`, and the
-`asymptote` column of the relative call reports the fixed lower limit of
+`asymptote` column of the relative call gives the fixed lower limit of
 `r fmt_drc(ll3_relative$asymptote[1])`.
 
 ```{r}
@@ -773,26 +779,27 @@ legend("bottomleft", bty = "n", cex = 0.85,
 par(op)
 ```
 
-In @fig-ryegrass-ll3 the single line lies at
-`r fmt_drc(ll3_relative$estimate[1])`, within an interval of
-`r fmt_drc(ll3_relative$conf.low[1])` to `r fmt_drc(ll3_relative$conf.high[1])`
-shared by both calls. The curve falls to `r fmt_drc(ll3_at_max)` at the highest
-concentration, `r fmt_drc(max(rye_tested), 2)`, below the lower limit $c$ of the
-`LL.4()` fit, because its own lower limit is fixed at 0.
+The relative and absolute EC50 therefore coincide in @fig-ryegrass-ll3, within
+an interval of `r fmt_drc(ll3_relative$conf.low[1])` to
+`r fmt_drc(ll3_relative$conf.high[1])` that is shared by both calls. The
+`LL.3()` curve falls to `r fmt_drc(ll3_at_max)` at the highest concentration
+(`r fmt_drc(max(rye_tested), 2)`), below the lower limit $c$ of the `LL.4()`
+fit, because its own lower limit is fixed at 0.
 
 ## Increasing responses
 
-The increasing span under `absolute` depends on whether the response is a
+Under `absolute` the increasing span depends on whether the response is a
 proportion. For a response with no upper bound the span is the control itself,
 so a 10 per cent increase from a control of 20 is 22. This is relative
 deviation (EFSA 2022, section 2.6.2; OECD 2006, paragraph 306), the mirror of
-the decreasing form. For a proportion the span is the distance from the control
-to 1, so the reference is $\text{control} + p\,(1 - \text{control})$. This is
-extra risk, which is Abbott's formula (US EPA 2012).
+the decreasing form. For a proportion, however, the span is the distance from
+the control to 1, so the reference is
+$\text{control} + p\,(1 - \text{control})$, which is extra risk (i.e. Abbott's
+formula; US EPA 2012).
 
-The straight line $y = 20 + 2x$ was evaluated over $0 \le x \le 10$ as a
-`gaussian` response. Its EC10 and EC50 references are 22 and 30, which it
-crosses at $x = 1$ and $x = 5$.
+For example, the straight line $y = 20 + 2x$ was evaluated over
+$0 \le x \le 10$ as a `gaussian` response. Its EC10 and EC50 references are 22
+and 30, which it crosses at $x = 1$ and $x = 5$.
 
 ```{r}
 #| label: increasing
@@ -816,20 +823,20 @@ stopifnot(
 )
 ```
 
-`proportion = c(0.1, 0.5)` gives two rows for each value, one per direction.
+`proportion = c(0.1, 0.5)` gives two rows for each value (one per direction).
 The increasing EC10 and EC50 are `r fmt(rise_inc$estimate[1])` and
-`r fmt(rise_inc$estimate[2])`. The curve never falls below its control, so the
-decreasing rows have references of `r rise_dec$reference[1]` and
-`r rise_dec$reference[2]` and no estimate.
+`r fmt(rise_inc$estimate[2])`, whereas the decreasing rows have references of
+`r rise_dec$reference[1]` and `r rise_dec$reference[2]` but no estimate,
+because the curve never falls below its control.
 
-The family recorded in the `toxval_pred` decides which span applies. A
+The family recorded in the `toxval_pred` determines which span applies. A
 proportion is recognised from the `brms` families `bernoulli`, `beta`,
 `zero_inflated_beta`, `zero_one_inflated_beta`, `binomial`, `beta_binomial`
 and `zero_inflated_binomial`, and from a `drc` fit whose `type` is
 `"binomial"`. A binomial family is included because `toxval_predict()`
-predicts it at one trial, on the proportion scale. The line
-$y = 0.2 + 0.08x$ over the same grid was built twice, once as a `beta`
-response and once as a `gaussian` one.
+predicts it at one trial, on the proportion scale. To compare relative
+deviation with extra risk, we built the line $y = 0.2 + 0.08x$ twice over the
+grid above, once as a `beta` response and once as a `gaussian` one.
 
 ```{r}
 #| label: proportion-scale
@@ -896,38 +903,38 @@ for (i in seq_along(inc_rows)) {
 par(op)
 ```
 
-In the figure the increasing span of the `gaussian` response runs from the
-control of 0.2 to twice the control, a span of
-`r fmt(inc_span[["gaussian"]], 2)`, and that of the `beta` response runs from
-the control to 1, a span of `r fmt(inc_span[["beta"]], 2)`. As a proportion,
-the EC10 reference is $0.2 + 0.1 \times 0.8$ =
-`r fmt(extra_risk$reference[2])`, crossed at
-`r fmt(extra_risk$estimate[2])`. As an unbounded response it is
+The increasing span of the `gaussian` response runs from the control of 0.2 to
+twice the control (a span of `r fmt(inc_span[["gaussian"]], 2)`), whereas that
+of the `beta` response runs from the control to 1 (a span of
+`r fmt(inc_span[["beta"]], 2)`; @fig-increasing). As a proportion, the EC10
+reference is $0.2 + 0.1 \times 0.8$ = `r fmt(extra_risk$reference[2])`, crossed
+at `r fmt(extra_risk$estimate[2])`. As an unbounded response it is
 $0.2 \times 1.1$ = `r fmt(relative_deviation$reference[2])`, crossed at
-`r fmt(relative_deviation$estimate[2])`. Relative deviation applied to this
-proportion sets the reference 10 per cent of the control above it. That is
-`r fmt(share_of_possible, 2)` per cent of the increase still possible, from 0.2
-to 1. Its EC10 is therefore `r fmt(ratio_ec10, 2)` times the extra-risk EC10. A
-span of zero or less, such as a proportion whose control is at or above 1,
-gives that realisation no reference, and it is excluded from the summary. The
-row has `NA` estimates only where no other realisation crosses.
+`r fmt(relative_deviation$estimate[2])`. Applied to this proportion, relative
+deviation sets the reference above the control by 10 per cent of the control,
+which is `r fmt(share_of_possible, 2)` per cent of the increase still possible
+(from 0.2 to 1), so its EC10 is `r fmt(ratio_ec10, 2)` times the extra-risk
+EC10. Where the span is zero or less (e.g. a proportion whose control is at or
+above 1), the realisation has no reference and is excluded from the summary,
+and the row has `NA` estimates only where no other realisation crosses.
 
 ## Direction in the result
 
-Every call returns both directions, and `direction` is a column of the result:
-for each curve and proportion, one row for the first decreasing crossing and
-one for the first increasing crossing. There is no argument choosing a
-direction. A direction in which no realisation crosses is returned with `NA`
-estimates, as in the examples above, because the crossing was sought and not
-found. Its `control` and `reference` are still reported.
+`ecx()` returns both directions on each call, as rows identified by the
+`direction` column (for each curve and proportion, one row for the first
+decreasing crossing and one for the first increasing crossing), and there is
+no argument for choosing a direction. A direction in which no realisation
+crosses is returned with `NA` estimates, as in the examples above, because the
+crossing was sought and not found, and its `control` and `reference` are still
+given.
 
-A hormetic curve, one that rises above its control at low concentrations before
-it falls, can have both crossings. The quadratic $y = 100 + 5x(4 - x)$ was
-evaluated over $0 \le x \le 6$. It rises from a control of 100 to 120 at
-$x = 2$ and falls to 40 at $x = 6$. Its absolute EC10 references are 110 and
-90. The curve crosses 110 on the way up where $x^2 - 4x + 2 = 0$, at
-$2 - \sqrt{2}$, and crosses 90 on the way down where $x^2 - 4x - 2 = 0$, at
-$2 + \sqrt{6}$.
+A hormetic curve (one that rises above its control at low concentrations
+before it falls) can have both crossings. We evaluated the quadratic
+$y = 100 + 5x(4 - x)$ over $0 \le x \le 6$, which rises from a control of 100
+to 120 at $x = 2$ and falls to 40 at $x = 6$. Its absolute EC10 references are
+110 and 90. The curve crosses 110 on the way up where $x^2 - 4x + 2 = 0$ (at
+$2 - \sqrt{2}$), and crosses 90 on the way down where $x^2 - 4x - 2 = 0$ (at
+$2 + \sqrt{6}$).
 
 ```{r}
 #| label: hormetic
@@ -969,22 +976,20 @@ par(op)
 The increasing EC10 is `r fmt(ec10_horme$estimate[2])`, against
 $2 - \sqrt{2}$ = `r fmt(horme_exact[["increasing"]])`, and the decreasing EC10
 is `r fmt(ec10_horme$estimate[1])`, against $2 + \sqrt{6}$ =
-`r fmt(horme_exact[["decreasing"]])`. The figure shows both crossings. The
-decreasing EC10 is the first downward crossing of 90, which lies beyond the
-peak at $x = 2$, so the rise above the control does not prevent it from being
-found. One direction is kept by filtering the result, as in
-`dplyr::filter(ec10_horme, direction == "decreasing")`.
+`r fmt(horme_exact[["decreasing"]])` (@fig-hormetic). The decreasing EC10 is
+the first downward crossing of 90, which is beyond the peak at $x = 2$, so the
+rise above the control does not prevent it from being found. Where only one
+direction is needed, it can be kept by filtering the result (e.g.
+`dplyr::filter(ec10_horme, direction == "decreasing")`).
 
 ## The `proportion` and `reference` arguments
 
-`proportion` is a proportion, so the EC10 is `proportion = 0.1`. It accepts
-several values, each giving its own rows, and the `proportion` column of the
-result reports the value of each row.
-
-Under `type = "direct"` the value is a response rather than a proportion, so it
-is supplied as `reference`, the column that reports it. `reference` is required
-under `direct` and refused under every other `type`, and `proportion` is refused
-under `direct`, where the `proportion` column is `NA`.
+`proportion` accepts several values, each giving its own rows, and the
+`proportion` column of the result gives the value for each row. Under
+`type = "direct"` the value is a response, not a proportion, so it is supplied
+as `reference` (also the name of the column that gives it). `reference` is
+required under `direct` and refused under the other types, whereas
+`proportion` is refused under `direct`, where the `proportion` column is `NA`.
 
 ```{r}
 #| label: reference-errors
@@ -994,11 +999,11 @@ ecx(pred_exp, type = "direct", proportion = 0.5, reference = 40)
 ecx(pred_exp, proportion = 0.5, reference = 40)
 ```
 
-The names differ from those of `drc::ED()`. Its `type = "absolute"` is
-toxval's `direct`, and it takes the response value in `respLev`, the argument
-that holds the percentage under its `type = "relative"`. Its own `reference`
-argument chooses between the control and the upper limit as the starting
-point.
+These names differ from those of `drc::ED()`, whose `type = "absolute"` is
+toxval's `direct`. `drc::ED()` takes the response value in `respLev` (the
+argument that gives the percentage under its `type = "relative"`), and its own
+`reference` argument chooses between the control and the upper limit as the
+starting point.
 
 ## References
 
@@ -1032,9 +1037,9 @@ hand_grids <- lengths(list(x_line, x_exp, x_neg, x_inc, x_horme))
 if (has_drc) hand_grids <- c(hand_grids, length(x_rye))
 ```
 
-Built with toxval `r utils::packageVersion("toxval")`, `r R.version.string`,
-and `drc` `r drc_version`. Every hand-built curve is
-deterministic and written out above, evaluated over grids of
+This vignette was built with toxval `r utils::packageVersion("toxval")`,
+`r R.version.string` and `drc` `r drc_version`. The hand-built curves are
+deterministic and written out above, and were evaluated over grids of
 `r paste(range(hand_grids), collapse = " to ")` values. The `LL.4()` and
 `LL.3()` fits are to `drc::ryegrass`, with `r fmt_drc(n_boot)` parametric
 bootstrap replicates drawn with `seed = 2026` over the default grid of
