@@ -364,11 +364,12 @@ stopifnot(within_step(ec120$estimate[1], 8, x_neg))
 ## Sources of the asymptote
 
 Under `type = "relative"` the effect is measured against the asymptote of the
-fitted equation, so each realisation needs a value for that asymptote. How the
-value is obtained depends on the class of the fitted model, and a fitted
-`LL.4()` example compares the relative and absolute EC50. `ecx()` reads the
-asymptote from the `asymptote` slot of the `toxval_pred`, and refuses the call
-when there is none.
+fitted equation, so each realisation needs a value for that asymptote. The
+value depends on the form of the equation: `LL.4()` estimates its lower limit,
+whereas `LL.3()` fixes it at 0. A fitted `LL.4()` example below
+compares the relative and absolute EC50. `ecx()` reads the asymptote from the
+`asymptote` slot of the `toxval_pred`, and refuses the call when there is
+none.
 
 ```{r}
 #| label: relative-refused
@@ -381,7 +382,8 @@ pred_no_asymptote <- hand_pred(
 ecx(pred_no_asymptote, proportion = 0.5, type = "relative")
 ```
 
-How the slot is filled depends on the class of the fitted object.
+How `toxval_predict()` fills the slot depends on the package used to fit the
+model.
 
 - For a `drc` fit, `toxval_predict()` takes the lower and upper limits of the
   fitted function from `fct$lowerAs()` and `fct$upperAs()` at each bootstrap
