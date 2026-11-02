@@ -20,4 +20,5 @@
 ^BAYESNEC-human\.md$
 ^\.quarto$
 ^vignettes/\.quarto$
+^vignettes/articles$
 ^tests/local$

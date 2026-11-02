@@ -1,27 +1,23 @@
 ---
 title: "The bayesnec case study"
-vignette: >
-  %\VignetteIndexEntry{The bayesnec case study}
-  %\VignetteEngine{quarto::html}
-  %\VignetteEncoding{UTF-8}
 knitr:
   opts_chunk:
     collapse: true
     comment: "#>"
-execute:
-  echo: true
-  warning: true
-  message: true
 ---
 
 ```{r}
 #| label: setup
 #| include: false
 has_bayesnec <- requireNamespace("bayesnec", quietly = TRUE)
-# toxval 2.0.0, the main branch of open-AIMS/toxval. In the package this line
-# is library(toxval).
-source("../../R/toxval_at.R")
-toxval_sha <- attr(toxval_at("016402dad441ad9c76c5dc9704b16cbd3c19c2d5"), "sha")
+library(toxval)
+# The commit is that of the checkout the article is rendered from. The site
+# build installs toxval from the same checkout.
+toxval_commit <- tryCatch(
+  system2("git", c("rev-parse", "HEAD"), stdout = TRUE, stderr = FALSE),
+  error = function(e) "not recorded",
+  warning = function(w) "not recorded"
+)
 
 fmt <- function(x, digits = 3) formatC(x, digits = digits, format = "f")
 # returned as text, because knitr rewrites a small number printed inline as a
@@ -838,7 +834,7 @@ stopifnot(
     p$settings$chains * (p$settings$iter - p$settings$warmup) / p$settings$thin
 )
 cat(
-  "toxval rendered:      ", toxval_sha, " (",
+  "toxval rendered:      ", toxval_commit, " (",
   as.character(utils::packageVersion("toxval")), ")\n",
   "toxval at fitting:    ", p$toxval_commit, "\n",
   "fitted on:            ", format(p$fitted_on, "%Y-%m-%d %H:%M %Z"), "\n",

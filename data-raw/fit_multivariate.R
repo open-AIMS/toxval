@@ -1,29 +1,25 @@
-## Stored fit for the draft case study
-## notes/drafts/case-brms-multivariate/case-brms-multivariate.qmd
+## Stored fit for the article vignettes/articles/case-brms-multivariate.qmd
 ##
 ## The data are from Luter et al., "Molecular responses to 1-methylnaphthalene
 ## in Acropora millepora larvae", which is in review. Everything this
-## script writes goes to notes/drafts/case-brms-multivariate/local/. In the
-## toxval repository .gitignore excludes it until the paper and its data are
-## released (#71). In the private toxval-review repository it is committed, so
-## that collaborators can read and render the draft.
+## script writes goes to vignettes/articles/.
 ##
 ## Run from the package root, with toxval installed from this repository:
-##   Rscript notes/drafts/case-brms-multivariate/fit_multivariate.R
+##   Rscript data-raw/fit_multivariate.R
 ## The analysis folder is read from the environment variable POLYNOMIALS_DIR,
 ## defaulting to /mnt/c/Rworking/Polynomials. Nothing in it is modified.
 ##
-## Writes, in local/:
+## Writes, in vignettes/articles/:
 ##
-## - data/: copies of the four input files below, unchanged.
-## - fit_multivariate.rds: a list with `fit`, the brmsfit, and `provenance`:
-##   the genes, the seed, the sampler settings, the time of fitting, the
-##   sampling time in seconds, the R and package versions, the toxval
-##   commit, and a note on the draws. The brmsfit is the six-gene model with
-##   its draws replaced by the original fit's draws for the same parameters
-##   (use_original_draws() in original_draws.R), so the article reproduces
-##   the original fit's estimates exactly.
-## - original.rds: a list with `summary`, the posterior summary of the
+## - data/: copies of the five input files below, unchanged.
+## - fits/fit_multivariate.rds: a list with `fit`, the brmsfit, and
+##   `provenance`: the genes, the seed, the sampler settings, the time of
+##   fitting, the sampling time in seconds, the R and package versions, the
+##   toxval commit, and a note on the draws. The brmsfit is the six-gene model
+##   with its draws replaced by the original fit's draws for the same
+##   parameters (use_original_draws() in original_draws.R), so the article
+##   reproduces the original fit's estimates exactly.
+## - fits/original.rds: a list with `summary`, the posterior summary of the
 ##   parameters of the original 78-gene fit for the same genes. The article
 ##   compares the refit with the original without loading the 77 MB original
 ##   fit.
@@ -41,7 +37,7 @@
 ## that the counts and trials built from it equal the data stored in the
 ## original fit, fit3k_bb_DRomicsGenes_poly_iter1000.RData.
 ##
-## Inputs copied to local/data/:
+## Inputs copied to vignettes/articles/data/:
 ## - BECdata_wSampleID.csv: batch-corrected counts, one row per gene, one
 ##   column per sample.
 ## - DromicsFittedGenesFDR0.05.csv: the 78 genes retained by DRomics.
@@ -54,11 +50,12 @@
 
 library(brms)
 
-draft_dir <- file.path("notes", "drafts", "case-brms-multivariate")
-local_dir <- file.path(draft_dir, "local")
-data_dir <- file.path(local_dir, "data")
+article_dir <- file.path("vignettes", "articles")
+fits_dir <- file.path(article_dir, "fits")
+data_dir <- file.path(article_dir, "data")
 source_dir <- Sys.getenv("POLYNOMIALS_DIR", "/mnt/c/Rworking/Polynomials")
-stopifnot(dir.exists(draft_dir), dir.exists(source_dir))
+stopifnot(dir.exists(article_dir), dir.exists(source_dir))
+dir.create(fits_dir, recursive = TRUE, showWarnings = FALSE)
 dir.create(data_dir, recursive = TRUE, showWarnings = FALSE)
 
 inputs <- c(
@@ -225,7 +222,7 @@ stopifnot(isTRUE(all.equal(
 
 # The original fit's draws replace the six-gene model's, so the article gives
 # the original fit's estimates exactly.
-source(file.path(draft_dir, "original_draws.R"))
+source(file.path("data-raw", "original_draws.R"))
 fit <- use_original_draws(fit, fit3k)
 summary_new <- posterior_summary(fit)
 summary_old <- posterior_summary(fit3k)
@@ -276,7 +273,7 @@ provenance <- list(
 
 saveRDS(
   list(fit = fit, provenance = provenance),
-  file.path(local_dir, "fit_multivariate.rds"),
+  file.path(fits_dir, "fit_multivariate.rds"),
   compress = "xz"
 )
 
@@ -288,7 +285,7 @@ original_summary <- original_summary[
 ]
 saveRDS(
   list(summary = original_summary),
-  file.path(local_dir, "original.rds"),
+  file.path(fits_dir, "original.rds"),
   compress = "xz"
 )
 
@@ -296,8 +293,8 @@ cat(
   "Fitted in",
   round(fit_seconds),
   "s; stored fit",
-  round(file.size(file.path(local_dir, "fit_multivariate.rds")) / 2^20, 2),
+  round(file.size(file.path(fits_dir, "fit_multivariate.rds")) / 2^20, 2),
   "MB; original summary",
-  round(file.size(file.path(local_dir, "original.rds")) / 2^20, 2),
+  round(file.size(file.path(fits_dir, "original.rds")) / 2^20, 2),
   "MB\n"
 )

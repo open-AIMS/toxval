@@ -1,39 +1,35 @@
 ---
 title: "The multivariate brms case study"
-vignette: >
-  %\VignetteIndexEntry{The multivariate brms case study}
-  %\VignetteEngine{quarto::html}
-  %\VignetteEncoding{UTF-8}
 knitr:
   opts_chunk:
     collapse: true
     comment: "#>"
-execute:
-  echo: true
-  warning: true
-  message: true
 ---
 
 ```{r}
 #| label: setup
 #| include: false
-# toxval 2.0.0, the main branch of open-AIMS/toxval. In the package this line
-# is library(toxval).
-source("../../R/toxval_at.R")
-toxval_sha <- attr(toxval_at("016402dad441ad9c76c5dc9704b16cbd3c19c2d5"), "sha")
+library(toxval)
+# The commit is that of the checkout the article is rendered from. The site
+# build installs toxval from the same checkout.
+toxval_commit <- tryCatch(
+  system2("git", c("rev-parse", "HEAD"), stdout = TRUE, stderr = FALSE),
+  error = function(e) "not recorded",
+  warning = function(w) "not recorded"
+)
 
-# Everything read here is in local/. It is written by
+# Everything read here is in fits/ and data/. It is written by
 # data-raw/fit_multivariate.R.
-store <- readRDS("local/fit_multivariate.rds")
+store <- readRDS("fits/fit_multivariate.rds")
 fit <- store$fit
 provenance <- store$provenance
 # the posterior summary of the original fit, for these genes
-original <- readRDS("local/original.rds")
-published_lower <- read.csv("local/data/lower_NSECs_filtered_52genes.csv")[-1]
-all_lower <- read.csv("local/data/toxval_nsec_lower_all78genes.csv")[-1]
-metadata <- read.csv("local/data/Metadata_1-MN.csv")
-gene_list <- read.csv("local/data/DromicsFittedGenesFDR0.05.csv")
-counts <- read.csv("local/data/BECdata_wSampleID.csv")
+original <- readRDS("fits/original.rds")
+published_lower <- read.csv("data/lower_NSECs_filtered_52genes.csv")[-1]
+all_lower <- read.csv("data/toxval_nsec_lower_all78genes.csv")[-1]
+metadata <- read.csv("data/Metadata_1-MN.csv")
+gene_list <- read.csv("data/DromicsFittedGenesFDR0.05.csv")
+counts <- read.csv("data/BECdata_wSampleID.csv")
 
 genes <- unname(provenance$genes)
 gene_direction <- names(provenance$genes)
@@ -738,7 +734,7 @@ reference of the increasing EC10, and no gene attains that reference.
 ```{r}
 #| label: provenance
 #| include: false
-fit_size <- file.size("local/fit_multivariate.rds") / 2^20
+fit_size <- file.size("fits/fit_multivariate.rds") / 2^20
 ```
 
 - Data: Luter et al., "Molecular responses to 1-methylnaphthalene in *Acropora
@@ -757,7 +753,7 @@ fit_size <- file.size("local/fit_multivariate.rds") / 2^20
 - Original fit: `fit3k_bb_DRomicsGenes_poly_iter1000.RData` (`brms`
   `r provenance$original_fit$version$brms`, `rstan`
   `r provenance$original_fit$version$rstan`). Its posterior summary for the
-  six genes is stored in `local/original.rds`.
+  six genes is stored in `fits/original.rds`.
 - Model: `fit_brms_betaBinomial_poly_final.R` in
   [open-AIMS/coral-larvae-1-MN-toxicity](https://github.com/open-AIMS/coral-larvae-1-MN-toxicity).
 - Stored fit: `r length(genes)` genes, `r provenance$chains` chains of
@@ -775,4 +771,4 @@ fit_size <- file.size("local/fit_multivariate.rds") / 2^20
   `r provenance$packages[["toxval"]]` at commit
   `r provenance$toxval_commit`.
 - Software at rendering: `r R.version.string`; toxval
-  `r as.character(utils::packageVersion("toxval"))` at commit `r toxval_sha`.
+  `r as.character(utils::packageVersion("toxval"))` at commit `r toxval_commit`.

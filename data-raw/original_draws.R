@@ -30,7 +30,10 @@ use_original_draws <- function(fit, original) {
     sim$thin == osim$thin
   )
   pars <- names(sim$samples[[1]])
-  copied <- setdiff(pars, c(grep("^Intercept_", pars, value = TRUE), "lprior", "lp__"))
+  copied <- setdiff(
+    pars,
+    c(grep("^Intercept_", pars, value = TRUE), "lprior", "lp__")
+  )
   stopifnot(all(copied %in% names(osim$samples[[1]])))
 
   # colMeans of the design matrix of each response, from the stored data
@@ -56,8 +59,12 @@ use_original_draws <- function(fit, original) {
   for (ch in seq_len(sim$chains)) {
     s <- sim$samples[[ch]]
     o <- osim$samples[[ch]]
-    for (p in copied) s[[p]] <- o[[p]]
-    for (g in genes) s[[paste0("Intercept_", g)]] <- centred(s, g)
+    for (p in copied) {
+      s[[p]] <- o[[p]]
+    }
+    for (g in genes) {
+      s[[paste0("Intercept_", g)]] <- centred(s, g)
+    }
     s[["lprior"]] <- NA_real_ * s[["lprior"]]
     s[["lp__"]] <- NA_real_ * s[["lp__"]]
     keep_post <- seq.int(sim$warmup2[ch] + 1, sim$n_save[ch])

@@ -1,26 +1,22 @@
 ---
 title: "Estimates from drc fits"
-vignette: >
-  %\VignetteIndexEntry{Estimates from drc fits}
-  %\VignetteEngine{quarto::html}
-  %\VignetteEncoding{UTF-8}
 knitr:
   opts_chunk:
     collapse: true
     comment: "#>"
-execute:
-  echo: true
-  warning: true
-  message: true
 ---
 
 ```{r}
 #| label: setup
 #| include: false
-# toxval 2.0.0, the main branch of open-AIMS/toxval. In the package this line
-# is library(toxval).
-source("../../R/toxval_at.R")
-toxval_sha <- attr(toxval_at("016402dad441ad9c76c5dc9704b16cbd3c19c2d5"), "sha")
+library(toxval)
+# The commit is that of the checkout the article is rendered from. The site
+# build installs toxval from the same checkout.
+toxval_commit <- tryCatch(
+  system2("git", c("rev-parse", "HEAD"), stdout = TRUE, stderr = FALSE),
+  error = function(e) "not recorded",
+  warning = function(w) "not recorded"
+)
 # formatting for inline numbers, so that every value in the prose is computed
 fmt <- function(x, digits = 2) formatC(x, digits = digits, format = "f", big.mark = ",")
 pct <- function(x, digits = 0) paste0(formatC(100 * x, digits = digits, format = "f"), "%")
@@ -580,7 +576,7 @@ symmetric.
 #| label: provenance
 #| comment: ""
 cat(sprintf("%-10s %s\n", "toxval", as.character(packageVersion("toxval"))))
-cat(sprintf("%-10s %s\n", "commit", toxval_sha))
+cat(sprintf("%-10s %s\n", "commit", toxval_commit))
 for (pkg in c("drc", "ggplot2")) {
   cat(sprintf("%-10s %s\n", pkg, as.character(packageVersion(pkg))))
 }
@@ -592,4 +588,5 @@ cat(sprintf("%-10s %s\n", "R", getRversion()))
 - Realisations: `n_boot = 1000` parametric bootstrap draws with `seed = 42`.
 - Grid: toxval's default of 500 evenly spaced concentrations from the control
   concentration to the highest concentration in the data.
-- The commit line is the toxval commit loaded by `toxval_at()`.
+- The commit line is the commit of the toxval checkout the article was
+  rendered from.

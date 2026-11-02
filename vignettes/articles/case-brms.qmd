@@ -1,26 +1,15 @@
 ---
 title: "Single and grouped brms fits"
-vignette: >
-  %\VignetteIndexEntry{Single and grouped brms fits}
-  %\VignetteEngine{quarto::html}
-  %\VignetteEncoding{UTF-8}
 knitr:
   opts_chunk:
     collapse: true
     comment: "#>"
-execute:
-  echo: true
-  warning: true
-  message: true
 ---
 
 ```{r}
 #| label: setup
 #| message: false
-# toxval 2.0.0, the main branch of open-AIMS/toxval. In the package this line
-# is library(toxval).
-source("../../R/toxval_at.R")
-toxval_sha <- attr(toxval_at("016402dad441ad9c76c5dc9704b16cbd3c19c2d5"), "sha")
+library(toxval)
 ```
 
 ```{r}
@@ -768,6 +757,13 @@ concentration.
 prov_single <- readRDS("fits/brms_plate_single.rds")$provenance
 prov_grouped <- readRDS("fits/brms_plate_grouped.rds")$provenance
 size_mb <- function(file) fmt(file.size(file) / 1e6)
+# The commit is that of the checkout the article is rendered from. The site
+# build installs toxval from the same checkout.
+toxval_commit <- tryCatch(
+  system2("git", c("rev-parse", "HEAD"), stdout = TRUE, stderr = FALSE),
+  error = function(e) "not recorded",
+  warning = function(w) "not recorded"
+)
 ```
 
 - Data: `data-raw/example_pgl.csv`, from the assay of Luter et al. (2025). The
@@ -783,7 +779,7 @@ size_mb <- function(file) fmt(file.size(file) / 1e6)
   `r format(diag_single[["draws"]], big.mark = ",")` post-warmup draws; warmup
   draws and the compiled Stan program are not stored.
 - Rendered with toxval `r utils::packageVersion("toxval")` at commit
-  `r toxval_sha`, `brms`
+  `r toxval_commit`, `brms`
   `r utils::packageVersion("brms")` and `r R.version.string`.
 
 Luter, H. M., Damjanovic, K., Thomas, M. C., Fisher, R., Høj, L. and Negri,

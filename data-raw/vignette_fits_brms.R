@@ -64,7 +64,11 @@ nechorme4 <- y ~ bot +
     exp(-exp(beta) * (log_x - nec) * step(log_x - nec))
 
 bf_single <- bf(nechorme4, bot + top + beta + nec + slope ~ 1, nl = TRUE)
-bf_grouped <- bf(nechorme4, bot + top + beta + nec + slope ~ plateRep, nl = TRUE)
+bf_grouped <- bf(
+  nechorme4,
+  bot + top + beta + nec + slope ~ plateRep,
+  nl = TRUE
+)
 
 # Centred on the data: for `top`, a response near 0.88 (logit 2) at log_x = 0,
 # a concentration of 1, where `top` is defined (not at the control); for
