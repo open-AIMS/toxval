@@ -96,8 +96,9 @@ for `bayesnec` fits waits on CRAN publication of `toxval`.
 ### 2.1 The predictor scale
 
 `toxval` reports estimates on the scale of the variable named inside `crf()`.
-For `crf(log(x), ...)` that is `x`. `bayesnec::ecx()` and `bayesnec::nsec()`
-report the same fit on the `log(x)` scale.
+For `crf(log(x), ...)` that is `x`. Current bayesnec `predev` also returns
+`ecx()` and `nsec()` on this recorded scale by default (`xform = NULL`). An
+explicit `xform = identity` returns the fitted `log(x)` scale instead.
 
 The mechanism:
 
@@ -108,12 +109,15 @@ The mechanism:
   `brmsfit` data hold raw `x`.
 - `prediction_grid()` builds the grid over raw `x` (`expand_classes.R:319-326`;
   the comment at `helpers.R:2380-2386`).
-- `bayesnec` finds the crossing on that grid, then applies the `crf()`
-  transformation to the estimate with `sub_x_transformation()`
-  (`helpers.R:2409-2430`, called at `ecx.R:267` and `nsec.R:310`), and prints
-  a once-per-call message (`ecx.R:84-88`). Reporting on the recorded scale by
-  default is decided for `bayesnec` 3.0 as D41 (`03_decisions.md:568`) and not
-  implemented.
+- `bayesnec::ecx()` and `bayesnec::nsec()` find the crossing on that grid and
+  return it directly under `xform = NULL`. When a function is supplied as
+  `xform`, they first apply the `crf()` transformation with
+  `sub_x_transformation()` and then apply the function (`ecx.R`, `nsec.R` and
+  `fitted_scale.R`). Thus `xform = identity` gives `log(x)`, and `xform = exp`
+  gives the recorded `x` again.
+- `bayesnec::nec()` reads a parameter on the fitted scale and applies the
+  inverse `crf()` transformation under its default `xform = NULL` (`nec.R` and
+  `fitted_scale.R`). `toxval` has no `nec()`.
 
 `toxval` takes `x_vec` from the same grid column and applies no transformation,
 so its estimates are on the raw scale. `xform` is applied afterwards (T6), so a
@@ -123,8 +127,10 @@ fitting, such as `x = log(concentration)` in the data, is unaffected: the grid
 is then over that column.
 
 Test (task 5, `tests/local/`): on the `crf(log(x))` fixture, each `toxval` ECx
-realisation equals `exp()` of the matching `bayesnec::ecx(posterior = TRUE)`
-realisation.
+realisation equals the matching default `bayesnec::ecx(posterior = TRUE)`
+realisation within root-finding tolerance. Applying `exp()` to a matching
+`bayesnec::ecx(posterior = TRUE, xform = identity)` realisation recovers the
+default result.
 
 ### 2.2 Differences from bayesnec's numbers
 
@@ -630,7 +636,8 @@ before #25 rules would fix that meaning by default.
 
 ### 3.5 bayesnec behaviour not reproduced
 
-- The back-transformation by the `crf()` term (§2.1; T6).
+- Conversion to the fitted predictor scale before applying an explicit
+  `xform` (§2.1; T6).
 - The refusal of an absolute ECx for a `gaussian` fit of an equation without
   `bot`. `bayesnec` removed it, following OECD TG 201, with a comment at
   `ecx.R:234-237`, which agrees with `REFACTOR-claude.md` §3.10. The guard in
@@ -925,7 +932,8 @@ and for task 4. `ecx()` has called it since `6bdd99c`.
     `bayesnec::ecx(posterior = TRUE)` at the same `resolution`, for
     realisations crossing within the grid, to the tolerance of `bayesnec`'s
     root-finding (§2.2);
-  - on `bayesnec_logx`, `toxval` equals `exp()` of `bayesnec` (§2.1);
+  - on `bayesnec_logx`, both defaults return the recorded scale, while an
+    explicit `bayesnec` `xform = identity` returns the fitted scale (§2.1);
   - the default component NSEC against `bayesnec::nsec()` on
     `manec_example` at `sig_val = 0.01`, with paired draws and quantiles
     asserted (§3.2).
@@ -983,5 +991,5 @@ fixture size (task 1, §4). RF ruled on 2026-10-29 that under
 `anchor = "component"` each equation's reference is taken over every draw of
 its fit (§3.2), reversing the acceptance on 2026-10-23 of the difference from
 using the realisations alone.
-The rest are listed in `BAYESNEC-human.md` §6. The arguments are in §3.2 (the
-draw index), §3.3 (scope), §3.4 (`threshold`) and §2.1 (the predictor scale).
+The remaining proposals are listed in `BAYESNEC-human.md` §6. The arguments
+are in §3.2 (the draw index), §3.3 (scope) and §3.4 (`threshold`).
