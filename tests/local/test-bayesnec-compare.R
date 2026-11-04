@@ -79,15 +79,28 @@ test_that("the decreasing absolute ECx of each realisation equals bayesnec's", {
   }
 })
 
-test_that("a crf(log(x)) fit reports the exponential of bayesnec's ECx", {
-  # bayesnec reports the same crossing in units of log(x)
-  paired <- paired_ecx(load_fixture("bayesnec_logx"))
+test_that("a crf(log(x)) fit reports ECx on the recorded scale", {
+  fit <- load_fixture("bayesnec_logx")
+  paired <- paired_ecx(fit)
 
   expect_gt(sum(paired$crossed), 0)
   expect_same_crossing(
     paired$toxval[paired$crossed],
-    exp(paired$bayesnec[paired$crossed]),
+    paired$bayesnec[paired$crossed],
     paired$step
+  )
+
+  fitted_scale <- suppressWarnings(suppressMessages(bayesnec::ecx(
+    fit,
+    ecx_val = 10,
+    resolution = resolution,
+    posterior = TRUE,
+    xform = identity
+  )))
+  expect_equal(
+    exp(as.numeric(fitted_scale)[paired$crossed]),
+    paired$bayesnec[paired$crossed],
+    tolerance = 1e-12
   )
 })
 
@@ -131,27 +144,6 @@ test_that("the component NSEC on manec_example equals bayesnec's", {
   )
 })
 
-# Whether the crf() term of a bnec() formula names its predictor untransformed,
-# as in crf(x, ...) but not crf(log(x), ...)
-crf_untransformed <- function(formula) {
-  find <- function(e) {
-    if (!is.call(e)) {
-      return(NULL)
-    }
-    if (identical(e[[1]], as.name("crf"))) {
-      return(is.name(e[[2]]))
-    }
-    for (arg in as.list(e)[-1]) {
-      found <- find(arg)
-      if (!is.null(found)) {
-        return(found)
-      }
-    }
-    NULL
-  }
-  isTRUE(find(formula[[3]]))
-}
-
 test_that("the robustness fits give bayesnec's ECx in each realisation", {
   fit_dir <- Sys.getenv(
     "TOXVAL_ROBUSTNESS_DIR",
@@ -164,16 +156,6 @@ test_that("the robustness fits give bayesnec's ECx in each realisation", {
   for (path in paths) {
     fit <- readRDS(path)
     if (!inherits(fit, c("bayesnecfit", "bayesmanecfit"))) {
-      next
-    }
-    formula <- if (inherits(fit, "bayesmanecfit")) {
-      fit$mod_fits[[1]]$bayesnecformula
-    } else {
-      fit$bayesnecformula
-    }
-    # bayesnec reports a transformed predictor on the transformed scale, which
-    # the crf(log(x)) test above compares
-    if (!crf_untransformed(formula)) {
       next
     }
     paired <- tryCatch(paired_ecx(fit), error = function(e) e)
