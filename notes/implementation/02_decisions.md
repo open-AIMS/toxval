@@ -987,8 +987,11 @@ Settled 2026-10-30 (RF), with `bayesnec` decision D46, which closed bayesnec
 they are to return the same estimates under matching options. Where a default or
 the shape of the output differs, the difference is recorded: `ecx()` and `nsec()`
 here return the increasing direction as a separate row (T10), and the predictor
-scale is open on #82. A change to either package that alters one of those values
-is compared with the other before it merges, and `CLAUDE.md` §2 gives the check.
+scale is open on #82. On 2026-10-31 RF limited the comparison to a change that
+edits `ecx()` or `nsec()` in either package, `nec()` or `ecnsec()` in
+`bayesnec`, or a function they call, and that changes a value they return for
+the same fitted object. Such a change is compared with the other package before
+it merges, and no other change is. `CLAUDE.md` §2 gives the check.
 
 On 2026-10-29 paired NSEC draws from the two packages agreed on a model-averaged
 fixture and on a heavily censored `brmsfit`. By then `bayesnec` had adopted T21
