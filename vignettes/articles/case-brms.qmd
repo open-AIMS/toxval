@@ -1,0 +1,788 @@
+---
+title: "Single and grouped brms fits"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+---
+
+```{r}
+#| label: setup
+#| message: false
+library(toxval)
+```
+
+```{r}
+#| label: helpers
+#| echo: false
+# formatting for inline numbers, so that every value in the prose is computed
+fmt <- function(x, digits = 2) formatC(x, digits = digits, format = "f")
+pct <- function(x) paste0(formatC(100 * x, digits = 0, format = "f"), " per cent")
+# one row of a toxval tibble, by direction and, for a grouped fit, by plate
+pick <- function(tbl, direction, group = NULL) {
+  keep <- tbl$direction == direction
+  if (!is.null(group)) {
+    keep <- keep & tbl$group == group
+  }
+  stopifnot(sum(keep) == 1)
+  tbl[keep, ]
+}
+interval <- function(row) {
+  paste0(fmt(row$estimate), " (", fmt(row$conf.low), " to ", fmt(row$conf.high), ")")
+}
+```
+
+Here we apply `ecx()` and `nsec()` to a model fitted with `brm()` from the
+`brms` package, first as a single curve and then with one curve for each level
+of a factor. The definitions of both estimates are given in the vignettes on the
+[ECx](https://open-aims.github.io/toxval/articles/ecx-definition.html) and the
+[NSEC](https://open-aims.github.io/toxval/articles/nsec-definition.html).
+
+The example is a toxicity assay repeated on replicate plates, with the plate as
+the factor, and the fitted equation includes a hormesis term (an initial rise in
+the response at low concentrations). The models were fitted in advance by the
+script `data-raw/vignette_fits_brms.R`, and the stored fits are read below, so
+that building the article requires neither Stan nor the time needed for
+sampling. The software versions are given under *Provenance*.
+
+## The plate replicate assay
+
+The data are from the bioluminescent bacterial toxicity assay of Luter et al.
+(2025), in which the whole concentration series of one experiment was run on a
+single plate. The plate was repeated in four experiments with one contaminant,
+and each plate is a level of the factor `plateRep`.
+
+```{r}
+#| label: load-fits
+fit_single <- readRDS("fits/brms_plate_single.rds")$fit
+fit_grouped <- readRDS("fits/brms_plate_grouped.rds")$fit
+plates <- fit_grouped$data
+head(plates[c("log_x", "plateRep", "y")])
+```
+
+```{r}
+#| label: data-summary
+#| echo: false
+conc <- sort(unique(exp(plates$log_x)))
+wells <- table(plates$plateRep, plates$log_x)
+stopifnot(length(unique(c(wells))) == 1)
+plate_levels <- levels(plates$plateRep)
+plate_cols <- grDevices::palette.colors(length(plate_levels), "Okabe-Ito")
+names(plate_cols) <- plate_levels
+low_x <- min(plates$log_x)
+high_x <- max(plates$log_x)
+mean_low <- tapply(plates$y[plates$log_x == low_x],
+                   plates$plateRep[plates$log_x == low_x], mean)
+mean_high <- tapply(plates$y[plates$log_x == high_x],
+                    plates$plateRep[plates$log_x == high_x], mean)
+peak_at <- tapply(seq_len(nrow(plates)), plates$plateRep, function(i) {
+  means <- tapply(plates$y[i], plates$log_x[i], mean)
+  which.max(means)
+})
+# the readings equal to the largest response, and the concentrations they are at
+y_max <- max(plates$y)
+at_max <- plates$y == y_max
+max_pos <- sort(unique(match(plates$log_x[at_max], sort(unique(plates$log_x)))))
+stopifnot(
+  names(which.min(mean_high)) == plate_levels[1],
+  min(peak_at) > 1,
+  y_max < 1,
+  all(max_pos >= min(peak_at) & max_pos <= max(peak_at)),
+  # each concentration is twice the one below it, the lowest included
+  all(abs(diff(log2(conc)) - 1) < 0.05),
+  length(conc) == 11
+)
+ordinal <- c("first", "second", "third", "fourth", "fifth", "sixth", "seventh")
+```
+
+The data contain `r nrow(plates)` observations (`r length(plate_levels)`
+plates, each with `r wells[1, 1]` wells at each of `r length(conc)`
+concentrations from `r conc[1]` to `r max(conc)`). Concentration is stored as
+its natural logarithm in `log_x`, and the response `y` is a proportion on the
+open interval (0, 1). Each plate held artificial seawater controls and a series
+of 1:2 dilutions of the toxicant, each in four wells (Luter et al. 2025).
+However, the data contain no zero concentration. The lowest concentration
+(`r conc[1]`) is half the next (`r conc[2]`), the ratio between successive
+dilutions. We therefore take its wells to be the controls, which were given the
+concentration of one further dilution so that the logarithm is defined. Because `x_control`
+defaults to the lowest concentration in the data, the control for all estimates
+below is the predicted response at `r conc[1]`, which is also the start of the
+prediction grid.
+
+```{r}
+#| label: fig-data
+#| fig-cap: "The response of each well against concentration (log axis), coloured by plate."
+#| fig-height: 4.5
+#| fig-width: 7
+op <- par(mar = c(4.5, 4.5, 1, 1))
+plot(
+  exp(plates$log_x), plates$y,
+  log = "x", pch = 16, col = adjustcolor(plate_cols[plates$plateRep], 0.7),
+  xlab = "Concentration", ylab = "Response"
+)
+legend("topright", legend = plate_levels, col = plate_cols, pch = 16, bty = "n")
+par(op)
+```
+
+On each plate the response at the control was near `r fmt(mean(mean_low))`, and
+it rose slightly to a peak mean at the `r ordinal[min(peak_at)]` to
+`r ordinal[max(peak_at)]` concentration before declining (@fig-data). The
+largest response in the data (`r fmt(y_max, 3)`) was recorded in
+`r sum(at_max)` readings, at the `r paste(ordinal[max_pos], collapse = " and ")`
+concentrations, i.e. within that peak. The plates differ at the highest
+concentration, where the mean of plate `r plate_levels[1]` is
+`r fmt(mean_high[1], 3)`, whereas the means of the other three plates are
+`r fmt(min(mean_high[-1]))` to `r fmt(max(mean_high[-1]))`. The rise before the
+decline is hormesis, which an equation that can only decline from the control
+could not follow, so the equation fitted below includes a hormesis term.
+
+## The model
+
+We fitted a threshold equation with a hormesis term, written as a nonlinear
+`brms` formula. Up to the threshold `nec`, the predictor is `top` plus
+a linear rise in `log_x` with slope `exp(slope)`. Beyond `nec`, the difference
+between that predictor and `bot` is multiplied by an exponential decay with rate
+`exp(beta)`, so that the curve falls towards the lower asymptote `bot`. The
+family is `Beta()`, whose default link is the logit, and the whole right-hand
+side of the formula is therefore on the logit scale.
+
+```{r}
+#| label: formula
+#| eval: false
+library(brms)
+
+formula_nec <- y ~ bot +
+  ((top + exp(slope) * log_x) - bot) *
+    exp(-exp(beta) * (log_x - nec) * step(log_x - nec))
+
+bf_single <- bf(formula_nec, bot + top + beta + nec + slope ~ 1, nl = TRUE)
+bf_grouped <- bf(formula_nec, bot + top + beta + nec + slope ~ plateRep, nl = TRUE)
+```
+
+The single fit estimates one value for each parameter, whereas the grouped fit
+estimates each parameter separately for each plate (as an intercept, which is
+the value for the first plate, and the difference of each other plate from it).
+In the grouped fit, `plateRep` is therefore a population-level effect on each
+nonlinear parameter.
+
+We give the priors in full below. For the single fit they are centred on the
+data, i.e. on a response near `r fmt(plogis(2))` (logit 2) for `top` at
+`log_x = 0` (a concentration of 1, which is where `top` is defined, and not at
+the control), on a lower asymptote near `r fmt(plogis(-2))` (logit -2) for
+`bot`, and on a threshold inside the observed range of `log_x` for `nec`. The
+grouped fit uses these priors for the intercepts, and its plate differences are
+centred on 0 (no difference between plates). The intercept priors and the
+difference priors are specified separately because a prior written without
+`coef` applies to all coefficients of its parameter.
+
+```{r}
+#| label: priors
+#| eval: false
+prior_single <- c(
+  prior(normal(2, 2), nlpar = "top"),
+  prior(normal(-2, 2), nlpar = "bot"),
+  prior(normal(1, 2), nlpar = "nec"),
+  prior(normal(0, 2), nlpar = "beta"),
+  prior(normal(-1, 2), nlpar = "slope")
+)
+prior_grouped <- c(
+  prior(normal(2, 2), nlpar = "top", coef = "Intercept"),
+  prior(normal(-2, 2), nlpar = "bot", coef = "Intercept"),
+  prior(normal(1, 2), nlpar = "nec", coef = "Intercept"),
+  prior(normal(0, 2), nlpar = "beta", coef = "Intercept"),
+  prior(normal(-1, 2), nlpar = "slope", coef = "Intercept"),
+  prior(normal(0, 2), nlpar = "top"),
+  prior(normal(0, 2), nlpar = "bot"),
+  prior(normal(0, 1), nlpar = "nec"),
+  prior(normal(0, 1), nlpar = "beta"),
+  prior(normal(0, 1), nlpar = "slope")
+)
+```
+
+```{r}
+#| label: settings
+#| echo: false
+sim_single <- fit_single$fit@sim
+sim_grouped <- fit_grouped$fit@sim
+stopifnot(
+  sim_single$chains == sim_grouped$chains,
+  sim_single$iter == sim_grouped$iter,
+  sim_single$warmup == sim_grouped$warmup
+)
+```
+
+The precision parameter `phi` was given the `brms` default prior. Both models
+were fitted with identical sampler settings: `r sim_single$chains` chains of
+`r sim_single$iter` iterations (the first `r sim_single$warmup` of each used as
+warmup), all parameters initialised at 0 and not at random values (`init = 0`),
+draws saved for all parameters (`save_pars(all = TRUE)`), and a fixed seed.
+
+```{r}
+#| label: fit
+#| eval: false
+fit_single <- brm(
+  bf_single, data = plates, family = Beta(), prior = prior_single,
+  chains = 4, iter = 5000, warmup = 2500, init = 0,
+  save_pars = save_pars(all = TRUE), seed = 700
+)
+fit_grouped <- brm(
+  bf_grouped, data = plates, family = Beta(), prior = prior_grouped,
+  chains = 4, iter = 5000, warmup = 2500, init = 0,
+  save_pars = save_pars(all = TRUE), seed = 700
+)
+```
+
+The stored fits were made by `data-raw/vignette_fits_brms.R` with these
+arguments, with the four chains run in parallel and no warmup draws kept.
+
+```{r}
+#| label: convergence
+#| echo: false
+diagnostics <- function(fit) {
+  np <- brms::nuts_params(fit)
+  c(
+    draws = brms::ndraws(fit),
+    divergent = sum(np$Value[np$Parameter == "divergent__"]),
+    rhat = max(brms::rhat(fit), na.rm = TRUE),
+    ess = min(brms::neff_ratio(fit), na.rm = TRUE) * brms::ndraws(fit)
+  )
+}
+diag_single <- diagnostics(fit_single)
+diag_grouped <- diagnostics(fit_grouped)
+stopifnot(
+  diag_single["draws"] == diag_grouped["draws"],
+  fit_single$fit@sim$thin == 1, fit_grouped$fit@sim$thin == 1,
+  diag_single["divergent"] == 0, diag_grouped["divergent"] == 0,
+  diag_single["rhat"] < 1.01, diag_grouped["rhat"] < 1.01
+)
+```
+
+Each fit contains `r format(diag_single[["draws"]], big.mark = ",")` posterior
+draws, without thinning, and no divergent transitions occurred in either fit.
+The largest R-hat is `r fmt(diag_single["rhat"], 3)` for the single fit and
+`r fmt(diag_grouped["rhat"], 3)` for the grouped fit, and the smallest effective
+sample sizes (calculated from `neff_ratio()`) are `r round(diag_single["ess"])`
+and `r round(diag_grouped["ess"])` draws, respectively.
+
+## Estimates from the single fit
+
+A `brmsfit` may have several predictors, and in a nonlinear formula these are
+mixed with the parameters, so the user must name the predictor with `x_var`. If
+`x_var` is not given, the call is refused:
+
+```{r}
+#| label: no-x-var
+#| error: true
+ecx(fit_single)
+```
+
+Because the model was fitted on log concentration, we use `xform = exp` to
+return each estimate as a concentration. The transformation is applied to each
+realisation before summarising, so that the median and the interval limits are
+those of the concentrations. The argument `xform` is optional, and without it
+the estimates are returned on the `log_x` scale.
+
+```{r}
+#| label: single-ecx
+ecx_single <- ecx(fit_single, x_var = "log_x", xform = exp)
+ecx_single
+```
+
+```{r}
+#| label: single-nsec
+nsec_single <- nsec(fit_single, x_var = "log_x", xform = exp)
+nsec_single
+```
+
+Every argument of this call other than `x_var` and `xform` takes its default.
+@tbl-nsec-columns gives the value of each column of the decreasing row, what it
+is, and the argument and default that set it. The `ecx()` result has the same
+columns, with `proportion` in place of `sig_val` and without `anchor` and
+`ecnsec`.
+
+```{r}
+#| label: tbl-nsec-columns
+#| tbl-cap: "The columns of the decreasing row of `nsec_single`, and the setting (the toxval default in each case) from which each value follows."
+#| echo: false
+nsec_s_dec <- pick(nsec_single, "decreasing")
+nsec_s_inc <- pick(nsec_single, "increasing")
+x_steps <- diff(toxval_predict(fit_single, x_var = "log_x")$x_vec)
+stopifnot(
+  nsec_s_dec$sig_val == 0.01, nsec_s_dec$type == "absolute",
+  nsec_s_dec$anchor == "model", is.na(nsec_s_dec$asymptote),
+  length(x_steps) == 499, diff(range(x_steps)) < 1e-8
+)
+columns <- data.frame(
+  Column = c(
+    "`metric`, `direction`", "`estimate`, `conf.low`, `conf.high`",
+    "`sig_val`", "`control`", "`reference`", "`type`",
+    "`ecnsec`, `ecnsec.low`, `ecnsec.high`", "`asymptote`", "`anchor`",
+    "`resolution` (in the header)"
+  ),
+  Value = c(
+    "nsec, decreasing", interval(nsec_s_dec), fmt(nsec_s_dec$sig_val),
+    fmt(nsec_s_dec$control, 3), fmt(nsec_s_dec$reference, 3),
+    nsec_s_dec$type,
+    paste0(pct(nsec_s_dec$ecnsec), " (", pct(nsec_s_dec$ecnsec.low), " to ",
+           pct(nsec_s_dec$ecnsec.high), ")"),
+    "NA", nsec_s_dec$anchor, "500"
+  ),
+  Meaning = c(
+    "The estimate and the direction of the change. Both directions are always returned.",
+    "The median and 95 per cent interval of the NSEC realisations, after `xform`.",
+    "The quantile of the control realisations that sets the decreasing reference; 1 - `sig_val` sets the increasing one.",
+    paste0("The median predicted response at the control concentration (", round(conc[1], 2), ")."),
+    "The `sig_val` quantile of the control realisations. The NSEC is the first concentration at which the curve falls below it.",
+    "The span that `ecnsec` is a proportion of: for a decreasing response under `\"absolute\"`, from the control to 0.",
+    "The decline at the NSEC as a proportion of that span, i.e. of the control here.",
+    "The asymptote that `ecnsec` is measured to under `type = \"relative\"`; `NA` otherwise.",
+    "The control the reference is taken from in a model-averaged fit. A `brmsfit` is one model, so it has no effect here.",
+    paste0("The number of concentrations, evenly spaced on the `log_x` scale from ",
+           round(conc[1], 2), " to ", max(conc), ", at which each realisation is evaluated.")
+  ),
+  `Set by` = c(
+    "", "`prob_vals = c(0.5, 0.025, 0.975)`", "`sig_val = 0.01`",
+    "`x_control = NULL`: the lowest concentration in the data",
+    "`sig_val`", "`type = \"absolute\"`", "`type`, `prob_vals`", "`type`",
+    "`anchor = NULL`: `\"model\"`, except `\"component\"` for a `bayesmanecfit`",
+    "`resolution = 500`; `x_range = NULL`: the range of the data"
+  ),
+  check.names = FALSE
+)
+knitr::kable(columns)
+```
+
+The `anchor` argument changes the result only for a model-averaged fit, and is
+shown on one in the
+[`bayesnec` case study](https://open-aims.github.io/toxval/articles/case-bayesnec.html#the-nsec-reference-under-model-averaging).
+
+To show these estimates against the fitted curve, we predicted the curve with
+`toxval_predict()`. Called with the same `x_var`, it gives the curve from which
+`ecx()` and `nsec()` obtained the estimates above: a matrix of predicted
+responses, with one row for each posterior draw and one column for each value of
+the grid `x_vec` (on the `log_x` scale). We use two functions for this figure
+and for the figure of the plates. `marks_of()` collects the
+rows of an `ecx()` and an `nsec()` result, and `plot_fit()` draws the data, the
+posterior median curve with its 95 per cent credible band, each estimate with
+its interval, and the reference of each NSEC.
+
+```{r}
+#| label: plot-helpers
+est_cols <- c(
+  "EC10 decreasing" = "#0072B2", "NSEC decreasing" = "#D55E00",
+  "EC10 increasing" = "#CC79A7", "NSEC increasing" = "#E69F00"
+)
+
+marks_of <- function(ecx_tbl, nsec_tbl, level = NULL) {
+  rows <- function(tbl) if (is.null(level)) tbl else tbl[tbl$group == level, ]
+  cols <- c("direction", "estimate", "conf.low", "conf.high", "reference")
+  rbind(
+    data.frame(metric = "EC10", rows(ecx_tbl)[cols]),
+    data.frame(metric = "NSEC", rows(nsec_tbl)[cols])
+  )
+}
+
+plot_fit <- function(x_vec, curve, x, y, marks, main = NULL) {
+  q <- apply(curve, 2, quantile, c(0.5, 0.025, 0.975))
+  plot(x, y, log = "x", ylim = c(0, 1), pch = 16,
+       col = adjustcolor("grey60", 0.7), xlab = "Concentration",
+       ylab = "Response", main = main, cex.main = 0.95, font.main = 1)
+  for (i in seq_len(nrow(marks))) {
+    col <- est_cols[[paste(marks$metric[i], marks$direction[i])]]
+    lim <- c(marks$conf.low[i], marks$conf.high[i])
+    # An interval that reaches the highest concentration is censored there,
+    # so draw its limits as dashed lines rather than a band.
+    if (lim[2] >= max(x)) {
+      abline(v = lim, col = col, lty = 2)
+    } else {
+      rect(lim[1], -1, lim[2], 2, col = adjustcolor(col, 0.15), border = NA)
+    }
+    abline(v = marks$estimate[i], col = col, lwd = 2)
+    if (marks$metric[i] == "NSEC") {
+      abline(h = marks$reference[i], col = col, lty = 3)
+    }
+  }
+  polygon(exp(c(x_vec, rev(x_vec))), c(q[2, ], rev(q[3, ])),
+          col = adjustcolor("black", 0.2), border = NA)
+  lines(exp(x_vec), q[1, ], lwd = 2)
+}
+```
+
+```{r}
+#| label: fig-single
+#| fig-cap: "The single fit. The data of all four plates (grey points), the posterior median curve (black line) and its 95 per cent credible band (grey), with the median of each estimate (vertical lines). The 95 per cent interval of an estimate is shaded in its colour, or marked by dashed lines where its upper limit is the highest concentration. The reference of each NSEC is a dotted horizontal line in its colour. The concentration axis is logarithmic."
+#| fig-height: 4.5
+#| fig-width: 7
+pred_single <- toxval_predict(fit_single, x_var = "log_x")
+
+op <- par(mar = c(4.5, 4.5, 1, 1))
+plot_fit(pred_single$x_vec, pred_single$curves[[1]],
+         exp(plates$log_x), plates$y, marks_of(ecx_single, nsec_single))
+legend(8, 0.8, legend = names(est_cols), col = est_cols, lwd = 2,
+       bty = "n", cex = 0.8)
+par(op)
+```
+
+```{r}
+#| label: single-read
+#| echo: false
+ecx_s_dec <- pick(ecx_single, "decreasing")
+ecx_s_inc <- pick(ecx_single, "increasing")
+band <-function(curve) apply(curve, 2, quantile, c(0.5, 0.025, 0.975))
+peak_x <- function(x_vec, curve) exp(x_vec[which.max(band(curve)[1, ])])
+peak_single <- peak_x(pred_single$x_vec, pred_single$curves[[1]])
+stopifnot(
+  ecx_s_inc$conf.high == max(conc),
+  ecx_s_inc$estimate < ecx_s_dec$conf.low,
+  # nearest test concentration, on the log scale, is the second
+  which.min(abs(log(conc) - log(ecx_s_inc$estimate))) == 2,
+  nsec_s_dec$estimate < ecx_s_dec$estimate,
+  nsec_s_dec$ecnsec < 0.1,
+  nsec_s_inc$conf.high == max(conc),
+  ecx_s_inc$estimate < peak_single, nsec_s_inc$estimate < peak_single,
+  ecx_s_dec$estimate > peak_single, nsec_s_dec$estimate > peak_single
+)
+```
+
+The median curve of the single fit peaks at a concentration of
+`r fmt(peak_single)` (@fig-single). In the decreasing direction the EC10 is
+`r interval(ecx_s_dec)` (blue), i.e. the concentration on the decline at which
+the curve falls from the control (`r fmt(ecx_s_dec$control, 3)`) to
+`r fmt(ecx_s_dec$reference, 3)` (10 per cent of the way from the control to 0).
+The decreasing NSEC is `r interval(nsec_s_dec)` (vermillion), which is below the
+EC10 because its reference (`r fmt(nsec_s_dec$reference, 3)`, the dotted
+vermillion line) is closer to the control than the EC10 reference. At the NSEC
+the decline is `r pct(nsec_s_dec$ecnsec)` of the control (@tbl-nsec-columns).
+
+For each realisation, `ecx()` and `nsec()` take the first concentration at which
+the curve crosses the reference in the direction of the row, interpolated
+between grid points. Because the curve first rises above the control, the
+decreasing references are crossed only on the decline beyond the peak, and the
+increasing references only on the rise below it. Under `type = "absolute"` a
+Beta response is a proportion, so the increasing reference of the EC10 is the
+control plus 10 per cent of the difference between the control and 1
+(`r fmt(ecx_s_inc$reference, 3)`). The increasing EC10 is
+`r fmt(ecx_s_inc$estimate, 3)` (pink), close to the second concentration
+(`r conc[2]`), and the increasing NSEC, at which the rise exceeds the 0.99
+quantile of the control (`r fmt(nsec_s_inc$reference, 3)`, the dotted orange
+line), is `r fmt(nsec_s_inc$estimate)` (orange). In some realisations the
+response never rises as far as these references, and the upper limit of both
+intervals is therefore the highest concentration (`r max(conc)`, dashed lines),
+as the warnings report. How toxval places such realisations is shown in the
+[multivariate `brms` case study](https://open-aims.github.io/toxval/articles/case-brms-multivariate.html).
+
+## Estimates for each plate
+
+With `group_var = "plateRep"`, one curve is predicted, and one estimate
+returned, for each plate. This requires `plateRep` to be a population-level
+effect in the fit (as it is here), because `toxval_predict()` marginalises over
+group-level effects. A plate entered only as `(1 | plateRep)` would give all
+plates one common curve, and the call would be refused.
+
+```{r}
+#| label: grouped-ecx
+ecx_grouped <- ecx(fit_grouped, x_var = "log_x", group_var = "plateRep", xform = exp)
+ecx_grouped[, c("direction", "group", "estimate", "conf.low", "conf.high", "control")]
+```
+
+```{r}
+#| label: grouped-nsec
+nsec_grouped <- nsec(
+  fit_grouped,
+  x_var = "log_x", group_var = "plateRep", xform = exp, draws = TRUE
+)
+nsec_grouped[, c("direction", "group", "estimate", "control", "reference", "ecnsec")]
+```
+
+```{r}
+#| label: grouped-controls
+#| echo: false
+dec_nsec <- nsec_grouped[nsec_grouped$direction == "decreasing", ]
+inc_nsec <- nsec_grouped[nsec_grouped$direction == "increasing", ]
+stopifnot(
+  identical(dec_nsec$control, inc_nsec$control),
+  all(dec_nsec$reference < dec_nsec$control),
+  all(inc_nsec$reference > inc_nsec$control),
+  length(unique(dec_nsec$reference)) == length(plate_levels)
+)
+```
+
+Each plate has its own `control`, predicted from that plate's curve at
+`r conc[1]`, and its own `reference`, the 0.01 (decreasing) or 0.99
+(increasing) quantile of that plate's control realisations. The NSEC of each
+plate is therefore measured against the variation of its own control. The
+controls range from `r fmt(min(dec_nsec$control), 3)` to
+`r fmt(max(dec_nsec$control), 3)`, and the decreasing references from
+`r fmt(min(dec_nsec$reference), 3)` to `r fmt(max(dec_nsec$reference), 3)`.
+
+For the grouped fit, `toxval_predict()` returns one curve for each plate in
+`curves`, and the plate of each curve is given in `keys$group`. Below we draw
+each plate with its own curve and estimates, using the functions defined above.
+
+```{r}
+#| label: fig-plates
+#| fig-cap: "The grouped fit, one panel for each plate. Each panel shows the data of that plate (grey points), its posterior median curve (black line) and 95 per cent credible band (grey), and the median and 95 per cent interval of each of its estimates, as in @fig-single. The concentration axis is logarithmic."
+#| fig-height: 7
+#| fig-width: 8
+pred_grouped <- toxval_predict(fit_grouped, x_var = "log_x", group_var = "plateRep")
+
+op <- par(mfrow = c(2, 2), mar = c(4.2, 4.2, 2, 0.8))
+for (i in seq_along(pred_grouped$curves)) {
+  level <- as.character(pred_grouped$keys$group[i])
+  in_plate <- plates$plateRep == level
+  plot_fit(pred_grouped$x_vec, pred_grouped$curves[[i]],
+           exp(plates$log_x[in_plate]), plates$y[in_plate],
+           marks_of(ecx_grouped, nsec_grouped, level), main = level)
+  if (i == 1) {
+    legend(90, 0.8, xjust = 1, legend = names(est_cols), col = est_cols, lwd = 2,
+           bty = "n", cex = 0.75)
+  }
+}
+par(op)
+```
+
+```{r}
+#| label: grouped-read
+#| echo: false
+dec_ecx <- ecx_grouped[ecx_grouped$direction == "decreasing", ]
+dec_nsec <- nsec_grouped[nsec_grouped$direction == "decreasing", ]
+inc_nsec <- nsec_grouped[nsec_grouped$direction == "increasing", ]
+inc_ecx <- ecx_grouped[ecx_grouped$direction == "increasing", ]
+curve_of <- function(level) {
+  pred_grouped$curves[[match(level, as.character(pred_grouped$keys$group))]]
+}
+end_single <- band(pred_single$curves[[1]])[, length(pred_single$x_vec)]
+end_grouped <- vapply(plate_levels, function(level) {
+  stats::median(curve_of(level)[, length(pred_grouped$x_vec)])
+}, numeric(1))
+peak_plates <- vapply(plate_levels, function(level) {
+  peak_x(pred_grouped$x_vec, curve_of(level))
+}, numeric(1))
+by_plate <- function(tbl) tbl$estimate[match(plate_levels, tbl$group)]
+inc_ecx_inside <- as.character(inc_ecx$group[inc_ecx$conf.high < max(conc)])
+stopifnot(
+  identical(as.character(dec_nsec$group), plate_levels),
+  which.min(dec_nsec$estimate) == 1,
+  identical(order(dec_ecx$estimate), order(dec_nsec$estimate)),
+  dec_nsec$conf.high[1] < min(dec_nsec$conf.low[-1]),
+  all(inc_nsec$conf.high == max(conc)),
+  all(dec_nsec$estimate < dec_ecx$estimate),
+  names(which.min(end_grouped)) == plate_levels[1],
+  end_single[1] > min(mean_high), end_single[1] < max(mean_high),
+  all(by_plate(inc_ecx) < peak_plates), all(by_plate(inc_nsec) < peak_plates),
+  all(by_plate(dec_nsec) > peak_plates),
+  identical(inc_ecx_inside, plate_levels[1:2])
+)
+```
+
+For plate `r plate_levels[1]` the decreasing NSEC is
+`r interval(dec_nsec[1, ])`, and its interval is below the intervals of the
+other three plates, whose estimates are `r fmt(min(dec_nsec$estimate[-1]))` to
+`r fmt(max(dec_nsec$estimate[-1]))` (@fig-plates). This is the plate whose
+response falls furthest. At the highest concentration its median curve is
+`r fmt(end_grouped[1], 3)` (against an observed mean of
+`r fmt(mean_high[1], 3)`), whereas the median curves of the other three plates
+are `r fmt(min(end_grouped[-1]))` to `r fmt(max(end_grouped[-1]))`. The
+decreasing EC10 estimates order the plates identically, from
+`r fmt(dec_ecx$estimate[1])` for plate `r plate_levels[1]` to
+`r fmt(max(dec_ecx$estimate))`. At the decreasing NSEC of each plate, the
+decline (`ecnsec`) is `r pct(min(dec_nsec$ecnsec))` to
+`r pct(max(dec_nsec$ecnsec))` of its control. Together with the narrow range
+of the controls, this suggests that the plates differ in where the decline
+begins and how far it goes, and not in their response at the control.
+
+The median curves of the plates peak at concentrations of
+`r fmt(min(peak_plates))` to `r fmt(max(peak_plates))`. As for the single fit,
+the increasing estimates of each plate are on the rise below that peak and the
+decreasing estimates on the decline above it. The intervals of the increasing
+estimates extend to the highest concentration, with the exception of the
+increasing EC10 of plates `r inc_ecx_inside[1]` and `r inc_ecx_inside[2]`. By
+contrast, the single fit gives one curve for all four plates, and at the highest
+concentration its median is `r fmt(end_single[1], 3)` (with a credible band of
+`r fmt(end_single[2], 3)` to `r fmt(end_single[3], 3)`), which is between the
+plate means of `r fmt(min(mean_high), 3)` to `r fmt(max(mean_high), 3)`
+(@fig-single).
+
+Without `group_var`, predictions cannot be made from the grouped fit, because
+each prediction requires a plate:
+
+```{r}
+#| label: grouped-no-group-var
+#| error: true
+nsec(fit_grouped, x_var = "log_x")
+```
+
+## Pooling the plates
+
+The toxval package does not pool estimates across the levels of a
+population-level effect. However, the user can pool the decreasing NSEC
+realisations of the plates (returned with `draws = TRUE`) to obtain one value
+across plates:
+
+```{r}
+#| label: pooled
+pooled <- unlist(lapply(dec_nsec$draws, function(d) d$value.draw))
+pooled_q <- quantile(pooled, c(0.5, 0.025, 0.975))
+pooled_q
+```
+
+```{r}
+#| label: fig-pooled
+#| fig-cap: "The data of all four plates (grey points) and the posterior median curve of each plate from the grouped fit (black, one line type per plate), with the decreasing NSEC of each plate (open circles, on its curve). The median of the pooled decreasing NSEC is marked by the vermillion line, and its 95 per cent interval by the vermillion band. The concentration axis is logarithmic."
+#| fig-height: 4.5
+#| fig-width: 7
+nsec_col <- est_cols[["NSEC decreasing"]]
+op <- par(mar = c(4.5, 4.5, 1, 1))
+plot(exp(plates$log_x), plates$y, log = "x", ylim = c(0, 1), pch = 16,
+     col = adjustcolor("grey60", 0.7), xlab = "Concentration", ylab = "Response")
+rect(pooled_q[2], -1, pooled_q[3], 2, col = adjustcolor(nsec_col, 0.15), border = NA)
+abline(v = pooled_q[1], col = nsec_col, lwd = 2)
+for (i in seq_along(pred_grouped$curves)) {
+  median_curve <- apply(pred_grouped$curves[[i]], 2, median)
+  lines(exp(pred_grouped$x_vec), median_curve, lty = i, lwd = 2)
+  level <- as.character(pred_grouped$keys$group[i])
+  at <- dec_nsec$estimate[dec_nsec$group == level]
+  points(at, approx(exp(pred_grouped$x_vec), median_curve, at)$y, cex = 1.3, lwd = 2)
+}
+legend("topright", bty = "n", cex = 0.8, lwd = 2,
+       legend = c(as.character(pred_grouped$keys$group), "Pooled NSEC, decreasing"),
+       lty = c(seq_along(pred_grouped$curves), 1),
+       col = c(rep("black", length(pred_grouped$curves)), nsec_col))
+par(op)
+```
+
+```{r}
+#| label: pooled-read
+#| echo: false
+stopifnot(
+  all(is.finite(pooled)),
+  diff(pooled_q[2:3]) > max(dec_nsec$conf.high - dec_nsec$conf.low),
+  pooled_q[2] < min(dec_nsec$estimate), pooled_q[3] > max(dec_nsec$estimate)
+)
+```
+
+The pooled decreasing NSEC is `r fmt(pooled_q[1])` (`r fmt(pooled_q[2])` to
+`r fmt(pooled_q[3])`). Its interval includes the decreasing NSEC of each plate
+(`r fmt(min(dec_nsec$estimate))` to `r fmt(max(dec_nsec$estimate))`, the open
+circles in @fig-pooled), and it is wider than the interval of any individual
+plate, because it includes the difference between plates.
+
+## The `nec` parameter and the NSEC
+
+The `nec` parameter of the equation is a threshold within the equation, and is
+not a toxicity estimate computed from the fitted curve. The toxval package
+computes estimates from the fitted curve only, so we take the `nec` parameter
+from the posterior draws of each fit with `as_draws_df()`. The parameter is on
+the `log_x` scale. In the grouped fit, `b_nec_Intercept` is the value for the
+first plate, and the value for each other plate is the intercept plus the
+difference for that plate.
+
+```{r}
+#| label: nec-parameter
+nec_single <- exp(brms::as_draws_df(fit_single, variable = "b_nec_Intercept")$b_nec_Intercept)
+
+draws_grouped <- brms::as_draws_df(fit_grouped, variable = "^b_nec_", regex = TRUE)
+nec_grouped <- sapply(plate_levels, function(level) {
+  log_nec <- draws_grouped$b_nec_Intercept
+  difference <- paste0("b_nec_plateRep", level)
+  if (difference %in% names(draws_grouped)) {
+    log_nec <- log_nec + draws_grouped[[difference]]
+  }
+  exp(log_nec)
+})
+apply(nec_grouped, 2, quantile, c(0.5, 0.025, 0.975))
+```
+
+```{r}
+#| label: nec-parameter-read
+#| echo: false
+nec_check <- exp(brms::posterior_epred(
+  fit_grouped, newdata = data.frame(log_x = 0, plateRep = plate_levels), nlpar = "nec"
+))
+nec_s_q <- quantile(nec_single, c(0.5, 0.025, 0.975))
+nec_g_q <- apply(nec_grouped, 2, quantile, c(0.5, 0.025, 0.975))
+nec_pool_q <- quantile(c(nec_grouped), c(0.5, 0.025, 0.975))
+stopifnot(
+  length(nec_single) == diag_single[["draws"]],
+  isTRUE(all.equal(unname(nec_grouped), unname(nec_check))),
+  nec_s_q[1] < nsec_s_dec$estimate,
+  all(nec_g_q[1, ] < dec_nsec$estimate),
+  nec_pool_q[1] < pooled_q[1]
+)
+```
+
+```{r}
+#| label: fig-nec
+#| fig-cap: "The median and 95 per cent interval of the `nec` parameter (grey) and of the decreasing NSEC (vermillion), for the single fit, for each plate of the grouped fit, and for the realisations of the four plates pooled. The concentration axis is logarithmic."
+#| fig-height: 3.8
+#| fig-width: 7
+nec_rows <- rbind("Single fit" = nec_s_q, t(nec_g_q), "Plates pooled" = nec_pool_q)
+nsec_rows <- rbind(
+  unlist(nsec_s_dec[c("estimate", "conf.low", "conf.high")]),
+  as.matrix(dec_nsec[match(plate_levels, dec_nsec$group),
+                     c("estimate", "conf.low", "conf.high")]),
+  pooled_q
+)
+at <- rev(seq_len(nrow(nec_rows)))
+op <- par(mar = c(4.5, 11, 1, 1))
+plot(NA, log = "x", xlim = range(nec_rows, nsec_rows), ylim = c(0.5, max(at) + 1),
+     yaxt = "n", xlab = "Concentration", ylab = "")
+axis(2, at = at, labels = rownames(nec_rows), las = 1, cex.axis = 0.8)
+segments(nec_rows[, 2], at + 0.12, nec_rows[, 3], at + 0.12, col = "grey40", lwd = 2)
+points(nec_rows[, 1], at + 0.12, pch = 16, col = "grey40")
+segments(nsec_rows[, 2], at - 0.12, nsec_rows[, 3], at - 0.12, col = nsec_col, lwd = 2)
+points(nsec_rows[, 1], at - 0.12, pch = 16, col = nsec_col)
+legend("top", horiz = TRUE, bty = "n", cex = 0.8, pch = 16, lwd = 2,
+       col = c("grey40", nsec_col), legend = c("nec parameter", "NSEC, decreasing"))
+par(op)
+```
+
+For the single fit the `nec` parameter is `r fmt(nec_s_q[1])`
+(`r fmt(nec_s_q[2])` to `r fmt(nec_s_q[3])`), compared with a decreasing NSEC of
+`r fmt(nsec_s_dec$estimate)`. For the grouped fit it is
+`r fmt(min(nec_g_q[1, ]))` to `r fmt(max(nec_g_q[1, ]))` across the plates, and
+`r fmt(nec_pool_q[1])` (`r fmt(nec_pool_q[2])` to `r fmt(nec_pool_q[3])`) when
+the realisations of the plates are pooled as for the NSEC above. In each fit the
+median of the `nec` parameter is below the decreasing NSEC (@fig-nec). This is
+because the parameter marks where the hormetic rise ends and the decay begins,
+after which the response must fall back past the control and below the 0.01
+quantile of the control realisations, which occurs only at a higher
+concentration.
+
+## Provenance
+
+```{r}
+#| label: provenance
+#| echo: false
+prov_single <- readRDS("fits/brms_plate_single.rds")$provenance
+prov_grouped <- readRDS("fits/brms_plate_grouped.rds")$provenance
+size_mb <- function(file) fmt(file.size(file) / 1e6)
+# The commit is that of the checkout the article is rendered from. The site
+# build installs toxval from the same checkout.
+toxval_commit <- tryCatch(
+  system2("git", c("rev-parse", "HEAD"), stdout = TRUE, stderr = FALSE),
+  error = function(e) "not recorded",
+  warning = function(w) "not recorded"
+)
+```
+
+- Data: `data-raw/example_pgl.csv`, from the assay of Luter et al. (2025). The
+  first, unnamed column of the file is a row index and is dropped.
+- Fits: made by `data-raw/vignette_fits_brms.R` with seed
+  `r prov_single$seed`, on `r format(prov_single$fitted_on, "%Y-%m-%d")`, with
+  `r prov_single$r_version`, `brms` `r prov_single$packages[["brms"]]` and
+  `rstan` `r prov_single$packages[["rstan"]]`. Fitting, including compilation
+  of the Stan program, took `r round(prov_single$fit_seconds)` s for the single
+  fit and `r round(prov_grouped$fit_seconds)` s for the grouped fit. The stored
+  files are `r size_mb("fits/brms_plate_single.rds")` MB and
+  `r size_mb("fits/brms_plate_grouped.rds")` MB. Each keeps all
+  `r format(diag_single[["draws"]], big.mark = ",")` post-warmup draws; warmup
+  draws and the compiled Stan program are not stored.
+- Rendered with toxval `r utils::packageVersion("toxval")` at commit
+  `r toxval_commit`, `brms`
+  `r utils::packageVersion("brms")` and `r R.version.string`.
+
+Luter, H. M., Damjanovic, K., Thomas, M. C., Fisher, R., Høj, L. and Negri,
+A. P. (2025). A bioluminescent bacterial toxicity assay for tropical marine
+environments. *Environmental Toxicology*.
+<https://doi.org/10.1002/tox.70003>

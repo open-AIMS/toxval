@@ -4,3 +4,17 @@ template:
 
 development:
   mode: auto
+
+articles:
+- title: Definitions
+  navbar: Definitions
+  contents:
+  - ecx-definition
+  - nsec-definition
+- title: Case studies
+  navbar: Case studies
+  contents:
+  - articles/case-bayesnec
+  - articles/case-brms
+  - articles/case-brms-multivariate
+  - articles/case-drc

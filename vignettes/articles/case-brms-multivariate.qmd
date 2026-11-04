@@ -1,0 +1,774 @@
+---
+title: "The multivariate brms case study"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(toxval)
+# The commit is that of the checkout the article is rendered from. The site
+# build installs toxval from the same checkout.
+toxval_commit <- tryCatch(
+  system2("git", c("rev-parse", "HEAD"), stdout = TRUE, stderr = FALSE),
+  error = function(e) "not recorded",
+  warning = function(w) "not recorded"
+)
+
+# Everything read here is in fits/ and data/. It is written by
+# data-raw/fit_multivariate.R.
+store <- readRDS("fits/fit_multivariate.rds")
+fit <- store$fit
+provenance <- store$provenance
+# the posterior summary of the original fit, for these genes
+original <- readRDS("fits/original.rds")
+published_lower <- read.csv("data/lower_NSECs_filtered_52genes.csv")[-1]
+all_lower <- read.csv("data/toxval_nsec_lower_all78genes.csv")[-1]
+metadata <- read.csv("data/Metadata_1-MN.csv")
+gene_list <- read.csv("data/DromicsFittedGenesFDR0.05.csv")
+counts <- read.csv("data/BECdata_wSampleID.csv")
+
+genes <- unname(provenance$genes)
+gene_direction <- names(provenance$genes)
+dec <- gene_direction == "decreasing"
+# brms drops the underscore from a response name: the column
+# gene_Amillepora04448 is the response geneAmillepora04448
+response_of <- function(gene) gsub("_", "", paste0("gene_", gene))
+trials <- vapply(
+  genes,
+  function(g) fit$data[[paste0("n_", g)]][1],
+  numeric(1)
+)
+trials_all <- rowSums(counts[match(gene_list$GeneID, counts$GeneID), -1])
+# the default grid of toxval_predict(), which nsec() and ecx() pass on
+pred_resolution <- formals(nsec)$resolution
+lowest_tested <- min(metadata$Measured[metadata$Measured > 0])
+
+# numbers quoted in the prose, to `digits` significant figures with trailing
+# zeros kept, and with a thousands separator
+fmt <- function(x, digits = 3) {
+  vapply(
+    x,
+    function(v) {
+      if (is.na(v)) {
+        return("NA")
+      }
+      if (!is.finite(v) || v == 0) {
+        return(format(v))
+      }
+      d <- max(0, digits - 1 - floor(log10(abs(v))))
+      formatC(round(v, d), format = "f", digits = d, big.mark = ",")
+    },
+    character(1)
+  )
+}
+pct <- function(x, digits = 2) paste0(fmt(100 * x, digits), "%")
+count <- function(x) formatC(x, format = "d", big.mark = ",")
+```
+
+This case study shows how NSECs and ECx values are estimated with toxval from
+a multivariate `brm()` fit, in which each response is fitted as a separate
+curve and some responses decrease with concentration while others increase. It
+also shows how toxval measures the size of an increase for a beta-binomial
+response whose number of trials is the gene's total count rather than a
+ceiling on the response.
+
+The data and the fit are from the gene expression analysis of Luter et al. (in
+review), in
+which one multivariate model with a beta-binomial response for each gene was
+fitted with `brm()`, and an NSEC was estimated for each gene in each direction
+(i.e. for a decrease and for an increase in expression). We take six of those
+genes, together with the posterior draws of the original fit. The NSEC and the
+ECx are defined in the vignettes on the
+[NSEC](https://open-aims.github.io/toxval/articles/nsec-definition.html) and the
+[ECx](https://open-aims.github.io/toxval/articles/ecx-definition.html).
+
+## The study and the data
+
+```{r}
+#| label: data-summary
+#| include: false
+concentrations <- sort(unique(metadata$Measured))
+per_concentration <- table(metadata$Measured)
+n_genes_all <- nrow(gene_list)
+n_retained <- nrow(published_lower)
+n_retained_by_direction <- table(published_lower$direction)
+n_by_direction <- table(all_lower$direction)
+retained_direction <- c(dec = "decreasing", inc = "increasing")[
+  published_lower$direction[match(paste0("gene_", genes), published_lower$var)]
+]
+stopifnot(
+  nrow(metadata) == nrow(fit$data),
+  min(concentrations) == 0,
+  all(gene_list$GeneID %in% counts$GeneID),
+  setequal(all_lower$var, paste0("gene_", gene_list$GeneID)),
+  sum(n_by_direction) == n_genes_all,
+  # the retained genes keep the direction chosen for them among all genes
+  identical(
+    all_lower$direction[match(published_lower$var, all_lower$var)],
+    published_lower$direction
+  ),
+  sum(n_retained_by_direction) == n_retained,
+  all(retained_direction == gene_direction),
+  min(trials) == min(trials_all),
+  max(trials) == max(trials_all)
+)
+```
+
+Larvae of *A. millepora* were exposed to 1-methylnaphthalene (1-MN) for 48 h
+at `r length(concentrations) - 1` concentrations (measured at
+`r fmt(concentrations[2], 1)` to `r fmt(max(concentrations))` µg/L) and a
+control. In all, `r nrow(metadata)` samples were sequenced
+(`r min(per_concentration)` to `r max(per_concentration)` per concentration),
+and the read counts were batch-corrected with `sva` to account for RNA
+extractions performed on different days. Genes whose expression changed with
+concentration were then selected with `DRomics` (at a false discovery rate of
+0.05), and a concentration-response model was fitted to each. The
+`r n_genes_all` genes fitted by `DRomics` are those modelled here. The original
+analysis chose one direction for each gene by the rule described under NSECs
+below, which classed `r n_by_direction[["dec"]]` of the `r n_genes_all` genes
+as decreasing and `r n_by_direction[["inc"]]` as increasing. It then retained
+the `r n_retained` genes (`r n_retained_by_direction[["dec"]]` decreasing and
+`r n_retained_by_direction[["inc"]]` increasing) for which the NSEC in that
+direction was below the highest concentration.
+
+For each gene and sample, the response is the gene's count in that sample and
+the number of trials is the gene's total count over all `r nrow(metadata)`
+samples, so that each observation is that sample's share of the gene's total.
+Although a count cannot exceed this total, the total is not a level that
+expression approaches (it is the same for every sample of a gene, and sets the
+scale of the curve but not its shape), and it does not bound an increase in
+expression. As in the original analysis, the control
+samples (with a measured concentration of 0) are placed at
+`r fmt(exp(min(fit$data$log_x)), 1)` µg/L so that concentration can be
+log-transformed.
+
+We use six genes, three retained as decreasing and three as increasing
+(@tbl-genes), which include the genes with the smallest and the largest number
+of trials of the `r n_genes_all`.
+
+```{r}
+#| label: tbl-genes
+#| echo: false
+#| tbl-cap: !expr paste0("The six genes, the direction for which the original analysis retained each, and the number of trials (the gene's total count over the ", nrow(metadata), " samples).")
+knitr::kable(
+  data.frame(
+    Gene = genes,
+    `Retained direction` = gene_direction,
+    Trials = count(trials),
+    check.names = FALSE
+  ),
+  align = "llr",
+  row.names = FALSE
+)
+```
+
+## The fit
+
+We used the model of the original analysis, in which each gene has its own
+cubic polynomial in log concentration and its own beta-binomial precision, with
+the default priors of `brm()`. Residual correlations between genes are not
+modelled (`set_rescor(FALSE)`). In outline:
+
+```{r}
+#| label: model
+#| eval: false
+formula <- bf(
+  gene_Amillepora04448 | trials(n_Amillepora04448) ~
+    poly(log_x, 3, raw = TRUE)
+) +
+  # one bf() for each of the other five genes
+  set_rescor(FALSE)
+
+fit <- brm(
+  formula,
+  data = dat_use,
+  family = "beta_binomial",
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  init = 0,
+  seed = 100
+)
+```
+
+```{r}
+#| label: diagnostics
+#| include: false
+n_draws <- brms::ndraws(fit)
+rhat_max <- max(brms::rhat(fit), na.rm = TRUE)
+ess_ratio_min <- min(brms::neff_ratio(fit), na.rm = TRUE)
+nuts <- brms::nuts_params(fit)
+n_divergent <- sum(nuts$Value[nuts$Parameter == "divergent__"])
+stored_summary <- brms::posterior_summary(fit)
+shared <- intersect(rownames(original$summary), rownames(stored_summary))
+stopifnot(
+  n_draws == provenance$chains * (provenance$iter - provenance$warmup),
+  length(shared) == 5 * length(genes),
+  # the stored draws are those of the original fit
+  identical(
+    unname(stored_summary[shared, ]),
+    unname(original$summary[shared, colnames(stored_summary)])
+  ),
+  rhat_max < 1.01
+)
+```
+
+The original fit of all `r n_genes_all` genes is too large to store with the
+article. However, because the genes share no parameter, the posterior of each
+gene does not depend on whether it is fitted with the other
+`r n_genes_all - 1` genes or with five others, and the original draws for six
+genes are therefore a sample from the six-gene model. The script
+`data-raw/fit_multivariate.R` fits the six-gene model with the settings of the
+original analysis (`r provenance$chains` chains of `r provenance$iter`
+iterations, of which `r provenance$warmup` are warmup, giving
+`r count(n_draws)` posterior draws). It checks that the data and the default
+priors equal those of the original fit for these genes, and then replaces the
+draws with the original fit's draws for the corresponding parameters, chain by
+chain and iteration by iteration (`data-raw/original_draws.R`). The stored fit
+therefore gives the estimates of the original fit, and not estimates that
+differ from them by Monte Carlo error. The posterior summaries of the
+`r length(shared)` parameters (an intercept, three polynomial coefficients and
+a precision for each gene) equal those of the original fit. In the original run
+the largest $\hat{R}$ was `r fmt(rhat_max, 4)`, the smallest ratio of effective
+sample size to draws was `r fmt(ess_ratio_min, 2)`, and
+`r if (n_divergent == 0) "no" else count(n_divergent)` transitions were
+divergent.
+
+## NSECs
+
+We apply `nsec()` to the fit, with `x_var` naming the predictor. It reads the
+six responses and their trials from the fit, evaluates the curve of each gene
+at `r pred_resolution` values of `log_x` spanning the data, once per draw, and
+returns one row for each gene and direction, with the NSECs back-transformed to
+µg/L by `xform = exp`. Each beta-binomial response is predicted at one trial,
+so that each curve is the expected share of the gene's total count. The result
+also gives `ecnsec`, the effect at the NSEC as a proportion of the span named
+by `type`. Under the default `type = "absolute"` the decreasing span is the
+control, so the decreasing `ecnsec` is the proportional decrease from the
+control. The increasing span is described under *The gene total as the number
+of trials*.
+
+```{r}
+#| label: nsec
+nsec_genes <- nsec(fit, x_var = "log_x", xform = exp, draws = TRUE)
+nsec_genes[c(
+  "direction",
+  "response",
+  "estimate",
+  "conf.low",
+  "conf.high",
+  "ecnsec"
+)]
+```
+
+```{r}
+#| label: pred
+#| include: false
+# the curves that nsec() and ecx() evaluate, read by the checks and the figure
+pred <- toxval_predict(fit, x_var = "log_x")
+stopifnot(isTRUE(all.equal(
+  nsec(pred, xform = exp, draws = TRUE),
+  nsec_genes,
+  check.attributes = FALSE
+)))
+```
+
+```{r}
+#| label: nsec-summary
+#| include: false
+x_max <- exp(max(pred$x_vec))
+x_control <- exp(pred$meta$x_control)
+nsec_row <- function(result, gene, direction) {
+  result[
+    result$response == response_of(gene) & result$direction == direction,
+  ]
+}
+censored_share <- function(result, gene, direction) {
+  d <- nsec_row(result, gene, direction)$draws[[1]]
+  mean(is.infinite(d$value.draw))
+}
+opposite <- c(decreasing = "increasing", increasing = "decreasing")
+other_rows <- do.call(
+  rbind,
+  lapply(seq_along(genes), function(k) {
+    nsec_row(nsec_genes, genes[k], opposite[[gene_direction[k]]])
+  })
+)
+other_censored <- mapply(
+  censored_share,
+  genes,
+  opposite[gene_direction],
+  MoreArgs = list(result = nsec_genes)
+)
+other_na <- genes[is.na(other_rows$estimate)]
+# the rows of the other direction that the warning lists: those with an
+# estimate, since a row with no crossing at all reports no quantile
+listed_censored <- other_censored[!is.na(other_rows$estimate)]
+na_row <- nsec_row(nsec_genes, other_na, "increasing")
+na_curves <- pred$curves[[match(response_of(other_na), pred$keys$response)]]
+n_start_above <- sum(na_curves[, 1] >= na_row$reference)
+stopifnot(
+  # every draw of the NA row is censored, including those that start above
+  # the reference
+  all(is.infinite(na_row$draws[[1]]$value.draw)),
+  n_start_above > 0,
+  pred$x_vec[1] == pred$meta$x_control,
+  all(other_censored > 0.95),
+  all(is.na(other_rows$estimate) | other_rows$estimate == x_max),
+  length(other_na) == 1,
+  other_rows$direction[is.na(other_rows$estimate)] == "increasing"
+)
+```
+
+The control of each draw is its predicted response at the lowest concentration
+in the data (`r fmt(x_control, 1)` µg/L), which is both the default of
+`x_control` and the start of the grid.
+
+The warning lists the rows in which a reported quantile falls among draws that
+do not cross the reference within the tested range. These draws are ranked
+above `r fmt(x_max)` µg/L, and an interval limit that falls among them is
+reported as `r fmt(x_max)` µg/L. In the direction for which each gene was not
+retained, between `r pct(min(listed_censored), 3)` and
+`r pct(max(listed_censored), 3)` of the draws are censored in this way, and the
+estimate is `r fmt(x_max)` µg/L. The exception is the increasing row of
+`r other_na`, which is `NA` and is not listed because none of its draws crosses
+the increasing reference. Of these draws, the `r n_start_above` that start
+above the reference fall below it and remain below it, so they show no effect
+within the tested range and are censored with the rest.
+
+For each gene, the original analysis kept the direction whose NSEC was lower at
+the 0.8 quantile of its draws. `nsec()` has no argument for this rule, although
+the user can apply it as a filter on the result returned with `draws = TRUE`:
+
+```{r}
+#| label: lower
+lower <- nsec_genes |>
+  dplyr::mutate(
+    at_criterion = vapply(
+      draws,
+      \(d) quantile(d$value.draw, 0.8, na.rm = TRUE),
+      numeric(1)
+    )
+  ) |>
+  dplyr::group_by(response) |>
+  dplyr::slice_min(at_criterion, n = 1, with_ties = FALSE) |>
+  dplyr::ungroup()
+lower[c("direction", "response", "estimate", "conf.low", "conf.high")]
+```
+
+```{r}
+#| label: lower-check
+#| include: false
+lower <- lower[match(response_of(genes), lower$response), ]
+stopifnot(all(lower$direction == gene_direction))
+```
+
+The filter keeps, for each gene, the direction that the original analysis kept
+(@tbl-genes).
+
+```{r}
+#| label: curve-summary
+#| include: false
+medians <- lapply(genes, function(g) {
+  curve <- pred$curves[[match(response_of(g), pred$keys$response)]]
+  apply(curve, 2, median)
+})
+control_median <- vapply(medians, `[`, numeric(1), 1)
+end_ratio <- vapply(medians, function(m) m[length(m)] / m[1], numeric(1))
+peak_ratio <- vapply(medians, function(m) max(m) / m[1], numeric(1))
+dip_ratio <- vapply(medians, function(m) min(m) / m[1], numeric(1))
+widest <- which.max(lower$conf.high / lower$conf.low)
+narrowest <- which.min(lower$conf.high / lower$conf.low)
+humped <- which(dec & peak_ratio > 1.05)
+stopifnot(
+  all(end_ratio[dec] < 1),
+  all(peak_ratio[!dec] > 1),
+  all(dip_ratio[!dec] <= 1),
+  length(humped) == 2
+)
+```
+
+## ECx
+
+We apply `ecx()` to the fit in the same way to obtain the EC10 of each gene in
+each direction.
+Under the default `type = "absolute"`, the decreasing EC10 is the
+concentration at which the curve falls 10% below its control. For a response
+on the proportion scale, however, the increasing EC10 is based on extra risk
+(i.e. it is the concentration at which the curve rises by 10% of the distance
+from the control to 1).
+
+```{r}
+#| label: ecx
+ec10 <- ecx(fit, x_var = "log_x", proportion = 0.1, xform = exp, draws = TRUE)
+ec10[c(
+  "direction",
+  "response",
+  "estimate",
+  "conf.low",
+  "conf.high",
+  "control",
+  "reference"
+)]
+```
+
+```{r}
+#| label: ecx-summary
+#| include: false
+ec_row <- function(gene, direction) {
+  ec10[ec10$response == response_of(gene) & ec10$direction == direction, ]
+}
+dec_ec10 <- do.call(rbind, lapply(genes[dec], ec_row, "decreasing"))
+dip_ec10 <- do.call(rbind, lapply(genes[!dec], ec_row, "decreasing"))
+inc_ec10 <- do.call(rbind, lapply(genes, ec_row, "increasing"))
+inc_fold <- inc_ec10$reference / inc_ec10$control
+dipping <- genes[!dec][dip_ec10$estimate < lowest_tested]
+ec_censored <- vapply(
+  ec10$draws,
+  function(d) mean(is.infinite(d$value.draw)),
+  numeric(1)
+)
+# the increasing rows have no crossing at all, so only the decreasing rows
+# are censored in the sense of the warning
+ec_censored[ec10$direction == "increasing"] <- NA
+most_censored <- which.max(ec_censored)
+stopifnot(
+  isTRUE(all.equal(
+    ecx(pred, proportion = 0.1, xform = exp, draws = TRUE),
+    ec10,
+    check.attributes = FALSE
+  )),
+  all(dec_ec10$estimate < x_max),
+  min(dec_ec10$estimate) < lowest_tested,
+  all(is.na(inc_ec10$estimate)),
+  all(inc_fold[!dec] > peak_ratio[!dec]),
+  length(dipping) == 2,
+  all(1 - dip_ratio[match(dipping, genes)] > 0.1),
+  all(dip_ec10$conf.high[dip_ec10$estimate < lowest_tested] == x_max),
+  ec10$direction[most_censored] == "decreasing",
+  ec10$estimate[most_censored] == x_max
+)
+```
+
+For the three decreasing genes, the decreasing EC10s range from
+`r fmt(min(dec_ec10$estimate))` to `r fmt(max(dec_ec10$estimate))` µg/L. The
+lowest (for `r genes[dec][which.min(dec_ec10$estimate)]`) is between the
+control at `r fmt(x_control, 1)` µg/L and the lowest tested concentration
+(`r fmt(lowest_tested, 1)` µg/L), a range in which the curve is interpolated by
+the cubic. The increasing genes `r paste(dipping, collapse = " and ")` also
+have decreasing EC10s below `r fmt(lowest_tested, 1)` µg/L (with upper limits
+at `r fmt(x_max)` µg/L), because their median curves first dip by
+`r pct(min(1 - dip_ratio[match(dipping, genes)]))` to
+`r pct(max(1 - dip_ratio[match(dipping, genes)]))` below the control before
+they rise (@fig-curves). The warning lists the decreasing rows in which a
+reported quantile falls among draws that do not fall 10% below the control
+within the tested range. The largest share of such draws
+(`r pct(ec_censored[most_censored], 3)`) is for
+`r sub("^gene", "", ec10$response[most_censored])`, whose decreasing EC10 is
+therefore `r fmt(x_max)` µg/L.
+
+No gene has an increasing EC10, because no draw rises to its reference, and
+each increasing row is therefore `NA`. The reference is
+`r fmt(min(inc_fold), 2)` to `r fmt(max(inc_fold), 2)` times the control, since
+10% of the distance from a control share near
+`r fmt(mean(inc_ec10$control), 2)` to 1 is several times the control itself,
+whereas the median curves of the increasing genes rise to at most
+`r fmt(max(peak_ratio[!dec]), 2)` times their control. The span that sets this
+reference (the distance from the control to 1) is discussed below under *The
+gene total as the number of trials*.
+
+## Fitted curves and estimates
+
+The curves in @fig-curves are drawn from `toxval_predict(fit, x_var = "log_x")`,
+which returns the predicted curves that `nsec()` and `ecx()` evaluate above.
+
+```{r}
+#| label: fig-curves
+#| echo: false
+#| fig-cap: !expr paste0("Each gene's share of its total count in each sample (grey points), the posterior median curve at one trial (black line) and its 95% credible band (grey). Solid vertical lines mark the medians of the decreasing NSEC (vermillion), the increasing NSEC (orange) and the decreasing EC10 (blue). A 95% interval is shaded in the colour of its estimate, or bounded by dashed lines where it reaches the highest concentration, ", fmt(x_max), " µg/L; a line at that concentration is an estimate whose median draw does not cross its reference within the tested range. The increasing EC10 of each gene, and the increasing NSEC of ", other_na, ", are NA and are not drawn. The concentration axis is logarithmic; the controls are plotted at ", fmt(x_control, 1), " µg/L.")
+#| fig-width: 8
+#| fig-height: 6.2
+x_plot <- exp(pred$x_vec)
+ticks <- c(x_control, 1, 10, 100, x_max)
+est_cols <- c(nsec_dec = "#D55E00", nsec_inc = "#E69F00", ec10_dec = "#0072B2")
+# An interval whose upper limit is the highest concentration is censored there.
+# A band reaching the axis edge would cover most of the panel, so such an
+# interval is drawn as two dashed lines instead. An NA row draws nothing.
+mark <- function(row, col) {
+  if (is.na(row$estimate)) {
+    return(invisible())
+  }
+  if (row$conf.high >= x_max * (1 - 1e-8)) {
+    abline(v = c(row$conf.low, row$conf.high), col = col, lty = 2)
+  } else {
+    usr <- par("usr")
+    rect(
+      row$conf.low,
+      usr[3],
+      row$conf.high,
+      usr[4],
+      col = grDevices::adjustcolor(col, 0.15),
+      border = NA
+    )
+  }
+  abline(v = row$estimate, col = col, lwd = 1.5)
+}
+op <- par(
+  mfrow = c(2, 3),
+  mar = c(4, 4.2, 2, 0.5),
+  mgp = c(2.4, 0.7, 0),
+  oma = c(2, 0, 0, 0)
+)
+for (k in seq_along(genes)) {
+  g <- genes[k]
+  curve <- pred$curves[[match(response_of(g), pred$keys$response)]]
+  band <- apply(curve, 2, quantile, c(0.5, 0.025, 0.975))
+  share <- fit$data[[paste0("gene_", g)]] / fit$data[[paste0("n_", g)]]
+  plot(
+    exp(fit$data$log_x),
+    share,
+    log = "x",
+    xaxt = "n",
+    ylim = range(share, band),
+    pch = 16,
+    cex = 0.7,
+    col = "grey45",
+    xlab = expression("1-MN (" * mu * "g/L)"),
+    ylab = "Share of total count",
+    main = paste0(g, ", ", gene_direction[k]),
+    cex.main = 0.95
+  )
+  mark(nsec_row(nsec_genes, g, "decreasing"), est_cols[["nsec_dec"]])
+  mark(nsec_row(nsec_genes, g, "increasing"), est_cols[["nsec_inc"]])
+  mark(ec_row(g, "decreasing"), est_cols[["ec10_dec"]])
+  polygon(
+    c(x_plot, rev(x_plot)),
+    c(band[2, ], rev(band[3, ])),
+    col = grDevices::adjustcolor("grey60", 0.4),
+    border = NA
+  )
+  lines(x_plot, band[1, ], lwd = 1.5)
+  axis(1, at = ticks, labels = signif(ticks, 3))
+}
+par(op)
+# the key to the estimates, shared by all panels, in the outer margin
+op <- par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
+plot.new()
+legend(
+  "bottom",
+  ncol = 3,
+  bty = "n",
+  lwd = 1.5,
+  col = est_cols,
+  text.width = 0.2,
+  cex = 0.85,
+  legend = c("NSEC, decreasing", "NSEC, increasing", "EC10, decreasing")
+)
+par(op)
+```
+
+```{r}
+#| label: fig-curves-read
+#| include: false
+dec_nsec_rows <- do.call(
+  rbind,
+  lapply(genes[dec], function(g) nsec_row(nsec_genes, g, "decreasing"))
+)
+inc_nsec_rows <- do.call(
+  rbind,
+  lapply(genes[!dec], function(g) nsec_row(nsec_genes, g, "increasing"))
+)
+peak_x <- vapply(medians, function(m) exp(pred$x_vec[which.max(m)]), numeric(1))
+stopifnot(
+  all(dec_ec10$estimate < dec_nsec_rows$estimate),
+  all(dec_nsec_rows$reference < dec_ec10$reference),
+  all(inc_nsec_rows$estimate < peak_x[!dec])
+)
+```
+
+The control share of the six genes ranges from
+`r fmt(min(control_median), 2)` to `r fmt(max(control_median), 2)`
+(@fig-curves), on either side of the `r fmt(1 / nrow(metadata), 2)` expected
+for a gene expressed equally in all `r nrow(metadata)` samples. The median
+curves of the decreasing genes fall to between `r pct(min(end_ratio[dec]))` and
+`r pct(max(end_ratio[dec]))` of the control at `r fmt(x_max)` µg/L, although
+those of `r paste(genes[humped], collapse = " and ")` first rise by
+`r pct(min(peak_ratio[humped] - 1))` to `r pct(max(peak_ratio[humped] - 1))`
+above it. In contrast, the median curves of the increasing genes rise to a
+maximum of `r fmt(min(peak_ratio[!dec]), 2)` to
+`r fmt(max(peak_ratio[!dec]), 2)` times the control. The NSEC interval is
+widest for `r genes[widest]` (`r fmt(lower$conf.low[widest])` to
+`r fmt(lower$conf.high[widest])` µg/L, a factor of
+`r fmt(lower$conf.high[widest] / lower$conf.low[widest], 2)`) and narrowest
+for `r genes[narrowest]` (a factor of
+`r fmt(lower$conf.high[narrowest] / lower$conf.low[narrowest], 2)`).
+
+For each decreasing gene, the decreasing EC10 is below the decreasing NSEC
+(`r fmt(min(dec_ec10$estimate))` to `r fmt(max(dec_ec10$estimate))` µg/L,
+against `r fmt(min(dec_nsec_rows$estimate))` to
+`r fmt(max(dec_nsec_rows$estimate))` µg/L). For each of these genes the NSEC reference (the
+0.01 quantile of the control draws) is lower than the EC10 reference (10% below
+the control), so the curve must fall further to reach the NSEC reference. For each increasing gene, the increasing NSEC
+(`r fmt(min(inc_nsec_rows$estimate))` to `r fmt(max(inc_nsec_rows$estimate))`
+µg/L) is on the rising part of the median curve, below the concentration of
+its peak (`r fmt(min(peak_x[!dec]))` to `r fmt(max(peak_x[!dec]))` µg/L).
+
+## The gene total as the number of trials
+
+toxval predicts a binomial or beta-binomial response at one trial, so that each
+curve is a proportion bounded at 1, and the increasing span of
+`type = "absolute"` is 1 minus the control (i.e. extra risk). This span is
+correct when the trials are a ceiling on the response, such as the number
+of larvae offered. Here, however, the trials are the gene's total count over
+the `r nrow(metadata)` samples, which is the same for every sample of the gene
+and therefore sets the scale of the curve but not its shape. The control share
+of each gene is of the order of 1/`r nrow(metadata)` (@fig-curves), so the span
+is close to 1. The increasing `ecnsec` (the effect at the NSEC as a proportion
+of the span) is then measured against the gene's total count rather than
+against its control, and is close to 0 for each gene. toxval does not provide
+an option to specify the increasing span.
+
+Relative deviation (the increasing `absolute` span for a response with no upper
+bound) expresses the change as a proportion of the control, i.e.
+$(R - y_0) / y_0$ for the reference $R$ and the control $y_0$ of a draw, which
+is the fold change minus 1. The choice of span does not affect the NSEC,
+because its reference is a quantile of the control draws. Nor does it affect
+the decreasing `ecnsec`, because the decreasing span is the control under
+either rule.
+
+toxval does not return relative deviation for a beta-binomial response, but its
+posterior median can be computed from the result of `nsec()`. The reference $R$
+is the same for every draw, and relative deviation decreases as the control
+increases, so its posterior median is the relative deviation at the median
+control, which `nsec()` returns in the `control` column:
+
+```{r}
+#| label: relative-deviation
+increasing <- nsec_genes |>
+  dplyr::filter(direction == "increasing") |>
+  dplyr::mutate(relative_deviation = reference / control - 1)
+increasing[c("response", "control", "reference", "ecnsec", "relative_deviation")]
+```
+
+```{r}
+#| label: relative-deviation-check
+#| include: false
+# relative deviation from every control draw, against the shortcut above
+from_draws <- vapply(
+  seq_len(nrow(increasing)),
+  function(k) {
+    curve <- pred$curves[[match(increasing$response[k], pred$keys$response)]]
+    median((increasing$reference[k] - curve[, 1]) / curve[, 1])
+  },
+  numeric(1)
+)
+stopifnot(all(abs(increasing$relative_deviation / from_draws - 1) < 1e-4))
+```
+
+In @tbl-trials the increasing `ecnsec` that `nsec()` returns (extra risk) is
+set beside relative deviation and the decreasing `ecnsec`.
+
+```{r}
+#| label: tbl-trials
+#| echo: false
+#| tbl-cap: !expr paste0("The effect at the NSEC (`ecnsec`) of each gene, as the posterior median per cent of its span. Trials is the gene's total count over the ", nrow(metadata), " samples, and the control is the posterior median of the predicted control as a share of that total. The decreasing `ecnsec` and the increasing `ecnsec` under extra risk are as `nsec()` returns them; the increasing `ecnsec` under relative deviation is computed from the result of `nsec()` as above.")
+trials_rows <- do.call(
+  rbind,
+  lapply(genes, function(g) {
+    row <- increasing[increasing$response == response_of(g), ]
+    data.frame(
+      gene = g,
+      trials = trials[[g]],
+      control = row$control,
+      decreasing = nsec_row(nsec_genes, g, "decreasing")$ecnsec,
+      extra_risk = row$ecnsec,
+      relative_deviation = row$relative_deviation
+    )
+  })
+)
+ratio <- trials_rows$relative_deviation / trials_rows$extra_risk
+span_ratio <- (1 - trials_rows$control) / trials_rows$control
+stopifnot(
+  all(ratio > 10),
+  all(abs(ratio / span_ratio - 1) < 1e-4),
+  diff(range(log(trials_rows$relative_deviation))) >
+    diff(range(log(trials_rows$extra_risk)))
+)
+knitr::kable(
+  data.frame(
+    Gene = trials_rows$gene,
+    Trials = count(trials_rows$trials),
+    `Control share` = fmt(trials_rows$control),
+    Decreasing = pct(trials_rows$decreasing),
+    `Increasing, extra risk` = pct(trials_rows$extra_risk),
+    `Increasing, relative deviation` = pct(trials_rows$relative_deviation),
+    check.names = FALSE
+  ),
+  align = "lrrrrr"
+)
+```
+
+Under extra risk, the increasing `ecnsec` of the six genes (whose trials range
+from `r count(min(trials))` to `r count(max(trials))`) ranges from
+`r pct(min(trials_rows$extra_risk))` to `r pct(max(trials_rows$extra_risk))`.
+Under relative deviation it ranges from
+`r pct(min(trials_rows$relative_deviation))` to
+`r pct(max(trials_rows$relative_deviation))`. Relative deviation is larger than extra risk by a factor of
+`r fmt(min(ratio), 2)` to `r fmt(max(ratio), 2)`, which to within 0.01% is
+$(1 - y_0) / y_0$ (the ratio of the extra-risk span to the control) at the
+median control. Extra risk places the six genes within a
+`r fmt(max(trials_rows$extra_risk) / min(trials_rows$extra_risk), 2)`-fold
+range of `ecnsec`, compared with a
+`r fmt(max(trials_rows$relative_deviation) / min(trials_rows$relative_deviation), 2)`-fold
+range under relative deviation. The decreasing `ecnsec`, which does not depend
+on the rule, ranges from `r pct(min(trials_rows$decreasing))` to
+`r pct(max(trials_rows$decreasing))`. The extra-risk span also sets the
+reference of the increasing EC10, and no gene attains that reference.
+
+## Provenance
+
+```{r}
+#| label: provenance
+#| include: false
+fit_size <- file.size("fits/fit_multivariate.rds") / 2^20
+```
+
+- Data: Luter et al., "Molecular responses to 1-methylnaphthalene in *Acropora
+  millepora* larvae" (in review). The data are held in the [AIMS Data
+  Repository](https://apps.aims.gov.au/metadata/view/f6e79a3a-78d4-4d0c-aa18-706cd29b5c50).
+  The original script reads
+  `BatchCorrectedData.csv`. The analysis folder contains the batch-corrected
+  counts as `BECdata_wSampleID.csv`, and `data-raw/fit_multivariate.R` checks that the
+  counts and trials built from it equal the data stored in the original fit
+  for these six genes. The sample metadata are `Metadata_1-MN.csv` and the
+  gene list `DromicsFittedGenesFDR0.05.csv`.
+- Retained genes: `lower_NSECs_filtered_52genes.csv`, the original analysis's
+  list of the `r n_retained` retained genes and the direction retained for
+  each; `toxval_nsec_lower_all78genes.csv`, the direction chosen for each of
+  the `r n_genes_all` genes.
+- Original fit: `fit3k_bb_DRomicsGenes_poly_iter1000.RData` (`brms`
+  `r provenance$original_fit$version$brms`, `rstan`
+  `r provenance$original_fit$version$rstan`). Its posterior summary for the
+  six genes is stored in `fits/original.rds`.
+- Model: `fit_brms_betaBinomial_poly_final.R` in
+  [open-AIMS/coral-larvae-1-MN-toxicity](https://github.com/open-AIMS/coral-larvae-1-MN-toxicity).
+- Stored fit: `r length(genes)` genes, `r provenance$chains` chains of
+  `r provenance$iter` iterations with `r provenance$warmup` warmup,
+  `r count(n_draws)` draws, `seed = `r provenance$seed``, `init = 0`.
+  Compilation and sampling took `r fmt(provenance$fit_seconds, 2)` s on
+  `r format(provenance$fitted_on, "%Y-%m-%d")`. The draws of every parameter
+  were then replaced with those of the original fit; `lprior` and `lp__`, which
+  the original sums over all `r n_genes_all` genes, are set to `NA`. The stored
+  fit, with the compiled Stan program removed, is `r fmt(fit_size, 2)` MB.
+- Software at fitting: `r provenance$r_version`; `brms`
+  `r provenance$packages[["brms"]]`, `rstan`
+  `r provenance$packages[["rstan"]]`, `StanHeaders`
+  `r provenance$packages[["StanHeaders"]]`, toxval
+  `r provenance$packages[["toxval"]]` at commit
+  `r provenance$toxval_commit`.
+- Software at rendering: `r R.version.string`; toxval
+  `r as.character(utils::packageVersion("toxval"))` at commit `r toxval_commit`.

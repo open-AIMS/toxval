@@ -1,0 +1,592 @@
+---
+title: "Estimates from drc fits"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(toxval)
+# The commit is that of the checkout the article is rendered from. The site
+# build installs toxval from the same checkout.
+toxval_commit <- tryCatch(
+  system2("git", c("rev-parse", "HEAD"), stdout = TRUE, stderr = FALSE),
+  error = function(e) "not recorded",
+  warning = function(w) "not recorded"
+)
+# formatting for inline numbers, so that every value in the prose is computed
+fmt <- function(x, digits = 2) formatC(x, digits = digits, format = "f", big.mark = ",")
+pct <- function(x, digits = 0) paste0(formatC(100 * x, digits = digits, format = "f"), "%")
+```
+
+```{r}
+#| label: packages
+library(ggplot2)
+```
+
+The `drc` package fits concentration-response curves with `drm()`, and
+estimates effect concentrations from a fitted curve with `ED()`. toxval's
+`ecx()` and `nsec()` also accept a `drm()` fit, so a fitted curve can be
+summarised with either package. Here we fit two datasets shipped with `drc` and
+compare the estimates from each package: `ryegrass`, a continuous response
+described by one curve, and `daphnids`, a binomial response described by one
+curve for each of two exposure times. The definitions used by toxval are given
+in the articles on the [ECx](https://open-aims.github.io/toxval/articles/ecx-definition.html)
+and the [NSEC](https://open-aims.github.io/toxval/articles/nsec-definition.html).
+
+## A single curve
+
+```{r}
+#| label: ryegrass-data
+#| include: false
+ryegrass <- drc::ryegrass
+n_conc <- length(unique(ryegrass$conc[ryegrass$conc > 0]))
+n_control <- sum(ryegrass$conc == 0)
+```
+
+`ryegrass` contains the root length (cm) of perennial ryegrass grown at
+`r n_conc` concentrations of ferulic acid, from `r min(ryegrass$conc[ryegrass$conc > 0])`
+to `r max(ryegrass$conc)` mM, and in `r n_control` controls without it. We
+fitted the four-parameter log-logistic equation `LL.4()`, in which the response
+declines from an upper limit `d` to a lower limit `c`, with a slope `b` and with
+`e` the concentration at which the response is halfway between `d` and `c`.
+
+```{r}
+#| label: fit-ryegrass
+fit <- drc::drm(rootl ~ conc, data = ryegrass, fct = drc::LL.4())
+summary(fit)
+```
+
+```{r}
+#| label: fit-values
+#| include: false
+p <- coef(fit)
+names(p) <- sub(":.*", "", names(p))
+```
+
+The fitted root length declines from `r fmt(p[["d"]])` cm to
+`r fmt(p[["c"]])` cm, and is halfway between these limits at
+`r fmt(p[["e"]])` mM.
+
+### The confidence band on the curve
+
+Both packages give a 95% confidence band on the fitted curve, although they
+compute it differently. In `drc`, `predict()` with `interval = "confidence"`
+gives a band from the delta method (a linear approximation of the curve at the
+parameter estimates). toxval's `toxval_predict()` instead draws `n_boot`
+parameter vectors (1000 by default) from a multivariate normal distribution
+with mean `coef(fit)` and covariance `vcov(fit)`, and evaluates the curve at
+each vector. A parameter that the equation requires to be positive (here `e`)
+is drawn on the log scale. We refer to each evaluated curve as a realisation
+(i.e. a parametric bootstrap replicate), and took the band as the 2.5 and 97.5
+percentiles of the realisations at each concentration. By default the
+realisations are evaluated at 500 concentrations from the control
+concentration (here 0 mM) to the highest concentration in the data, and we
+evaluated the `drc` band at these concentrations. `ecx()` and `nsec()` call
+`toxval_predict()` themselves, and the `seed` argument of each function makes
+the realisations reproducible.
+
+```{r}
+#| label: bands-ryegrass
+#| warning: false
+pred <- toxval_predict(fit, seed = 42)
+toxval_q <- apply(pred$curves[[1]], 2, quantile, probs = c(0.025, 0.975))
+bands <- data.frame(
+  conc = pred$x_vec,
+  predict(fit, data.frame(conc = pred$x_vec), interval = "confidence"),
+  toxval_lower = toxval_q[1, ],
+  toxval_upper = toxval_q[2, ]
+)
+head(bands)
+```
+
+```{r}
+#| label: bands-ryegrass-values
+#| include: false
+gap_low <- bands$toxval_lower - bands$Lower
+gap_high <- bands$toxval_upper - bands$Upper
+band_gap <- pmax(abs(gap_low), abs(gap_high))
+at_gap <- which.max(band_gap)
+stopifnot(
+  max(band_gap) < 0.25,
+  gap_low[at_gap] < 0,
+  gap_high[at_gap] < 0
+)
+```
+
+```{r}
+#| label: fig-bands-ryegrass
+#| fig-cap: "Root length of ryegrass against the concentration of ferulic acid (points), with the `LL.4()` fit (black line), the 95% confidence band from `predict()` in `drc` (grey) and the 95% band from the toxval realisations (dashed blue lines). The concentration axis is a pseudo-logarithmic scale, which is linear near 0 and logarithmic above about 0.1 mM, so that the controls can be shown."
+#| fig-height: 4
+p_ryegrass <- ggplot(bands, aes(conc)) +
+  geom_ribbon(aes(ymin = Lower, ymax = Upper, fill = "drc"), alpha = 0.3) +
+  geom_line(aes(y = toxval_lower, colour = "toxval"), linetype = 2) +
+  geom_line(aes(y = toxval_upper, colour = "toxval"), linetype = 2) +
+  geom_line(aes(y = Prediction)) +
+  geom_point(aes(y = rootl), data = ryegrass) +
+  scale_x_continuous(
+    transform = scales::pseudo_log_trans(sigma = 0.1),
+    breaks = c(0, 0.3, 1, 3, 10, 30),
+    labels = c("0", "0.3", "1", "3", "10", "30")
+  ) +
+  scale_fill_manual(values = c(drc = "grey50")) +
+  scale_colour_manual(values = c(toxval = "#0072B2")) +
+  labs(x = "Ferulic acid (mM)", y = "Root length (cm)", fill = "95% band", colour = NULL) +
+  theme_bw()
+p_ryegrass
+```
+
+The `drc` and toxval bands are close over the observed range
+(@fig-bands-ryegrass), and their limits differ by at most
+`r fmt(max(band_gap))` cm. The largest difference is at
+`r fmt(bands$conc[at_gap])` mM, at the start of the decline, where both limits
+of the toxval band are below those of the `drc` band.
+
+### EC10 and EC50
+
+`ED()` and `ecx()` measure the effect from different points by default, so we
+matched their definitions before comparing the estimates. Both packages express
+the effect as a proportion of the difference between two response values.
+`ED()` uses the fitted limits `d` and `c`, so its EC10 is the concentration at
+which the response has fallen by 10% of `d - c`. `ecx()` takes the effect as a
+proportion (e.g. `proportion = 0.1` for the EC10), always starts from the
+control (the predicted response at the lowest concentration in the data, here
+0 mM), and takes the other value from its `type` argument. Under
+`type = "relative"` the other value is `c`, and because `LL.4()` equals `d` at
+a concentration of 0, this matches the definition used by `ED()`. Under the
+default, `type = "absolute"`, the other value is 0, so the EC10 is the
+concentration at which the response is 90% of the control.
+
+```{r}
+#| label: ed-ryegrass
+ed <- drc::ED(fit, c(10, 50), interval = "delta")
+```
+
+```{r}
+#| label: ecx-relative
+#| warning: false
+ecx_rel <- ecx(fit, proportion = c(0.1, 0.5), type = "relative", seed = 42)
+ecx_rel
+```
+
+```{r}
+#| label: ecx-absolute
+ecx_abs <- ecx(fit, proportion = c(0.1, 0.5), seed = 42)
+ecx_abs
+```
+
+`ecx()` returns a row for each direction of change. Because this curve only
+declines, the increasing rows are `NA`. The `reference` column gives the
+response at which each ECx is read, and the `control` column the response it is
+measured from.
+
+```{r}
+#| label: ec-ryegrass
+from_ecx <- function(res, method) {
+  dec <- res[res$direction == "decreasing", ]
+  data.frame(
+    method,
+    effect = paste0("EC", 100 * dec$proportion),
+    estimate = dec$estimate,
+    lower = dec$conf.low,
+    upper = dec$conf.high
+  )
+}
+ec_ryegrass <- rbind(
+  data.frame(
+    method = "ED()",
+    effect = c("EC10", "EC50"),
+    estimate = ed[, "Estimate"],
+    lower = ed[, "Lower"],
+    upper = ed[, "Upper"],
+    row.names = NULL
+  ),
+  from_ecx(ecx_rel, "ecx(), relative"),
+  from_ecx(ecx_abs, "ecx(), absolute")
+)
+ec_ryegrass
+```
+
+```{r}
+#| label: ec-ryegrass-values
+#| include: false
+ec <- function(tab, method, effect) tab[tab$method == method & tab$effect == effect, ]
+ed10 <- ec(ec_ryegrass, "ED()", "EC10")
+ed50 <- ec(ec_ryegrass, "ED()", "EC50")
+rel10 <- ec(ec_ryegrass, "ecx(), relative", "EC10")
+rel50 <- ec(ec_ryegrass, "ecx(), relative", "EC50")
+abs10 <- ec(ec_ryegrass, "ecx(), absolute", "EC10")
+abs50 <- ec(ec_ryegrass, "ecx(), absolute", "EC50")
+ref_rel <- ecx_rel$reference[ecx_rel$direction == "decreasing"][1]
+ref_abs <- ecx_abs$reference[ecx_abs$direction == "decreasing"][1]
+rel_gap <- max(abs(c(rel10$estimate / ed10$estimate, rel50$estimate / ed50$estimate) - 1))
+stopifnot(
+  all(is.na(ecx_rel$estimate[ecx_rel$direction == "increasing"])),
+  all(is.na(ecx_abs$estimate[ecx_abs$direction == "increasing"])),
+  ref_abs < ref_rel,
+  abs10$estimate > rel10$estimate,
+  abs50$estimate > rel50$estimate,
+  rel_gap < 0.02
+)
+```
+
+```{r}
+#| label: fig-ec-ryegrass
+#| fig-cap: "The EC10 (left) and EC50 (right) of the `LL.4()` fit to `ryegrass` from `ED()` and from `ecx()` under two definitions. Points: the estimates. Lines: the 95% intervals, from the delta method for `ED()` and from the 2.5 and 97.5 percentiles of 1000 realisations for `ecx()`."
+#| fig-height: 2.6
+ggplot(ec_ryegrass, aes(estimate, method)) +
+  geom_pointrange(aes(xmin = lower, xmax = upper)) +
+  facet_wrap(~effect, scales = "free_x") +
+  scale_y_discrete(limits = rev(unique(ec_ryegrass$method))) +
+  labs(x = "Ferulic acid (mM)", y = NULL) +
+  theme_bw()
+```
+
+Under the matched definition, the two packages return very similar results:
+`ecx()` gives an EC10 of `r fmt(rel10$estimate)` mM and an EC50 of
+`r fmt(rel50$estimate)` mM, compared with `r fmt(ed10$estimate)` and
+`r fmt(ed50$estimate)` mM from `ED()` (@fig-ec-ryegrass). The default `ecx()`
+estimates are higher (`r fmt(abs10$estimate)` and `r fmt(abs50$estimate)` mM),
+because its EC10 is read at a lower response (`r fmt(ref_abs)` cm, compared with
+`r fmt(ref_rel)` cm under `relative`). These reference responses differ by a
+tenth of the lower limit `c`, so the difference between the `absolute` and
+`relative` estimates would be larger for a curve with a higher lower limit. For
+these data `c` is small compared with `d` (`r fmt(p[["c"]])` against
+`r fmt(p[["d"]])` cm), and the `absolute` and `relative` intervals overlap for
+both estimates.
+
+```{r}
+#| label: interval-values
+#| include: false
+t_mult <- qt(0.975, df.residual(fit))
+side <- function(row) c(below = row$estimate - row$lower, above = row$upper - row$estimate)
+ed10_side <- side(ed10)
+rel10_side <- side(rel10)
+stopifnot(
+  abs(ed10_side[["below"]] / ed[1, "Std. Error"] - t_mult) < 1e-6,
+  abs(ed10_side[["below"]] - ed10_side[["above"]]) < 1e-8,
+  rel10_side[["below"]] > rel10_side[["above"]],
+  rel10$lower < ed10$lower,
+  rel10$upper < ed10$upper
+)
+```
+
+The intervals differ because the packages convert the uncertainty in the
+parameters into an interval on the ECx in different ways, although both take
+that uncertainty from `vcov(fit)`. The delta method used by `ED()` replaces the
+ECx by its linear approximation at the parameter estimates. This gives a
+standard error, and an interval of the estimate plus or minus
+`r fmt(t_mult)` standard errors (the 0.975 quantile of a *t* distribution on
+`r df.residual(fit)` residual degrees of freedom), which is symmetric by
+construction. `ecx()` instead finds the ECx of each realisation and returns the
+median and the 2.5 and 97.5 percentiles of these values. Its interval can
+therefore be asymmetric where the ECx is a nonlinear function of the
+parameters. For example, the `relative` EC10 interval extends
+`r fmt(rel10_side[["below"]])` mM below the estimate and
+`r fmt(rel10_side[["above"]])` mM above it, whereas the `ED()` interval extends
+`r fmt(ed10_side[["below"]])` mM on each side. The point estimates also differ
+slightly, because `ED()` gives the ECx at the parameter estimates whereas
+`ecx()` gives the median over the realisations.
+
+The `ecx()` limits are percentiles of a finite set of realisations, so they
+change slightly with the `seed`. A larger `n_boot` reduces this variation,
+although the computation then takes longer.
+
+## NSEC
+
+The no-significant-effect concentration (NSEC) is the concentration at which the
+fitted response departs from the control by more than the uncertainty in the
+control allows. `drc` does not provide a method for estimating the NSEC from a
+fitted model, and this is one of the motivations for the development of toxval.
+`nsec()` takes as its reference the 0.01 quantile (set by `sig_val`) of the
+control across the realisations, finds the concentration at which each
+realisation crosses that reference, and summarises these concentrations as for
+`ecx()`.
+
+```{r}
+#| label: nsec-ryegrass
+ns <- nsec(fit, seed = 42)
+ns
+ns_dec <- ns[ns$direction == "decreasing", ]
+```
+
+```{r}
+#| label: nsec-values
+#| include: false
+stopifnot(
+  is.na(ns$estimate[ns$direction == "increasing"]),
+  ns_dec$estimate < rel10$estimate,
+  ns_dec$reference < ns_dec$control
+)
+```
+
+```{r}
+#| label: fig-nsec-ryegrass
+#| fig-cap: "@fig-bands-ryegrass with the decreasing NSEC from `nsec()` (vermillion line) and its 95% interval (vermillion shading), and the reference response used by `nsec()` (dotted line)."
+#| fig-height: 4
+p_ryegrass +
+  annotate(
+    "rect",
+    xmin = ns_dec$conf.low, xmax = ns_dec$conf.high, ymin = -Inf, ymax = Inf,
+    fill = "#D55E00", alpha = 0.2
+  ) +
+  geom_vline(xintercept = ns_dec$estimate, colour = "#D55E00") +
+  geom_hline(yintercept = ns_dec$reference, linetype = 3)
+```
+
+The NSEC is `r fmt(ns_dec$estimate)` mM (`r fmt(ns_dec$conf.low)` to
+`r fmt(ns_dec$conf.high)`), the concentration at which the curve falls below the
+reference of `r fmt(ns_dec$reference)` cm (@fig-nsec-ryegrass). This is below
+the EC10 of `r fmt(rel10$estimate)` mM, and the `ecnsec` column gives the effect
+at the NSEC as a proportion of the control, here `r pct(ns_dec$ecnsec, 1)`.
+
+`drc` also provides equations with a threshold (e.g. `NEC.3()`), in which the
+response is constant up to a no-effect concentration (NEC) that is estimated as
+the parameter `e`. `nsec()` does not accept fits of these equations.
+
+## A grouped fit
+
+`daphnids` contains the number of immobile daphnids out of 20 at
+`r length(unique(drc::daphnids$dose))` concentrations of a toxic substance, from
+`r min(drc::daphnids$dose)` to `r fmt(max(drc::daphnids$dose), 0)`, counted
+after 24 h and again (in the same animals) after 48 h. Because the response is a
+count out of a known total, we fitted the two-parameter log-logistic equation
+`LL.2()` with `type = "binomial"` and the total as weights, with one curve per
+exposure time (`curveid = time`). `LL.2()` fixes the lower limit at 0 and the
+upper limit at 1, so the fitted response is the proportion immobile.
+
+```{r}
+#| label: fit-daphnids
+daphnids <- drc::daphnids
+fit_daph <- drc::drm(
+  no / total ~ dose,
+  weights = total,
+  curveid = time,
+  data = daphnids,
+  fct = drc::LL.2(),
+  type = "binomial"
+)
+ed_daph <- drc::ED(fit_daph, c(10, 50), interval = "delta")
+```
+
+In `ecx()`, the column passed to `drm()` as `curveid` is given in `group_var`,
+and the result has one set of rows per curve, identified by the `group` column.
+
+```{r}
+#| label: ecx-daphnids
+ecx_daph <- ecx(fit_daph, proportion = c(0.1, 0.5), group_var = "time", seed = 42)
+ecx_daph
+```
+
+```{r}
+#| label: ecx-daphnids-relative
+#| include: false
+ecx_daph_rel <- suppressWarnings(
+  ecx(fit_daph, proportion = c(0.1, 0.5), group_var = "time", type = "relative", seed = 42)
+)
+stopifnot(
+  identical(ecx_daph_rel$estimate, ecx_daph$estimate),
+  identical(ecx_daph_rel$conf.low, ecx_daph$conf.low),
+  identical(ecx_daph_rel$conf.high, ecx_daph$conf.high),
+  all(ecx_daph_rel$asymptote[ecx_daph_rel$direction == "increasing"] == 1)
+)
+```
+
+Because the proportion immobile rises with concentration, the estimates are in
+the increasing rows. `ED()` takes the increasing effect as a proportion of the
+difference between `c` and `d`, which `LL.2()` fixes at 0 and 1. Unlike the
+`ryegrass` fit, this fit does not need `type = "relative"` for `ecx()` and
+`ED()` to agree. For `ryegrass` the packages differed in the value the response
+falls towards (0 for the default `ecx()` and `c` for `ED()`), and
+`type = "relative"` replaced 0 by `c`. Here, for a response on the proportion
+scale, the default `type = "absolute"` already takes the value the response
+rises towards as 1, which is also the upper limit `d` of `LL.2()`, so
+`type = "relative"` returns identical estimates and intervals. The packages
+differ instead in the value the response rises from. `ecx()` starts from the
+control, the predicted proportion immobile at the lowest tested concentration
+(`r min(daphnids$dose)`), which is `r fmt(ecx_daph$control[2], 4)` at 24 h and
+`r fmt(ecx_daph$control[6], 4)` at 48 h, whereas `ED()` starts from `c` = 0.
+The `type` argument does not change the control, but `x_control` does:
+supplying `x_control = 0` predicts the control at a concentration of 0, where
+`LL.2()` equals 0, and the definitions then coincide.
+
+```{r}
+#| label: ecx-daphnids-zero
+ecx_daph0 <- ecx(
+  fit_daph,
+  proportion = c(0.1, 0.5),
+  group_var = "time",
+  x_control = 0,
+  seed = 42
+)
+```
+
+The call gives two warnings. The first is that 0 is outside the tested
+concentrations, so the control is a prediction beyond the data. The second is
+that the decreasing rows have no reference, because a proportion cannot fall
+below a control of 0.
+
+```{r}
+#| label: ec-daphnids
+from_ecx_group <- function(res, method) {
+  inc <- res[res$direction == "increasing", ]
+  data.frame(
+    time = inc$group,
+    method,
+    effect = paste0("EC", 100 * inc$proportion),
+    estimate = inc$estimate,
+    lower = inc$conf.low,
+    upper = inc$conf.high
+  )
+}
+ec_daph <- rbind(
+  data.frame(
+    time = sub("e:(.*):.*", "\\1", rownames(ed_daph)),
+    method = "ED()",
+    effect = paste0("EC", sub(".*:", "", rownames(ed_daph))),
+    estimate = ed_daph[, "Estimate"],
+    lower = ed_daph[, "Lower"],
+    upper = ed_daph[, "Upper"],
+    row.names = NULL
+  ),
+  from_ecx_group(ecx_daph, "ecx()"),
+  from_ecx_group(ecx_daph0, "ecx(), x_control = 0")
+)
+ec_daph <- ec_daph[order(ec_daph$time, ec_daph$effect), ]
+ec_daph
+```
+
+```{r}
+#| label: ec-daphnids-values
+#| include: false
+gap <- function(method, effect) {
+  ed_rows <- ec_daph[ec_daph$method == "ED()" & ec_daph$effect == effect, ]
+  tx_rows <- ec_daph[ec_daph$method == method & ec_daph$effect == effect, ]
+  stopifnot(identical(as.character(ed_rows$time), as.character(tx_rows$time)))
+  max(abs(tx_rows$estimate / ed_rows$estimate - 1))
+}
+gap0 <- c(EC10 = gap("ecx(), x_control = 0", "EC10"), EC50 = gap("ecx(), x_control = 0", "EC50"))
+gap_default <- c(EC10 = gap("ecx()", "EC10"), EC50 = gap("ecx()", "EC50"))
+row_of <- function(time, method, effect) {
+  ec_daph[ec_daph$time == time & ec_daph$method == method & ec_daph$effect == effect, ]
+}
+ed50_24 <- row_of("24h", "ED()", "EC50")
+tx50_24 <- row_of("24h", "ecx(), x_control = 0", "EC50")
+stopifnot(
+  identical(as.character(ecx_daph$group[c(2, 6)]), c("24h", "48h")),
+  all(is.na(ecx_daph$estimate[ecx_daph$direction == "decreasing"])),
+  gap0[["EC50"]] < 0.01,
+  gap0[["EC10"]] < gap_default[["EC10"]],
+  tx50_24$upper > ed50_24$upper,
+  tx50_24$upper - tx50_24$estimate > tx50_24$estimate - tx50_24$lower,
+  abs((ed50_24$upper - ed50_24$estimate) - (ed50_24$estimate - ed50_24$lower)) < 1e-6
+)
+```
+
+```{r}
+#| label: bands-daphnids
+#| warning: false
+pred_daph <- toxval_predict(fit_daph, group_var = "time", seed = 42)
+bands_daph <- do.call(rbind, lapply(seq_along(pred_daph$curves), function(i) {
+  time <- as.character(pred_daph$keys$group[i])
+  q <- apply(pred_daph$curves[[i]], 2, quantile, probs = c(0.025, 0.975))
+  data.frame(
+    dose = pred_daph$x_vec,
+    time,
+    predict(fit_daph, data.frame(dose = pred_daph$x_vec, time = time), interval = "confidence"),
+    toxval_lower = q[1, ],
+    toxval_upper = q[2, ]
+  )
+}))
+```
+
+```{r}
+#| label: bands-daphnids-values
+#| include: false
+at_low <- bands_daph[bands_daph$dose == min(daphnids$dose), ]
+upper_at_low <- setNames(
+  lapply(split(at_low, at_low$time), function(r) c(drc = r$Upper, toxval = r$toxval_upper)),
+  sort(unique(at_low$time))
+)
+stopifnot(
+  nrow(at_low) == 2,
+  upper_at_low[["24h"]][["toxval"]] > upper_at_low[["24h"]][["drc"]],
+  upper_at_low[["48h"]][["toxval"]] > upper_at_low[["48h"]][["drc"]]
+)
+```
+
+```{r}
+#| label: fig-bands-daphnids
+#| fig-cap: "Proportion of daphnids immobile against concentration at 24 h (left) and 48 h (right) (points), with the `LL.2()` fit (black line), the 95% confidence band from `predict()` in `drc` (grey) and the 95% band from the toxval realisations (dashed blue lines). The concentration axis is logarithmic."
+#| fig-height: 3.6
+ggplot(bands_daph, aes(dose)) +
+  geom_ribbon(aes(ymin = Lower, ymax = Upper, fill = "drc"), alpha = 0.3) +
+  geom_line(aes(y = toxval_lower, colour = "toxval"), linetype = 2) +
+  geom_line(aes(y = toxval_upper, colour = "toxval"), linetype = 2) +
+  geom_line(aes(y = Prediction)) +
+  geom_point(aes(y = no / total), data = daphnids) +
+  facet_wrap(~time) +
+  scale_x_log10(breaks = c(100, 300, 1000, 3000), labels = scales::label_comma()) +
+  scale_fill_manual(values = c(drc = "grey50")) +
+  scale_colour_manual(values = c(toxval = "#0072B2")) +
+  labs(x = "Concentration", y = "Proportion immobile", fill = "95% band", colour = NULL) +
+  theme_bw()
+```
+
+The `drc` and toxval bands are close in the steep part of each curve
+(@fig-bands-daphnids). However, at the lowest concentration the upper limit of
+the toxval band is higher, at `r fmt(upper_at_low[["24h"]][["toxval"]], 3)`
+compared with `r fmt(upper_at_low[["24h"]][["drc"]], 3)` at 24 h. This appears
+to be because the delta-method band is symmetric about the curve, whereas the
+realisations are bounded below by 0 and skewed upwards where the fitted
+proportion is near 0.
+
+```{r}
+#| label: fig-ec-daphnids
+#| fig-cap: "The EC10 and EC50 of the `LL.2()` fits to `daphnids` at 24 h (top) and 48 h (bottom), from `ED()` and from `ecx()` with the control at the lowest tested concentration and at 0. Points: the estimates. Lines: the 95% intervals, from the delta method for `ED()` and from the 2.5 and 97.5 percentiles of 1000 realisations for `ecx()`."
+#| fig-height: 4.2
+ggplot(ec_daph, aes(estimate, method)) +
+  geom_pointrange(aes(xmin = lower, xmax = upper)) +
+  facet_wrap(~ time + effect, scales = "free_x", ncol = 2, labeller = label_wrap_gen(multi_line = FALSE)) +
+  scale_y_discrete(limits = rev(unique(ec_daph$method))) +
+  labs(x = "Concentration", y = NULL) +
+  theme_bw()
+```
+
+With the control at 0, the `ecx()` EC50s are within
+`r pct(gap0[["EC50"]], 1)` of the `ED()` values and the EC10s within
+`r pct(gap0[["EC10"]], 1)` (@fig-ec-daphnids). The remaining difference is
+likely to come from the point estimate, which for `ecx()` is the median of the
+realisations. With the control at the lowest tested concentration, the EC10s
+differ from `ED()` by up to `r pct(gap_default[["EC10"]], 1)`, because the small
+proportion immobile at that concentration raises the response at which the EC10
+is read. The intervals differ in shape as for `ryegrass`. For example, the 24 h
+EC50 interval from `ecx()` with the control at 0 runs from
+`r fmt(tx50_24$lower, 0)` to `r fmt(tx50_24$upper, 0)`, and extends further
+above the estimate than below it, whereas the delta-method interval from `ED()`
+runs from `r fmt(ed50_24$lower, 0)` to `r fmt(ed50_24$upper, 0)` and is
+symmetric.
+
+## Provenance
+
+```{r}
+#| label: provenance
+#| comment: ""
+cat(sprintf("%-10s %s\n", "toxval", as.character(packageVersion("toxval"))))
+cat(sprintf("%-10s %s\n", "commit", toxval_commit))
+for (pkg in c("drc", "ggplot2")) {
+  cat(sprintf("%-10s %s\n", pkg, as.character(packageVersion(pkg))))
+}
+cat(sprintf("%-10s %s\n", "R", getRversion()))
+```
+
+- Data: `ryegrass` and `daphnids` from the `drc` package, used as shipped.
+- Fits: `drm()` with its default starting values.
+- Realisations: `n_boot = 1000` parametric bootstrap draws with `seed = 42`.
+- Grid: toxval's default of 500 evenly spaced concentrations from the control
+  concentration to the highest concentration in the data.
+- The commit line is the commit of the toxval checkout the article was
+  rendered from.

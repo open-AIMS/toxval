@@ -75,3 +75,5 @@ notes/implementation/04_alignment_audit.md
 /.quarto/
 vignettes/.quarto/
 vignettes/*_files/
+vignettes/articles/*.html
+vignettes/articles/*_files/

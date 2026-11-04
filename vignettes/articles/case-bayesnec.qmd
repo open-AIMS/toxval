@@ -1,0 +1,870 @@
+---
+title: "The bayesnec case study"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+---
+
+```{r}
+#| label: setup
+#| include: false
+has_bayesnec <- requireNamespace("bayesnec", quietly = TRUE)
+library(toxval)
+# The commit is that of the checkout the article is rendered from. The site
+# build installs toxval from the same checkout.
+toxval_commit <- tryCatch(
+  system2("git", c("rev-parse", "HEAD"), stdout = TRUE, stderr = FALSE),
+  error = function(e) "not recorded",
+  warning = function(w) "not recorded"
+)
+
+fmt <- function(x, digits = 3) formatC(x, digits = digits, format = "f")
+# returned as text, because knitr rewrites a small number printed inline as a
+# power of ten
+sci <- function(x, digits = 1) formatC(x, digits = digits, format = "e")
+# an estimate and its interval from one row of a toxval tibble
+est <- function(row, digits = 3) {
+  sprintf(
+    "%s [%s, %s]",
+    fmt(row$estimate, digits),
+    fmt(row$conf.low, digits),
+    fmt(row$conf.high, digits)
+  )
+}
+# the same from a bayesnec summary vector, ordered as Q50, Q2.5, Q97.5
+est_bn <- function(x, digits = 3) {
+  x <- as.numeric(x)
+  sprintf(
+    "%s [%s, %s]",
+    fmt(x[1], digits),
+    fmt(x[2], digits),
+    fmt(x[3], digits)
+  )
+}
+decreasing <- function(x, proportion = NULL) {
+  keep <- x$direction == "decreasing"
+  if (!is.null(proportion)) {
+    keep <- keep & x$proportion == proportion
+  }
+  x[keep, ]
+}
+```
+
+```{r}
+#| label: figure-helpers
+#| include: false
+# Okabe-Ito colours: one per estimate, and three more for a second, third and
+# fourth definition of an estimate where several are drawn together
+col_ec10 <- "#0072B2"
+col_ec50 <- "#56B4E9"
+col_nsec <- "#D55E00"
+col_def <- c("#009E73", "#CC79A7", "#E69F00")
+# the end points are set exactly, because exp(log(to)) can exceed `to` by a
+# rounding error, and approx() then returns NA there, which splits a polygon
+log_seq <- function(from, to, n = 600) {
+  x <- exp(seq(log(from), log(to), length.out = n))
+  x[c(1, n)] <- c(from, to)
+  x
+}
+# the median and 95 per cent band of realisations (rows) over a grid, read at x
+# by linear interpolation between grid points, which is how the estimates read
+# the curve; lines() on the grid itself would join the points straight on a log
+# axis
+curve_band <- function(x_vec, curves, x) {
+  q <- apply(curves, 2, stats::quantile, c(0.5, 0.025, 0.975))
+  apply(q, 1, function(b) stats::approx(x_vec, b, x)$y)
+}
+draw_axes <- function(xlim, ylim = c(0, 0.75),
+                      ylab = "Maximum effective quantum yield", ...) {
+  plot(
+    NULL,
+    xlim = xlim,
+    ylim = ylim,
+    log = "x",
+    xlab = "Concentration (µg/L)",
+    ylab = ylab,
+    ...
+  )
+}
+draw_data <- function(xlim) {
+  keep <- ametryn$concentration >= xlim[1] & ametryn$concentration <= xlim[2]
+  points(
+    ametryn$concentration[keep],
+    ametryn$fvfm[keep],
+    pch = 16,
+    col = grDevices::adjustcolor("black", 0.4)
+  )
+}
+draw_band <- function(x_vec, curves, xlim) {
+  x <- log_seq(max(xlim[1], min(x_vec)), min(xlim[2], max(x_vec)))
+  b <- curve_band(x_vec, curves, x)
+  polygon(
+    c(x, rev(x)),
+    c(b[, 2], rev(b[, 3])),
+    col = grDevices::adjustcolor("grey50", 0.3),
+    border = NA
+  )
+  lines(x, b[, 1], lwd = 2)
+}
+draw_median <- function(x_vec, curves, xlim, ...) {
+  x <- log_seq(max(xlim[1], min(x_vec)), min(xlim[2], max(x_vec)))
+  lines(x, stats::approx(x_vec, apply(curves, 2, stats::median), x)$y, ...)
+}
+# an interval as a shaded band, drawn before the curve so the curve stays on top
+mark_band <- function(low, high, col) {
+  usr <- par("usr")
+  rect(
+    low,
+    usr[3],
+    high,
+    usr[4],
+    col = grDevices::adjustcolor(col, 0.2),
+    border = NA
+  )
+}
+# an estimate as a solid line, with its interval as dashed lines where bands of
+# several definitions would overlap and hide each other
+mark_line <- function(estimate, col, low = NULL, high = NULL, lty = 1) {
+  if (!is.null(low)) {
+    abline(v = c(low, high), col = col, lty = 2, lwd = 1.5)
+  }
+  abline(v = estimate, col = col, lty = lty, lwd = 2)
+}
+```
+
+```{r}
+#| label: missing-packages
+#| echo: false
+#| results: asis
+#| eval: !expr "!has_bayesnec"
+cat("This article needs the bayesnec package, which is not installed.\n")
+knitr::knit_exit()
+```
+
+Here we apply toxval's `ecx()` and `nsec()` to the two kinds of object returned
+by `bnec()` in the `bayesnec` package: a fit of a single equation (class
+`bayesnecfit`), and a model set that weights several equations and averages
+them (class `bayesmanecfit`). The example is the ametryn series of
+`bayesnec::herbicide`, to which we fitted the `decline` set of `bayesnec`
+equations. The single fit is one equation taken from this set (`ecx4param`).
+Because `bayesnec` computes the ECx and the NSEC itself, we also compare the
+estimates with those returned by its own `ecx()`, `nsec()` and `nec()`, and
+identify the settings under which the two packages give the same values. The
+definitions of the ECx and the NSEC used by toxval are given in
+the vignettes on the [ECx](https://open-aims.github.io/toxval/articles/ecx-definition.html) and the
+[NSEC](https://open-aims.github.io/toxval/articles/nsec-definition.html).
+
+Because `bayesnec` also exports functions named `ecx()` and `nsec()`, whichever
+package is attached later masks the functions of the other when both are
+attached. We therefore do not attach `bayesnec`, and call its functions as
+`bayesnec::ecx()` and `bayesnec::nsec()`.
+
+## The data and the fitted models
+
+The response is the maximum effective quantum yield of the symbiotic
+dinoflagellates of the coral *Seriatopora hystrix*, measured after 10 hours'
+exposure to the herbicide ametryn in the experiment of Jones and Kerswell (2003),
+which Fisher et al. (2024) describe as it applies to these data. The columns are
+documented in `?bayesnec::herbicide`.
+
+```{r}
+#| label: data
+ametryn <- bayesnec::herbicide[bayesnec::herbicide$herbicide == "ametryn", ]
+concentrations <- sort(unique(ametryn$concentration))
+concentrations
+```
+
+The series contains `r nrow(ametryn)` observations at
+`r length(concentrations)` concentrations, from `r min(concentrations)` to
+`r max(concentrations)` µg/L, with each concentration about three times the one
+below it, and the model is fitted on `log(concentration)`. The control is
+recorded as 0 in the source data. However, the script that builds the dataset
+in the `bayesnec` source repository (`data-raw/herbicide_data.R`) sets it to
+`r min(concentrations)`, so the control is the lowest concentration in the
+series.
+
+We fitted the model set once (in the script `data-raw/vignette_fits_bayesnec.R`)
+with the call below:
+
+```{r}
+#| label: fit
+#| eval: false
+fit <- bayesnec::bnec(
+  fvfm ~ crf(log(concentration), model = "decline"),
+  data = ametryn,
+  family = brms::Beta(link = "identity"),
+  seed = 17,
+  thin = 4,
+  control = list(adapt_delta = 0.99, max_treedepth = 12)
+)
+```
+
+```{r}
+#| label: load
+stored <- readRDS(file.path("fits", "bayesnec_ametryn_decline.rds"))
+settings <- stored$provenance$settings
+ametryn_set <- stored$fit
+ametryn_single <- suppressMessages(
+  bayesnec::pull_out(ametryn_set, model = "ecx4param")
+)
+class(ametryn_set)
+class(ametryn_single)
+```
+
+Each equation was sampled with `r settings$chains` chains of
+`r formatC(settings$iter, format = "d")` iterations
+(`r formatC(settings$warmup, format = "d")` of them warmup) using `rstan`, the
+default backend of `brms`. With `thin = 4` only one in four post-warmup draws is
+kept, so the stored file contains a quarter of them.
+
+```{r}
+#| label: weights
+weights <- ametryn_set$mod_stats[, c("model", "wi")]
+weights <- weights[order(weights$wi, decreasing = TRUE), ]
+knitr::kable(
+  weights,
+  digits = 3,
+  row.names = FALSE,
+  col.names = c("equation", "weight")
+)
+```
+
+```{r}
+#| label: weights-values
+#| include: false
+draws_per_model <- unique(stored$provenance$draws_per_model)
+stopifnot(length(draws_per_model) == 1)
+code <- function(x) {
+  x <- paste0("`", x, "`")
+  if (length(x) < 2) {
+    return(x)
+  }
+  paste(paste(x[-length(x)], collapse = ", "), "and", x[length(x)])
+}
+top_two <- weights$model[1:2]
+weight_of <- function(m) weights$wi[match(m, weights$model)]
+nec_models <- grep("^nec", weights$model, value = TRUE)
+sampling <- bayesnec::check_sampling(ametryn_set)
+stopifnot(
+  !any(sampling$failed),
+  setequal(names(ametryn_set$mod_fits), stored$provenance$models_fitted)
+)
+```
+
+We fitted `r length(ametryn_set$mod_fits)` equations of the `decline` set, each
+with `r draws_per_model` retained draws, and all of them pass
+`bayesnec::check_sampling()` at its default thresholds. The largest weights are
+those of `r code(top_two[1])` (`r fmt(weight_of(top_two[1]))`) and
+`r code(top_two[2])` (`r fmt(weight_of(top_two[2]))`), whereas the equations
+that include a `nec` parameter (`r code(nec_models)`) have a combined weight of
+`r fmt(sum(weight_of(nec_models)))`.
+
+`toxval_predict()` evaluates each realisation of the model set over the range
+of concentrations in the data. For a `bayesmanecfit` the realisations are the
+draws that `bayesnec` keeps from each equation in proportion to its weight, and
+these are also the draws used by the estimates and plots of `bayesnec`. We make
+the prediction once and pass it to both `ecx()` and `nsec()`, so that the
+curves are not evaluated again for each call.
+
+```{r}
+#| label: predict-set
+pred_set <- toxval_predict(ametryn_set)
+table(pred_set$meta$draw_model)
+```
+
+```{r}
+#| label: predict-set-values
+#| include: false
+n_set <- pred_set$meta$n_realisation
+stopifnot(
+  n_set == sum(table(pred_set$meta$draw_model)),
+  isTRUE(all.equal(range(pred_set$x_vec), range(concentrations)))
+)
+```
+
+The averaged curve has `r n_set` realisations, each drawn from a single
+equation.
+
+```{r}
+#| label: fig-set
+#| echo: false
+#| fig-cap: "The ametryn series (grey points), with the posterior median of the model-averaged curve (black line) and its 95 per cent credible band (grey). Vertical lines mark the medians of the decreasing EC10 (dark blue), EC50 (light blue) and NSEC (vermillion) of the model set, and the shaded bands of the same colours their 95 per cent credible intervals. Concentration is on a log scale."
+#| fig-height: 4
+band <- apply(pred_set$curves[[1]], 2, quantile, c(0.5, 0.025, 0.975))
+# the same calls as under *A model set*; set-values checks that the two agree
+fig_set_ecx <- ecx(pred_set, proportion = c(0.1, 0.5))
+fig_set_nsec <- nsec(pred_set)
+fig_marks <- list(
+  list(row = decreasing(fig_set_ecx, 0.1), col = col_ec10),
+  list(row = decreasing(fig_set_ecx, 0.5), col = col_ec50),
+  list(row = decreasing(fig_set_nsec), col = col_nsec)
+)
+xlim <- range(pred_set$x_vec)
+draw_axes(xlim)
+for (m in fig_marks) mark_band(m$row$conf.low, m$row$conf.high, m$col)
+draw_band(pred_set$x_vec, pred_set$curves[[1]], xlim)
+draw_data(xlim)
+for (m in fig_marks) mark_line(m$row$estimate, m$col)
+legend(
+  "topright",
+  c("EC10", "EC50", "NSEC"),
+  col = c(col_ec10, col_ec50, col_nsec),
+  lwd = 2,
+  bty = "n"
+)
+```
+
+```{r}
+#| label: fig-set-values
+#| include: false
+control_mean <- mean(ametryn$fvfm[ametryn$concentration == min(concentrations)])
+top_mean <- mean(ametryn$fvfm[ametryn$concentration == max(concentrations)])
+obs_mean <- tapply(ametryn$fvfm, ametryn$concentration, mean)
+# the median curve as the estimates read it, by linear interpolation on the grid
+on_grid <- stats::approx(pred_set$x_vec, band[1, ], as.numeric(names(obs_mean)))$y
+departure <- abs(on_grid - obs_mean)
+worst <- names(obs_mean)[which.max(departure)]
+# the share of the fall in the observed mean that lies between 0.3 and 10
+decline_from <- concentrations[2]
+decline_to <- concentrations[5]
+decline_share <- (obs_mean[[as.character(decline_from)]] -
+  obs_mean[[as.character(decline_to)]]) / (obs_mean[[1]] - obs_mean[[length(obs_mean)]])
+fig_ec10 <- decreasing(fig_set_ecx, 0.1)
+fig_nsec <- decreasing(fig_set_nsec)
+fig_ec10_skew <- (fig_ec10$conf.high - fig_ec10$estimate) /
+  (fig_ec10$estimate - fig_ec10$conf.low)
+stopifnot(
+  control_mean > 0.6,
+  top_mean < 0.05,
+  decline_share > 0.5,
+  # the EC10 interval is longer above the median than below it, and overlaps
+  # the NSEC interval
+  fig_ec10_skew > 1,
+  fig_nsec$conf.high > fig_ec10$conf.low
+)
+```
+
+The mean response is close to `r fmt(control_mean, 2)` at the control and
+declines to `r fmt(top_mean, 3)` at `r max(concentrations)` µg/L, with
+`r fmt(100 * decline_share, 0)` per cent of this decline occurring between
+`r decline_from` and `r decline_to` µg/L (@fig-set). At each concentration the
+median curve is within `r fmt(max(departure))` of the observed mean, and the
+largest departure is at `r worst` µg/L.
+
+The estimates marked in @fig-set are the model-set estimates given under *A
+model set*. The EC10 interval is asymmetric, extending
+`r fmt(fig_ec10_skew, 0)` times as far above the median as below it (to
+`r fmt(fig_ec10$conf.high)` µg/L), and its lower part overlaps the NSEC
+interval, which ends at `r fmt(fig_nsec$conf.high)` µg/L.
+
+## A single-equation fit
+
+We took `ecx4param`, the equation with the highest weight in the set, from the
+model set as a single fit with `bayesnec::pull_out()`. We then requested the
+EC10 and EC50 from `ecx()` and the NSEC from `nsec()`, at their defaults
+(`type = "absolute"` and `sig_val = 0.01`).
+
+```{r}
+#| label: single
+single_ecx <- ecx(ametryn_single, proportion = c(0.1, 0.5))
+single_ecx
+single_nsec <- nsec(ametryn_single)
+single_nsec
+```
+
+```{r}
+#| label: single-values
+#| include: false
+s_ec10 <- decreasing(single_ecx, 0.1)
+s_ec50 <- decreasing(single_ecx, 0.5)
+s_nsec <- decreasing(single_nsec)
+s_inc <- single_ecx[single_ecx$direction == "increasing", ]
+s_nsec_inc <- single_nsec[single_nsec$direction == "increasing", ]
+stopifnot(
+  all(is.na(s_inc$estimate)),
+  is.na(s_nsec_inc$estimate),
+  s_nsec$estimate < s_ec10$estimate,
+  s_ec10$estimate < s_ec50$estimate,
+  pred_set$meta$x_control == min(concentrations)
+)
+```
+
+The decreasing EC10 is `r est(s_ec10)` µg/L and the decreasing EC50
+`r est(s_ec50)` µg/L (medians with 95 per cent credible intervals). Both are
+measured from a control of `r fmt(s_ec10$control)` (i.e. the median predicted
+response at the lowest concentration in the data, `r min(concentrations)`
+µg/L), which is the default of `x_control`. The decreasing NSEC, the
+concentration at which each realisation of the curve falls below the reference
+(`r fmt(s_nsec$reference)`, the 0.01 quantile of the control realisations), is
+`r est(s_nsec)` µg/L. The `ecnsec` column gives the effect at the NSEC as a
+proportion of the control (`r fmt(s_nsec$ecnsec)` at the median, i.e. a decline
+of `r fmt(100 * s_nsec$ecnsec, 1)` per cent). Each column of the result, and the
+default that sets it, is described in the
+[`brms` case study](https://open-aims.github.io/toxval/articles/case-brms.html#tbl-nsec-columns).
+
+```{r}
+#| label: fig-single
+#| echo: false
+#| fig-cap: "The ametryn series (grey points), with the posterior median of the `ecx4param` curve (black line) and its 95 per cent credible band (grey). Vertical lines mark the medians of the decreasing EC10 (dark blue), EC50 (light blue) and NSEC (vermillion) of `ecx4param`, and the shaded bands of the same colours their 95 per cent credible intervals. Concentration is on a log scale."
+#| fig-height: 4
+pred_single <- toxval_predict(ametryn_single)
+xlim <- range(pred_single$x_vec)
+draw_axes(xlim)
+mark_band(s_ec10$conf.low, s_ec10$conf.high, col_ec10)
+mark_band(s_ec50$conf.low, s_ec50$conf.high, col_ec50)
+mark_band(s_nsec$conf.low, s_nsec$conf.high, col_nsec)
+draw_band(pred_single$x_vec, pred_single$curves[[1]], xlim)
+draw_data(xlim)
+mark_line(s_ec10$estimate, col_ec10)
+mark_line(s_ec50$estimate, col_ec50)
+mark_line(s_nsec$estimate, col_nsec)
+legend(
+  "topright",
+  c("EC10", "EC50", "NSEC"),
+  col = c(col_ec10, col_ec50, col_nsec),
+  lwd = 2,
+  bty = "n"
+)
+```
+
+```{r}
+#| label: fig-single-values
+#| include: false
+stopifnot(
+  s_nsec$conf.high < s_ec10$conf.low,
+  s_ec10$conf.high - s_ec10$conf.low < fig_ec10$conf.high - fig_ec10$conf.low
+)
+```
+
+For `ecx4param` the NSEC interval ends at `r fmt(s_nsec$conf.high)` µg/L, below
+the lower limit of the EC10 interval (`r fmt(s_ec10$conf.low)` µg/L;
+@fig-single), whereas for the model set the NSEC and EC10 intervals overlap
+(@fig-set). The EC10 interval of `ecx4param` is also narrower, at
+`r fmt(s_ec10$conf.high - s_ec10$conf.low)` µg/L compared with
+`r fmt(fig_ec10$conf.high - fig_ec10$conf.low)` µg/L for the model set.
+
+The estimates for the increasing direction are `NA`, because no realisation of
+this declining curve rises to its increasing reference within the range of the
+data. toxval returns both directions for each curve.
+
+## A model set
+
+For the model set we pass the prediction made above (`pred_set`) to `ecx()` and
+`nsec()`.
+
+```{r}
+#| label: set
+set_ecx <- ecx(pred_set, proportion = c(0.1, 0.5))
+set_ecx
+set_nsec <- nsec(pred_set)
+set_nsec
+```
+
+```{r}
+#| label: set-values
+#| include: false
+m_ec10 <- decreasing(set_ecx, 0.1)
+m_ec50 <- decreasing(set_ecx, 0.5)
+m_nsec <- decreasing(set_nsec)
+stopifnot(
+  all(is.na(set_ecx$estimate[set_ecx$direction == "increasing"])),
+  is.na(set_nsec$estimate[set_nsec$direction == "increasing"]),
+  # the estimates drawn in the fig-set chunk are these
+  isTRUE(all.equal(fig_set_ecx, set_ecx)),
+  isTRUE(all.equal(fig_set_nsec, set_nsec))
+)
+```
+
+The model-averaged decreasing EC10 is `r est(m_ec10)` µg/L, the EC50
+`r est(m_ec50)` µg/L and the NSEC `r est(m_nsec)` µg/L. Because the ECx of each
+realisation is measured from its own control, the ECx of the model set is a
+weighted mixture of the ECx realisations of the individual equations. For the
+NSEC of a `bayesmanecfit`, `nsec()` by default (`anchor = "component"`) takes
+the reference of each equation from that equation's own control (i.e. the 0.01
+quantile of its control over all `r draws_per_model` draws of its fit). The
+`reference` column gives the median of these references across the `r n_set`
+realisations (`r fmt(m_nsec$reference)`), and the effect at the median NSEC is
+`r fmt(100 * m_nsec$ecnsec, 1)` per cent.
+
+## The NSEC reference under model averaging
+
+For a model-averaged fit, the source of the NSEC reference is set by the
+`anchor` argument of `nsec()`, described in the
+[NSEC vignette](https://open-aims.github.io/toxval/articles/nsec-definition.html#the-anchor-argument).
+The default for a `bayesmanecfit`, used above, is `anchor = "component"`, which
+takes the reference of each equation from that equation's own control over all
+draws of its fit, as `bayesnec::nsec()` does. In contrast, `anchor = "model"`
+takes a single reference for the whole set from the pooled control realisations
+of the averaged curve. The realisations of each equation are then compared with
+this reference, and the NSEC is summarised over all of them.
+
+```{r}
+#| label: anchor-model
+p_nsec <- decreasing(nsec(pred_set, anchor = "model"))
+p_nsec[, c("estimate", "conf.low", "conf.high", "reference", "anchor")]
+```
+
+We can read the reference of each equation in the set, and the pooled
+reference, from the prediction.
+
+```{r}
+#| label: anchor-references
+control <- pred_set$curves[[1]][, 1]
+model <- pred_set$meta$draw_model
+in_set <- unique(model)
+# each equation's reference: the 0.01 quantile of its control over every draw of
+# its fit
+own_ref <- vapply(
+  pred_set$meta$model_control[[1]],
+  function(x) unname(stats::quantile(x[is.finite(x)], 0.01)),
+  numeric(1)
+)
+references <- data.frame(
+  realisations = as.vector(table(model)[in_set]),
+  reference = own_ref[in_set],
+  row.names = in_set
+)
+references <- rbind(
+  references,
+  pooled = data.frame(realisations = length(control), reference = quantile(control, 0.01))
+)
+knitr::kable(references, digits = 3)
+```
+
+```{r}
+#| label: anchor-values
+#| include: false
+heavy <- weights$model[1:2]
+ref_heavy <- references[heavy, "reference"]
+ref_pooled <- references["pooled", "reference"]
+ref_nec <- references[intersect(nec_models, rownames(references)), "reference"]
+below_pooled <- model[control <= ref_pooled]
+share_nec_below <- mean(below_pooled %in% nec_models)
+share_nec <- mean(model %in% nec_models)
+stopifnot(
+  isTRUE(all.equal(ref_pooled, p_nsec$reference)),
+  all(ref_heavy > ref_pooled),
+  all(ref_nec < min(ref_heavy)),
+  share_nec_below > share_nec,
+  p_nsec$estimate > m_nsec$estimate
+)
+```
+
+The pooled reference (`r fmt(ref_pooled)`) is below the references of
+`r code(heavy[1])` (`r fmt(ref_heavy[1])`) and `r code(heavy[2])`
+(`r fmt(ref_heavy[2])`), the equations with most of the weight. The equations
+that include a `nec` parameter predict lower controls (references of
+`r paste(fmt(ref_nec), collapse = " and ")`), and although they supply only
+`r fmt(100 * share_nec, 1)` per cent of the realisations, they account for
+`r fmt(100 * share_nec_below, 0)` per cent of those at or below the pooled
+reference. This suggests that the pooled reference is set largely by their
+controls. Because a lower reference is crossed at a higher concentration,
+`anchor = "model"` gives the realisations of `r code(heavy[1])` and
+`r code(heavy[2])` a higher NSEC than their own references do. The model-set
+NSEC is `r est(p_nsec)` µg/L with `anchor = "model"`, compared with
+`r est(m_nsec)` µg/L under the default `anchor = "component"` (which agrees
+with `bayesnec::nsec()` realisation by realisation; see *Comparison with
+bayesnec*).
+
+## The asymptote type
+
+With `type = "relative"`, `ecx()` measures the decline from the control to the
+lower asymptote of the equation (for `ecx4param`, the `bot` parameter) rather
+than to zero. toxval takes the asymptote from the `bnec()` fit at each draw: for
+an equation with a `bot` parameter it is the `bot` draw, and for an equation
+whose curve declines to zero it is 0.
+However, where an equation is fitted on a link other than the identity, `bot` is
+on the link scale, and toxval refuses the type.
+
+```{r}
+#| label: relative
+#| warning: false
+rel_single <- decreasing(ecx(ametryn_single, type = "relative"))
+rel_single[, c("estimate", "conf.low", "conf.high", "type")]
+```
+
+```{r}
+#| label: relative-values
+#| include: false
+stopifnot(rel_single$estimate < s_ec10$estimate)
+```
+
+The relative EC10 of `ecx4param` is `r est(rel_single)` µg/L, below the
+absolute EC10 of `r est(s_ec10)` µg/L, because the 10 per cent decline is
+measured to the fitted lower asymptote rather than to zero.
+
+## Comparison with bayesnec
+
+Under `type = "absolute"`, toxval and `bayesnec` both take the control from the
+curve at the lowest concentration and interpolate linearly between the
+concentrations at which the curve is evaluated. At their defaults, the two
+packages also evaluate the curve at the same concentrations and return
+estimates on the scale of the variable named inside `crf()` (here
+`concentration`). `bayesnec` returns the decreasing direction only. The
+decreasing ECx and NSEC of each realisation should therefore agree between the
+packages, and we compared them realisation by realisation for the single fit
+and the model set.
+
+```{r}
+#| label: realisations
+draws_of <- function(x, proportion = NULL) {
+  decreasing(x, proportion)$draws[[1]]$value.draw
+}
+set_draws <- ecx(pred_set, proportion = c(0.1, 0.5), draws = TRUE)
+pairs <- list(
+  `EC10, ecx4param` = list(
+    tv = draws_of(ecx(ametryn_single, draws = TRUE)),
+    bn = bayesnec::ecx(ametryn_single, ecx_val = 10, posterior = TRUE)
+  ),
+  `NSEC, ecx4param` = list(
+    tv = draws_of(nsec(ametryn_single, draws = TRUE)),
+    bn = bayesnec::nsec(ametryn_single, posterior = TRUE)
+  ),
+  `EC10, model set` = list(
+    tv = draws_of(set_draws, 0.1),
+    bn = bayesnec::ecx(ametryn_set, ecx_val = 10, posterior = TRUE)
+  ),
+  `EC50, model set` = list(
+    tv = draws_of(set_draws, 0.5),
+    bn = bayesnec::ecx(ametryn_set, ecx_val = 50, posterior = TRUE)
+  ),
+  `NSEC, model set` = list(
+    tv = draws_of(nsec(pred_set, draws = TRUE)),
+    bn = bayesnec::nsec(ametryn_set, posterior = TRUE)
+  )
+)
+differences <- lapply(pairs, function(p) abs(p$tv - as.numeric(p$bn)))
+data.frame(
+  realisations = vapply(differences, length, 1),
+  `largest difference` = vapply(differences, function(d) sci(max(d)), ""),
+  identical = vapply(differences, function(d) sum(d == 0), 1),
+  check.names = FALSE
+)
+```
+
+```{r}
+#| label: realisations-values
+#| include: false
+# bayesnec finds a crossing with modelbased::zero_crossings(), which calls
+# stats::uniroot() on stats::approxfun() of the curve against the index of the
+# evaluation points, at uniroot()'s default tolerance; toxval solves the linear
+# interpolation exactly, so the two differ by at most the tolerance times the
+# spacing of the points
+uniroot_tol <- .Machine$double.eps^0.25
+point_step <- diff(pred_set$x_vec[1:2])
+largest <- max(vapply(differences, max, 1))
+stopifnot(
+  all(vapply(pairs, function(p) length(p$tv) == length(p$bn), TRUE)),
+  largest < uniroot_tol * point_step
+)
+```
+
+For every estimate and realisation, the two packages differ by at most
+`r sci(largest)` µg/L, and many realisations show no difference at all. Any
+difference arises because `bayesnec` locates each crossing numerically with
+`stats::uniroot()` (through `modelbased::zero_crossings()`), at its default
+tolerance, whereas toxval computes the crossing exactly. The agreement also
+shows that both packages use identical draws in identical order and, for the
+model set, take the NSEC reference of each equation from identical control
+draws.
+
+The table below gives the summaries a user of each package would see: the
+model-averaged EC10, EC50 and NSEC of the set, and the NSEC and relative EC10
+of `ecx4param`, from `bayesnec::ecx()` and `bayesnec::nsec()` and from toxval,
+each at its defaults. For the relative EC10, `bayesnec::ecx(type = "relative")`
+measures the decline to the same fitted asymptote as toxval.
+
+```{r}
+#| label: comparison
+bn <- function(f, ...) suppressMessages(as.numeric(f(...)))
+rows <- list(
+  `EC10, model set` = list(
+    bn = bn(bayesnec::ecx, ametryn_set, ecx_val = 10),
+    tv = m_ec10
+  ),
+  `EC50, model set` = list(
+    bn = bn(bayesnec::ecx, ametryn_set, ecx_val = 50),
+    tv = m_ec50
+  ),
+  `NSEC, model set` = list(
+    bn = bn(bayesnec::nsec, ametryn_set),
+    tv = m_nsec
+  ),
+  `NSEC, ecx4param` = list(
+    bn = bn(bayesnec::nsec, ametryn_single),
+    tv = s_nsec
+  ),
+  `Relative EC10, ecx4param` = list(
+    bn = bn(bayesnec::ecx, ametryn_single, ecx_val = 10, type = "relative"),
+    tv = rel_single
+  )
+)
+comparison <- data.frame(
+  bayesnec = vapply(rows, function(r) est_bn(r$bn), ""),
+  toxval = vapply(rows, function(r) est(r$tv), ""),
+  check.names = FALSE
+)
+knitr::kable(comparison)
+```
+
+```{r}
+#| label: comparison-values
+#| include: false
+# realisations whose control is at or below the NSEC reference, given the
+# lowest concentration by both packages
+tv_nsec <- pairs[["NSEC, ecx4param"]]$tv
+bn_nsec <- as.numeric(pairs[["NSEC, ecx4param"]]$bn)
+at_control <- which(tv_nsec == min(concentrations))
+stopifnot(
+  # toxval and bayesnec agree at their defaults
+  all(vapply(
+    rows,
+    function(r) {
+      tv <- c(r$tv$estimate, r$tv$conf.low, r$tv$conf.high)
+      all(abs(tv - r$bn) < 1e-3)
+    },
+    TRUE
+  )),
+  length(at_control) > 0,
+  all(abs(bn_nsec[at_control] - min(concentrations)) < 1e-9)
+)
+```
+
+The medians and intervals from `bayesnec` agree with those from toxval, as
+expected from the realisation-by-realisation comparison. Both packages also
+give a
+realisation whose control is already at or below the NSEC reference the lowest
+concentration (`r min(concentrations)` µg/L) as its NSEC. For example, toxval
+assigns this value to `r length(at_control)` realisations of `ecx4param`, and
+`bayesnec` gives each of them this value as well.
+
+```{r}
+#| label: nec-values
+#| include: false
+# the N(S)EC realisations nec() mixes, stacked in the order of names(mod_fits),
+# which is the order of `draw_model`
+nec_summary <- bn(bayesnec::nec, ametryn_set)
+nec_draws <- suppressMessages(as.numeric(
+  bayesnec::nec(ametryn_set, posterior = TRUE)
+))
+draw_model <- pred_set$meta$draw_model
+# the nec parameter of each equation that has one, as bayesnec::nec() returns it
+# for that equation pulled out of the set, ordered as Q50, Q2.5, Q97.5
+nec_param <- vapply(
+  nec_models,
+  function(m) {
+    one <- suppressMessages(bayesnec::pull_out(ametryn_set, model = m))
+    suppressMessages(as.numeric(bayesnec::nec(one)))
+  },
+  numeric(3)
+)
+stopifnot(
+  identical(ametryn_set$success_models, names(ametryn_set$mod_fits)),
+  length(nec_draws) == n_set
+)
+```
+
+`bayesnec` also exports `nec()`, which returns a different quantity, the
+N(S)EC. For the realisations of the equations that include a `nec` parameter
+(`r code(nec_models)`), it returns that parameter (medians of
+`r paste(fmt(nec_param[1, ]), collapse = " and ")` µg/L), and for the other
+equations it returns the NSEC computed by `bnec()` when the set was fitted.
+toxval does not return the `nec` parameter. Instead, it computes an NSEC from
+the curve for every realisation. The model-set N(S)EC from `bayesnec::nec()` is
+`r est_bn(nec_summary)` µg/L, compared with an NSEC of `r est(m_nsec)` µg/L from
+toxval (@fig-comparison).
+
+```{r}
+#| label: fig-comparison
+#| echo: false
+#| fig-cap: "The rows of the table, each on the curve it is computed from: the model-averaged curve for the first three panels and `ecx4param` for the last. Grey points: the ametryn series. Black line and grey band: the posterior median and 95 per cent credible band. Solid vertical lines mark each median and dashed lines of the same colour its 95 per cent credible interval: toxval in the colour of the estimate (dark blue EC10, light blue EC50, vermillion NSEC), which is also `bayesnec`; and, for the model-set NSEC, the N(S)EC from `bayesnec::nec()` (green). Concentration is on a log scale, over a range chosen for each panel."
+#| fig-height: 7.5
+layout(matrix(c(1, 2, 3, 4, 5, 5), 3, byrow = TRUE), heights = c(1, 1, 0.3))
+op <- par(mar = c(4, 4, 2, 0.5), cex = 0.8)
+panels <- list(
+  list(row = "EC10, model set", pred = pred_set, col = col_ec10, xlim = c(0.1, 1)),
+  list(row = "EC50, model set", pred = pred_set, col = col_ec50, xlim = c(0.5, 3)),
+  list(row = "NSEC, model set", pred = pred_set, col = col_nsec, xlim = c(0.1, 1)),
+  list(row = "NSEC, ecx4param", pred = pred_single, col = col_nsec, xlim = c(0.1, 1))
+)
+for (p in panels) {
+  r <- rows[[p$row]]
+  draw_axes(p$xlim, main = p$row)
+  draw_band(p$pred$x_vec, p$pred$curves[[1]], p$xlim)
+  draw_data(p$xlim)
+  marks <- list(
+    list(v = c(r$tv$estimate, r$tv$conf.low, r$tv$conf.high), col = p$col)
+  )
+  if (p$row == "NSEC, model set") {
+    marks <- c(marks, list(list(v = nec_summary, col = col_def[1])))
+  }
+  for (k in marks) mark_line(k$v[1], k$col, k$v[2], k$v[3])
+}
+par(mar = c(0, 0, 0, 0))
+plot.new()
+legend(
+  "center",
+  c(
+    "EC10, toxval",
+    "EC50, toxval",
+    "NSEC, toxval",
+    "N(S)EC, bayesnec::nec()",
+    "95 per cent interval"
+  ),
+  col = c(col_ec10, col_ec50, col_nsec, col_def[1], "black"),
+  lty = c(1, 1, 1, 1, 2),
+  lwd = 2,
+  ncol = 2,
+  bty = "n",
+  cex = 0.8
+)
+par(op)
+```
+
+## Provenance
+
+```{r}
+#| label: provenance
+#| echo: false
+#| comment: ""
+p <- stored$provenance
+stopifnot(
+  draws_per_model ==
+    p$settings$chains * (p$settings$iter - p$settings$warmup) / p$settings$thin
+)
+cat(
+  "toxval rendered:      ", toxval_commit, " (",
+  as.character(utils::packageVersion("toxval")), ")\n",
+  "toxval at fitting:    ", p$toxval_commit, "\n",
+  "fitted on:            ", format(p$fitted_on, "%Y-%m-%d %H:%M %Z"), "\n",
+  "fitting time:         ", fmt(p$fit_seconds / 60, 1), " min\n",
+  "stored fit:           fits/bayesnec_ametryn_decline.rds, ",
+  fmt(file.size(file.path("fits", "bayesnec_ametryn_decline.rds")) / 1024^2, 2),
+  " MB\n",
+  "seed:                 ", p$seed, "\n",
+  "backend:              ", p$backend, "\n",
+  "draws per equation:   ", draws_per_model,
+  " (", p$settings$chains, " chains, iter ", p$settings$iter, ", warmup ",
+  p$settings$warmup, ", thin ", p$settings$thin, ")\n",
+  "fitting R:            ", p$r_version, "\n",
+  "fitting packages:     ",
+  paste(names(p$packages), p$packages, collapse = ", "), "\n",
+  "rendering R:          ", R.version.string, "\n",
+  "rendering bayesnec:   ", as.character(utils::packageVersion("bayesnec")),
+  " (", utils::packageDescription("bayesnec")$RemoteSha, ")\n",
+  "rendering brms:       ", as.character(utils::packageVersion("brms")), "\n",
+  sep = ""
+)
+```
+
+The data are `bayesnec::herbicide`, from Jones, R. J. and Kerswell, A. P.
+(2003), Phytotoxicity of photosystem II (PSII) herbicides to coral, *Marine
+Ecology Progress Series* 261, 149--159, <https://doi.org/10.3354/meps261149>.
+The experiment, as it applies to these data, is described by Fisher, R.,
+Barneche, D. R., Ricardo, G. F. and Fox, D. R. (2024), bayesnec: an R package
+for concentration-response modeling and estimation of toxicity metrics,
+*Journal of Statistical Software* 110(5), 1--41,
+<https://doi.org/10.18637/jss.v110.i05>. The fit is made by
+`data-raw/vignette_fits_bayesnec.R`, which records the settings above with the
+stored object.
