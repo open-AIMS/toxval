@@ -249,16 +249,121 @@ test_that("type = direct and value passed to trigger NAN catch", {
   )
 })
 
-test_that("type errors when wrong value passed", {
+test_that("type errors for an unsupported value and accepts distinct values", {
   expect_error(
     ecx(brms_model_1, x_var = "x", type = "something"),
     regex = "`type` must match 'absolute', 'direct', 'range' or 'relative', not 'something'"
   )
 
-  expect_error(
-    ecx(brms_model_1, x_var = "x", type = c("direct", "absolute")),
-    "type` must be a string \\(non-missing character scalar\\)"
+  output <- suppressWarnings(
+    ecx(brms_model_1, x_var = "x", type = c("range", "absolute"))
   )
+  expect_identical(output$type, rep(c("range", "absolute"), each = 2))
+})
+
+test_that("several types give the same-seed single-type rows", {
+  skip_if_not_installed("drc")
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+  types <- c("range", "absolute")
+  proportions <- c(0.1, 0.5)
+  args <- list(
+    object = fit,
+    proportion = proportions,
+    seed = 42,
+    n_boot = 30,
+    resolution = 50,
+    draws = TRUE
+  )
+
+  combined <- suppressWarnings(do.call(ecx, c(args, list(type = types))))
+  separate <- dplyr::bind_rows(lapply(types, function(one_type) {
+    suppressWarnings(do.call(ecx, c(args, list(type = one_type))))
+  }))
+
+  expect_identical(combined, separate)
+})
+
+test_that("relative in a type vector matches the single-type rows", {
+  skip_if_not_installed("drc")
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+  types <- c("absolute", "relative")
+  args <- list(
+    object = fit,
+    proportion = c(0.1, 0.5),
+    seed = 42,
+    n_boot = 30,
+    resolution = 50,
+    draws = TRUE
+  )
+
+  combined <- suppressWarnings(do.call(ecx, c(args, list(type = types))))
+  separate <- dplyr::bind_rows(lapply(types, function(one_type) {
+    suppressWarnings(do.call(ecx, c(args, list(type = one_type))))
+  }))
+
+  expect_identical(combined, separate)
+  expect_identical(
+    combined[c("asymptote", "control", "reference")],
+    separate[c("asymptote", "control", "reference")]
+  )
+})
+
+test_that("several types call toxval_predict once", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
+  calls <- 0L
+  local_mocked_bindings(toxval_predict = function(...) {
+    calls <<- calls + 1L
+    pred
+  })
+
+  suppressWarnings(
+    ecx(structure(list(), class = "example_fit"), type = c("range", "absolute"))
+  )
+
+  expect_identical(calls, 1L)
+})
+
+test_that("type values must be distinct and direct must be supplied alone", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
+
+  expect_error(
+    ecx(pred, type = c("range", "range")),
+    "`type` must contain distinct values"
+  )
+  expect_error(
+    ecx(pred, type = c("absolute", "invalid", "other")),
+    "not 'invalid' or 'other'"
+  )
+  expect_error(
+    ecx(pred, type = c("direct", "absolute"), reference = 5),
+    "`type = 'direct'` must be supplied alone"
+  )
+  expect_error(
+    ecx(pred, type = c("absolute", "range"), proportion = 1.5),
+    "`proportion` must be less than or equal to 1 under `type = 'range'`"
+  )
+  direct <- ecx(pred, type = "direct", reference = 5)
+  expect_identical(direct$type, rep("direct", 2))
+  expect_true(all(is.na(direct$proportion)))
+  expect_equal(direct$reference, c(5, 5))
+})
+
+test_that("grouped ECx rows follow curve, type, proportion and direction", {
+  output <- suppressWarnings(ecx(
+    brms_model_2,
+    x_var = "x",
+    group_var = "z",
+    type = c("range", "absolute"),
+    proportion = c(0.1, 0.5),
+    resolution = 50
+  ))
+
+  expect_identical(as.character(output$group), rep(c("1", "2"), each = 8))
+  expect_identical(output$type, rep(rep(c("range", "absolute"), each = 4), 2))
+  expect_identical(output$proportion, rep(rep(c(0.1, 0.5), each = 2), 4))
+  expect_identical(output$direction, rep(c("decreasing", "increasing"), 8))
 })
 
 test_that("hormesis_def is deprecated and ignored", {
@@ -802,6 +907,32 @@ test_that("ecx and nsec share one relative warning per session", {
   warning_state$warned <- FALSE
   expect_warning(nsec(pred, type = "relative"), message, fixed = TRUE)
   expect_no_warning(ecx(pred, type = "relative"))
+})
+
+test_that("relative among several types warns once in a fresh session state", {
+  warning_state <- toxval:::.relative_warning_state
+  was_warned <- warning_state$warned
+  withr::defer(warning_state$warned <- was_warned)
+  warning_state$warned <- FALSE
+
+  x_vec <- 0:10
+  curve <- c(10, 9, 8, 7, 6, 7, 8, 9, 10, 11, 12)
+  pred <- compute_pred(
+    list(rbind(curve, curve)),
+    x_vec,
+    asymptote = list(list(
+      decreasing = c(0, 0),
+      increasing = c(20, 20)
+    ))
+  )
+
+  message <- '`type = "relative"` now measures from the control to the asymptote'
+  expect_warning(
+    ecx(pred, type = c("absolute", "relative")),
+    message,
+    fixed = TRUE
+  )
+  expect_no_warning(ecx(pred, type = c("absolute", "relative")))
 })
 
 test_that("ecx relative measures from the control to the asymptote", {

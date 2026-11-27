@@ -29,10 +29,13 @@ above, so the list begins at T3 and skips T5.
 
 ## T3 — Guards error, they do not coerce
 
-Where an argument combination is invalid — two `type` values (#7),
-`group_var == x_var` (#15) — **error naming the arguments**. Do not silently use
-the first value with a warning. A toxicity estimate produced from a silently
-altered request is the kind of number that ends up in a report.
+Where an argument combination is invalid — `proportion` supplied under
+`type = "direct"` (T32), or `group_var == x_var` (#15) — **error naming the
+arguments**. Do not silently alter a request with a warning. A toxicity
+estimate from an altered request may enter a report.
+
+Amended 2026-11-27 (#90): several distinct `type` values are now valid in
+`ecx()`, and the error for two values added under #7 is withdrawn.
 
 Distinguish this from **#6 and #24**, which are about a *valid* estimate landing
 at the edge of the tested range. Those **warn** and return the estimate.

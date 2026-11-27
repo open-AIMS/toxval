@@ -133,6 +133,7 @@ nsec <- function(
   by_group = lifecycle::deprecated(),
   curveid = lifecycle::deprecated()
 ) {
+  chk_type(type)
   # recorded before any argument is reassigned, which `missing()` would miss
   predict_args <- c(
     x_var = !missing(x_var),

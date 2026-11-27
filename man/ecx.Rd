@@ -36,8 +36,9 @@ object.}
 named by \code{type}; 0.1 is the EC10. Each value gives its own rows. Not
 supplied under \code{type = "direct"}.}
 
-\item{type}{One of \code{"absolute"}, \code{"relative"}, \code{"range"} or \code{"direct"}. See
-Details.}
+\item{type}{One or more distinct values from \code{"absolute"}, \code{"relative"},
+\code{"range"} and \code{"direct"}. Each value gives its own rows, in the order
+supplied. \code{"direct"} must be supplied alone. See Details.}
 
 \item{reference}{A number, the response value whose crossing is sought under
 \code{type = "direct"}. Supplied only under \code{"direct"}.}
@@ -84,8 +85,8 @@ directions are now always estimated, so these are ignored.}
 gives one estimate per level.}
 }
 \value{
-A \code{toxval} tibble with one row per curve, proportion and direction,
-and the columns:
+A \code{toxval} tibble with one row per curve, type, proportion and
+direction, and the columns:
 \itemize{
 \item \code{metric}: \code{"ecx"}.
 \item \code{direction}: \code{"decreasing"} or \code{"increasing"}.
@@ -176,6 +177,9 @@ ecx(fit, proportion = c(0.1, 0.5), seed = 42)
 
 # EC10 of the span from the control to the lower asymptote
 ecx(fit, type = "relative", seed = 42)
+
+# EC10 under two definitions from the same realisations
+ecx(fit, type = c("absolute", "relative"), seed = 42)
 
 # EC10 of the span from the control to the lowest predicted response
 ecx(fit, type = "range", seed = 42)

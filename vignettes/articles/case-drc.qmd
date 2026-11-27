@@ -166,9 +166,14 @@ ed <- drc::ED(fit, c(10, 50), interval = "delta")
 ```
 
 ```{r}
-#| label: ecx-relative
-ecx_rel <- ecx(fit, proportion = c(0.1, 0.5), type = "relative", seed = 42)
-ecx_rel
+#| label: ecx-ryegrass
+ecx_ryegrass <- ecx(
+  fit,
+  proportion = c(0.1, 0.5),
+  type = c("relative", "absolute"),
+  seed = 42
+)
+ecx_ryegrass
 ```
 
 The first call to `ecx()` or `nsec()` with `type = "relative"` in an R
@@ -177,22 +182,18 @@ for the increasing direction arises because this curve only declines, so its
 increasing span from the control to the asymptote is zero; a wider `x_range`
 would not change that.
 
-```{r}
-#| label: ecx-absolute
-ecx_abs <- ecx(fit, proportion = c(0.1, 0.5), seed = 42)
-ecx_abs
-```
-
-`ecx()` returns a row for each direction of change; the increasing rows here
-are `NA`. The `reference` column gives the response at which each ECx is read,
-and the `control` column the response it is measured from.
+For both definitions, the same realisations were evaluated in one `ecx()`
+call. The resulting rows are ordered as supplied: `relative`, then `absolute`.
+Each proportion has a row for each direction of change; the increasing estimates
+here are `NA`. The `reference` column gives the response at which each ECx is
+read, and the `control` column the response it is measured from.
 
 ```{r}
 #| label: ec-ryegrass
-from_ecx <- function(res, method) {
-  dec <- res[res$direction == "decreasing", ]
+from_ecx <- function(res, type) {
+  dec <- res[res$type == type & res$direction == "decreasing", ]
   data.frame(
-    method,
+    method = paste0("ecx(), ", type),
     effect = paste0("EC", 100 * dec$proportion),
     estimate = dec$estimate,
     lower = dec$conf.low,
@@ -208,8 +209,8 @@ ec_ryegrass <- rbind(
     upper = ed[, "Upper"],
     row.names = NULL
   ),
-  from_ecx(ecx_rel, "ecx(), relative"),
-  from_ecx(ecx_abs, "ecx(), absolute")
+  from_ecx(ecx_ryegrass, "relative"),
+  from_ecx(ecx_ryegrass, "absolute")
 )
 ec_ryegrass
 ```
@@ -224,6 +225,8 @@ rel10 <- ec(ec_ryegrass, "ecx(), relative", "EC10")
 rel50 <- ec(ec_ryegrass, "ecx(), relative", "EC50")
 abs10 <- ec(ec_ryegrass, "ecx(), absolute", "EC10")
 abs50 <- ec(ec_ryegrass, "ecx(), absolute", "EC50")
+ecx_rel <- ecx_ryegrass[ecx_ryegrass$type == "relative", ]
+ecx_abs <- ecx_ryegrass[ecx_ryegrass$type == "absolute", ]
 ref_rel <- ecx_rel$reference[ecx_rel$direction == "decreasing"][1]
 ref_abs <- ecx_abs$reference[ecx_abs$direction == "decreasing"][1]
 rel_gap <- max(abs(c(rel10$estimate / ed10$estimate, rel50$estimate / ed50$estimate) - 1))
