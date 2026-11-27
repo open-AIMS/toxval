@@ -62,10 +62,12 @@ test_that("toxval_predict errors for a class with no method", {
     toxval_predict(1:10),
     "`object` must be a fitted model with a `toxval_predict\\(\\)` method"
   )
+})
 
+test_that("toxval_predict refuses a plain list without drc fits", {
   expect_error(
     toxval_predict(list(x = 1:10), x_var = "x"),
-    "`object` must be a fitted model with a `toxval_predict\\(\\)` method"
+    "element 1 has class 'integer'"
   )
 })
 

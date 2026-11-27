@@ -44,10 +44,10 @@ sets the increasing one.}
 from: \code{"model"} uses the control of the averaged model, and \code{"component"}
 uses the control of each component model over every draw of its fit. The
 default is \code{"component"} for a \code{bayesmanecfit}, matching
-\code{bayesnec::nsec()}, and \code{"model"} otherwise. Both give the same result for
-a single model. Under \code{"component"} the \code{reference} column reports the
-\code{prob_vals[1]} quantile of the component references across realisations,
-as \code{control} does.}
+\code{bayesnec::nsec()}, and \code{"model"} otherwise, including a list of \code{drc}
+fits. Both give the same result for a single model. Under \code{"component"},
+the \code{reference} column reports the \code{prob_vals[1]} quantile of the
+component references across realisations, as \code{control} does.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -129,6 +129,8 @@ model.
 The model is evaluated over a grid of concentrations once per realisation,
 by \code{\link[=toxval_predict]{toxval_predict()}}: once per posterior draw for a Bayesian fit, and once
 per parametric bootstrap replicate for a frequentist one.
+A list of \code{drc} fits to the same data gives a model average whose
+bootstrap realisations are allocated by AIC weight; see \code{\link[=toxval_predict]{toxval_predict()}}.
 
 The reference for the decreasing direction is the \code{sig_val} quantile of the
 control realisations, the predicted response at the control concentration

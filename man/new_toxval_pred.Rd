@@ -92,7 +92,7 @@ permitted and ignored.
 
 \describe{
 \item{\code{source_class}}{String, the class of the fitted object the
-realisations came from.}
+realisations came from, or \code{"drc_set"} for a list of \code{drc} fits.}
 \item{\code{x_var}}{String, the name of the predictor variable.}
 \item{\code{group_var}}{String naming the grouping variable. Required when
 \code{keys} has a \code{group} column, and \code{NULL} otherwise.}

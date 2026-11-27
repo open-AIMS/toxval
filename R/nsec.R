@@ -9,6 +9,8 @@
 #' The model is evaluated over a grid of concentrations once per realisation,
 #' by [toxval_predict()]: once per posterior draw for a Bayesian fit, and once
 #' per parametric bootstrap replicate for a frequentist one.
+#' A list of `drc` fits to the same data gives a model average whose
+#' bootstrap realisations are allocated by AIC weight; see [toxval_predict()].
 #'
 #' The reference for the decreasing direction is the `sig_val` quantile of the
 #' control realisations, the predicted response at the control concentration
@@ -57,10 +59,10 @@
 #'   from: `"model"` uses the control of the averaged model, and `"component"`
 #'   uses the control of each component model over every draw of its fit. The
 #'   default is `"component"` for a `bayesmanecfit`, matching
-#'   `bayesnec::nsec()`, and `"model"` otherwise. Both give the same result for
-#'   a single model. Under `"component"` the `reference` column reports the
-#'   `prob_vals[1]` quantile of the component references across realisations,
-#'   as `control` does.
+#'   `bayesnec::nsec()`, and `"model"` otherwise, including a list of `drc`
+#'   fits. Both give the same result for a single model. Under `"component"`,
+#'   the `reference` column reports the `prob_vals[1]` quantile of the
+#'   component references across realisations, as `control` does.
 #' @param curveid `r lifecycle::badge("deprecated")` Use `group_var`.
 #'
 #' @return A `toxval` tibble with one row per curve and direction, and the

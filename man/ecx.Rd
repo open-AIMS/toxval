@@ -122,6 +122,8 @@ The model is evaluated over a grid of concentrations once per realisation,
 by \code{\link[=toxval_predict]{toxval_predict()}}: once per posterior draw for a Bayesian fit, and once
 per parametric bootstrap replicate for a frequentist one. The ECx is found
 for each realisation and the realisations are summarised by \code{prob_vals}.
+A list of \code{drc} fits to the same data gives a model average whose
+bootstrap realisations are allocated by AIC weight; see \code{\link[=toxval_predict]{toxval_predict()}}.
 
 Each realisation is searched for both a decreasing and an increasing
 crossing, and each direction is a row of the result. A direction in which no

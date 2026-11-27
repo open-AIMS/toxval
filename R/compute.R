@@ -266,6 +266,12 @@ chk_asymptote_supplied <- function(pred, type) {
   no_asymptote <- is.null(pred$asymptote) ||
     all(is.na(unlist(pred$asymptote)))
   if (type == "relative" && no_asymptote) {
+    if (identical(pred$meta$source_class, "drc_set")) {
+      chk::abort_chk(
+        "`type = 'relative'` needs an asymptote from every fit in a `drc` ",
+        "set; at least one fit lacks `fct$lowerAs()` or `fct$upperAs()`."
+      )
+    }
     chk::abort_chk(
       "`type` must not be 'relative' when `object` supplies no asymptote; ",
       "supply `asymptote` where the `toxval_predict()` method takes it, or ",
@@ -474,7 +480,7 @@ response_upper_bound <- function(meta, keys, i) {
   }
   # `drc` fits a binomial response on the proportion scale, and names it by
   # `type` rather than by a `brms` family
-  if (identical(meta$source_class, "drc")) {
+  if (isTRUE(meta$source_class %in% c("drc", "drc_set"))) {
     return(if (family == "binomial") 1 else Inf)
   }
   if (identical(meta$source_class, "glm")) {
