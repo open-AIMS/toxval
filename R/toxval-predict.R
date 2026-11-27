@@ -21,11 +21,13 @@
 #' warns. A grouped fit has one control concentration for every curve.
 #'
 #' @inheritParams toxval_params
-#' @param object A model fitted with brms, drc or bayesnec.
+#' @param object A model fitted with brms, drc or bayesnec, or a list of `drc`
+#'   fits of different equations to the same data.
 #' @param ... Additional arguments passed to methods, such as `n_boot` and
-#'   `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
+#'   `seed` for a `drc` fit or set of fits, or `asymptote` for a `brmsfit`.
 #'
 #' @return A [toxval_pred] object.
+#' @order 1
 #'
 #' @examplesIf requireNamespace("drc", quietly = TRUE)
 #' \donttest{
@@ -67,6 +69,7 @@ toxval_predict <- function(
 }
 
 #' @describeIn toxval_predict Method for any class without one, which errors.
+#' @order 2
 #'
 #' @export
 toxval_predict.default <- function(
@@ -101,6 +104,7 @@ toxval_predict.default <- function(
 #'
 #'   `type = "relative"` needs `asymptote`, and is not supported for a
 #'   multivariate fit.
+#' @order 3
 #'
 #' @param asymptote The lower and upper asymptotes of a `brmsfit`, for
 #'   `type = "relative"`, as a vector named `decreasing`, `increasing` or
@@ -170,6 +174,7 @@ toxval_predict.brmsfit <- function(
 #'   fit if not supplied. `group_var` must name the column passed
 #'   as `curveid`. The asymptotes used by `type = "relative"` are the lower and
 #'   upper limits of the fitted function.
+#' @order 4
 #'
 #' @param n_boot A whole number giving the number of parametric bootstrap
 #'   replicates to draw.
@@ -245,6 +250,7 @@ toxval_predict.drc <- function(
 #'   `type = "relative"` are the `bot` parameter, or 0 for an equation without
 #'   one, and 1 for a proportion. An asymptote is `NA` where the family has no
 #'   such bound or the link is not identity.
+#' @order 5
 #'
 #' @export
 toxval_predict.bayesnecfit <- function(
@@ -297,6 +303,7 @@ toxval_predict.bayesnecfit <- function(
 #'   weight, the same draws its own estimates use, and each takes its
 #'   asymptotes from its own model. The random number state of the session is
 #'   left unchanged.
+#' @order 6
 #'
 #' @export
 toxval_predict.bayesmanecfit <- function(
@@ -379,6 +386,7 @@ toxval_predict.bayesmanecfit <- function(
 #'   errors. Group fits, joint refits and hurdle pairs each hold more than one
 #'   curve, over concentrations that can differ between curves, which a
 #'   [toxval_pred] does not yet represent.
+#' @order 7
 #'
 #' @export
 toxval_predict.bnecfit <- function(
@@ -893,14 +901,24 @@ drc_eval_curve <- function(object, x_vec, parms) {
 #' @param group_var Name of the `curveid` column, or `NULL` for a single curve.
 #' @param n_boot Number of bootstrap replicates.
 #' @param seed Seed for the draw, or `NULL`.
+#' @param parms A parameter-draw matrix, or `NULL` to draw `n_boot` vectors.
 #'
 #' @return A list with `curves`, a list of matrices with one per curve,
 #'   `keys`, the [toxval_pred] table identifying them, and `asymptote`, the
 #'   output of `drc_asymptote()` for each curve.
 #'
 #' @noRd
-drc_curves <- function(object, x_vec, group_var, n_boot, seed = NULL) {
-  parms <- boot_parms(object, n_boot, seed, log_scale = drc_log_parms(object))
+drc_curves <- function(
+  object,
+  x_vec,
+  group_var,
+  n_boot,
+  seed = NULL,
+  parms = NULL
+) {
+  if (is.null(parms)) {
+    parms <- boot_parms(object, n_boot, seed, log_scale = drc_log_parms(object))
+  }
   split <- drc_split_parm_names(colnames(parms))
 
   # `drc` suffixes a parameter with `(Intercept)` when it is shared across every

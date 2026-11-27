@@ -40,7 +40,7 @@
 #'
 #' \describe{
 #'   \item{`source_class`}{String, the class of the fitted object the
-#'     realisations came from.}
+#'     realisations came from, or `"drc_set"` for a list of `drc` fits.}
 #'   \item{`x_var`}{String, the name of the predictor variable.}
 #'   \item{`group_var`}{String naming the grouping variable. Required when
 #'     `keys` has a `group` column, and `NULL` otherwise.}
