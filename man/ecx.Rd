@@ -26,11 +26,11 @@ ecx(
 )
 }
 \arguments{
-\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
-object.}
+\item{object}{A model fitted with brms, drc, glm or bayesnec, or a
+\link{toxval_pred} object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
+\code{n_boot} and \code{seed} for a \code{drc} or \code{glm} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{proportion}{A numeric vector of effects, as proportions of the span
 named by \code{type}; 0.1 is the EC10. Each value gives its own rows. Not

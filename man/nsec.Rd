@@ -26,11 +26,11 @@ nsec(
 )
 }
 \arguments{
-\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
-object.}
+\item{object}{A model fitted with brms, drc, glm or bayesnec, or a
+\link{toxval_pred} object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
+\code{n_boot} and \code{seed} for a \code{drc} or \code{glm} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{sig_val}{A number strictly between 0 and 0.5, the quantile of the
 control realisations that sets the decreasing reference; \code{1 - sig_val}

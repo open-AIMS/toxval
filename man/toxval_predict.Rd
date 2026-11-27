@@ -5,6 +5,7 @@
 \alias{toxval_predict.default}
 \alias{toxval_predict.brmsfit}
 \alias{toxval_predict.drc}
+\alias{toxval_predict.glm}
 \alias{toxval_predict.bayesnecfit}
 \alias{toxval_predict.bayesmanecfit}
 \alias{toxval_predict.bnecfit}
@@ -53,6 +54,18 @@ toxval_predict(
   seed = NULL
 )
 
+\method{toxval_predict}{glm}(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL,
+  n_boot = 1000,
+  seed = NULL
+)
+
 \method{toxval_predict}{bayesnecfit}(
   object,
   ...,
@@ -84,10 +97,10 @@ toxval_predict(
 )
 }
 \arguments{
-\item{object}{A model fitted with brms, drc or bayesnec.}
+\item{object}{A model fitted with brms, drc, glm or bayesnec.}
 
 \item{...}{Additional arguments passed to methods, such as \code{n_boot} and
-\code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
+\code{seed} for a \code{drc} or \code{glm} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -170,6 +183,18 @@ as \code{e} in \code{LL.4()}, is drawn on the log scale. \code{x_var} is read fr
 fit if not supplied. \code{group_var} must name the column passed
 as \code{curveid}. The asymptotes used by \code{type = "relative"} are the lower and
 upper limits of the fitted function.
+
+\item \code{toxval_predict(glm)}: Method for a \code{\link[stats:glm]{stats::glm()}} fit. \code{x_var} is
+required. \code{group_var} must name a fitted predictor; offsets and other
+covariates are not supported. \code{MASS::glm.nb()} fits are accepted with
+theta fixed at its fitted value. Other \code{glm} subclasses, including
+\code{mgcv::gam}, are not supported.
+
+Coefficients are drawn from a multivariate normal distribution using
+\code{coef()} and \code{vcov()}. For families with estimated dispersion this
+uses a normal approximation, even though \code{summary.glm()} uses a \emph{t}
+distribution. A transformed response stays on its fitted scale;
+\code{control}, \code{reference} and \code{ecnsec} use that scale.
 
 \item \code{toxval_predict(bayesnecfit)}: Method for a single fit from
 \code{bayesnec::bnec()}, of class \code{bayesnecfit}, which requires \code{bayesnec} to

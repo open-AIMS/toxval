@@ -444,6 +444,9 @@ response_upper_bound <- function(meta, keys, i) {
   if (identical(meta$source_class, "drc")) {
     return(if (family == "binomial") 1 else Inf)
   }
+  if (identical(meta$source_class, "glm")) {
+    return(if (family %in% c("binomial", "quasibinomial")) 1 else Inf)
+  }
   switch(
     family,
     bernoulli = ,
