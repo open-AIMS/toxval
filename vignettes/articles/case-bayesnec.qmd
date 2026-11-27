@@ -245,8 +245,13 @@ code <- function(x) {
 top_two <- weights$model[1:2]
 weight_of <- function(m) weights$wi[match(m, weights$model)]
 nec_models <- grep("^nec", weights$model, value = TRUE)
+single_rank <- match("ecx4param", weights$model)
+single_rank_text <- c("the largest", "the second largest", "the third largest")[
+  single_rank
+]
 sampling <- bayesnec::check_sampling(ametryn_set)
 stopifnot(
+  single_rank <= 3,
   !any(sampling$failed),
   setequal(names(ametryn_set$mod_fits), stored$provenance$models_fitted)
 )
@@ -360,8 +365,9 @@ interval, which ends at `r fmt(fig_nsec$conf.high)` µg/L.
 
 ## A single-equation fit
 
-We took `ecx4param`, the equation with the highest weight in the set, from the
-model set as a single fit with `bayesnec::pull_out()`. We then requested the
+We took `ecx4param`, whose weight of `r fmt(weight_of("ecx4param"))` is
+`r single_rank_text` in the set, from the model set as a single fit with
+`bayesnec::pull_out()`. We then requested the
 EC10 and EC50 from `ecx()` and the NSEC from `nsec()`, at their defaults
 (`type = "absolute"` and `sig_val = 0.01`).
 
@@ -505,8 +511,8 @@ p_nsec <- decreasing(nsec(pred_set, anchor = "model"))
 p_nsec[, c("estimate", "conf.low", "conf.high", "reference", "anchor")]
 ```
 
-We can read the reference of each equation in the set, and the pooled
-reference, from the prediction.
+We can read the reference of each equation that supplies realisations, and the
+pooled reference, from the prediction.
 
 ```{r}
 #| label: anchor-references
@@ -544,6 +550,7 @@ share_nec_below <- mean(below_pooled %in% nec_models)
 share_nec <- mean(model %in% nec_models)
 stopifnot(
   isTRUE(all.equal(ref_pooled, p_nsec$reference)),
+  sum(weight_of(heavy)) > 0.5,
   all(ref_heavy > ref_pooled),
   all(ref_nec < min(ref_heavy)),
   share_nec_below > share_nec,
@@ -780,7 +787,7 @@ toxval (@fig-comparison).
 ```{r}
 #| label: fig-comparison
 #| echo: false
-#| fig-cap: "The rows of the table, each on the curve it is computed from: the model-averaged curve for the first three panels and `ecx4param` for the last. Grey points: the ametryn series. Black line and grey band: the posterior median and 95 per cent credible band. Solid vertical lines mark each median and dashed lines of the same colour its 95 per cent credible interval: toxval in the colour of the estimate (dark blue EC10, light blue EC50, vermillion NSEC), which is also `bayesnec`; and, for the model-set NSEC, the N(S)EC from `bayesnec::nec()` (green). Concentration is on a log scale, over a range chosen for each panel."
+#| fig-cap: "Four of the five rows of the table, all but the relative EC10, each on the curve it is computed from: the model-averaged curve for the first three panels and `ecx4param` for the last. Grey points: the ametryn series. Black line and grey band: the posterior median and 95 per cent credible band. Solid vertical lines mark each median and dashed lines of the same colour its 95 per cent credible interval: toxval in the colour of the estimate (dark blue EC10, light blue EC50, vermillion NSEC), which is also `bayesnec`; and, for the model-set NSEC, the N(S)EC from `bayesnec::nec()` (green). Concentration is on a log scale, over a range chosen for each panel."
 #| fig-height: 7.5
 layout(matrix(c(1, 2, 3, 4, 5, 5), 3, byrow = TRUE), heights = c(1, 1, 0.3))
 op <- par(mar = c(4, 4, 2, 0.5), cex = 0.8)
