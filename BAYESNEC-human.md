@@ -60,13 +60,14 @@ curve is predicted on (section 3.1). A user with a `bnec()` fit will normally
 have it installed.
 
 The estimates are on the scale of the predictor named in `crf()`. For
-`crf(log(x), ...)` the result is in units of `x`. `bayesnec::ecx()` currently
-reports the same fit in units of `log(x)`, with a message. So `xform = exp` must
-not be supplied for a transformation written inside `crf()`. A predictor that
-was transformed into its own column before fitting is reported on that column's
-scale, as it is now. `bayesnec` decision D41 makes its own functions report on
-the recorded scale from version 3.0. `BAYESNEC-claude.md` §2.1 gives the
-mechanism.
+`crf(log(x), ...)`, both `toxval` and current bayesnec `predev` return `ecx()`
+and `nsec()` in units of the recorded `x` by default. An explicit
+`xform = identity` asks `bayesnec` for the fitted `log(x)` scale; in `toxval`,
+`xform` acts after the crossing has been found on the recorded grid. A user
+should therefore not supply `xform = exp` to `toxval` for an inline `log()`.
+`bayesnec::nec()` also defaults to the recorded scale, although `toxval` has no
+`nec()`. A predictor transformed into its own column before fitting is reported
+on that column's scale. `BAYESNEC-claude.md` §2.1 gives the mechanism.
 
 The aligned defaults use each equation's control for a model average (T12),
 the amended no-crossing rule (T21), and a 500-point grid (T31). `toxval` also
@@ -204,8 +205,8 @@ reference uses that bound (decision T18).
 
 Four behaviours of `bayesnec` are not reproduced (`BAYESNEC-claude.md` §3.5).
 
-- The back-transformation of a predictor transformed inside `crf()` (decision
-  T6, section 2).
+- Conversion to the fitted predictor scale before applying an explicit
+  `xform` (decision T6, section 2).
 - The refusal of an absolute ECx for a `gaussian` fit of an equation without
   `bot`. `bayesnec` has itself removed it, following OECD TG 201. The guard
   listed in `REFACTOR-claude.md` §3.7 is deleted.
@@ -296,5 +297,3 @@ named.
 - Using `bayesnec`'s own draw index for a model-averaged fit (section 3.2).
 - Limiting the first pull request to two classes (section 3.3).
 - Leaving `threshold` empty until #25 (section 3.4).
-- Reporting a predictor transformed inside `crf()` on its recorded scale
-  (section 2).
