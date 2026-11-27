@@ -38,6 +38,186 @@ test_that("toxval_predict on a bayesnecfit takes x_vec from bayesnec's grid", {
   expect_equal(range(pred$x_vec), range(bnec_model_1$fit$data$x))
 })
 
+test_that("a bayesnecfit uses its recorded control for the grid and endpoints", {
+  fit <- bayesnec_ecx4param
+  fit$x_control <- 0.001
+  fit$call_args$x_control <- 0.2
+
+  expect_warning(
+    pred <- toxval_predict(fit, resolution = 50),
+    "lies outside the range of the data"
+  )
+  expect_identical(pred$x_vec[1], 0.001)
+  expect_identical(pred$meta$x_control, 0.001)
+  expect_identical(
+    pred$x_vec,
+    bayesnec::bnec_newdata(fit, resolution = 50)$x
+  )
+  for (f in list(ecx, nsec)) {
+    inherited <- suppressWarnings(f(fit, resolution = 50, draws = TRUE))
+    explicit <- suppressWarnings(f(
+      fit,
+      resolution = 50,
+      draws = TRUE,
+      x_control = 0.001
+    ))
+    expect_identical(inherited, explicit)
+  }
+})
+
+test_that("an explicit control overrides a bayesnecfit record", {
+  fit <- bayesnec_ecx4param
+  fit$x_control <- 0.001
+  pred <- toxval_predict(fit, resolution = 50, x_control = 0.05)
+
+  expect_identical(pred$x_vec[1], 0.05)
+  expect_identical(pred$meta$x_control, 0.05)
+  for (f in list(ecx, nsec)) {
+    overridden <- suppressWarnings(f(fit, resolution = 50, x_control = 0.05))
+    unrecorded <- fit
+    unrecorded$x_control <- NULL
+    expected <- suppressWarnings(f(
+      unrecorded,
+      resolution = 50,
+      x_control = 0.05
+    ))
+    expect_identical(overridden, expected)
+  }
+})
+
+test_that("a bayesnecfit without a control record uses the observed minimum", {
+  fit <- bayesnec_ecx4param
+  fit$x_control <- NULL
+  fit$call_args$x_control <- NULL
+  pred <- toxval_predict(fit, resolution = 50)
+
+  expect_identical(pred$x_vec[1], min(fit$fit$data$x))
+  expect_identical(pred$meta$x_control, min(fit$fit$data$x))
+})
+
+test_that("a bayesnecfit reads a control from call_args when x_control is absent", {
+  fit <- bayesnec_ecx4param
+  fit$call_args$x_control <- 0.05
+
+  expect_identical(toxval_predict(fit, resolution = 50)$meta$x_control, 0.05)
+  expect_identical(bayesnec::bnec_newdata(fit, resolution = 50)$x[1], 0.05)
+})
+
+test_that("a bayesmanecfit reads the first equation's control", {
+  fit <- bayesnec_manec_example
+  fit$x_control <- 0.2
+  for (m in names(fit$mod_fits)) {
+    fit$mod_fits[[m]]$call_args$x_control <- 0.001
+  }
+
+  expect_warning(
+    pred <- toxval_predict(fit, resolution = 50),
+    "lies outside the range of the data"
+  )
+  expect_identical(pred$x_vec[1], 0.001)
+  expect_identical(pred$meta$x_control, 0.001)
+  expect_identical(bayesnec::bnec_newdata(fit, resolution = 50)$x[1], 0.001)
+  override <- toxval_predict(fit, resolution = 50, x_control = 0.05)
+  expect_identical(override$meta$x_control, 0.05)
+  for (f in list(ecx, nsec)) {
+    inherited <- suppressWarnings(f(fit, resolution = 50))
+    explicit <- suppressWarnings(f(fit, resolution = 50, x_control = 0.001))
+    expect_identical(inherited, explicit)
+  }
+})
+
+test_that("a bayesmanecfit refuses differing recorded controls", {
+  fit <- bayesnec_manec_example
+  fit$mod_fits[[1]]$call_args$x_control <- 0.001
+  fit$mod_fits[[2]]$call_args$x_control <- 0.02
+
+  expect_identical(toxval:::bnec_recorded_x_control(fit), 0.001)
+  expect_identical(bayesnec::bnec_newdata(fit, resolution = 50)$x[1], 0.001)
+  expect_error(
+    toxval_predict(fit, resolution = 50),
+    "nec4param = 0.001, ecx4param = 0.02; supply an explicit `x_control` to use one control for the set",
+    fixed = TRUE
+  )
+  expect_identical(
+    toxval_predict(fit, resolution = 50, x_control = 0.05)$meta$x_control,
+    0.05
+  )
+
+  fit$mod_fits[[2]]$call_args$x_control <- NULL
+  expect_error(
+    toxval_predict(fit, resolution = 50),
+    "nec4param = 0.001, ecx4param = none",
+    fixed = TRUE
+  )
+})
+
+test_that("a crf(log(x)) fit reads a record on the original predictor scale", {
+  fit <- bayesnec_logx
+  fit$call_args$x_control <- 0.01
+
+  expect_warning(
+    pred <- toxval_predict(fit, resolution = 50),
+    "lies outside the range of the data"
+  )
+  expect_identical(pred$x_vec[1], 0.01)
+  expect_identical(pred$meta$x_control, 0.01)
+  expect_identical(bayesnec::bnec_newdata(fit, resolution = 50)$x[1], 0.01)
+  expect_identical(
+    suppressWarnings(ecx(fit, resolution = 50)),
+    suppressWarnings(ecx(fit, resolution = 50, x_control = 0.01))
+  )
+  expect_identical(
+    suppressWarnings(nsec(fit, resolution = 50)),
+    suppressWarnings(nsec(fit, resolution = 50, x_control = 0.01))
+  )
+})
+
+test_that("a nonfinite control read from a fit record names the override", {
+  fit <- bayesnec_logx
+  fit$call_args$x_control <- -1
+
+  for (f in list(toxval_predict, ecx, nsec)) {
+    expect_error(
+      suppressWarnings(f(fit, resolution = 50)),
+      "control -1 read from the fit's record gives no finite prediction; supply an explicit `x_control` to override it",
+      fixed = TRUE
+    )
+  }
+})
+
+test_that("a malformed control record names the record", {
+  for (value in list(NA_real_, "bad")) {
+    fit <- bayesnec_ecx4param
+    fit$call_args$x_control <- value
+    expect_error(
+      toxval_predict(fit, resolution = 50),
+      "The `x_control` recorded in the fit must be one finite number; supply an explicit `x_control` to override it",
+      fixed = TRUE
+    )
+  }
+})
+
+test_that("an x_range mismatch identifies a recorded control", {
+  fit <- bayesnec_ecx4param
+  fit$call_args$x_control <- 0.001
+  low <- min(fit$fit$data$x)
+
+  expect_error(
+    toxval_predict(fit, resolution = 50, x_range = c(low, 2)),
+    "`x_range` must start at the control concentration, 0.001, read from the fit's record",
+    fixed = TRUE
+  )
+  expect_identical(
+    toxval_predict(
+      fit,
+      resolution = 50,
+      x_range = c(low, 2),
+      x_control = low
+    )$meta$x_control,
+    low
+  )
+})
+
 test_that("toxval_predict on a bayesnecfit ends the grid at a supplied x_range", {
   x_min <- min(bnec_model_1$fit$data$x)
   pred <- toxval_predict(bnec_model_1, resolution = 50, x_range = c(x_min, 1))

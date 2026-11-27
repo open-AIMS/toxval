@@ -19,8 +19,9 @@
 #'   values to evaluate over, or `NULL` to use the range in the model data. The
 #'   first value must equal the control concentration.
 #' @param x_control A number, the control concentration, at which the control
-#'   response is predicted and the grid starts, or `NULL` for the lowest
-#'   predictor value in the data. A value outside the range of the data warns.
+#'   response is predicted and the grid starts, or `NULL` for the control
+#'   recorded at fitting by a `bayesnec` fit, if present, and otherwise the
+#'   lowest predictor value in the data. A value outside the data range warns.
 #' @param draws A flag. If `TRUE`, a `draws` list column holds the
 #'   per-realisation values of each row.
 #' @param prob_vals A numeric vector of the central, lower and upper quantiles
