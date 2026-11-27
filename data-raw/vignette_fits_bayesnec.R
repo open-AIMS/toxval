@@ -18,9 +18,8 @@
 ## - the Stan backend is left at `brms`'s default, `rstan`, so that the script
 ##   needs no package outside toxval's Suggests.
 ##
-## The single-equation fit the article uses is `ecx4param`, the equation with
-## the highest weight, pulled out of this set with `bayesnec::pull_out()` at
-## render time. It is not stored separately.
+## The single-equation fit the article uses is `ecx4param`, pulled out of this
+## set with `bayesnec::pull_out()` at render time. It is not stored separately.
 ##
 ## The stored file is `list(fit, provenance)`, saved with `compress = "xz"`,
 ## following `bayesnec/vignettes/precompile.R` and `fit_store.R`.
