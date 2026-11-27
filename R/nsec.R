@@ -29,9 +29,6 @@
 #' `ecnsec` is the effect at the NSEC, as a proportion of the span named by
 #' `type`: the inverse of the [ecx()] reference under the same `type`.
 #'
-#' NSECs are not estimated for `drc` NEC models, whose threshold is a parameter
-#' of the model rather than a feature of a smooth curve.
-#'
 #' @section Fits from bayesnec:
 #' `nsec()` also accepts a `bayesnecfit` or `bayesmanecfit` from
 #' `bayesnec::bnec()` when `bayesnec` is installed. `bayesnec` has its own
@@ -213,12 +210,6 @@ nsec <- function(
     }
     pred <- object
   } else {
-    if (inherits(object, "drc") && inherits(object$fct, "NEC")) {
-      chk::abort_chk(
-        "`object` must not be a `drc` NEC model; NSECs are estimated for ",
-        "smooth curves only."
-      )
-    }
     pred <- toxval_predict(
       object,
       x_var = x_var,

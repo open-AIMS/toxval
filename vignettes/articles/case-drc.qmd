@@ -345,7 +345,12 @@ at the NSEC as a proportion of the control, here `r pct(ns_dec$ecnsec, 1)`.
 
 `drc` also provides equations with a threshold (e.g. `NEC.3()`), in which the
 response is constant up to a no-effect concentration (NEC) that is estimated as
-the parameter `e`. `nsec()` does not accept fits of these equations.
+the parameter `e`. `nsec()` accepts these fits and estimates the NSEC from the
+bootstrap realisations of the fitted curve. Each realisation is constant at its
+control up to its own `e`, so its crossing of the reference is at `e` or above
+it, within one grid step. About `sig_val` of the realisations have a control
+already below the reference; these are placed at the control concentration, as
+for other equations.
 
 ## A grouped fit
 
