@@ -579,7 +579,6 @@ on the link scale, and toxval refuses the type.
 
 ```{r}
 #| label: relative
-#| warning: false
 rel_single <- decreasing(ecx(ametryn_single, type = "relative"))
 rel_single[, c("estimate", "conf.low", "conf.high", "type")]
 ```
@@ -589,6 +588,9 @@ rel_single[, c("estimate", "conf.low", "conf.high", "type")]
 #| include: false
 stopifnot(rel_single$estimate < s_ec10$estimate)
 ```
+
+The first call to `ecx()` or `nsec()` with `type = "relative"` in an R session
+warns that its meaning changed in toxval 2.0.0.
 
 The relative EC10 of `ecx4param` is `r est(rel_single)` µg/L, below the
 absolute EC10 of `r est(s_ec10)` µg/L, because the 10 per cent decline is

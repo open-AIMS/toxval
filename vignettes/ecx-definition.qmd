@@ -329,9 +329,9 @@ in the table agrees with the exact crossing to within one grid step of
 The names `absolute` and `relative` follow Daniels et al. (2026), for whom an
 absolute ECx is a change relative to the control and a relative ECx is a
 change relative to the maximum achievable effect. Before toxval 2.0.0,
-`relative` measured to the extent of the curve, which is now `range`, so a call
-that supplies `type = "relative"` warns about its definition, whatever the
-data.
+`relative` measured to the extent of the curve, which is now `range`. The first
+call to `ecx()` or `nsec()` with `type = "relative"` in an R session warns about
+this change.
 
 ### The `proportion` and `reference` arguments
 

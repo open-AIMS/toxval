@@ -52,7 +52,8 @@
 #'   control realisations that sets the decreasing reference; `1 - sig_val`
 #'   sets the increasing one.
 #' @param type One of `"absolute"`, `"relative"` or `"range"`, naming the span
-#'   `ecnsec` is a proportion of. See [ecx()].
+#'   `ecnsec` is a proportion of. The first `ecx()` or `nsec()` call with
+#'   `"relative"` in an R session warns of its changed meaning. See [ecx()].
 #' @param anchor For a model-averaged fit, the control the reference is taken
 #'   from: `"model"` uses the control of the averaged model, and `"component"`
 #'   uses the control of each component model over every draw of its fit. The

@@ -37,7 +37,8 @@ control realisations that sets the decreasing reference; \code{1 - sig_val}
 sets the increasing one.}
 
 \item{type}{One of \code{"absolute"}, \code{"relative"} or \code{"range"}, naming the span
-\code{ecnsec} is a proportion of. See \code{\link[=ecx]{ecx()}}.}
+\code{ecnsec} is a proportion of. The first \code{ecx()} or \code{nsec()} call with
+\code{"relative"} in an R session warns of its changed meaning. See \code{\link[=ecx]{ecx()}}.}
 
 \item{anchor}{For a model-averaged fit, the control the reference is taken
 from: \code{"model"} uses the control of the averaged model, and \code{"component"}

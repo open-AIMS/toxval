@@ -27,7 +27,8 @@
 #'   fit, and for a `brmsfit` from the parameters named by `asymptote` (see
 #'   [toxval_predict()]). An asymptote outside the observed responses is an
 #'   extrapolation, and `relative` inherits its uncertainty. Before toxval
-#'   2.0.0 `"relative"` meant what is now `"range"`, so supplying it warns.
+#'   2.0.0 `"relative"` meant what is now `"range"`. The first call to
+#'   `ecx()` or `nsec()` with `"relative"` in an R session warns of this change.
 #' - `"range"`: the control to the lowest (decreasing) or highest (increasing)
 #'   response the curve predicts.
 #' - `"direct"`: no proportion; the ECx is where the curve crosses the response
@@ -266,14 +267,19 @@ is_missing_value <- function(x) {
   is.null(x) || (length(x) == 1 && is.atomic(x) && is.na(x))
 }
 
-#' Warn that `relative` has changed meaning
+.relative_warning_state <- new.env(parent = emptyenv())
+.relative_warning_state$warned <- FALSE
+
+#' Warn once per session that `relative` has changed meaning
 #'
-#' A plain warning on every call rather than a lifecycle deprecation, because
-#' `relative` is not deprecated.
+#' `ecx()` and `nsec()` share this flag. `warn_relative()` sets it before
+#' `warning()`, so a suppressed first warning still counts; tests that
+#' expect the warning reset the flag first.
 #'
 #' @noRd
 warn_relative <- function(type) {
-  if (identical(type, "relative")) {
+  if (identical(type, "relative") && !.relative_warning_state$warned) {
+    .relative_warning_state$warned <- TRUE
     warning(
       "`type = \"relative\"` now measures from the control to the asymptote ",
       "of the curve. Before toxval 2.0.0 it measured to the extent of the ",

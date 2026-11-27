@@ -138,7 +138,8 @@ available where the fit supplies the asymptote: from the limits of a \code{drc}
 fit, and for a \code{brmsfit} from the parameters named by \code{asymptote} (see
 \code{\link[=toxval_predict]{toxval_predict()}}). An asymptote outside the observed responses is an
 extrapolation, and \code{relative} inherits its uncertainty. Before toxval
-2.0.0 \code{"relative"} meant what is now \code{"range"}, so supplying it warns.
+2.0.0 \code{"relative"} meant what is now \code{"range"}. The first call to
+\code{ecx()} or \code{nsec()} with \code{"relative"} in an R session warns of this change.
 \item \code{"range"}: the control to the lowest (decreasing) or highest (increasing)
 response the curve predicts.
 \item \code{"direct"}: no proportion; the ECx is where the curve crosses the response
