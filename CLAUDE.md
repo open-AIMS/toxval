@@ -25,7 +25,13 @@ The toxval R package extracts toxicity threshold estimates — No-Significant-Ef
 
 It currently supports Bayesian models fitted with brms (`ecx()`, `nsec()`, and `nsec_multi()` for multivariate fits) and frequentist models fitted with drc (`nsec()` only). `toxval_predict()` returns the predictions of a brms or drc fit over a grid of x values; phase 4 of the refactor (`REFACTOR-human.md`) rebuilds the metrics on it. Models fitted with bayesnec are handled by `toxval_predict()` methods in toxval, with bayesnec in `Suggests` (T35).
 
-bayesnec keeps its own `ecx()`, `nsec()` and `ecnsec()`. RF develops both packages and keeps their results in agreement (T42). A change here that alters a value returned for a `bayesnecfit` or `bayesmanecfit`, or by `nsec()` for a `brmsfit` or `drc` fit, is compared with bayesnec under matching options before it merges. Record the result, and whether bayesnec is to follow, on a bayesnec issue. A change that leaves every returned value unchanged needs neither. Both packages export `ecx()` and `nsec()`, and the one attached last masks the other without a warning, so with both attached call each with its package prefix.
+bayesnec keeps its own `ecx()`, `nsec()` and `ecnsec()`. RF develops both packages and keeps their results in agreement (T42).
+
+The comparison with bayesnec applies only to a change that edits `ecx()` or `nsec()`, or a function they call such as `toxval_predict()`, and that changes a value they return for the same fitted object. Compare such a change with bayesnec under matching options before it merges. Record the result, and whether bayesnec is to follow, on a bayesnec issue.
+
+No other change needs the comparison, and a session that has not edited those functions does not consider it. A new message or refusal changes no returned value, so it needs no comparison either.
+
+Both packages export `ecx()` and `nsec()`, and the one attached last masks the other without a warning, so with both attached call each with its package prefix.
 
 Key inputs are fitted model objects, and the primary outputs are standardised toxicity metrics (e.g. NSEC, EC10, EC50) that can be used in environmental risk assessment or guideline derivation.
 
