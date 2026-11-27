@@ -28,10 +28,13 @@ addressed before the pull request opens. The pull request runs from
 it. It is merged once RF has approved it, unless RF waives that approval for the
 item, and the item is then done.
 
-An issue stays open until `predev` is merged into `main`, which follows a full
-review of `predev` by RF. A pull request into `predev` therefore does not close
-its issue, and a comment on the issue gives the link to the pull request
-instead.
+An issue is closed when the pull request that fixes it merges into `predev`,
+with a comment naming the pull request (RF, 2026-11-27). GitHub closes an issue
+automatically only on a merge into `main`, so this is done by hand. The issues
+of the run are in the milestone "Backlog run into predev". An open issue there
+is still to be done, and a closed one is fixed in `predev` and awaits RF's full
+review of `predev` before `predev` is merged into `main`. The pull request that
+merges `predev` into `main` lists them.
 
 An item is stopped, with the reason recorded on its issue or pull request, where
 the fix needs a ruling this file does not give, a dependency RF has not
