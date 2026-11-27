@@ -24,9 +24,9 @@
 #' concentration for every curve.
 #'
 #' @inheritParams toxval_params
-#' @param object A model fitted with brms, drc or bayesnec.
+#' @param object A model fitted with brms, drc, glm or bayesnec.
 #' @param ... Additional arguments passed to methods, such as `n_boot` and
-#'   `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
+#'   `seed` for a `drc` or `glm` fit, or `asymptote` for a `brmsfit`.
 #'
 #' @return A [toxval_pred] object.
 #'
@@ -82,9 +82,9 @@ toxval_predict.default <- function(
   x_control = NULL
 ) {
   chk::abort_chk(
-    "`object` must be a fitted model with a `toxval_predict()` method, ",
-    "not an object of class ",
-    chk::cc(class(object), conj = " or "),
+    "`object` must be a fitted model with a `toxval_predict()` method; ",
+    "its class is ",
+    chk::cc(class(object)[1]),
     "."
   )
 }
@@ -235,6 +235,268 @@ toxval_predict.drc <- function(
       seed = seed
     )
   )
+}
+
+#' @describeIn toxval_predict Method for a [stats::glm()] fit. `x_var` is
+#'   required. `group_var` must name a fitted predictor; offsets and other
+#'   covariates are not supported. `MASS::glm.nb()` fits are accepted with
+#'   theta fixed at its fitted value. Other `glm` subclasses, including
+#'   `mgcv::gam`, are not supported.
+#'
+#'   Coefficients are drawn from a multivariate normal distribution using
+#'   `coef()` and `vcov()`. For families with estimated dispersion this
+#'   uses a normal approximation, even though `summary.glm()` uses a *t*
+#'   distribution. A transformed response stays on its fitted scale;
+#'   `control`, `reference` and `ecnsec` use that scale.
+#'
+#' @export
+toxval_predict.glm <- function(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL,
+  n_boot = 1000,
+  seed = NULL
+) {
+  chk_dots_unused(..., source = "`glm` fit")
+  chk::chk_whole_number(n_boot)
+  chk::chk_gt(n_boot, 0)
+  chk::chk_null_or(seed, vld = chk::vld_whole_number)
+  chk_glm_supported(object)
+  chk_x_var_supplied(x_var, "`glm` fit")
+
+  recovered <- glm_recover_data(object, x_var, group_var)
+  data <- recovered$data
+  chk_glm_var_in_source(x_var, recovered$columns, "x_var")
+  if (!is.null(group_var)) {
+    chk_glm_var_in_source(group_var, recovered$columns, "group_var")
+  }
+  chk_glm_terms(object, x_var, group_var, recovered$constants)
+  chk_glm_data_match(object, data)
+
+  x_vec <- predict_grid(x_range, data[[x_var]], resolution, x_control)
+  curve_set <- glm_curves(object, data, x_vec, x_var, group_var, n_boot, seed)
+  chk_defined_grid(curve_set$curves, x_vec)
+
+  new_toxval_pred(
+    curves = curve_set$curves,
+    keys = curve_set$keys,
+    x_vec = x_vec,
+    meta = build_meta(
+      object = object,
+      x_vec = x_vec,
+      x_var = x_var,
+      curves = curve_set$curves,
+      group_var = group_var,
+      realisation = "bootstrap",
+      family = object$family$family,
+      seed = seed
+    )
+  )
+}
+
+#' Check that a glm subclass has an implemented mean prediction
+#' @param object A fitted glm or subclass.
+#' @return `object`, invisibly, or an error for an unsupported subclass.
+#' @noRd
+chk_glm_supported <- function(object) {
+  if (
+    !identical(class(object), c("glm", "lm")) &&
+      !identical(class(object), c("negbin", "glm", "lm"))
+  ) {
+    chk::abort_chk(
+      "The `glm` subclass ",
+      chk::cc(class(object)[1]),
+      " is not supported; use a plain `glm` or `MASS::glm.nb` fit."
+    )
+  }
+  invisible(object)
+}
+
+#' Recover only the observations used by a fitted glm
+#' @param object A fitted glm.
+#' @param x_var,group_var The predictor and optional group names.
+#' @return A list of fitted data, source columns and scalar formula constants.
+#' @noRd
+glm_recover_data <- function(object, x_var, group_var) {
+  fitted <- stats::model.frame(object)
+  source <- object$data
+  if (is.null(source) && !is.null(object$call$data)) {
+    source <- tryCatch(
+      eval(object$call$data, envir = environment(stats::formula(object))),
+      error = function(e) NULL
+    )
+  }
+  # A glm.nb fit may omit object$data; its stored model frame is the fallback
+  # when the data argument can no longer be evaluated.
+  data <- tryCatch(
+    stats::get_all_vars(stats::formula(object), data = source),
+    error = function(e) {
+      if (is.null(object$data)) {
+        return(fitted)
+      }
+      chk::abort_chk(
+        "The data no longer match the fit; refit the glm with `data =`."
+      )
+    }
+  )
+  if (!all(rownames(fitted) %in% rownames(data))) {
+    chk::abort_chk(
+      "The data no longer match the fit; refit the glm with `data =`."
+    )
+  }
+  columns <- if (is.data.frame(source)) names(source) else names(data)
+  # get_all_vars() includes rows omitted by subset or NA handling; the stored
+  # model frame identifies the observations that were fitted.
+  data <- data[rownames(fitted), , drop = FALSE]
+  source_names <- if (is.data.frame(source)) names(source) else character()
+  candidates <- setdiff(
+    all.vars(stats::delete.response(stats::terms(object))),
+    c(x_var, group_var)
+  )
+  constants <- candidates[vapply(
+    candidates,
+    function(var) {
+      if (var %in% source_names) {
+        return(FALSE)
+      }
+      value <- tryCatch(
+        get(var, envir = environment(stats::formula(object)), inherits = TRUE),
+        error = function(e) NULL
+      )
+      length(value) == 1L && is.atomic(value) && !is.na(value)
+    },
+    logical(1)
+  )]
+  # Formula constants must be read from the fitting environment during grid
+  # prediction, not from their recycled columns in get_all_vars().
+  data[intersect(constants, names(data))] <- NULL
+  if (!is.data.frame(source)) {
+    columns <- setdiff(columns, constants)
+  }
+  list(data = data, columns = columns, constants = constants)
+}
+
+#' Check that a supplied variable names a source data column
+#' @param var,columns The supplied name and source column names.
+#' @param arg The argument name for the error message.
+#' @return `var`, invisibly, or an error if absent.
+#' @noRd
+chk_glm_var_in_source <- function(var, columns, arg) {
+  if (!var %in% columns) {
+    chk::abort_chk(
+      "`",
+      arg,
+      "` must name a column of the data in `object`, not ",
+      chk::cc(var),
+      "."
+    )
+  }
+  invisible(var)
+}
+
+#' Check that the fitted glm has exactly the predictors supplied to the grid
+#' @param object A fitted glm.
+#' @param x_var,group_var The predictor and optional group names.
+#' @param constants Scalar formula variables from the fitting environment.
+#' @return `object`, invisibly, or an error for unsupported terms.
+#' @noRd
+chk_glm_terms <- function(object, x_var, group_var, constants) {
+  if (!is.null(stats::model.offset(stats::model.frame(object)))) {
+    chk::abort_chk(
+      "`object` must not include an offset; the grid cannot supply it."
+    )
+  }
+  predictors <- setdiff(
+    all.vars(stats::delete.response(stats::terms(object))),
+    constants
+  )
+  if (!x_var %in% predictors) {
+    chk::abort_chk("`x_var` names a data column that does not enter the model.")
+  }
+  if (!is.null(group_var) && !group_var %in% predictors) {
+    chk::abort_chk(
+      "`group_var` names a data column that does not enter the model."
+    )
+  }
+  extra <- setdiff(predictors, c(x_var, group_var))
+  if (length(extra)) {
+    chk::abort_chk(
+      "`object` must not include predictors other than `x_var` and `group_var`: ",
+      chk::cc(extra, conj = " or "),
+      "."
+    )
+  }
+  invisible(object)
+}
+
+#' Check that recovered glm predictors reproduce the fitted design matrix
+#' @param object A fitted glm.
+#' @param data The recovered data restricted to fitted rows.
+#' @return `data`, invisibly, or an error if it no longer matches the fit.
+#' @noRd
+chk_glm_data_match <- function(object, data) {
+  tt <- stats::delete.response(stats::terms(object))
+  design <- tryCatch(
+    {
+      mf <- stats::model.frame(
+        tt,
+        data,
+        xlev = object$xlevels,
+        na.action = stats::na.pass
+      )
+      stats::model.matrix(tt, mf, contrasts.arg = object$contrasts)
+    },
+    error = function(e) NULL
+  )
+  fitted_design <- stats::model.matrix(object)
+  if (
+    is.null(design) ||
+      !identical(colnames(design), colnames(fitted_design)) ||
+      !isTRUE(all.equal(
+        unname(design),
+        unname(fitted_design),
+        check.attributes = FALSE
+      ))
+  ) {
+    chk::abort_chk(
+      "The data no longer match the fit; refit the glm with `data =`."
+    )
+  }
+  invisible(data)
+}
+
+#' Draw glm response curves with one joint coefficient draw per replicate
+#' @param object A fitted glm.
+#' @param data The recovered data restricted to fitted rows.
+#' @param x_vec The predictor grid.
+#' @param x_var,group_var The predictor and optional group names.
+#' @param n_boot,seed The number and optional seed of bootstrap draws.
+#' @return A list of curve matrices and their group keys.
+#' @noRd
+glm_curves <- function(object, data, x_vec, x_var, group_var, n_boot, seed) {
+  parms <- boot_parms(object, n_boot, seed)
+  groups <- if (is.null(group_var)) NULL else group_levels(data[[group_var]])
+  tt <- stats::delete.response(stats::terms(object))
+  curves <- lapply(seq_len(max(1L, length(groups))), function(i) {
+    newdata <- stats::setNames(data.frame(x_vec), x_var)
+    if (!is.null(group_var)) {
+      newdata[[group_var]] <- groups[i]
+    }
+    mf <- stats::model.frame(tt, newdata, xlev = object$xlevels)
+    design <- stats::model.matrix(tt, mf, contrasts.arg = object$contrasts)
+    object$family$linkinv(parms %*% t(design))
+  })
+  if (
+    length(curves) > 1L &&
+      all(vapply(curves[-1], identical, logical(1), curves[[1]]))
+  ) {
+    chk::abort_chk("`group_var` must change the fitted glm curve.")
+  }
+  list(curves = curves, keys = group_keys(groups))
 }
 
 #' @describeIn toxval_predict Method for a single fit from

@@ -4,10 +4,10 @@
 #' across the package via `@inheritParams toxval_params`. It is not
 #' intended to be called directly.
 #'
-#' @param object A model fitted with brms, drc or bayesnec, or a [toxval_pred]
-#'   object.
+#' @param object A model fitted with brms, drc, glm or bayesnec, or a
+#'   [toxval_pred] object.
 #' @param ... Additional arguments passed to [toxval_predict()], such as
-#'   `n_boot` and `seed` for a `drc` fit, or `asymptote` for a `brmsfit`.
+#'   `n_boot` and `seed` for a `drc` or `glm` fit, or `asymptote` for a `brmsfit`.
 #' @param x_var A string naming the predictor variable in `object`, or `NULL`
 #'   where the class of `object` records which of its variables is the
 #'   predictor. Each method states whether it accepts `NULL`.

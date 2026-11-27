@@ -105,9 +105,10 @@ when \code{keys} has a \code{response} column, and \code{NULL} otherwise.}
 control response is predicted: the lowest predictor value in the data,
 unless the caller names another. It must be the first value of \code{x_vec}.}
 \item{\code{family}}{String naming the response distribution, such as the
-\code{brms} family or the \code{type} of a \code{drc} fit, or \code{NULL}. A multivariate
-fit whose responses differ in family gives a character vector named by
-response. A binomial family is taken to be on the proportion scale.}
+\code{brms} or \code{glm} family or the \code{type} of a \code{drc} fit, or \code{NULL}. A
+multivariate fit whose responses differ in family gives a character
+vector named by response. Binomial and quasibinomial families are on
+the proportion scale.}
 \item{\code{realisation}}{Either \code{"draws"} or \code{"bootstrap"}.}
 \item{\code{n_realisation}}{Whole number, the number of realisations.}
 \item{\code{seed}}{Whole number, the seed used to generate bootstrap
