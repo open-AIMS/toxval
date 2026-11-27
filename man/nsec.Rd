@@ -147,9 +147,6 @@ is censored, the reported quantiles are observed order statistics.
 
 \code{ecnsec} is the effect at the NSEC, as a proportion of the span named by
 \code{type}: the inverse of the \code{\link[=ecx]{ecx()}} reference under the same \code{type}.
-
-NSECs are not estimated for \code{drc} NEC models, whose threshold is a parameter
-of the model rather than a feature of a smooth curve.
 }
 \section{Fits from bayesnec}{
 

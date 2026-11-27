@@ -154,17 +154,54 @@ test_that("nsec for drc works for curveid and binomial data", {
   })
 })
 
-test_that("nsec for drc returns an error for an nec model", {
+test_that("nsec for drc NEC.3 has a median at or above fitted e within one grid step of 1.531", {
   skip_if_not_installed("drc")
-  rye_NEC4 <- drc::drm(
-    rootl ~ conc,
-    data = drc::ryegrass,
-    fct = drc::NEC.4(names = c("Slope", "Lower Limit", "Upper Limit", "ED50"))
+  fit <- drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::NEC.3())
+  result <- nsec(fit, resolution = 500, n_boot = 1000, seed = 42)
+  decreasing <- result[result$direction == "decreasing", ]
+  grid_step <- diff(range(bayesnec_nec_data$x)) / (500 - 1)
+
+  expect_true(is.finite(decreasing$estimate))
+  expect_gte(decreasing$estimate, stats::coef(fit)[["e:(Intercept)"]])
+  expect_lte(abs(decreasing$estimate - 1.531), grid_step)
+})
+
+test_that("nsec for drc NEC.2 with tied controls is near fitted e", {
+  skip_if_not_installed("drc")
+  fit <- drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::NEC.2())
+  result <- nsec(fit, resolution = 500, n_boot = 1000, seed = 42)
+  decreasing <- result[result$direction == "decreasing", ]
+  grid_step <- diff(range(bayesnec_nec_data$x)) / (500 - 1)
+
+  expect_equal(decreasing$reference, decreasing$control)
+  expect_true(is.finite(decreasing$estimate))
+  expect_lte(
+    abs(decreasing$estimate - stats::coef(fit)[["e:(Intercept)"]]),
+    grid_step
   )
-  expect_error(
-    nsec(rye_NEC4, x_var = "conc"),
-    "`object` must not be a `drc` NEC model; NSECs are estimated for smooth curves only"
+})
+
+test_that("nsec for drc NEC.3 agrees through the toxval_pred route", {
+  skip_if_not_installed("drc")
+  fit <- drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::NEC.3())
+  direct <- nsec(fit, resolution = 500, n_boot = 1000, seed = 42)
+  pred <- toxval_predict(fit, resolution = 500, n_boot = 1000, seed = 42)
+  from_pred <- nsec(pred)
+
+  expect_equal(
+    direct$estimate[direct$direction == "decreasing"],
+    from_pred$estimate[from_pred$direction == "decreasing"]
   )
+})
+
+test_that("nsec for drc accepts an NEC.4 model", {
+  skip_if_not_installed("drc")
+  fit <- drc::drm(y ~ x, data = bayesnec_nec_data, fct = drc::NEC.4())
+
+  expect_no_error(
+    result <- nsec(fit, resolution = 500, n_boot = 1000, seed = 42)
+  )
+  expect_true(is.finite(result$estimate[result$direction == "decreasing"]))
 })
 
 test_that("nsec for drc throws an error for an increasing function", {
