@@ -1,0 +1,474 @@
+---
+title: "An NSEC from a quasibinomial glm"
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+---
+
+```{r}
+#| label: setup
+#| include: false
+library(toxval)
+ambient_omega <- 3.5
+published_omega <- 2.81
+paper_year <- 2025L
+paper_table <- 1L
+paper_volume <- 8L
+paper_article <- 1518L
+licence_version <- "3.0"
+download_date <- as.Date("2026-10-23")
+adjacent_ambient_stations <- 9L
+bootstrap_n <- 4000L
+sig_level <- 0.005
+omega_levels <- c(3.5, 3.0, 2.5)
+paper_cover <- c(5.24, 3.66, 2.54)
+paper_se <- c(1.00, 0.66, 0.70)
+fmt <- function(x, digits = 2) formatC(x, digits = digits, format = "f")
+pct <- function(x, digits = 1) paste0(fmt(100 * x, digits), "%")
+toxval_source <- Sys.getenv("TOXVAL_SOURCE", unset = getwd())
+toxval_commit <- tryCatch(
+  system2("git", c("-C", shQuote(toxval_source), "rev-parse", "HEAD"),
+    stdout = TRUE, stderr = FALSE
+  ),
+  error = function(e) "not recorded",
+  warning = function(w) "not recorded"
+)
+```
+
+## Study and data
+
+Noonan, Birrell, Fisher and Fabricius (`r paper_year`) studied reef communities
+along a natural carbon dioxide gradient at the Upa-Upasina seeps. For each
+station, quadrat photographs provided benthic percent cover (e.g. of
+*Acropora*). Seawater measurements were used to calculate station mean
+aragonite saturation state (ΩAr); for `r adjacent_ambient_stations` ambient
+stations without their own measurements, the authors assigned the average
+chemistry of adjacent ambient stations. Their data are
+available in the [AIMS data record](https://apps.aims.gov.au/metadata/view/76c40b3c-8535-43b6-bf5f-ad26d6e1ad92),
+and the analysis is reported in [*Communications Biology*](https://doi.org/10.1038/s42003-025-08889-w).
+The no-significant-effect concentration (NSEC) asks how far ΩAr can fall from
+the ambient value of `r fmt(ambient_omega, 1)` before fitted *Acropora* cover
+first differs significantly from cover at ambient ΩAr. The
+[NSEC definition](https://open-aims.github.io/toxval/articles/nsec-definition.html)
+describes this comparison for other fitted curves.
+
+```{r}
+#| label: data
+#| include: false
+seep <- oa_seep_cover
+stopifnot(
+  nrow(seep) == 37L,
+  all(is.finite(seep$OmAr.mean)),
+  all(seep$ACROPORA >= 0 & seep$ACROPORA <= 100)
+)
+```
+
+The packaged `oa_seep_cover` data contain `r nrow(seep)` station means, with
+ΩAr from `r fmt(min(seep$OmAr.mean))` to
+`r fmt(max(seep$OmAr.mean))`. The `ACROPORA` column gives percent cover of
+*Acropora* at each station, while `OmAr.mean` gives the corresponding station
+mean ΩAr.
+
+## The predictor and ambient control
+
+We expressed exposure as the reduction from ambient ΩAr, so that increasing
+`om_deficit` means stronger acidification as ΩAr falls. A deficit of zero
+therefore denotes the ambient control. `x_control = 0` makes
+`toxval_predict()` start its prediction grid at that control. `nsec()` searches
+upward for the first decrease beyond a reference response (a lower quantile of
+predicted cover at ambient).
+
+```{r}
+#| label: predictor
+seep$om_deficit <- ambient_omega - seep$OmAr.mean
+range(seep$om_deficit)
+```
+
+```{r}
+#| label: predictor-checks
+#| include: false
+stopifnot(
+  min(seep$om_deficit) < 0,
+  max(seep$om_deficit) > 0,
+  isTRUE(all.equal(
+    ambient_omega - max(seep$om_deficit), min(seep$OmAr.mean)
+  ))
+)
+```
+
+Some observed stations have ΩAr above ambient, so their deficits are negative
+(down to `r fmt(min(seep$om_deficit))`). The grid used for the NSEC begins at
+zero and ends at the largest observed deficit of
+`r fmt(max(seep$om_deficit))`.
+
+## Quasibinomial fit
+
+The paper fitted percent cover against ΩAr with a quasibinomial generalised
+linear model. We used the same family and logit link for station mean
+*Acropora* cover, with the reduction from ambient as predictor. This changes
+the sign of the slope, while the fitted responses are identical.
+
+```{r}
+#| label: fit
+fit <- stats::glm(
+  ACROPORA / 100 ~ om_deficit,
+  data = seep,
+  family = quasibinomial
+)
+```
+
+```{r}
+#| label: fit-comparison
+#| include: false
+fit_omega <- stats::glm(
+  ACROPORA / 100 ~ OmAr.mean, data = seep, family = quasibinomial
+)
+paper_predictions <- stats::predict(
+  fit,
+  newdata = data.frame(om_deficit = ambient_omega - omega_levels),
+  type = "response", se.fit = TRUE
+)
+fitted_cover <- 100 * paper_predictions$fit
+fitted_se <- 100 * paper_predictions$se.fit
+table_gap <- max(abs(c(fitted_cover - paper_cover, fitted_se - paper_se)))
+stopifnot(
+  isTRUE(all.equal(unname(stats::fitted(fit)), unname(stats::fitted(fit_omega)))),
+  isTRUE(all.equal(
+    unname(stats::coef(fit)[["om_deficit"]]),
+    -unname(stats::coef(fit_omega)[["OmAr.mean"]])
+  )),
+  table_gap < 0.01
+)
+```
+
+At ΩAr `r fmt(omega_levels[1], 1)`, fitted cover (standard error) is
+`r fmt(fitted_cover[1])` (`r fmt(fitted_se[1])`)% against
+`r fmt(paper_cover[1])` (`r fmt(paper_se[1])`)% in Table `r paper_table` of
+Noonan et al. (`r paper_year`). At ΩAr `r fmt(omega_levels[2], 1)`, the
+corresponding values are `r fmt(fitted_cover[2])` (`r fmt(fitted_se[2])`)% and
+`r fmt(paper_cover[2])` (`r fmt(paper_se[2])`)%; at ΩAr
+`r fmt(omega_levels[3], 1)`, they are `r fmt(fitted_cover[3])`
+(`r fmt(fitted_se[3])`)% and `r fmt(paper_cover[3])`
+(`r fmt(paper_se[3])`)%. The largest difference from the published means or
+standard errors is `r fmt(table_gap, 3)` percentage points.
+
+For a quasibinomial fit, dispersion is estimated from the data, which allows
+the variability among stations to differ from the binomial variance.
+`toxval_predict()` draws coefficient vectors jointly from a multivariate
+normal distribution with mean `coef(fit)` and covariance `vcov(fit)`. Each
+vector defines a full predicted curve, called a realisation. We converted the
+proportions to percent cover and used the
+`r fmt(100 * (0.975 - 0.025), 0)`% pointwise quantiles of
+`r bootstrap_n` realisations for the blue band.
+
+```{r}
+#| label: predictions
+#| include: false
+pred <- toxval_predict(
+  fit, x_var = "om_deficit", x_control = 0, n_boot = bootstrap_n, seed = 42
+)
+band <- apply(pred$curves[[1]], 2, stats::quantile,
+  probs = c(0.025, 0.975)
+)
+curve <- data.frame(
+  om_deficit = pred$x_vec,
+  fitted = 100 * stats::predict(
+    fit, newdata = data.frame(om_deficit = pred$x_vec), type = "response"
+  ),
+  lower = 100 * band[1, ],
+  upper = 100 * band[2, ]
+)
+slope <- coef(summary(fit))["om_deficit", "Estimate"]
+slope_se <- coef(summary(fit))["om_deficit", "Std. Error"]
+fitted_stations <- 100 * stats::fitted(fit)
+largest_residual <- which.max(abs(seep$ACROPORA - fitted_stations))
+n_zero_cover <- sum(seep$ACROPORA == 0)
+stopifnot(
+  identical(pred$x_vec[1], 0),
+  nrow(pred$curves[[1]]) == bootstrap_n,
+  isTRUE(all.equal(max(pred$x_vec), max(seep$om_deficit))),
+  slope < 0,
+  all(diff(curve$fitted) < 0),
+  curve$fitted[1] > tail(curve$fitted, 1),
+  n_zero_cover > 0,
+  abs(seep$ACROPORA[largest_residual] - fitted_stations[largest_residual]) > 5,
+  all(curve$lower < curve$fitted & curve$fitted < curve$upper)
+)
+```
+
+```{r}
+#| label: fig-glm-curve
+#| fig-cap: "Station mean *Acropora* cover against the reduction in ΩAr from ambient (points), with the fitted quasibinomial curve (black) and a pointwise interval from the toxval realisations (blue). The vertical dotted line marks ambient ΩAr."
+#| fig-height: 4
+ggplot2::ggplot(curve, ggplot2::aes(om_deficit)) +
+  ggplot2::geom_ribbon(ggplot2::aes(ymin = lower, ymax = upper),
+    fill = "#0072B2", alpha = 0.25
+  ) +
+  ggplot2::geom_line(ggplot2::aes(y = fitted)) +
+  ggplot2::geom_point(ggplot2::aes(y = ACROPORA), data = seep) +
+  ggplot2::geom_vline(xintercept = 0, linetype = 3) +
+  ggplot2::labs(
+    x = "Reduction from ambient ΩAr",
+    y = "Acropora cover (%)"
+  ) +
+  ggplot2::theme_bw()
+```
+
+Across the stations, observed *Acropora* cover ranges from
+`r fmt(min(seep$ACROPORA))` to `r fmt(max(seep$ACROPORA))`%, with zero cover at
+`r n_zero_cover` of `r nrow(seep)` stations (@fig-glm-curve).
+The fitted cover declines from `r fmt(curve$fitted[1])`% at ambient ΩAr to
+`r fmt(tail(curve$fitted, 1))`% at the largest observed deficit. At ambient,
+the pointwise interval from the realisations runs from
+`r fmt(curve$lower[1])` to `r fmt(curve$upper[1])`%; at the largest deficit,
+it runs from `r fmt(tail(curve$lower, 1))` to
+`r fmt(tail(curve$upper, 1))`%. However, individual station cover differs from
+the mean curve: for example, at ΩAr
+`r fmt(seep$OmAr.mean[largest_residual])`, observed cover is
+`r fmt(seep$ACROPORA[largest_residual])`% (fitted cover
+`r fmt(fitted_stations[largest_residual])`%). This difference may reflect
+variation among stations beyond mean ΩAr.
+
+## The no-significant-effect concentration
+
+Noonan et al. (`r paper_year`) defined the NSEC as the ΩAr where the predicted
+response first differs from that at ambient beyond its
+`r fmt(100 * (1 - 2 * sig_level), 0)`% confidence interval. The paper does not
+specify the scale or critical distribution used for that interval. We
+reconstructed its point estimate from the lower normal limit on the logit scale
+at ambient, then found where the fitted curve crosses that response.
+
+```{r}
+#| label: published-reference
+ambient_link <- stats::predict(
+  fit, newdata = data.frame(om_deficit = 0), type = "link", se.fit = TRUE
+)
+normal_limit <- stats::qnorm(1 - sig_level)
+lower_link <- ambient_link$fit - normal_limit * ambient_link$se.fit
+paper_reference <- fit$family$linkinv(lower_link)
+paper_deficit <- (lower_link - ambient_link$fit) / slope
+paper_omega <- unname(ambient_omega - paper_deficit)
+paper_omega
+```
+
+```{r}
+#| label: reference-checks
+#| include: false
+control_proportion <- fit$family$linkinv(ambient_link$fit)
+response_se <- control_proportion * (1 - control_proportion) * ambient_link$se.fit
+response_reference <- control_proportion - normal_limit * response_se
+t_link <- ambient_link$fit -
+  stats::qt(1 - sig_level, stats::df.residual(fit)) * ambient_link$se.fit
+response_omega <- ambient_omega -
+  (stats::qlogis(response_reference) - ambient_link$fit) / slope
+t_omega <- ambient_omega - (t_link - ambient_link$fit) / slope
+stopifnot(
+  round(paper_omega, 2) == published_omega,
+  abs(response_omega - paper_omega) > 0.2,
+  abs(t_omega - paper_omega) > 0.03,
+  paper_reference > 0,
+  paper_reference < control_proportion
+)
+```
+
+The reconstructed lower ambient response is `r pct(paper_reference, 3)` cover.
+The fitted curve crosses it at ΩAr `r fmt(paper_omega, 3)`, which rounds to the
+`r fmt(published_omega)` in Table `r paper_table` of the paper. A normal limit
+on the response scale would give ΩAr `r fmt(response_omega, 3)`; a *t* limit
+on the logit scale would give `r fmt(t_omega, 3)`. A two-sided
+`r fmt(100 * (1 - 2 * sig_level), 0)`% interval has a lower tail of
+`r pct(sig_level, 1)`, so we used `sig_val = 0.005` to set the corresponding
+quantile of predicted ambient cover in toxval.
+
+```{r}
+#| label: nsec-glm
+ns <- nsec(
+  fit, x_var = "om_deficit", x_control = 0,
+  sig_val = 0.005, n_boot = 4000, seed = 42
+)
+ns_dec <- ns[ns$direction == "decreasing", ]
+ns_dec[, c("direction", "estimate", "conf.low", "conf.high", "control", "reference")]
+```
+
+```{r}
+#| label: nsec-checks
+#| include: false
+omega_estimate <- ambient_omega - ns_dec$estimate
+omega_low_bound <- ambient_omega - ns_dec$conf.high
+omega_high <- ambient_omega - ns_dec$conf.low
+stopifnot(
+  nrow(ns_dec) == 1L,
+  ns_dec$sig_val == sig_level,
+  ns_dec$reference < ns_dec$control,
+  ns_dec$estimate > 0,
+  ns_dec$conf.low < ns_dec$estimate,
+  ns_dec$estimate < ns_dec$conf.high,
+  omega_low_bound < omega_estimate,
+  omega_estimate < omega_high
+)
+```
+
+For the specified seed, `nsec()` takes the lower
+`r pct(sig_level, 1)` quantile of ambient cover across the realisations as its
+reference. The decreasing row gives a median crossing
+`r fmt(ns_dec$estimate, 3)` ΩAr units below ambient, with a lower interval
+limit of `r fmt(ns_dec$conf.low, 3)` and an upper limit of at least
+`r fmt(ns_dec$conf.high, 3)` units. The median control response is
+`r pct(ns_dec$control, 2)` cover and the reference is
+`r pct(ns_dec$reference, 2)` cover. Expressed as ΩAr, the median NSEC is
+`r fmt(omega_estimate, 3)`, with an interval from at most
+`r fmt(omega_low_bound, 3)` to `r fmt(omega_high, 3)`. The bound on the lower
+ΩAr limit follows from the censored realisations described below.
+
+## Interval and censoring
+
+```{r}
+#| label: censor-checks
+#| include: false
+warning_text <- character()
+ns_draws <- withCallingHandlers(
+  nsec(
+    fit, x_var = "om_deficit", x_control = 0,
+    sig_val = 0.005, n_boot = 4000, seed = 42, draws = TRUE
+  ),
+  warning = function(w) {
+    warning_text <<- c(warning_text, conditionMessage(w))
+    invokeRestart("muffleWarning")
+  }
+)
+dec_draws <- ns_draws$draws[[which(ns_draws$direction == "decreasing")]]$value.draw
+inc_draws <- ns_draws$draws[[which(ns_draws$direction == "increasing")]]$value.draw
+n_dec_censored <- sum(is.infinite(dec_draws))
+n_inc_censored <- sum(is.infinite(inc_draws))
+# each realisation is linear on the logit scale, so its slope is read from its
+# first two grid values; `pred` and `ns_draws` share seed 42
+logit_curves <- stats::qlogis(pred$curves[[1]])
+slope_draws <- (logit_curves[, 2] - logit_curves[, 1]) / diff(pred$x_vec[1:2])
+n_nonnegative <- sum(slope_draws >= 0)
+n_shallow <- sum(is.infinite(dec_draws) & slope_draws < 0)
+stopifnot(
+  length(warning_text) == 1L,
+  grepl("Some realisations have no crossing", warning_text),
+  identical(ns_draws$estimate, ns$estimate),
+  isTRUE(all.equal(
+    unname(ns_draws$control[ns_draws$direction == "decreasing"]),
+    unname(ns_dec$control)
+  )),
+  isTRUE(all.equal(
+    ns_dec$estimate,
+    unname(stats::quantile(dec_draws, 0.5, type = 1))
+  )),
+  slope_se / abs(slope) > 0.4,
+  ns_dec$conf.high - ns_dec$conf.low > ns_dec$estimate,
+  isTRUE(all.equal(ns_dec$conf.high, max(seep$om_deficit))),
+  isTRUE(all.equal(omega_low_bound, min(seep$OmAr.mean))),
+  n_dec_censored / length(dec_draws) > 0.025,
+  n_nonnegative > 0,
+  all(is.infinite(dec_draws[slope_draws >= 0])),
+  n_shallow > 0,
+  n_dec_censored == n_nonnegative + n_shallow,
+  n_inc_censored / length(inc_draws) > 0.99,
+  !anyNA(dec_draws),
+  !anyNA(inc_draws)
+)
+```
+
+The deficit slope is `r fmt(slope, 3)` on the logit scale, with a standard
+error of `r fmt(slope_se, 3)` (`r pct(slope_se / abs(slope), 0)` of its
+magnitude). For a declining realisation whose control is above the reference,
+the crossing deficit is approximately the difference between their logits
+divided by the magnitude of that realisation's slope. Shallow negative slopes
+therefore put crossings far from ambient. Of the `r bootstrap_n` realisations,
+`r n_nonnegative` (`r pct(n_nonnegative / bootstrap_n)`) have a slope at or
+above zero and never cross the decreasing reference; another `r n_shallow`
+with a negative slope do not cross within the grid.
+
+In the decreasing direction, `r n_dec_censored` of `r length(dec_draws)`
+realisations are censored (`r pct(n_dec_censored / length(dec_draws))`), above
+the `r pct(0.025)` upper tail. The upper deficit quantile is therefore
+censored, and `nsec()` prints a warning. The interval spans at least
+`r fmt(ns_dec$conf.high - ns_dec$conf.low, 3)` deficit units: its reported
+upper limit is a lower bound at the last grid value. The corresponding lower
+ΩAr limit is an upper bound, so the interval does not locate that limit within
+the observed ΩAr range. Extending `x_range` could locate further crossings,
+but would require prediction below the observed ΩAr range.
+
+In the increasing direction, `r n_inc_censored` of `r length(inc_draws)`
+realisations have no crossing, as the fitted response declines. No
+realisation lacked a reference, although the warning includes that possibility.
+
+## Comparison with the published method
+
+```{r}
+#| label: comparison-checks
+#| include: false
+fitted_cross_omega <- ambient_omega -
+  (stats::qlogis(ns_dec$reference) - ambient_link$fit) / slope
+reference_gap <- 100 * abs(ns_dec$reference - paper_reference)
+seed_values <- c(42L, seq_len(12L))
+omega_by_seed <- vapply(seed_values, function(this_seed) {
+  if (this_seed == pred$meta$seed) return(omega_estimate)
+  this_ns <- suppressWarnings(nsec(
+    fit, x_var = "om_deficit", x_control = 0,
+    sig_val = sig_level, n_boot = bootstrap_n, seed = this_seed
+  ))
+  ambient_omega - this_ns$estimate[this_ns$direction == "decreasing"]
+}, numeric(1))
+stopifnot(
+  length(omega_by_seed) == length(seed_values),
+  reference_gap < 0.1,
+  abs(fitted_cross_omega - omega_estimate) < 0.02,
+  min(omega_by_seed) < paper_omega,
+  paper_omega < max(omega_by_seed),
+  sum(round(omega_by_seed, 2) == published_omega) == 2L
+)
+```
+
+Both calculations use the quasibinomial fit and one lower reference for
+ambient cover. The toxval reference differs from the reconstructed paper
+reference by `r fmt(reference_gap, 3)` percentage points. The fitted curve
+crosses the toxval reference at ΩAr `r fmt(fitted_cross_omega, 3)`, close to
+the median crossing for the specified seed. This proximity may explain the
+numerical agreement in this run. Across `r length(seed_values)`
+runs (seed `r seed_values[1]` and seeds `r min(seed_values[-1])` to
+`r max(seed_values[-1])`), the median ΩAr NSEC ranges from
+`r fmt(min(omega_by_seed), 3)` to `r fmt(max(omega_by_seed), 3)`.
+Although the reconstructed point estimate is within that range, only
+`r sum(round(omega_by_seed, 2) == published_omega)` of those estimates round
+to the paper's `r fmt(published_omega)`.
+
+Whereas the paper's Table `r paper_table` gives point NSECs without intervals,
+toxval adds a `r fmt(100 * (0.975 - 0.025), 0)`% interval from the crossings
+of the realisations. Inverting a pointwise band on the response would not generally
+give an interval with the stated coverage for the predictor at a crossing,
+particularly where the fitted curve is nearly flat. The
+[drc case study](https://open-aims.github.io/toxval/articles/case-drc.html)
+examines that interval distinction for an effect concentration.
+
+## Provenance
+
+```{r}
+#| label: provenance
+#| comment: ""
+cat(sprintf("%-10s %s\n", "toxval", as.character(utils::packageVersion("toxval"))))
+cat(sprintf("%-10s %s\n", "commit", toxval_commit))
+for (pkg in c("ggplot2", "knitr")) {
+  cat(sprintf("%-10s %s\n", pkg, as.character(utils::packageVersion(pkg))))
+}
+cat(sprintf("%-10s %s\n", "R", getRversion()))
+```
+
+- Source: Noonan, Birrell, Fisher and Fabricius (`r paper_year`),
+  ["Progressive changes in coral reef communities with increasing ocean acidification"](https://doi.org/10.1038/s42003-025-08889-w),
+  *Communications Biology* `r paper_volume`, `r paper_article`.
+- Data: `oa_seep_cover`, derived from that paper and held in
+  the [AIMS data record](https://apps.aims.gov.au/metadata/view/76c40b3c-8535-43b6-bf5f-ad26d6e1ad92)
+  and downloaded on `r format(download_date, "%Y-%m-%d")` under Creative
+  Commons Attribution `r licence_version` Australia.
+- Fit: `stats::glm()` with a quasibinomial family and a logit link, with
+  station mean cover as the response.
+- Realisations: `r length(dec_draws)` parametric bootstrap curves with seed
+  `r pred$meta$seed`; the default grid has `r length(pred$x_vec)` values from ambient
+  to the largest observed deficit.
+- The commit line identifies the toxval checkout used for the render.
