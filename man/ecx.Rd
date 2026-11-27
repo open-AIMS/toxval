@@ -57,8 +57,9 @@ values to evaluate over, or \code{NULL} to use the range in the model data. The
 first value must equal the control concentration.}
 
 \item{x_control}{A number, the control concentration, at which the control
-response is predicted and the grid starts, or \code{NULL} for the lowest
-predictor value in the data. A value outside the range of the data warns.}
+response is predicted and the grid starts, or \code{NULL} for the control
+recorded at fitting by a \code{bayesnec} fit, if present, and otherwise the
+lowest predictor value in the data. A value outside the data range warns.}
 
 \item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
 per-realisation values of each row.}
@@ -126,8 +127,9 @@ crossing, and each direction is a row of the result. A direction in which no
 realisation crosses is returned with \code{NA} estimates.
 
 \code{type} names what \code{proportion} is taken of, from the control, the predicted
-response at the control concentration, by default the lowest concentration
-in the data (see \code{\link[=toxval_predict]{toxval_predict()}}):
+response at the control concentration, by default the control recorded at
+fitting for a \code{bayesnec} fit, if present, and otherwise the lowest
+concentration in the data (see \code{\link[=toxval_predict]{toxval_predict()}}):
 \itemize{
 \item \code{"absolute"} (the default): decreasing, the control down to 0; increasing,
 the control up to 1 for a response on the proportion scale, and otherwise

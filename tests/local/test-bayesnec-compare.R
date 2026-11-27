@@ -144,6 +144,28 @@ test_that("the component NSEC on manec_example equals bayesnec's", {
   )
 })
 
+test_that("a fit-time control gives bayesnec's EC10 and NSEC draws", {
+  fit <- load_fixture("bayesnec_ecx4param")
+  fit$call_args$x_control <- 0.001
+
+  paired <- suppressWarnings(paired_ecx(fit))
+  expect_true(all(paired$crossed))
+  expect_same_crossing(paired$toxval, paired$bayesnec, paired$step)
+
+  toxval_nsec <- suppressWarnings(nsec(
+    fit,
+    resolution = resolution,
+    draws = TRUE
+  ))
+  decreasing <- toxval_nsec[toxval_nsec$direction == "decreasing", ]
+  bnec_nsec <- suppressWarnings(suppressMessages(bayesnec::nsec(
+    fit,
+    resolution = resolution,
+    posterior = TRUE
+  )))
+  expect_identical(decreasing$draws[[1]]$value.draw, as.numeric(bnec_nsec))
+})
+
 test_that("the robustness fits give bayesnec's ECx in each realisation", {
   fit_dir <- Sys.getenv(
     "TOXVAL_ROBUSTNESS_DIR",

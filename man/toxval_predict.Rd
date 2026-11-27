@@ -104,8 +104,9 @@ values to evaluate over, or \code{NULL} to use the range in the model data. The
 first value must equal the control concentration.}
 
 \item{x_control}{A number, the control concentration, at which the control
-response is predicted and the grid starts, or \code{NULL} for the lowest
-predictor value in the data. A value outside the range of the data warns.}
+response is predicted and the grid starts, or \code{NULL} for the control
+recorded at fitting by a \code{bayesnec} fit, if present, and otherwise the
+lowest predictor value in the data. A value outside the data range warns.}
 
 \item{asymptote}{The lower and upper asymptotes of a \code{brmsfit}, for
 \code{type = "relative"}, as a vector named \code{decreasing}, \code{increasing} or
@@ -138,10 +139,13 @@ sorted order. Each method states what \code{group_var} must name.
 
 The grid starts at the control concentration, where the control response is
 predicted, and every reference, ECx and NSEC is measured from that response.
-By default the control concentration is the lowest predictor value in the
-data. Use \code{x_control} to name another, such as 0 for a predictor measured as
-the reduction from an ambient level. A value outside the range of the data
-warns. A grouped fit has one control concentration for every curve.
+An explicit \code{x_control} sets the control concentration. Without one, a
+\code{bayesnec} fit uses its recorded control if present. When no control was
+recorded, the lowest predictor value in the data is used. Use \code{x_control},
+for example, to name 0 for a predictor measured as the reduction from an
+ambient level.
+A value outside the range of the data warns. A grouped fit has one control
+concentration for every curve.
 }
 \section{Methods (by class)}{
 \itemize{
@@ -181,7 +185,8 @@ not be supplied. A binomial or beta-binomial response is predicted at one
 trial, so its curve is a proportion. The asymptotes used by
 \code{type = "relative"} are the \code{bot} parameter, or 0 for an equation without
 one, and 1 for a proportion. An asymptote is \code{NA} where the family has no
-such bound or the link is not identity.
+such bound or the link is not identity. A control recorded at fitting is
+read in units of \code{x}, including for \code{crf(log(x))}.
 
 \item \code{toxval_predict(bayesmanecfit)}: Method for a model average from
 \code{bayesnec::bnec()}, of class \code{bayesmanecfit}, which requires \code{bayesnec} to
@@ -189,7 +194,8 @@ be installed. Each model is predicted as for a \code{bayesnecfit}. Realisations
 are the draws \code{bayesnec} keeps from each model in proportion to its
 weight, the same draws its own estimates use, and each takes its
 asymptotes from its own model. The random number state of the session is
-left unchanged.
+left unchanged. Every equation must record the same control for the
+default grid; an explicit \code{x_control} gives the set one control instead.
 
 \item \code{toxval_predict(bnecfit)}: Method for any other \code{bayesnec} fit, which
 errors. Group fits, joint refits and hurdle pairs each hold more than one

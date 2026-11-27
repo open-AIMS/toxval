@@ -15,10 +15,13 @@
 #'
 #' The grid starts at the control concentration, where the control response is
 #' predicted, and every reference, ECx and NSEC is measured from that response.
-#' By default the control concentration is the lowest predictor value in the
-#' data. Use `x_control` to name another, such as 0 for a predictor measured as
-#' the reduction from an ambient level. A value outside the range of the data
-#' warns. A grouped fit has one control concentration for every curve.
+#' An explicit `x_control` sets the control concentration. Without one, a
+#' `bayesnec` fit uses its recorded control if present. When no control was
+#' recorded, the lowest predictor value in the data is used. Use `x_control`,
+#' for example, to name 0 for a predictor measured as the reduction from an
+#' ambient level.
+#' A value outside the range of the data warns. A grouped fit has one control
+#' concentration for every curve.
 #'
 #' @inheritParams toxval_params
 #' @param object A model fitted with brms, drc or bayesnec.
@@ -244,7 +247,8 @@ toxval_predict.drc <- function(
 #'   trial, so its curve is a proportion. The asymptotes used by
 #'   `type = "relative"` are the `bot` parameter, or 0 for an equation without
 #'   one, and 1 for a proportion. An asymptote is `NA` where the family has no
-#'   such bound or the link is not identity.
+#'   such bound or the link is not identity. A control recorded at fitting is
+#'   read in units of `x`, including for `crf(log(x))`.
 #'
 #' @export
 toxval_predict.bayesnecfit <- function(
@@ -263,15 +267,26 @@ toxval_predict.bayesnecfit <- function(
 
   data <- object$fit$data
   x_var <- bnec_x_var(object$bayesnecformula, data, x_var)
+  control <- resolve_bnec_x_control(object, x_control)
   newdata <- bnec_grid(
     object,
-    predict_grid(x_range, data[[x_var]], resolution, x_control)
+    predict_grid(
+      x_range,
+      data[[x_var]],
+      resolution,
+      control$value,
+      control_from_fit = control$recorded
+    )
   )
   x_vec <- newdata[[x_var]]
   # Read from the stored brmsfit rather than through bayesnec's own
   # posterior_epred() methods, which have none for the components of a model
   # set, so that one call serves both bayesnec classes
   curve <- posterior_epred(object$fit, newdata = newdata, re_formula = NA)
+  chk_bnec_recorded_control(
+    curve,
+    if (control$recorded) control$value else NULL
+  )
   chk_defined_grid(list(curve), x_vec)
 
   new_toxval_pred(
@@ -296,7 +311,8 @@ toxval_predict.bayesnecfit <- function(
 #'   are the draws `bayesnec` keeps from each model in proportion to its
 #'   weight, the same draws its own estimates use, and each takes its
 #'   asymptotes from its own model. The random number state of the session is
-#'   left unchanged.
+#'   left unchanged. Every equation must record the same control for the
+#'   default grid; an explicit `x_control` gives the set one control instead.
 #'
 #' @export
 toxval_predict.bayesmanecfit <- function(
@@ -322,9 +338,16 @@ toxval_predict.bayesmanecfit <- function(
   # every model is fitted to the same data with the same crf() term
   data <- mod_fits[[1]]$fit$data
   x_var <- bnec_x_var(mod_fits[[1]]$bayesnecformula, data, x_var)
+  control <- resolve_bnec_x_control(object, x_control)
   newdata <- bnec_grid(
     object,
-    predict_grid(x_range, data[[x_var]], resolution, x_control)
+    predict_grid(
+      x_range,
+      data[[x_var]],
+      resolution,
+      control$value,
+      control_from_fit = control$recorded
+    )
   )
   x_vec <- newdata[[x_var]]
 
@@ -338,6 +361,10 @@ toxval_predict.bayesmanecfit <- function(
     lapply(model_set, function(m) {
       per_model[[m]][index$rows[[m]], , drop = FALSE]
     })
+  )
+  chk_bnec_recorded_control(
+    curve,
+    if (control$recorded) control$value else NULL
   )
   chk_defined_grid(list(curve), x_vec)
   per_model_asymptote <- lapply(mod_fits, function(component) {
@@ -1143,11 +1170,18 @@ drc_curve_cols <- function(split, is_shared, id) {
 #' @param x The predictor values in the model data.
 #' @param resolution Number of grid values.
 #' @param x_control The control concentration, or `NULL` for `min(x)`.
+#' @param control_from_fit Whether `x_control` was read from a fit's record.
 #'
 #' @return A numeric vector of length `resolution`.
 #'
 #' @noRd
-predict_grid <- function(x_range, x, resolution, x_control = NULL) {
+predict_grid <- function(
+  x_range,
+  x,
+  resolution,
+  x_control = NULL,
+  control_from_fit = FALSE
+) {
   data_range <- range(x)
   if (is.null(x_range) && is.null(x_control) && diff(data_range) == 0) {
     chk::abort_chk(
@@ -1159,6 +1193,15 @@ predict_grid <- function(x_range, x, resolution, x_control = NULL) {
     x_control <- data_range[1]
   }
   if (!is.null(x_range) && !isTRUE(all.equal(x_range[1], x_control))) {
+    if (control_from_fit) {
+      chk::abort_chk(
+        "`x_range` must start at the control concentration, ",
+        format(x_control),
+        ", read from the fit's record, not ",
+        format(x_range[1]),
+        "; supply an explicit `x_control` to override the record."
+      )
+    }
     chk::abort_chk(
       "`x_range` must start at the control concentration, ",
       format(x_control),

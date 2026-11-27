@@ -15,8 +15,9 @@
 #' realisation crosses is returned with `NA` estimates.
 #'
 #' `type` names what `proportion` is taken of, from the control, the predicted
-#' response at the control concentration, by default the lowest concentration
-#' in the data (see [toxval_predict()]):
+#' response at the control concentration, by default the control recorded at
+#' fitting for a `bayesnec` fit, if present, and otherwise the lowest
+#' concentration in the data (see [toxval_predict()]):
 #'
 #' - `"absolute"` (the default): decreasing, the control down to 0; increasing,
 #'   the control up to 1 for a response on the proportion scale, and otherwise
