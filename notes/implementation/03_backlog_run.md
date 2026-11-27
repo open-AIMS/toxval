@@ -55,28 +55,28 @@ once only where they edit different parts of the code. For example, item 1
 edits the warning in `R/ecx.R` and item 2 a check in `R/nsec.R`. The "After"
 column names the items that must be merged first.
 
-| Item | Issue | What changes for a user | After | Status |
-|---|---|---|---|---|
-| 0 | none | `predev` receives #88 and #89, which merged into `phase-2` after `phase-2` had merged into `main`; this file and T43 to T46 are added | | |
-| 1 | #93 | `type = "relative"` warns of its change of meaning once per session, not on every call (T43) | | |
-| 2 | #72 | `nsec()` accepts a `drc` NEC fit such as `NEC.3()` and finds its NSEC on the curve, as it does for a `bnec()` NEC fit | | |
-| 3 | #90 | `ecx(fit, type = c("absolute", "relative"))` returns the rows of both types, computed from one set of realisations | 1 | |
-| 4 | #94 | each result gains `censored` and `excluded` columns, and a declining curve under `relative` no longer warns about its increasing direction (T44) | | |
-| 5 | #99 | a `bnec()` fit that recorded `x_control` when it was fitted uses that concentration as its default control | | |
-| 6 | #100 | `ecx()` and `nsec()` take `extrapolate`, which reads an estimate beyond the tested range without changing the grid inside it, as in `bayesnec` | 5 | |
-| 7 | #96 | `pool` combines the groups of a grouped fit into one estimate, by one of three methods | 4 | |
-| 8 | #98, #80 | a group-level term such as `(1 \| plate)`, on plates tested across the whole concentration series, is read for each plate against that plate's own control, and the plates are pooled; a group with no data at a shared control concentration warns | 5, 7 | |
-| 9 | #91 | a new function gives the ratio and the difference of an ECx between two curves of a grouped fit, as `drc::EDcomp()` does | 4 | |
-| 10 | #70 | `ecx()` and `nsec()` accept a `glm()` fit; `MASS` and `mgcv` join Suggests for its tests | | |
-| 11 | #71 | the glm case study, which reproduces an NSEC from Noonan et al. (2025), is added as a pkgdown article | 10 | |
-| 12 | #95 | `plot()` and `autoplot()` draw a fitted curve with its estimates marked (T45), and the four case studies use them | | |
-| 13 | #92 | a set of `drc` fits of different equations to the same data gives a model-averaged ECx and NSEC, as `drc::maED()` gives the ECx | | |
-| 14 | #41 | `exceedance()` gives the probability that an estimate exceeds a threshold concentration, as in `bayesnec` | | |
-| 15 | #79 | a vignette sets out how another package adds a `toxval_predict()` method | | |
-| 16 | #82, #102 | the local comparison test calls `bayesnec::ecx()` with `x_scale = "fitted"` for the estimate on the fitted scale | `bayesnec` #602 | |
-| 17 | #103 | `ecnsec.draw`, the effect at an NSEC realisation, is 0 rather than negative where that realisation's control is at or below the reference | `bayesnec` #605 | |
-| 18 | #104 | the ECx and NSEC of a `bnec()` fit to `crf(log(x), ...)` are searched for on a grid evenly spaced on the log scale, as in `bayesnec` | `bayesnec` #604 | |
-| 19 | #67 | comments and help pages stop citing the refactor documents and decision numbers | all others | |
+| Item | Issue | What changes for a user | After |
+|---|---|---|---|
+| 0 | none | `predev` receives #88 and #89, which merged into `phase-2` after `phase-2` had merged into `main`; this file and T43 to T46 are added | |
+| 1 | #93 | `type = "relative"` warns of its change of meaning once per session, not on every call (T43) | |
+| 2 | #72 | `nsec()` accepts a `drc` NEC fit such as `NEC.3()` and finds its NSEC on the curve, as it does for a `bnec()` NEC fit | |
+| 3 | #90 | `ecx(fit, type = c("absolute", "relative"))` returns the rows of both types, computed from one set of realisations | 1 |
+| 4 | #94 | each result gains `censored` and `excluded` columns, and a declining curve under `relative` no longer warns about its increasing direction (T44) | |
+| 5 | #99 | a `bnec()` fit that recorded `x_control` when it was fitted uses that concentration as its default control | |
+| 6 | #100 | `ecx()` and `nsec()` take `extrapolate`, which reads an estimate beyond the tested range without changing the grid inside it, as in `bayesnec` | 5 |
+| 7 | #96 | `pool` combines the groups of a grouped fit into one estimate, by one of three methods | 4 |
+| 8 | #98, #80 | a group-level term such as `(1 \| plate)`, on plates tested across the whole concentration series, is read for each plate against that plate's own control, and the plates are pooled; a group with no data at a shared control concentration warns | 5, 7 |
+| 9 | #91 | a new function gives the ratio and the difference of an ECx between two curves of a grouped fit, as `drc::EDcomp()` does | 4 |
+| 10 | #70 | `ecx()` and `nsec()` accept a `glm()` fit; `MASS` and `mgcv` join Suggests for its tests | |
+| 11 | #71 | the glm case study, which reproduces an NSEC from Noonan et al. (2025), is added as a pkgdown article | 10 |
+| 12 | #95 | `plot()` and `autoplot()` draw a fitted curve with its estimates marked (T45), and the four case studies use them | |
+| 13 | #92 | a set of `drc` fits of different equations to the same data gives a model-averaged ECx and NSEC, as `drc::maED()` gives the ECx | |
+| 14 | #41 | `exceedance()` gives the probability that an estimate exceeds a threshold concentration, as in `bayesnec` | |
+| 15 | #79 | a vignette sets out how another package adds a `toxval_predict()` method | |
+| 16 | #82, #102 | the local comparison test calls `bayesnec::ecx()` with `x_scale = "fitted"` for the estimate on the fitted scale | `bayesnec` #602 |
+| 17 | #103 | `ecnsec.draw`, the effect at an NSEC realisation, is 0 rather than negative where that realisation's control is at or below the reference | `bayesnec` #605 |
+| 18 | #104 | the ECx and NSEC of a `bnec()` fit to `crf(log(x), ...)` are searched for on a grid evenly spaced on the log scale, as in `bayesnec` | `bayesnec` #604 |
+| 19 | #67 | comments and help pages stop citing the refactor documents and decision numbers | all others |
 
 Item 4 is done before items 7 and 9, because their results include the censored
 share of the realisations, which item 4 adds to the results of `ecx()` and
