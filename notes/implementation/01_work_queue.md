@@ -1,5 +1,8 @@
 # Work queue — toxval
 
+Status, 2026-11-27: this queue was written before the refactor and is kept as a
+record. The open issues are now worked in the order set by `03_backlog_run.md`.
+
 Read `00_protocol.md` first, then `02_decisions.md`.
 
 > **These are *toxval* tiers.** `bayesnec` has its own

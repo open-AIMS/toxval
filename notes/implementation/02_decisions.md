@@ -5,8 +5,9 @@ Settled 2026-08-14; amended 2026-08-19 after the review of PR #42; extended
 2026-10-09 with T13-T17, from the review of PR #59, 2026-10-17 with T18-T20,
 from the review of PR #62, 2026-10-18/19 with T21-T33, the rulings phases
 4 and 5 need, and 2026-10-22 to 2026-10-26 with T34 and T36-T39, from the
-review of PR #66, and 2026-10-27 with T40. A session implements these rather
-than re-opening them.
+review of PR #66, 2026-10-27 with T40, and 2026-11-27 with T43-T46, the
+rulings for the backlog run into `predev` (`03_backlog_run.md`). A session
+implements these rather than re-opening them.
 
 **Scope.** This file records decisions about the **package** — what the code
 does and why. Workflow is not recorded here: branching, remotes and review live
@@ -998,6 +999,62 @@ fixture and on a heavily censored `brmsfit`. By then `bayesnec` had adopted T21
 as amended on #74 and the 500-point grid of T31 (bayesnec #527), and `toxval`
 used each equation's control for a model average (T12). The `drc` method was not
 compared.
+
+## T43 — the change to `type = "relative"` is reported once per session (#93)
+
+Settled 2026-11-27 (RF), option 1 of #93.
+
+The warning that `type = "relative"` changed meaning in toxval 2.0.0 is raised
+by the first call to `ecx()` or `nsec()` in an R session that supplies
+`relative`, and by no later call in that session. A user upgrading from 1.x is
+still told of the change, and a vignette or test shows the warning once at most.
+
+Raised on every call, the warning obliged a vignette either to print text about
+the package's history or to suppress every warning from the chunk, which also
+hid warnings a reader should see. Removing the warning was rejected, because
+code written for 1.x that supplies `relative` would then change its results
+without notice.
+
+## T44 — the censored and excluded shares are columns of the result (#94)
+
+Settled 2026-11-27 (RF), option 1 of #94.
+
+`ecx()` and `nsec()` return two columns, `censored` and `excluded`, giving for
+each row the share of realisations that did not cross within the evaluated
+range (T21, T25) and the share excluded for want of a reference (T38). A
+direction in which every realisation is excluded does not warn when the other
+direction of the same curve returns estimates, since the curve then changes in
+one direction only. A partial exclusion warns, and so does a curve whose two
+directions are both wholly excluded. A warning that is raised is one line
+giving the number of rows affected and naming the column to read, in place of
+one line per row.
+
+For example, `ecx()` with `type = "relative"` on `LL.4()` fitted to
+`drc::ryegrass` no longer warns that its increasing direction is 100%
+excluded, and its increasing rows give `excluded = 1`. A continuous response
+whose control is at or below 0, which leaves nothing to measure in either
+direction, still warns.
+
+## T45 — plots are drawn by `plot()` and by `autoplot()` (#95)
+
+Settled 2026-11-27 (RF), both options of #95.
+
+toxval provides base-graphics `plot()` methods, which add no dependency, and
+`autoplot()` methods returning a `ggplot` object, with `ggplot2` in Suggests.
+Each draws a `toxval_pred` as its median curve and interval band, with the
+estimates of an `ecx()` or `nsec()` result marked on it. The two show the same
+elements, so a figure in a case study can be drawn with either.
+
+## T46 — `toxval` on `predev` is compared with `bayesnec` on `predev` (T42)
+
+Settled 2026-11-27 (RF).
+
+While `toxval` work is merged into its `predev` branch, the comparisons T42
+requires are made against `bayesnec`'s `predev` branch, not its CRAN release.
+A rule merged into `bayesnec` `predev` is the one `toxval` matches; a `bayesnec`
+pull request not yet merged there is not. On 2026-11-27 `bayesnec` `predev` is
+3.0.0 at `f633e89b`, and the `toxval` issues that follow `bayesnec` #602, #604
+and #605 wait until those merge there.
 
 ---
 

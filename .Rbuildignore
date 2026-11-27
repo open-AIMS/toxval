@@ -22,3 +22,4 @@
 ^vignettes/\.quarto$
 ^vignettes/articles$
 ^tests/local$
+^AGENTS\.md$
