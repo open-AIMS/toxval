@@ -865,3 +865,32 @@ test_that("nsec of a multivariate toxval_pred matches nsec of the fit", {
     )
   )
 })
+
+test_that("nsec type remains a single value", {
+  x_vec <- 0:10
+  pred <- compute_pred(list(rbind(10 - x_vec, 11 - x_vec)), x_vec)
+
+  expect_error(
+    nsec(pred, type = c("absolute", "range")),
+    "`type` must be a string"
+  )
+})
+
+test_that("invalid nsec type leaves the relative warning for a valid call", {
+  warning_state <- toxval:::.relative_warning_state
+  was_warned <- warning_state$warned
+  withr::defer(warning_state$warned <- was_warned)
+  warning_state$warned <- FALSE
+  predict_calls <- 0L
+  local_mocked_bindings(toxval_predict = function(...) {
+    predict_calls <<- predict_calls + 1L
+    stop("prediction was called")
+  })
+
+  expect_no_warning(expect_error(
+    nsec(brms_model_1, x_var = "x", type = c("relative", "absolute")),
+    "`type` must be a string"
+  ))
+  expect_identical(predict_calls, 0L)
+  expect_false(warning_state$warned)
+})
