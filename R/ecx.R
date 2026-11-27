@@ -17,8 +17,9 @@
 #' realisation crosses is returned with `NA` estimates.
 #'
 #' `type` names what `proportion` is taken of, from the control, the predicted
-#' response at the control concentration, by default the lowest concentration
-#' in the data (see [toxval_predict()]):
+#' response at the control concentration, by default the control recorded at
+#' fitting for a `bayesnec` fit, if present, and otherwise the lowest
+#' concentration in the data (see [toxval_predict()]):
 #'
 #' - `"absolute"` (the default): decreasing, the control down to 0; increasing,
 #'   the control up to 1 for a response on the proportion scale, and otherwise
@@ -58,15 +59,16 @@
 #' @param proportion A numeric vector of effects, as proportions of the span
 #'   named by `type`; 0.1 is the EC10. Each value gives its own rows. Not
 #'   supplied under `type = "direct"`.
-#' @param type One of `"absolute"`, `"relative"`, `"range"` or `"direct"`. See
-#'   Details.
+#' @param type One or more distinct values from `"absolute"`, `"relative"`,
+#'   `"range"` and `"direct"`. Each value gives its own rows, in the order
+#'   supplied. `"direct"` must be supplied alone. See Details.
 #' @param reference A number, the response value whose crossing is sought under
 #'   `type = "direct"`. Supplied only under `"direct"`.
 #' @param ecx_val `r lifecycle::badge("deprecated")` Use `proportion`, or
 #'   `reference` under `type = "direct"`.
 #'
-#' @return A `toxval` tibble with one row per curve, proportion and direction,
-#'   and the columns:
+#' @return A `toxval` tibble with one row per curve, type, proportion and
+#'   direction, and the columns:
 #'
 #'   - `metric`: `"ecx"`.
 #'   - `direction`: `"decreasing"` or `"increasing"`.
@@ -99,6 +101,9 @@
 #'
 #' # EC10 of the span from the control to the lower asymptote
 #' ecx(fit, type = "relative", seed = 42)
+#'
+#' # EC10 under two definitions from the same realisations
+#' ecx(fit, type = c("absolute", "relative"), seed = 42)
 #'
 #' # EC10 of the span from the control to the lowest predicted response
 #' ecx(fit, type = "range", seed = 42)
@@ -141,6 +146,7 @@ ecx <- function(
   horme = lifecycle::deprecated(),
   by_group = lifecycle::deprecated()
 ) {
+  chk_ecx_types(type)
   # recorded before any argument is reassigned, which `missing()` would miss
   predict_args <- c(
     x_var = !missing(x_var),
@@ -280,7 +286,7 @@ is_missing_value <- function(x) {
 #'
 #' @noRd
 warn_relative <- function(type) {
-  if (identical(type, "relative") && !.relative_warning_state$warned) {
+  if ("relative" %in% type && !.relative_warning_state$warned) {
     .relative_warning_state$warned <- TRUE
     warning(
       "`type = \"relative\"` now measures from the control to the asymptote ",

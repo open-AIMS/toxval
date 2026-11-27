@@ -12,7 +12,7 @@
 #'   `anchor = "component"` uses `n_boot` bootstrap controls from each fit.
 #'   `type = "relative"` requires every fit to supply lower and upper
 #'   asymptotes through its `drc` function.
-#' @order 8
+#' @order 9
 #'
 #' @export
 toxval_predict.list <- function(

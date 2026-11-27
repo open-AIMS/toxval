@@ -5,6 +5,7 @@
 \alias{toxval_predict.default}
 \alias{toxval_predict.brmsfit}
 \alias{toxval_predict.drc}
+\alias{toxval_predict.glm}
 \alias{toxval_predict.bayesnecfit}
 \alias{toxval_predict.bayesmanecfit}
 \alias{toxval_predict.bnecfit}
@@ -43,6 +44,18 @@ toxval_predict(
 )
 
 \method{toxval_predict}{drc}(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL,
+  n_boot = 1000,
+  seed = NULL
+)
+
+\method{toxval_predict}{glm}(
   object,
   ...,
   x_var = NULL,
@@ -97,11 +110,12 @@ toxval_predict(
 )
 }
 \arguments{
-\item{object}{A model fitted with brms, drc or bayesnec, or a list of \code{drc}
-fits of different equations to the same data.}
+\item{object}{A model fitted with brms, drc, glm or bayesnec, or a list of
+\code{drc} fits of different equations to the same data.}
 
 \item{...}{Additional arguments passed to methods, such as \code{n_boot} and
-\code{seed} for a \code{drc} fit or set of fits, or \code{asymptote} for a \code{brmsfit}.}
+\code{seed} for a \code{drc} or \code{glm} fit or a set of \code{drc} fits, or \code{asymptote}
+for a \code{brmsfit}.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -118,8 +132,9 @@ values to evaluate over, or \code{NULL} to use the range in the model data. The
 first value must equal the control concentration.}
 
 \item{x_control}{A number, the control concentration, at which the control
-response is predicted and the grid starts, or \code{NULL} for the lowest
-predictor value in the data. A value outside the range of the data warns.}
+response is predicted and the grid starts, or \code{NULL} for the control
+recorded at fitting by a \code{bayesnec} fit, if present, and otherwise the
+lowest predictor value in the data. A value outside the data range warns.}
 
 \item{asymptote}{The lower and upper asymptotes of a \code{brmsfit}, for
 \code{type = "relative"}, as a vector named \code{decreasing}, \code{increasing} or
@@ -152,10 +167,13 @@ sorted order. Each method states what \code{group_var} must name.
 
 The grid starts at the control concentration, where the control response is
 predicted, and every reference, ECx and NSEC is measured from that response.
-By default the control concentration is the lowest predictor value in the
-data. Use \code{x_control} to name another, such as 0 for a predictor measured as
-the reduction from an ambient level. A value outside the range of the data
-warns. A grouped fit has one control concentration for every curve.
+An explicit \code{x_control} sets the control concentration. Without one, a
+\code{bayesnec} fit uses its recorded control if present. When no control was
+recorded, the lowest predictor value in the data is used. Use \code{x_control},
+for example, to name 0 for a predictor measured as the reduction from an
+ambient level.
+A value outside the range of the data warns. A grouped fit has one control
+concentration for every curve.
 }
 \section{Methods (by class)}{
 \itemize{
@@ -185,6 +203,18 @@ fit if not supplied. \code{group_var} must name the column passed
 as \code{curveid}. The asymptotes used by \code{type = "relative"} are the lower and
 upper limits of the fitted function.
 
+\item \code{toxval_predict(glm)}: Method for a \code{\link[stats:glm]{stats::glm()}} fit. \code{x_var} is
+required. \code{group_var} must name a fitted predictor; offsets and other
+covariates are not supported. \code{MASS::glm.nb()} fits are accepted with
+theta fixed at its fitted value. Other \code{glm} subclasses, including
+\code{mgcv::gam}, are not supported.
+
+Coefficients are drawn from a multivariate normal distribution using
+\code{coef()} and \code{vcov()}. For families with estimated dispersion this
+uses a normal approximation, even though \code{summary.glm()} uses a \emph{t}
+distribution. A transformed response stays on its fitted scale;
+\code{control}, \code{reference} and \code{ecnsec} use that scale.
+
 \item \code{toxval_predict(bayesnecfit)}: Method for a single fit from
 \code{bayesnec::bnec()}, of class \code{bayesnecfit}, which requires \code{bayesnec} to
 be installed. Realisations are the posterior draws, with group-level
@@ -195,7 +225,8 @@ not be supplied. A binomial or beta-binomial response is predicted at one
 trial, so its curve is a proportion. The asymptotes used by
 \code{type = "relative"} are the \code{bot} parameter, or 0 for an equation without
 one, and 1 for a proportion. An asymptote is \code{NA} where the family has no
-such bound or the link is not identity.
+such bound or the link is not identity. A control recorded at fitting is
+read in units of \code{x}, including for \code{crf(log(x))}.
 
 \item \code{toxval_predict(bayesmanecfit)}: Method for a model average from
 \code{bayesnec::bnec()}, of class \code{bayesmanecfit}, which requires \code{bayesnec} to
@@ -203,7 +234,8 @@ be installed. Each model is predicted as for a \code{bayesnecfit}. Realisations
 are the draws \code{bayesnec} keeps from each model in proportion to its
 weight, the same draws its own estimates use, and each takes its
 asymptotes from its own model. The random number state of the session is
-left unchanged.
+left unchanged. Every equation must record the same control for the
+default grid; an explicit \code{x_control} gives the set one control instead.
 
 \item \code{toxval_predict(bnecfit)}: Method for any other \code{bayesnec} fit, which
 errors. Group fits, joint refits and hurdle pairs each hold more than one

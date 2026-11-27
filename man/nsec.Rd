@@ -26,11 +26,11 @@ nsec(
 )
 }
 \arguments{
-\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
-object.}
+\item{object}{A model fitted with brms, drc, glm or bayesnec, or a
+\link{toxval_pred} object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
+\code{n_boot} and \code{seed} for a \code{drc} or \code{glm} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{sig_val}{A number strictly between 0 and 0.5, the quantile of the
 control realisations that sets the decreasing reference; \code{1 - sig_val}
@@ -64,8 +64,9 @@ values to evaluate over, or \code{NULL} to use the range in the model data. The
 first value must equal the control concentration.}
 
 \item{x_control}{A number, the control concentration, at which the control
-response is predicted and the grid starts, or \code{NULL} for the lowest
-predictor value in the data. A value outside the range of the data warns.}
+response is predicted and the grid starts, or \code{NULL} for the control
+recorded at fitting by a \code{bayesnec} fit, if present, and otherwise the
+lowest predictor value in the data. A value outside the data range warns.}
 
 \item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
 per-realisation values of each row.}
@@ -133,7 +134,9 @@ bootstrap realisations are allocated by AIC weight; see \code{\link[=toxval_pred
 
 The reference for the decreasing direction is the \code{sig_val} quantile of the
 control realisations, the predicted response at the control concentration
-(by default the lowest concentration in the data; see \code{\link[=toxval_predict]{toxval_predict()}}),
+(by default the control recorded at fitting for a \code{bayesnec} fit, if
+present, and otherwise the lowest concentration in the data; see
+\code{\link[=toxval_predict]{toxval_predict()}}),
 and for the increasing direction the \code{1 - sig_val} quantile. The NSEC is
 found for each realisation against that reference, and the realisations are
 summarised by \code{prob_vals}. A direction in which no realisation crosses is

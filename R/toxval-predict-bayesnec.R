@@ -37,6 +37,131 @@ check_bayesnec_installed <- function(object) {
   invisible(object)
 }
 
+#' The control recorded when a `bayesnec` fit was made
+#'
+#' A model average reads its first equation for the grid. `bnec()` records the
+#' control in `call_args`; internal level objects can use `x_control`.
+#'
+#' @param object A `bayesnecfit` or `bayesmanecfit`.
+#' @return A number, or `NULL` when no control was recorded.
+#' @noRd
+bnec_recorded_x_control <- function(object) {
+  if (inherits(object, "bayesmanecfit")) {
+    if (is.null(object$mod_fits[[1]])) {
+      return(NULL)
+    }
+    object <- object$mod_fits[[1]]
+  }
+  if (!is.null(object$x_control)) {
+    return(object$x_control)
+  }
+  object$call_args$x_control
+}
+
+#' Resolve a `bayesnec` fit's control for one prediction grid
+#'
+#' A model set needs the same recorded control in every equation because its
+#' equations share one grid. An explicit control supplies one value for all.
+#'
+#' @param object A `bayesnecfit` or `bayesmanecfit`.
+#' @param x_control The explicit control, or `NULL`.
+#' @return A list with the control `value` and whether it was `recorded`.
+#' @noRd
+resolve_bnec_x_control <- function(object, x_control) {
+  if (!is.null(x_control)) {
+    return(list(value = x_control, recorded = FALSE))
+  }
+
+  if (inherits(object, "bayesmanecfit")) {
+    records <- lapply(object$mod_fits, bnec_recorded_x_control)
+    equations <- names(records)
+    for (i in seq_along(records)) {
+      chk_bnec_control_record(records[[i]], equations[[i]])
+    }
+    first <- records[[1]]
+    same <- vapply(
+      records,
+      function(value) {
+        if (is.null(first)) {
+          return(is.null(value))
+        }
+        !is.null(value) && value == first
+      },
+      logical(1)
+    )
+    if (!all(same)) {
+      labelled <- paste0(
+        equations,
+        " = ",
+        vapply(
+          records,
+          function(value) {
+            if (is.null(value)) "none" else format(value)
+          },
+          character(1)
+        )
+      )
+      chk::abort_chk(
+        "The equations of `object` record different controls: ",
+        paste(labelled, collapse = ", "),
+        "; supply an explicit `x_control` to use one control for the set."
+      )
+    }
+    recorded <- first
+  } else {
+    recorded <- bnec_recorded_x_control(object)
+    chk_bnec_control_record(recorded)
+  }
+  list(value = recorded, recorded = !is.null(recorded))
+}
+
+#' Validate a control read from a fit's record
+#'
+#' @param value The recorded value, or `NULL`.
+#' @param equation The model equation, or `NULL` for a single fit.
+#' @return `value`, invisibly.
+#' @noRd
+chk_bnec_control_record <- function(value, equation = NULL) {
+  valid <- tryCatch(
+    {
+      chk_x_control(value)
+      TRUE
+    },
+    error = function(e) FALSE
+  )
+  if (!valid) {
+    location <- if (is.null(equation)) {
+      "the fit"
+    } else {
+      paste0("equation '", equation, "'")
+    }
+    chk::abort_chk(
+      "The `x_control` recorded in ",
+      location,
+      " must be one finite number; supply an explicit `x_control` to override it."
+    )
+  }
+  invisible(value)
+}
+
+#' Check a control read from a fit's record
+#'
+#' @param curve The prediction matrix.
+#' @param recorded_control The recorded control, or `NULL` for another source.
+#' @return `curve`, invisibly.
+#' @noRd
+chk_bnec_recorded_control <- function(curve, recorded_control) {
+  if (!is.null(recorded_control) && !any(is.finite(curve[, 1]))) {
+    chk::abort_chk(
+      "The control ",
+      format(recorded_control),
+      " read from the fit's record gives no finite prediction; ",
+      "supply an explicit `x_control` to override it."
+    )
+  }
+  invisible(curve)
+}
+
 #' Check that a `bayesnecfit` has a single expected-value curve
 #'
 #' Joint refit levels, two-part families and the count part of a hurdle fit

@@ -4,11 +4,11 @@
 \alias{toxval_params}
 \title{Parameters common to multiple toxval functions}
 \arguments{
-\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
-object.}
+\item{object}{A model fitted with brms, drc, glm or bayesnec, or a
+\link{toxval_pred} object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
+\code{n_boot} and \code{seed} for a \code{drc} or \code{glm} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{x_var}{A string naming the predictor variable in \code{object}, or \code{NULL}
 where the class of \code{object} records which of its variables is the
@@ -25,8 +25,9 @@ values to evaluate over, or \code{NULL} to use the range in the model data. The
 first value must equal the control concentration.}
 
 \item{x_control}{A number, the control concentration, at which the control
-response is predicted and the grid starts, or \code{NULL} for the lowest
-predictor value in the data. A value outside the range of the data warns.}
+response is predicted and the grid starts, or \code{NULL} for the control
+recorded at fitting by a \code{bayesnec} fit, if present, and otherwise the
+lowest predictor value in the data. A value outside the data range warns.}
 
 \item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
 per-realisation values of each row.}

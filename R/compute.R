@@ -24,10 +24,11 @@
 #' @param pred A `toxval_pred`.
 #' @param proportion The effect as a proportion of the span, one or more
 #'   values. Not used under `direct`.
-#' @param type One of `"absolute"`, `"relative"`, `"range"` or `"direct"`.
+#' @param type One or more distinct values from `"absolute"`, `"relative"`,
+#'   `"range"` and `"direct"`. `"direct"` must be supplied alone.
 #' @param reference The response value under `direct`, and `NULL` otherwise.
 #'
-#' @return A tibble with one row per curve, proportion and direction: the
+#' @return A tibble with one row per curve, type, proportion and direction: the
 #'   columns of `keys`, `direction`, `proportion` (`NA` under `direct`), `type`,
 #'   and the list columns `control`, `reference`, `asymptote` (`NA` unless
 #'   `type` is `relative`), `no_span` (`FALSE` unless `type` is `range`) and
@@ -41,8 +42,8 @@ compute_ecx <- function(
   reference = NULL
 ) {
   chk::chk_s3_class(pred, "toxval_pred")
-  chk_type(type)
-  if (type == "direct") {
+  chk_ecx_types(type)
+  if (identical(type, "direct")) {
     if (is.null(reference)) {
       chk::abort_chk("`reference` must be supplied when `type` is 'direct'.")
     }
@@ -55,48 +56,80 @@ compute_ecx <- function(
         "is computed from `proportion`."
       )
     }
-    chk_proportion(proportion, type)
+    if (length(type) == 1L) {
+      chk_proportion(proportion, type)
+    } else {
+      chk_proportion(proportion, "absolute")
+      for (one_type in type[type %in% c("range", "relative")]) {
+        if (any(proportion > 1)) {
+          chk::abort_chk(
+            "`proportion` must be less than or equal to 1 under `type = '",
+            one_type,
+            "'`, not ",
+            chk::cc(proportion[proportion > 1], conj = " or "),
+            "."
+          )
+        }
+      }
+    }
   }
-  chk_asymptote_supplied(pred, type)
+  for (one_type in type) {
+    chk_asymptote_supplied(pred, one_type)
+  }
 
   rows <- lapply(seq_along(pred$curves), function(i) {
     upper <- response_upper_bound(pred$meta, pred$keys, i)
-    asymptote <- curve_asymptote(pred, type, i)
-    if (type == "relative") {
-      warn_models_without_asymptote(asymptote, pred$meta$draw_model)
-    }
     # row names would carry through to every per-realisation vector
     curve <- unname(pred$curves[[i]])
     control <- curve[, 1]
-    no_span <- if (type == "range") {
-      no_span_by_direction(curve, type, upper)
-    } else {
-      list(
-        decreasing = rep(FALSE, nrow(curve)),
-        increasing = rep(FALSE, nrow(curve))
-      )
-    }
-    by_proportion <- lapply(proportion, function(p) {
-      references <- ecx_reference(curve, p, type, upper, reference, asymptote)
-      draws <- lapply(directions(), function(direction) {
-        crossings_by_row(curve, pred$x_vec, references[[direction]], direction)
-      })
-
-      dplyr::bind_cols(
-        keys_by_direction(pred$keys, i),
-        dplyr::tibble(
-          direction = directions(),
-          proportion = p,
-          type = type,
-          control = list(control, control),
-          reference = unname(references[directions()]),
-          asymptote = unname(asymptote[directions()]),
-          no_span = unname(no_span[directions()]),
-          draws = unname(draws)
+    by_type <- lapply(type, function(one_type) {
+      asymptote <- curve_asymptote(pred, one_type, i)
+      if (one_type == "relative") {
+        warn_models_without_asymptote(asymptote, pred$meta$draw_model)
+      }
+      no_span <- if (one_type == "range") {
+        no_span_by_direction(curve, one_type, upper)
+      } else {
+        list(
+          decreasing = rep(FALSE, nrow(curve)),
+          increasing = rep(FALSE, nrow(curve))
         )
-      )
+      }
+      by_proportion <- lapply(proportion, function(p) {
+        references <- ecx_reference(
+          curve,
+          p,
+          one_type,
+          upper,
+          reference,
+          asymptote
+        )
+        draws <- lapply(directions(), function(direction) {
+          crossings_by_row(
+            curve,
+            pred$x_vec,
+            references[[direction]],
+            direction
+          )
+        })
+
+        dplyr::bind_cols(
+          keys_by_direction(pred$keys, i),
+          dplyr::tibble(
+            direction = directions(),
+            proportion = p,
+            type = one_type,
+            control = list(control, control),
+            reference = unname(references[directions()]),
+            asymptote = unname(asymptote[directions()]),
+            no_span = unname(no_span[directions()]),
+            draws = unname(draws)
+          )
+        )
+      })
+      dplyr::bind_rows(by_proportion)
     })
-    dplyr::bind_rows(by_proportion)
+    dplyr::bind_rows(by_type)
   })
   dplyr::bind_rows(rows)
 }
@@ -449,6 +482,9 @@ response_upper_bound <- function(meta, keys, i) {
   # `type` rather than by a `brms` family
   if (isTRUE(meta$source_class %in% c("drc", "drc_set"))) {
     return(if (family == "binomial") 1 else Inf)
+  }
+  if (identical(meta$source_class, "glm")) {
+    return(if (family %in% c("binomial", "quasibinomial")) 1 else Inf)
   }
   switch(
     family,

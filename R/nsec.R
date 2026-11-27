@@ -14,7 +14,9 @@
 #'
 #' The reference for the decreasing direction is the `sig_val` quantile of the
 #' control realisations, the predicted response at the control concentration
-#' (by default the lowest concentration in the data; see [toxval_predict()]),
+#' (by default the control recorded at fitting for a `bayesnec` fit, if
+#' present, and otherwise the lowest concentration in the data; see
+#' [toxval_predict()]),
 #' and for the increasing direction the `1 - sig_val` quantile. The NSEC is
 #' found for each realisation against that reference, and the realisations are
 #' summarised by `prob_vals`. A direction in which no realisation crosses is
@@ -135,6 +137,7 @@ nsec <- function(
   by_group = lifecycle::deprecated(),
   curveid = lifecycle::deprecated()
 ) {
+  chk_type(type)
   # recorded before any argument is reassigned, which `missing()` would miss
   predict_args <- c(
     x_var = !missing(x_var),

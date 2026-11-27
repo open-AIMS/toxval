@@ -26,18 +26,19 @@ ecx(
 )
 }
 \arguments{
-\item{object}{A model fitted with brms, drc or bayesnec, or a \link{toxval_pred}
-object.}
+\item{object}{A model fitted with brms, drc, glm or bayesnec, or a
+\link{toxval_pred} object.}
 
 \item{...}{Additional arguments passed to \code{\link[=toxval_predict]{toxval_predict()}}, such as
-\code{n_boot} and \code{seed} for a \code{drc} fit, or \code{asymptote} for a \code{brmsfit}.}
+\code{n_boot} and \code{seed} for a \code{drc} or \code{glm} fit, or \code{asymptote} for a \code{brmsfit}.}
 
 \item{proportion}{A numeric vector of effects, as proportions of the span
 named by \code{type}; 0.1 is the EC10. Each value gives its own rows. Not
 supplied under \code{type = "direct"}.}
 
-\item{type}{One of \code{"absolute"}, \code{"relative"}, \code{"range"} or \code{"direct"}. See
-Details.}
+\item{type}{One or more distinct values from \code{"absolute"}, \code{"relative"},
+\code{"range"} and \code{"direct"}. Each value gives its own rows, in the order
+supplied. \code{"direct"} must be supplied alone. See Details.}
 
 \item{reference}{A number, the response value whose crossing is sought under
 \code{type = "direct"}. Supplied only under \code{"direct"}.}
@@ -57,8 +58,9 @@ values to evaluate over, or \code{NULL} to use the range in the model data. The
 first value must equal the control concentration.}
 
 \item{x_control}{A number, the control concentration, at which the control
-response is predicted and the grid starts, or \code{NULL} for the lowest
-predictor value in the data. A value outside the range of the data warns.}
+response is predicted and the grid starts, or \code{NULL} for the control
+recorded at fitting by a \code{bayesnec} fit, if present, and otherwise the
+lowest predictor value in the data. A value outside the data range warns.}
 
 \item{draws}{A flag. If \code{TRUE}, a \code{draws} list column holds the
 per-realisation values of each row.}
@@ -84,8 +86,8 @@ directions are now always estimated, so these are ignored.}
 gives one estimate per level.}
 }
 \value{
-A \code{toxval} tibble with one row per curve, proportion and direction,
-and the columns:
+A \code{toxval} tibble with one row per curve, type, proportion and
+direction, and the columns:
 \itemize{
 \item \code{metric}: \code{"ecx"}.
 \item \code{direction}: \code{"decreasing"} or \code{"increasing"}.
@@ -128,8 +130,9 @@ crossing, and each direction is a row of the result. A direction in which no
 realisation crosses is returned with \code{NA} estimates.
 
 \code{type} names what \code{proportion} is taken of, from the control, the predicted
-response at the control concentration, by default the lowest concentration
-in the data (see \code{\link[=toxval_predict]{toxval_predict()}}):
+response at the control concentration, by default the control recorded at
+fitting for a \code{bayesnec} fit, if present, and otherwise the lowest
+concentration in the data (see \code{\link[=toxval_predict]{toxval_predict()}}):
 \itemize{
 \item \code{"absolute"} (the default): decreasing, the control down to 0; increasing,
 the control up to 1 for a response on the proportion scale, and otherwise
@@ -178,6 +181,9 @@ ecx(fit, proportion = c(0.1, 0.5), seed = 42)
 
 # EC10 of the span from the control to the lower asymptote
 ecx(fit, type = "relative", seed = 42)
+
+# EC10 under two definitions from the same realisations
+ecx(fit, type = c("absolute", "relative"), seed = 42)
 
 # EC10 of the span from the control to the lowest predicted response
 ecx(fit, type = "range", seed = 42)

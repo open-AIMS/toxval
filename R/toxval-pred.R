@@ -53,9 +53,10 @@
 #'     control response is predicted: the lowest predictor value in the data,
 #'     unless the caller names another. It must be the first value of `x_vec`.}
 #'   \item{`family`}{String naming the response distribution, such as the
-#'     `brms` family or the `type` of a `drc` fit, or `NULL`. A multivariate
-#'     fit whose responses differ in family gives a character vector named by
-#'     response. A binomial family is taken to be on the proportion scale.}
+#'     `brms` or `glm` family or the `type` of a `drc` fit, or `NULL`. A
+#'     multivariate fit whose responses differ in family gives a character
+#'     vector named by response. Binomial and quasibinomial families are on
+#'     the proportion scale.}
 #'   \item{`realisation`}{Either `"draws"` or `"bootstrap"`.}
 #'   \item{`n_realisation`}{Whole number, the number of realisations.}
 #'   \item{`seed`}{Whole number, the seed used to generate bootstrap

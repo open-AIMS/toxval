@@ -15,16 +15,20 @@
 #'
 #' The grid starts at the control concentration, where the control response is
 #' predicted, and every reference, ECx and NSEC is measured from that response.
-#' By default the control concentration is the lowest predictor value in the
-#' data. Use `x_control` to name another, such as 0 for a predictor measured as
-#' the reduction from an ambient level. A value outside the range of the data
-#' warns. A grouped fit has one control concentration for every curve.
+#' An explicit `x_control` sets the control concentration. Without one, a
+#' `bayesnec` fit uses its recorded control if present. When no control was
+#' recorded, the lowest predictor value in the data is used. Use `x_control`,
+#' for example, to name 0 for a predictor measured as the reduction from an
+#' ambient level.
+#' A value outside the range of the data warns. A grouped fit has one control
+#' concentration for every curve.
 #'
 #' @inheritParams toxval_params
-#' @param object A model fitted with brms, drc or bayesnec, or a list of `drc`
-#'   fits of different equations to the same data.
+#' @param object A model fitted with brms, drc, glm or bayesnec, or a list of
+#'   `drc` fits of different equations to the same data.
 #' @param ... Additional arguments passed to methods, such as `n_boot` and
-#'   `seed` for a `drc` fit or set of fits, or `asymptote` for a `brmsfit`.
+#'   `seed` for a `drc` or `glm` fit or a set of `drc` fits, or `asymptote`
+#'   for a `brmsfit`.
 #'
 #' @return A [toxval_pred] object.
 #' @order 1
@@ -82,9 +86,9 @@ toxval_predict.default <- function(
   x_control = NULL
 ) {
   chk::abort_chk(
-    "`object` must be a fitted model with a `toxval_predict()` method, ",
-    "not an object of class ",
-    chk::cc(class(object), conj = " or "),
+    "`object` must be a fitted model with a `toxval_predict()` method; ",
+    "its class is ",
+    chk::cc(class(object)[1]),
     "."
   )
 }
@@ -239,6 +243,269 @@ toxval_predict.drc <- function(
   )
 }
 
+#' @describeIn toxval_predict Method for a [stats::glm()] fit. `x_var` is
+#'   required. `group_var` must name a fitted predictor; offsets and other
+#'   covariates are not supported. `MASS::glm.nb()` fits are accepted with
+#'   theta fixed at its fitted value. Other `glm` subclasses, including
+#'   `mgcv::gam`, are not supported.
+#'
+#'   Coefficients are drawn from a multivariate normal distribution using
+#'   `coef()` and `vcov()`. For families with estimated dispersion this
+#'   uses a normal approximation, even though `summary.glm()` uses a *t*
+#'   distribution. A transformed response stays on its fitted scale;
+#'   `control`, `reference` and `ecnsec` use that scale.
+#' @order 5
+#'
+#' @export
+toxval_predict.glm <- function(
+  object,
+  ...,
+  x_var = NULL,
+  group_var = NULL,
+  resolution = 500,
+  x_range = NULL,
+  x_control = NULL,
+  n_boot = 1000,
+  seed = NULL
+) {
+  chk_dots_unused(..., source = "`glm` fit")
+  chk::chk_whole_number(n_boot)
+  chk::chk_gt(n_boot, 0)
+  chk::chk_null_or(seed, vld = chk::vld_whole_number)
+  chk_glm_supported(object)
+  chk_x_var_supplied(x_var, "`glm` fit")
+
+  recovered <- glm_recover_data(object, x_var, group_var)
+  data <- recovered$data
+  chk_glm_var_in_source(x_var, recovered$columns, "x_var")
+  if (!is.null(group_var)) {
+    chk_glm_var_in_source(group_var, recovered$columns, "group_var")
+  }
+  chk_glm_terms(object, x_var, group_var, recovered$constants)
+  chk_glm_data_match(object, data)
+
+  x_vec <- predict_grid(x_range, data[[x_var]], resolution, x_control)
+  curve_set <- glm_curves(object, data, x_vec, x_var, group_var, n_boot, seed)
+  chk_defined_grid(curve_set$curves, x_vec)
+
+  new_toxval_pred(
+    curves = curve_set$curves,
+    keys = curve_set$keys,
+    x_vec = x_vec,
+    meta = build_meta(
+      object = object,
+      x_vec = x_vec,
+      x_var = x_var,
+      curves = curve_set$curves,
+      group_var = group_var,
+      realisation = "bootstrap",
+      family = object$family$family,
+      seed = seed
+    )
+  )
+}
+
+#' Check that a glm subclass has an implemented mean prediction
+#' @param object A fitted glm or subclass.
+#' @return `object`, invisibly, or an error for an unsupported subclass.
+#' @noRd
+chk_glm_supported <- function(object) {
+  if (
+    !identical(class(object), c("glm", "lm")) &&
+      !identical(class(object), c("negbin", "glm", "lm"))
+  ) {
+    chk::abort_chk(
+      "The `glm` subclass ",
+      chk::cc(class(object)[1]),
+      " is not supported; use a plain `glm` or `MASS::glm.nb` fit."
+    )
+  }
+  invisible(object)
+}
+
+#' Recover only the observations used by a fitted glm
+#' @param object A fitted glm.
+#' @param x_var,group_var The predictor and optional group names.
+#' @return A list of fitted data, source columns and scalar formula constants.
+#' @noRd
+glm_recover_data <- function(object, x_var, group_var) {
+  fitted <- stats::model.frame(object)
+  source <- object$data
+  if (is.null(source) && !is.null(object$call$data)) {
+    source <- tryCatch(
+      eval(object$call$data, envir = environment(stats::formula(object))),
+      error = function(e) NULL
+    )
+  }
+  # A glm.nb fit may omit object$data; its stored model frame is the fallback
+  # when the data argument can no longer be evaluated.
+  data <- tryCatch(
+    stats::get_all_vars(stats::formula(object), data = source),
+    error = function(e) {
+      if (is.null(object$data)) {
+        return(fitted)
+      }
+      chk::abort_chk(
+        "The data no longer match the fit; refit the glm with `data =`."
+      )
+    }
+  )
+  if (!all(rownames(fitted) %in% rownames(data))) {
+    chk::abort_chk(
+      "The data no longer match the fit; refit the glm with `data =`."
+    )
+  }
+  columns <- if (is.data.frame(source)) names(source) else names(data)
+  # get_all_vars() includes rows omitted by subset or NA handling; the stored
+  # model frame identifies the observations that were fitted.
+  data <- data[rownames(fitted), , drop = FALSE]
+  source_names <- if (is.data.frame(source)) names(source) else character()
+  candidates <- setdiff(
+    all.vars(stats::delete.response(stats::terms(object))),
+    c(x_var, group_var)
+  )
+  constants <- candidates[vapply(
+    candidates,
+    function(var) {
+      if (var %in% source_names) {
+        return(FALSE)
+      }
+      value <- tryCatch(
+        get(var, envir = environment(stats::formula(object)), inherits = TRUE),
+        error = function(e) NULL
+      )
+      length(value) == 1L && is.atomic(value) && !is.na(value)
+    },
+    logical(1)
+  )]
+  # Formula constants must be read from the fitting environment during grid
+  # prediction, not from their recycled columns in get_all_vars().
+  data[intersect(constants, names(data))] <- NULL
+  if (!is.data.frame(source)) {
+    columns <- setdiff(columns, constants)
+  }
+  list(data = data, columns = columns, constants = constants)
+}
+
+#' Check that a supplied variable names a source data column
+#' @param var,columns The supplied name and source column names.
+#' @param arg The argument name for the error message.
+#' @return `var`, invisibly, or an error if absent.
+#' @noRd
+chk_glm_var_in_source <- function(var, columns, arg) {
+  if (!var %in% columns) {
+    chk::abort_chk(
+      "`",
+      arg,
+      "` must name a column of the data in `object`, not ",
+      chk::cc(var),
+      "."
+    )
+  }
+  invisible(var)
+}
+
+#' Check that the fitted glm has exactly the predictors supplied to the grid
+#' @param object A fitted glm.
+#' @param x_var,group_var The predictor and optional group names.
+#' @param constants Scalar formula variables from the fitting environment.
+#' @return `object`, invisibly, or an error for unsupported terms.
+#' @noRd
+chk_glm_terms <- function(object, x_var, group_var, constants) {
+  if (!is.null(stats::model.offset(stats::model.frame(object)))) {
+    chk::abort_chk(
+      "`object` must not include an offset; the grid cannot supply it."
+    )
+  }
+  predictors <- setdiff(
+    all.vars(stats::delete.response(stats::terms(object))),
+    constants
+  )
+  if (!x_var %in% predictors) {
+    chk::abort_chk("`x_var` names a data column that does not enter the model.")
+  }
+  if (!is.null(group_var) && !group_var %in% predictors) {
+    chk::abort_chk(
+      "`group_var` names a data column that does not enter the model."
+    )
+  }
+  extra <- setdiff(predictors, c(x_var, group_var))
+  if (length(extra)) {
+    chk::abort_chk(
+      "`object` must not include predictors other than `x_var` and `group_var`: ",
+      chk::cc(extra, conj = " or "),
+      "."
+    )
+  }
+  invisible(object)
+}
+
+#' Check that recovered glm predictors reproduce the fitted design matrix
+#' @param object A fitted glm.
+#' @param data The recovered data restricted to fitted rows.
+#' @return `data`, invisibly, or an error if it no longer matches the fit.
+#' @noRd
+chk_glm_data_match <- function(object, data) {
+  tt <- stats::delete.response(stats::terms(object))
+  design <- tryCatch(
+    {
+      mf <- stats::model.frame(
+        tt,
+        data,
+        xlev = object$xlevels,
+        na.action = stats::na.pass
+      )
+      stats::model.matrix(tt, mf, contrasts.arg = object$contrasts)
+    },
+    error = function(e) NULL
+  )
+  fitted_design <- stats::model.matrix(object)
+  if (
+    is.null(design) ||
+      !identical(colnames(design), colnames(fitted_design)) ||
+      !isTRUE(all.equal(
+        unname(design),
+        unname(fitted_design),
+        check.attributes = FALSE
+      ))
+  ) {
+    chk::abort_chk(
+      "The data no longer match the fit; refit the glm with `data =`."
+    )
+  }
+  invisible(data)
+}
+
+#' Draw glm response curves with one joint coefficient draw per replicate
+#' @param object A fitted glm.
+#' @param data The recovered data restricted to fitted rows.
+#' @param x_vec The predictor grid.
+#' @param x_var,group_var The predictor and optional group names.
+#' @param n_boot,seed The number and optional seed of bootstrap draws.
+#' @return A list of curve matrices and their group keys.
+#' @noRd
+glm_curves <- function(object, data, x_vec, x_var, group_var, n_boot, seed) {
+  parms <- boot_parms(object, n_boot, seed)
+  groups <- if (is.null(group_var)) NULL else group_levels(data[[group_var]])
+  tt <- stats::delete.response(stats::terms(object))
+  curves <- lapply(seq_len(max(1L, length(groups))), function(i) {
+    newdata <- stats::setNames(data.frame(x_vec), x_var)
+    if (!is.null(group_var)) {
+      newdata[[group_var]] <- groups[i]
+    }
+    mf <- stats::model.frame(tt, newdata, xlev = object$xlevels)
+    design <- stats::model.matrix(tt, mf, contrasts.arg = object$contrasts)
+    object$family$linkinv(parms %*% t(design))
+  })
+  if (
+    length(curves) > 1L &&
+      all(vapply(curves[-1], identical, logical(1), curves[[1]]))
+  ) {
+    chk::abort_chk("`group_var` must change the fitted glm curve.")
+  }
+  list(curves = curves, keys = group_keys(groups))
+}
+
 #' @describeIn toxval_predict Method for a single fit from
 #'   `bayesnec::bnec()`, of class `bayesnecfit`, which requires `bayesnec` to
 #'   be installed. Realisations are the posterior draws, with group-level
@@ -249,8 +516,9 @@ toxval_predict.drc <- function(
 #'   trial, so its curve is a proportion. The asymptotes used by
 #'   `type = "relative"` are the `bot` parameter, or 0 for an equation without
 #'   one, and 1 for a proportion. An asymptote is `NA` where the family has no
-#'   such bound or the link is not identity.
-#' @order 5
+#'   such bound or the link is not identity. A control recorded at fitting is
+#'   read in units of `x`, including for `crf(log(x))`.
+#' @order 6
 #'
 #' @export
 toxval_predict.bayesnecfit <- function(
@@ -269,15 +537,26 @@ toxval_predict.bayesnecfit <- function(
 
   data <- object$fit$data
   x_var <- bnec_x_var(object$bayesnecformula, data, x_var)
+  control <- resolve_bnec_x_control(object, x_control)
   newdata <- bnec_grid(
     object,
-    predict_grid(x_range, data[[x_var]], resolution, x_control)
+    predict_grid(
+      x_range,
+      data[[x_var]],
+      resolution,
+      control$value,
+      control_from_fit = control$recorded
+    )
   )
   x_vec <- newdata[[x_var]]
   # Read from the stored brmsfit rather than through bayesnec's own
   # posterior_epred() methods, which have none for the components of a model
   # set, so that one call serves both bayesnec classes
   curve <- posterior_epred(object$fit, newdata = newdata, re_formula = NA)
+  chk_bnec_recorded_control(
+    curve,
+    if (control$recorded) control$value else NULL
+  )
   chk_defined_grid(list(curve), x_vec)
 
   new_toxval_pred(
@@ -302,8 +581,9 @@ toxval_predict.bayesnecfit <- function(
 #'   are the draws `bayesnec` keeps from each model in proportion to its
 #'   weight, the same draws its own estimates use, and each takes its
 #'   asymptotes from its own model. The random number state of the session is
-#'   left unchanged.
-#' @order 6
+#'   left unchanged. Every equation must record the same control for the
+#'   default grid; an explicit `x_control` gives the set one control instead.
+#' @order 7
 #'
 #' @export
 toxval_predict.bayesmanecfit <- function(
@@ -329,9 +609,16 @@ toxval_predict.bayesmanecfit <- function(
   # every model is fitted to the same data with the same crf() term
   data <- mod_fits[[1]]$fit$data
   x_var <- bnec_x_var(mod_fits[[1]]$bayesnecformula, data, x_var)
+  control <- resolve_bnec_x_control(object, x_control)
   newdata <- bnec_grid(
     object,
-    predict_grid(x_range, data[[x_var]], resolution, x_control)
+    predict_grid(
+      x_range,
+      data[[x_var]],
+      resolution,
+      control$value,
+      control_from_fit = control$recorded
+    )
   )
   x_vec <- newdata[[x_var]]
 
@@ -345,6 +632,10 @@ toxval_predict.bayesmanecfit <- function(
     lapply(model_set, function(m) {
       per_model[[m]][index$rows[[m]], , drop = FALSE]
     })
+  )
+  chk_bnec_recorded_control(
+    curve,
+    if (control$recorded) control$value else NULL
   )
   chk_defined_grid(list(curve), x_vec)
   per_model_asymptote <- lapply(mod_fits, function(component) {
@@ -386,7 +677,7 @@ toxval_predict.bayesmanecfit <- function(
 #'   errors. Group fits, joint refits and hurdle pairs each hold more than one
 #'   curve, over concentrations that can differ between curves, which a
 #'   [toxval_pred] does not yet represent.
-#' @order 7
+#' @order 8
 #'
 #' @export
 toxval_predict.bnecfit <- function(
@@ -1161,11 +1452,18 @@ drc_curve_cols <- function(split, is_shared, id) {
 #' @param x The predictor values in the model data.
 #' @param resolution Number of grid values.
 #' @param x_control The control concentration, or `NULL` for `min(x)`.
+#' @param control_from_fit Whether `x_control` was read from a fit's record.
 #'
 #' @return A numeric vector of length `resolution`.
 #'
 #' @noRd
-predict_grid <- function(x_range, x, resolution, x_control = NULL) {
+predict_grid <- function(
+  x_range,
+  x,
+  resolution,
+  x_control = NULL,
+  control_from_fit = FALSE
+) {
   data_range <- range(x)
   if (is.null(x_range) && is.null(x_control) && diff(data_range) == 0) {
     chk::abort_chk(
@@ -1177,6 +1475,15 @@ predict_grid <- function(x_range, x, resolution, x_control = NULL) {
     x_control <- data_range[1]
   }
   if (!is.null(x_range) && !isTRUE(all.equal(x_range[1], x_control))) {
+    if (control_from_fit) {
+      chk::abort_chk(
+        "`x_range` must start at the control concentration, ",
+        format(x_control),
+        ", read from the fit's record, not ",
+        format(x_range[1]),
+        "; supply an explicit `x_control` to override the record."
+      )
+    }
     chk::abort_chk(
       "`x_range` must start at the control concentration, ",
       format(x_control),

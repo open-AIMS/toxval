@@ -14,6 +14,36 @@ chk_type <- function(type) {
   invisible(type)
 }
 
+#' Check the distinct types accepted by `ecx()`
+#'
+#' @noRd
+chk_ecx_types <- function(type) {
+  if (length(type) == 1L) {
+    return(chk_type(type))
+  }
+  chk::chk_character(type, x_name = "`type`")
+  if (!length(type)) {
+    chk::abort_chk("`type` must have at least one value.")
+  }
+  chk::chk_not_any_na(type, x_name = "`type`")
+  allowed <- c("absolute", "relative", "range", "direct")
+  invalid <- unique(type[!type %in% allowed])
+  if (length(invalid)) {
+    chk::abort_chk(
+      "`type` must match 'absolute', 'direct', 'range' or 'relative', not ",
+      chk::cc(invalid, conj = " or "),
+      "."
+    )
+  }
+  if (anyDuplicated(type)) {
+    chk::abort_chk("`type` must contain distinct values.")
+  }
+  if ("direct" %in% type) {
+    chk::abort_chk("`type = 'direct'` must be supplied alone.")
+  }
+  invisible(type)
+}
+
 #' Check `proportion`
 #'
 #' Capped at 1 under `range` and `relative`, where the reference cannot pass the
