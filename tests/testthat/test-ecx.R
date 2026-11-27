@@ -746,6 +746,11 @@ test_that("ecx relative matches drc::ED relative", {
 # type = "relative" ----------------------------------------------------------
 
 test_that("ecx relative warns that its meaning has changed", {
+  warning_state <- toxval:::.relative_warning_state
+  was_warned <- warning_state$warned
+  withr::defer(warning_state$warned <- was_warned)
+  warning_state$warned <- FALSE
+
   x_vec <- 0:10
   pred <- compute_pred(
     list(rbind(10 - x_vec, 10 - x_vec)),
@@ -764,6 +769,39 @@ test_that("ecx relative warns that its meaning has changed", {
     ),
     "excluded"
   )
+})
+
+test_that("ecx and nsec share one relative warning per session", {
+  warning_state <- toxval:::.relative_warning_state
+  was_warned <- warning_state$warned
+  withr::defer(warning_state$warned <- was_warned)
+  warning_state$warned <- FALSE
+
+  x_vec <- 0:10
+  curve <- c(10, 9, 8, 7, 6, 7, 8, 9, 10, 11, 12)
+  pred <- compute_pred(
+    list(rbind(curve, curve)),
+    x_vec,
+    asymptote = list(list(
+      decreasing = c(0, 0),
+      increasing = c(20, 20)
+    ))
+  )
+
+  expect_no_warning(ecx(pred, type = "absolute"))
+  expect_no_warning(ecx(pred, type = "range"))
+  expect_no_warning(ecx(pred, type = "direct", reference = 9))
+  expect_no_warning(nsec(pred, type = "absolute"))
+  expect_no_warning(nsec(pred, type = "range"))
+
+  message <- '`type = "relative"` now measures from the control to the asymptote'
+  expect_warning(ecx(pred, type = "relative"), message, fixed = TRUE)
+  expect_no_warning(ecx(pred, type = "relative"))
+  expect_no_warning(nsec(pred, type = "relative"))
+
+  warning_state$warned <- FALSE
+  expect_warning(nsec(pred, type = "relative"), message, fixed = TRUE)
+  expect_no_warning(ecx(pred, type = "relative"))
 })
 
 test_that("ecx relative measures from the control to the asymptote", {

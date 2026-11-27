@@ -192,8 +192,8 @@ written for toxval 1.0.0 needs the following changes.
   `ecx_val = 10`. Under `type = "direct"` the response value is supplied
   as `reference`.
 - `type = "relative"` now measures from the control to the asymptote of
-  the fitted curve, and warns when supplied. What it measured before is
-  now `type = "range"`.
+  the fitted curve. The first call to `ecx()` or `nsec()` with this type
+  in an R session warns. What it measured before is now `type = "range"`.
 - `nsec_multi()` is defunct. `nsec()` gives one row per response and
   direction for a multivariate `brms` fit; see `?nsec_multi` for how to
   convert a call.
