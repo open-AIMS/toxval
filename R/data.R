@@ -1,10 +1,10 @@
 #' Benthic cover at the Upa-Upasina CO2 seeps
 #'
 #' Station mean aragonite saturation state, pH and percent cover for 37
-#' stations at Upa-Upasina. The cover columns are percentages. The data were
-#' obtained from the Australian Institute of Marine Science (AIMS) data record
-#' on 2026-10-23 and are redistributed under Creative Commons Attribution 3.0
-#' Australia.
+#' stations at Upa-Upasina, from Noonan et al. (2025). The cover columns are
+#' percentages. The data were downloaded from the Australian Institute of
+#' Marine Science (AIMS) data repository on 2026-10-23 and are redistributed
+#' under Creative Commons Attribution 3.0 Australia.
 #'
 #' @format A data frame with 37 rows and six columns:
 #' \describe{
@@ -15,9 +15,10 @@
 #'   \item{ACROPORA}{Percent cover of *Acropora*.}
 #'   \item{CRUSTOSE.CORALLINE.ALGAE}{Percent cover of crustose coralline algae.}
 #' }
-#' @source Australian Institute of Marine Science data record,
-#'   <https://apps.aims.gov.au/metadata/view/76c40b3c-8535-43b6-bf5f-ad26d6e1ad92>,
-#'   accessed 2026-10-23. Creative Commons Attribution 3.0 Australia.
+#' @source Noonan et al. (2025), whose data are available from the AIMS data
+#'   repository at
+#'   <https://apps.aims.gov.au/metadata/view/76c40b3c-8535-43b6-bf5f-ad26d6e1ad92>
+#'   (downloaded 2026-10-23), under Creative Commons Attribution 3.0 Australia.
 #' @references Noonan, S. H. C., Birrell, C., Fisher, R. and Fabricius, K. E.
 #'   (2025). Progressive changes in coral reef communities with increasing
 #'   ocean acidification. *Communications Biology* 8, 1518.
