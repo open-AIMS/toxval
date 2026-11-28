@@ -226,6 +226,17 @@ test_that("NSEC on a drc set uses the model anchor and keeps draw provenance", {
   decreasing_reference <- raw$reference[[which(raw$direction == "decreasing")]]
 
   expect_equal(result, nsec(pred))
+  expect_equal(
+    result$censored,
+    vapply(
+      nsec(pred, draws = TRUE)$draws,
+      function(d) {
+        mean(is.infinite(d$value.draw))
+      },
+      0.0
+    )
+  )
+  expect_equal(result$excluded, rep(0, nrow(result)))
   expect_true(all(result$anchor == "model"))
   expect_true(all(component$anchor == "component"))
   expect_lt(sum(pred$meta$draw_model == "W1.4"), 200)

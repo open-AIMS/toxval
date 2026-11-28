@@ -287,10 +287,6 @@ nsec_row <- function(result, gene, direction) {
     result$response == response_of(gene) & result$direction == direction,
   ]
 }
-censored_share <- function(result, gene, direction) {
-  d <- nsec_row(result, gene, direction)$draws[[1]]
-  mean(is.infinite(d$value.draw))
-}
 opposite <- c(decreasing = "increasing", increasing = "decreasing")
 other_rows <- do.call(
   rbind,
@@ -298,15 +294,9 @@ other_rows <- do.call(
     nsec_row(nsec_genes, genes[k], opposite[[gene_direction[k]]])
   })
 )
-other_censored <- mapply(
-  censored_share,
-  genes,
-  opposite[gene_direction],
-  MoreArgs = list(result = nsec_genes)
-)
+other_censored <- other_rows$censored
 other_na <- genes[is.na(other_rows$estimate)]
-# the rows of the other direction that the warning lists: those with an
-# estimate, since a row with no crossing at all reports no quantile
+# Only rows with an estimate can have a censored reported quantile.
 listed_censored <- other_censored[!is.na(other_rows$estimate)]
 na_row <- nsec_row(nsec_genes, other_na, "increasing")
 na_curves <- pred$curves[[match(response_of(other_na), pred$keys$response)]]
@@ -328,15 +318,15 @@ The control of each draw is its predicted response at the lowest concentration
 in the data (`r fmt(x_control, 1)` µg/L), which is both the default of
 `x_control` and the start of the grid.
 
-The warning lists the rows in which a reported quantile falls among draws that
-do not cross the reference within the tested range. These draws are ranked
+The warning names the number of rows with censored reported quantiles and points
+to the `censored` column. The censored draws are ranked
 above `r fmt(x_max)` µg/L, and an interval limit that falls among them is
 reported as `r fmt(x_max)` µg/L. In the direction for which each gene was not
 retained, between `r pct(min(listed_censored), 3)` and
 `r pct(max(listed_censored), 3)` of the draws are censored in this way, and the
 estimate is `r fmt(x_max)` µg/L. The exception is the increasing row of
-`r other_na`, which is `NA` and is not listed because none of its draws crosses
-the increasing reference. Of these draws, the `r n_start_above` that start
+`r other_na`, which is `NA`; it does not contribute to the warning count because
+none of its draws crosses the increasing reference. Of these draws, the `r n_start_above` that start
 above the reference fall below it and remain below it, so they show no effect
 within the tested range and are censored with the rest.
 
@@ -427,13 +417,8 @@ dip_ec10 <- do.call(rbind, lapply(genes[!dec], ec_row, "decreasing"))
 inc_ec10 <- do.call(rbind, lapply(genes, ec_row, "increasing"))
 inc_fold <- inc_ec10$reference / inc_ec10$control
 dipping <- genes[!dec][dip_ec10$estimate < lowest_tested]
-ec_censored <- vapply(
-  ec10$draws,
-  function(d) mean(is.infinite(d$value.draw)),
-  numeric(1)
-)
-# the increasing rows have no crossing at all, so only the decreasing rows
-# are censored in the sense of the warning
+ec_censored <- ec10$censored
+# The increasing rows have no reported quantile, so they cannot warn for censoring.
 ec_censored[ec10$direction == "increasing"] <- NA
 most_censored <- which.max(ec_censored)
 stopifnot(
@@ -464,9 +449,9 @@ have decreasing EC10s below `r fmt(lowest_tested, 1)` µg/L (with upper limits
 at `r fmt(x_max)` µg/L), because their median curves first dip by
 `r pct(min(1 - dip_ratio[match(dipping, genes)]))` to
 `r pct(max(1 - dip_ratio[match(dipping, genes)]))` below the control before
-they rise (@fig-curves). The warning lists the decreasing rows in which a
-reported quantile falls among draws that do not fall 10% below the control
-within the tested range. The largest share of such draws
+they rise (@fig-curves). The warning gives the number of rows with censored reported quantiles and
+points to the `censored` column. In the decreasing rows, the censored draws
+do not fall 10% below the control within the tested range. The largest share of such draws
 (`r pct(ec_censored[most_censored], 3)`) is for
 `r sub("^gene", "", ec10$response[most_censored])`, whose decreasing EC10 is
 therefore `r fmt(x_max)` µg/L.

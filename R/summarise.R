@@ -28,8 +28,9 @@
 #' unknown one beyond the range.
 #'
 #' A direction in which no realisation has a crossing returns `NA`. The
-#' call warns once when a reported quantile is censored or a realisation is
-#' excluded.
+#' call warns when a reported quantile is censored or realisations are partly
+#' excluded. A wholly excluded direction does not warn when the other direction
+#' of the same curve is not wholly excluded.
 #'
 #' `xform` is applied to the realisations before they are summarised. The
 #' `control` column is the central quantile of the realisations not excluded
@@ -89,6 +90,8 @@ summarise_metric <- function(
     names(rows)
   )]
   descriptors <- dplyr::bind_rows(lapply(summaries, function(s) s$descriptors))
+  descriptors$censored <- vapply(summaries, function(s) s$n_censored / s$n, 0.0)
+  descriptors$excluded <- vapply(summaries, function(s) s$n_excluded / s$n, 0.0)
 
   out <- dplyr::bind_cols(identifiers, keys, estimates, arguments, descriptors)
 
@@ -96,7 +99,7 @@ summarise_metric <- function(
     out$draws <- lapply(summaries, function(s) s$draws)
   }
 
-  warn_censored(keys, rows$direction, summaries)
+  warn_censored(out, c(key_cols, names(arguments)), summaries)
   new_toxval(out, pred$meta)
 }
 
@@ -268,56 +271,56 @@ xform_decreasing <- function(xform, x_vec) {
 
 #' Warn once for censored quantiles and excluded realisations
 #'
-#' @param keys The key columns of the rows.
-#' @param direction The direction of each row.
+#' @param result The result rows, before their toxval class is assigned.
+#' @param pair_cols Columns identifying the curve, type and proportion.
 #' @param summaries The output of `summarise_row()` for each row.
 #'
 #' @noRd
-warn_censored <- function(keys, direction, summaries) {
-  lines <- character(0)
-  for (i in seq_along(summaries)) {
-    s <- summaries[[i]]
-    parts <- character(0)
-    if (s$censored) {
-      parts <- c(parts, paste0(percent(s$n_censored, s$n), " censored"))
+warn_censored <- function(result, pair_cols, summaries) {
+  censored <- vapply(summaries, function(s) s$censored, logical(1))
+  excluded <- result$excluded > 0 & result$excluded < 1
+  groups <- vctrs::vec_group_loc(result[pair_cols])$loc
+  for (indices in groups) {
+    if (all(result$excluded[indices] == 1)) {
+      excluded[indices] <- TRUE
     }
-    if (s$n_excluded > 0) {
-      parts <- c(parts, paste0(percent(s$n_excluded, s$n), " excluded"))
-    }
-    if (length(parts)) {
-      lines <- c(
-        lines,
-        paste0(
-          row_label(keys[i, ], direction[i]),
-          ": ",
-          paste(parts, collapse = ", ")
-        )
+  }
+  lines <- character()
+  if (any(censored)) {
+    n <- sum(censored)
+    lines <- c(
+      lines,
+      paste0(
+        n,
+        if (n == 1) " row has" else " rows have",
+        " a reported interval limit at the evaluated range boundary ",
+        "(the highest concentration, after `xform`) because some ",
+        "realisations did not cross within that range; see the ",
+        "`censored` column. Consider a wider `x_range`."
       )
+    )
+  }
+  if (any(excluded)) {
+    n <- sum(excluded)
+    reason <- if (identical(result$metric[[1]], "nsec")) {
+      "their controls were non-finite"
+    } else {
+      "their controls were non-finite or their references were undefined"
     }
+    lines <- c(
+      lines,
+      paste0(
+        n,
+        if (n == 1) " row has" else " rows have",
+        " excluded realisations that warrant a warning because ",
+        reason,
+        "; see the ",
+        "`excluded` column."
+      )
+    )
   }
   if (!length(lines)) {
     return(invisible(NULL))
   }
-  warning(
-    "Some realisations have no crossing within the evaluated range, so a ",
-    "reported quantile is at the highest concentration, or have no reference ",
-    "and were excluded. Consider a wider `x_range`.\n",
-    paste0("* ", lines, collapse = "\n"),
-    call. = FALSE
-  )
-}
-
-#' @noRd
-row_label <- function(key, direction) {
-  descriptors <- vapply(
-    names(key),
-    function(col) paste0(col, " ", as.character(key[[col]])),
-    character(1)
-  )
-  paste(c(descriptors, direction), collapse = ", ")
-}
-
-#' @noRd
-percent <- function(n, total) {
-  paste0(format(round(100 * n / total, 1), nsmall = 1), "%")
+  warning(paste(lines, collapse = "\n"), call. = FALSE)
 }

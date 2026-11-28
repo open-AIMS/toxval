@@ -294,13 +294,13 @@ We can test the inverse relation by calling `ecx()` at the median `ecnsec`.
 
 ```{r}
 #| label: ecx-inverse
-ecx(dec_pred, proportion = dec$ecnsec[1])
+ecx_at_ecnsec <- ecx(dec_pred, proportion = dec$ecnsec[1])
+ecx_at_ecnsec[c("direction", "type", "proportion", "estimate", "reference")]
 ```
 
 ```{r}
 #| label: ecx-inverse-check
 #| echo: false
-ecx_at_ecnsec <- ecx(dec_pred, proportion = dec$ecnsec[1])
 stopifnot(
   abs(ecx_at_ecnsec$estimate[1] - dec$estimate[1]) < grid_step(dec_pred),
   # every realisation has the same shape, so the interval has zero width
@@ -589,10 +589,10 @@ reference in the direction sought, within the grid, has no NSEC of its own, and
 - A realisation that does not reach the reference within the grid is given
   `Inf`, which ranks it above all crossings. A quantile that falls among such
   realisations is reported as the highest concentration, and the call warns
-  with the fraction of realisations that are censored.
+  with a line naming the `censored` column, which gives their share.
 - A realisation with no finite control (e.g. a bootstrap replicate outside the
   parameter space of the model) is excluded from the summary and counted in
-  the warning.
+  the `excluded` column. A partial exclusion warns and names that column.
 
 Censoring follows from what a missing crossing means. A realisation that has not
 reached the reference by the highest concentration would reach it, if at all,
@@ -762,8 +762,9 @@ stopifnot(
 `r n_censored` of the `r n_real` realisations (those with controls from
 `r ctl(controls[n_real - n_censored + 1])` to `r ctl(max(controls))`) would
 reach the reference beyond `r fmt(max(short_pred$x_vec))`. They are `Inf` in
-the `draws` column and make up `r pct(n_censored / n_real)` of the
-realisations. Because the 97.5 per cent quantile has 2.5 per cent of the
+the `draws` column, and the `censored` column gives their share
+(`r pct(short$censored[1])`). Because the
+97.5 per cent quantile has 2.5 per cent of the
 realisations above it, it falls among the censored ones and is reported as
 `r fmt(short$conf.high[1])` (the highest concentration), and the call warns.
 The median, `r fmt(short$estimate[1])`, is that of the full grid. The lower
@@ -806,7 +807,7 @@ stopifnot(
 
 On a grid to `r fmt(max(few_pred$x_vec))`, `r n_few` realisations are
 censored. They are above the 97.5 per cent quantile, so the upper limit is a
-crossing (`r fmt(few$conf.high[1])`, the 99th), and there is no warning. The
+crossing (`r fmt(few$conf.high[1])`, the 99th), and there is no warning, although the `censored` share is above 0. The
 full grid gives `r fmt(dec$conf.high[1])`, halfway between the 98th and the
 99th crossings, because that row has no censored realisation.
 

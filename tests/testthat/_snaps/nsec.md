@@ -3,7 +3,7 @@
     Code
       print(output, width = Inf)
     Output
-      # A tibble: 14 x 15
+      # A tibble: 14 x 17
       # Model:    brmsfit
       # Settings: resolution 500 | 1000 posterior draws
          metric direction  group       estimate conf.low conf.high sig_val type    
@@ -22,46 +22,62 @@
       12 nsec   increasing simazine      NA       NA        NA        0.01 absolute
       13 nsec   decreasing tebuthiuron    1.22    -0.291     1.69     0.01 absolute
       14 nsec   increasing tebuthiuron   NA       NA        NA        0.01 absolute
-         anchor control reference asymptote ecnsec ecnsec.low ecnsec.high
-         <chr>    <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-       1 model    0.685     0.665        NA 0.0300    0.00502      0.0540
-       2 model    0.685     0.705        NA 0.0616    0.00693      0.110 
-       3 model    0.623     0.604        NA 0.0300    0.00427      0.0562
-       4 model    0.623     0.642        NA 0.0527    0.00716      0.0914
-       5 model    0.698     0.676        NA 0.0322    0.00665      0.0587
-       6 model    0.698     0.722        NA 0.0765    0.0121       0.129 
-       7 model    0.678     0.661        NA 0.0256    0.00379      0.0473
-       8 model    0.678     0.696        NA 0.0551    0.00740      0.0967
-       9 model    0.670     0.647        NA 0.0344    0.00530      0.0635
-      10 model    0.670     0.697        NA 0.0809    0.0192       0.132 
-      11 model    0.683     0.662        NA 0.0313    0.00429      0.0535
-      12 model    0.683     0.701        NA 0.0553    0.00483      0.107 
-      13 model    0.708     0.696        NA 0.0171    0.00223      0.0316
-      14 model    0.708     0.720        NA 0.0431    0.00694      0.0763
+         anchor control reference asymptote ecnsec ecnsec.low ecnsec.high censored
+         <chr>    <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl>    <dbl>
+       1 model    0.685     0.665        NA 0.0300    0.00502      0.0540        0
+       2 model    0.685     0.705        NA 0.0616    0.00693      0.110         1
+       3 model    0.623     0.604        NA 0.0300    0.00427      0.0562        0
+       4 model    0.623     0.642        NA 0.0527    0.00716      0.0914        1
+       5 model    0.698     0.676        NA 0.0322    0.00665      0.0587        0
+       6 model    0.698     0.722        NA 0.0765    0.0121       0.129         1
+       7 model    0.678     0.661        NA 0.0256    0.00379      0.0473        0
+       8 model    0.678     0.696        NA 0.0551    0.00740      0.0967        1
+       9 model    0.670     0.647        NA 0.0344    0.00530      0.0635        0
+      10 model    0.670     0.697        NA 0.0809    0.0192       0.132         1
+      11 model    0.683     0.662        NA 0.0313    0.00429      0.0535        0
+      12 model    0.683     0.701        NA 0.0553    0.00483      0.107         1
+      13 model    0.708     0.696        NA 0.0171    0.00223      0.0316        0
+      14 model    0.708     0.720        NA 0.0431    0.00694      0.0763        1
+         excluded
+            <dbl>
+       1        0
+       2        0
+       3        0
+       4        0
+       5        0
+       6        0
+       7        0
+       8        0
+       9        0
+      10        0
+      11        0
+      12        0
+      13        0
+      14        0
 
 # nsec works for drc using continuous data
 
     Code
       print(output, width = Inf)
     Output
-      # A tibble: 2 x 14
+      # A tibble: 2 x 16
       # Model:    drc
       # Settings: resolution 500 | 1000 bootstrap realisations
         metric direction  estimate conf.low conf.high sig_val type     anchor control
         <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>    <dbl>
       1 nsec   decreasing     1.18    0.995      1.28    0.01 absolute model    0.897
       2 nsec   increasing    NA      NA         NA       0.01 absolute model    0.897
-        reference asymptote ecnsec ecnsec.low ecnsec.high
-            <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1     0.882        NA 0.0169    0.00358      0.0304
-      2     0.912        NA 0.0165    0.00256      0.0303
+        reference asymptote ecnsec ecnsec.low ecnsec.high censored excluded
+            <dbl>     <dbl>  <dbl>      <dbl>       <dbl>    <dbl>    <dbl>
+      1     0.882        NA 0.0169    0.00358      0.0304        0        0
+      2     0.912        NA 0.0165    0.00256      0.0303        1        0
 
 # nsec for drc works for curveid and binomial data
 
     Code
       print(output, width = Inf)
     Output
-      # A tibble: 4 x 15
+      # A tibble: 4 x 17
       # Model:    drc
       # Settings: resolution 500 | 1000 bootstrap realisations
         metric direction  group estimate conf.low conf.high sig_val type     anchor
@@ -70,19 +86,19 @@
       2 nsec   increasing 24h        NA       NA        NA     0.01 absolute model 
       3 nsec   decreasing 48h       288.     130.      466.    0.01 absolute model 
       4 nsec   increasing 48h        NA       NA        NA     0.01 absolute model 
-        control reference asymptote ecnsec ecnsec.low ecnsec.high
-          <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1   0.990     0.934        NA 0.0557     0.0129      0.0634
-      2   0.990     0.998        NA 0.836      0.247       0.968 
-      3   0.993     0.955        NA 0.0379     0.0112      0.0435
-      4   0.993     0.999        NA 0.857      0.260       0.970 
+        control reference asymptote ecnsec ecnsec.low ecnsec.high censored excluded
+          <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl>    <dbl>    <dbl>
+      1   0.990     0.934        NA 0.0557     0.0129      0.0634        0        0
+      2   0.990     0.998        NA 0.836      0.247       0.968         1        0
+      3   0.993     0.955        NA 0.0379     0.0112      0.0435        0        0
+      4   0.993     0.999        NA 0.857      0.260       0.970         1        0
 
 # nsec for drc throws an error for an increasing function
 
     Code
       print(output, width = Inf)
     Output
-      # A tibble: 4 x 15
+      # A tibble: 4 x 17
       # Model:    drc
       # Settings: resolution 500 | 1000 bootstrap realisations
         metric direction  group estimate conf.low conf.high sig_val type     anchor
@@ -91,29 +107,29 @@
       2 nsec   increasing 24h       523.     148.      984.    0.01 absolute model 
       3 nsec   decreasing 48h        NA       NA        NA     0.01 absolute model 
       4 nsec   increasing 48h       271.     129.      451.    0.01 absolute model 
-        control reference asymptote ecnsec ecnsec.low ecnsec.high
-          <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1 0.0102   0.00157         NA 0.846     0.194        0.969 
-      2 0.0102   0.0647          NA 0.0551    0.0142       0.0629
-      3 0.00723  0.000861        NA 0.881     0.361        0.972 
-      4 0.00723  0.0406          NA 0.0336    0.00964      0.0393
+        control reference asymptote ecnsec ecnsec.low ecnsec.high censored excluded
+          <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl>    <dbl>    <dbl>
+      1 0.0102   0.00157         NA 0.846     0.194        0.969         1        0
+      2 0.0102   0.0647          NA 0.0551    0.0142       0.0629        0        0
+      3 0.00723  0.000861        NA 0.881     0.361        0.972         1        0
+      4 0.00723  0.0406          NA 0.0336    0.00964      0.0393        0        0
 
 # nsec drc additional example 1
 
     Code
       print(output, width = Inf)
     Output
-      # A tibble: 2 x 14
+      # A tibble: 2 x 16
       # Model:    drc
       # Settings: resolution 500 | 1000 bootstrap realisations
         metric direction  estimate conf.low conf.high sig_val type     anchor control
         <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>    <dbl>
       1 nsec   decreasing    0.390    0.337     0.428    0.01 absolute model    0.679
       2 nsec   increasing   NA       NA        NA        0.01 absolute model    0.679
-        reference asymptote ecnsec ecnsec.low ecnsec.high
-            <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1     0.664        NA 0.0220    0.00490      0.0381
-      2     0.693        NA 0.0203    0.00341      0.0381
+        reference asymptote ecnsec ecnsec.low ecnsec.high censored excluded
+            <dbl>     <dbl>  <dbl>      <dbl>       <dbl>    <dbl>    <dbl>
+      1     0.664        NA 0.0220    0.00490      0.0381        0        0
+      2     0.693        NA 0.0203    0.00341      0.0381        1        0
 
 # nsec drc additional example 2
 
@@ -155,7 +171,7 @@
         "names": {
           "type": "character",
           "attributes": {},
-          "value": ["metric", "direction", "estimate", "conf.low", "conf.high", "sig_val", "type", "anchor", "control", "reference", "asymptote", "ecnsec", "ecnsec.low", "ecnsec.high"]
+          "value": ["metric", "direction", "estimate", "conf.low", "conf.high", "sig_val", "type", "anchor", "control", "reference", "asymptote", "ecnsec", "ecnsec.low", "ecnsec.high", "censored", "excluded"]
         },
         "row.names": {
           "type": "integer",
@@ -182,17 +198,17 @@
         {
           "type": "double",
           "attributes": {},
-          "value": [0.40189111, "NA"]
+          "value": [0.40276666, "NA"]
         },
         {
           "type": "double",
           "attributes": {},
-          "value": [0.33808349, "NA"]
+          "value": [0.3385586, "NA"]
         },
         {
           "type": "double",
           "attributes": {},
-          "value": [0.44056379, "NA"]
+          "value": [0.44165017, "NA"]
         },
         {
           "type": "double",
@@ -212,12 +228,12 @@
         {
           "type": "double",
           "attributes": {},
-          "value": [0.67689706, 0.67689706]
+          "value": [0.67659694, 0.67659694]
         },
         {
           "type": "double",
           "attributes": {},
-          "value": [0.66231011, 0.68973451]
+          "value": [0.66214718, 0.68938958]
         },
         {
           "type": "double",
@@ -227,17 +243,27 @@
         {
           "type": "double",
           "attributes": {},
-          "value": [0.02154973, 0.01896514]
+          "value": [0.02135653, 0.01890732]
         },
         {
           "type": "double",
           "attributes": {},
-          "value": [0.00354905, 0.00179299]
+          "value": [0.00353196, 0.00184813]
         },
         {
           "type": "double",
           "attributes": {},
-          "value": [0.0380391, 0.03771118]
+          "value": [0.0377416, 0.03746524]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0, 1]
+        },
+        {
+          "type": "double",
+          "attributes": {},
+          "value": [0, 0]
         }
       ]
     }
@@ -247,24 +273,24 @@
     Code
       print(nsec(output), width = Inf)
     Output
-      # A tibble: 2 x 14
+      # A tibble: 2 x 16
       # Model:    brmsfit
       # Settings: resolution 500 | 1000 posterior draws
         metric direction  estimate conf.low conf.high sig_val type     anchor control
         <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>    <dbl>
       1 nsec   decreasing    0.258    0.116      1.28    0.01 absolute model    0.914
       2 nsec   increasing   NA       NA         NA       0.01 absolute model    0.914
-        reference asymptote ecnsec ecnsec.low ecnsec.high
-            <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1     0.880        NA 0.0369    0.00606      0.0617
-      2     0.943        NA 0.339     0.0790       0.503 
+        reference asymptote ecnsec ecnsec.low ecnsec.high censored excluded
+            <dbl>     <dbl>  <dbl>      <dbl>       <dbl>    <dbl>    <dbl>
+      1     0.880        NA 0.0369    0.00606      0.0617        0        0
+      2     0.943        NA 0.339     0.0790       0.503         1        0
 
 # brms grouped nsec with draws has one row per group and direction
 
     Code
       print(output, width = Inf)
     Output
-      # A tibble: 4 x 16
+      # A tibble: 4 x 18
       # Model:    brmsfit
       # Settings: resolution 500 | 1000 posterior draws
         metric direction  group estimate conf.low conf.high sig_val type     anchor
@@ -273,12 +299,18 @@
       2 nsec   increasing 1         1.05    1.05       1.05    0.01 absolute model 
       3 nsec   decreasing 2         1.05    1.00       1.05    0.01 absolute model 
       4 nsec   increasing 2         1.05    0.942      1.05    0.01 absolute model 
-        control reference asymptote ecnsec ecnsec.low ecnsec.high draws               
-          <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl> <list>              
-      1   0.900     -5.12        NA   6.17      2.45        31.2  <tibble [1,000 x 3]>
-      2   0.900      4.33        NA   3.37      0.225       24.5  <tibble [1,000 x 3]>
-      3   0.921     -1.57        NA   2.69      1.78         7.43 <tibble [1,000 x 3]>
-      4   0.921      2.28        NA   1.44      0.128        8.32 <tibble [1,000 x 3]>
+        control reference asymptote ecnsec ecnsec.low ecnsec.high censored excluded
+          <dbl>     <dbl>     <dbl>  <dbl>      <dbl>       <dbl>    <dbl>    <dbl>
+      1   0.900     -5.12        NA   6.17      2.45        31.2     1            0
+      2   0.900      4.33        NA   3.37      0.225       24.5     0.999        0
+      3   0.921     -1.57        NA   2.69      1.78         7.43    0.954        0
+      4   0.921      2.28        NA   1.44      0.128        8.32    0.953        0
+        draws               
+        <list>              
+      1 <tibble [1,000 x 3]>
+      2 <tibble [1,000 x 3]>
+      3 <tibble [1,000 x 3]>
+      4 <tibble [1,000 x 3]>
     Code
       output$draws[[1]]
     Output
@@ -302,15 +334,15 @@
     Code
       print(output, width = Inf)
     Output
-      # A tibble: 2 x 14
+      # A tibble: 2 x 16
       # Model:    drc
       # Settings: resolution 600 | 1000 bootstrap realisations
         metric direction  estimate conf.low conf.high sig_val type     anchor control
         <chr>  <chr>         <dbl>    <dbl>     <dbl>   <dbl> <chr>    <chr>    <dbl>
       1 nsec   decreasing     1.12   0.0323      1.25    0.05 absolute model    0.897
       2 nsec   increasing    NA     NA          NA       0.05 absolute model    0.897
-        reference asymptote ecnsec ecnsec.low ecnsec.high
-            <dbl>     <dbl>  <dbl>      <dbl>       <dbl>
-      1     0.887        NA 0.0109   -0.00243      0.0245
-      2     0.908        NA 0.0115   -0.00241      0.0252
+        reference asymptote ecnsec ecnsec.low ecnsec.high censored excluded
+            <dbl>     <dbl>  <dbl>      <dbl>       <dbl>    <dbl>    <dbl>
+      1     0.887        NA 0.0109   -0.00243      0.0245        0        0
+      2     0.908        NA 0.0115   -0.00241      0.0252        1        0
 

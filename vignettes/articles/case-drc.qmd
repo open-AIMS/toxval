@@ -177,10 +177,7 @@ ecx_ryegrass
 ```
 
 The first call to `ecx()` or `nsec()` with `type = "relative"` in an R
-session warns that its meaning changed in toxval 2.0.0. The exclusion warning
-for the increasing direction arises because this curve only declines, so its
-increasing span from the control to the asymptote is zero; a wider `x_range`
-would not change that.
+session warns that its meaning changed in toxval 2.0.0.
 
 For both definitions, the same realisations were evaluated in one `ecx()`
 call. The resulting rows are ordered as supplied: `relative`, then `absolute`.
@@ -438,12 +435,12 @@ ecx_daph0 <- ecx(
   x_control = 0,
   seed = 42
 )
+ecx_daph0[c("direction", "group", "proportion", "excluded")]
 ```
 
-The call gives two warnings. The first is that 0 is outside the tested
-concentrations, so the control is a prediction beyond the data. The second is
-that the decreasing rows have no reference, because a proportion cannot fall
-below a control of 0.
+The call warns that 0 is outside the tested concentrations, so the control
+is a prediction beyond the data. The decreasing rows have no reference because
+a proportion cannot fall below a control of 0; their `excluded` share is 1.
 
 ```{r}
 #| label: ec-daphnids

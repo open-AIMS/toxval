@@ -317,7 +317,7 @@ columns <- data.frame(
     "`metric`, `direction`", "`estimate`, `conf.low`, `conf.high`",
     "`sig_val`", "`control`", "`reference`", "`type`",
     "`ecnsec`, `ecnsec.low`, `ecnsec.high`", "`asymptote`", "`anchor`",
-    "`resolution` (in the header)"
+    "`censored`", "`excluded`", "`resolution` (in the header)"
   ),
   Value = c(
     "nsec, decreasing", interval(nsec_s_dec), fmt(nsec_s_dec$sig_val),
@@ -325,7 +325,8 @@ columns <- data.frame(
     nsec_s_dec$type,
     paste0(pct(nsec_s_dec$ecnsec), " (", pct(nsec_s_dec$ecnsec.low), " to ",
            pct(nsec_s_dec$ecnsec.high), ")"),
-    "NA", nsec_s_dec$anchor, "500"
+    "NA", nsec_s_dec$anchor, pct(nsec_s_dec$censored),
+    pct(nsec_s_dec$excluded), "500"
   ),
   Meaning = c(
     "The estimate and the direction of the change. Both directions are always returned.",
@@ -337,6 +338,8 @@ columns <- data.frame(
     "The decline at the NSEC as a proportion of that span, i.e. of the control here.",
     "The asymptote that `ecnsec` is measured to under `type = \"relative\"`; `NA` otherwise.",
     "The control the reference is taken from in a model-averaged fit. A `brmsfit` is one model, so it has no effect here.",
+    "The share of NSEC realisations censored beyond the evaluated range.",
+    "The share of NSEC realisations excluded because their control is non-finite.",
     paste0("The number of concentrations, evenly spaced on the `log_x` scale from ",
            round(conc[1], 2), " to ", max(conc), ", at which each realisation is evaluated.")
   ),
@@ -345,6 +348,8 @@ columns <- data.frame(
     "`x_control = NULL`: the lowest concentration in the data",
     "`sig_val`", "`type = \"absolute\"`", "`type`, `prob_vals`", "`type`",
     "`anchor = NULL`: `\"model\"`, except `\"component\"` for a `bayesmanecfit`",
+    "`x_range = NULL`: the range of the data",
+    "The predicted control at `x_control`",
     "`resolution = 500`; `x_range = NULL`: the range of the data"
   ),
   check.names = FALSE
@@ -468,7 +473,8 @@ quantile of the control (`r fmt(nsec_s_inc$reference, 3)`, the dotted orange
 line), is `r fmt(nsec_s_inc$estimate)` (orange). In some realisations the
 response never rises as far as these references, and the upper limit of both
 intervals is therefore the highest concentration (`r max(conc)`, dashed lines),
-as the warnings report. How toxval places such realisations is shown in the
+as shown by the `censored` column (`r pct(ecx_s_inc$censored)` for EC10
+and `r pct(nsec_s_inc$censored)` for NSEC). How these realisations are placed is shown in the
 [multivariate `brms` case study](https://open-aims.github.io/toxval/articles/case-brms-multivariate.html).
 
 ## Estimates for each plate

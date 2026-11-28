@@ -102,6 +102,13 @@ under \code{type = "direct"}.
 \item \code{reference}: the response whose crossing is the ECx.
 \item \code{asymptote}: the asymptote the span is measured to, or \code{NA} unless \code{type}
 is \code{"relative"}.
+\item \code{censored}: the share of realisations assigned \code{Inf} (or \code{-Inf} after a
+decreasing \code{xform}) because they do not reach a defined reference in the
+evaluated range, or have no span under \code{"range"}. A realisation placed at
+\code{x_control} is not censored.
+\item \code{excluded}: the share of realisations assigned \code{NA} because their
+control is non-finite or their reference is undefined, for example from
+a non-positive control or missing asymptote.
 \item \code{draws}: where \code{draws = TRUE}, a tibble per row of \code{.draw} and
 \code{value.draw}, the ECx of each realisation, after \code{xform}. A realisation
 that does not reach the reference is \code{Inf}, or \code{-Inf} where \code{xform} is
@@ -159,7 +166,14 @@ observed order statistics. Under \code{"range"} this includes a realisation that
 never falls below, or rises above, its control. Under \code{"absolute"} and
 \code{"relative"}, a realisation with nothing to take the proportion of, such as
 a control at or below 0 or a missing asymptote, is excluded from the
-summary, with a warning.
+summary. The \code{censored} and \code{excluded} columns give the share of all
+realisations in each row. A warning names the \code{censored} column when a
+reported quantile is censored, and names \code{excluded} when some realisations
+are excluded. A direction with all realisations excluded does not warn when
+the other direction of the same curve and proportion is not wholly excluded,
+even if it has no crossing within the evaluated range.
+A row with no reported quantile does not warn for censoring even if its
+\code{censored} share is positive.
 }
 \section{Fits from bayesnec}{
 

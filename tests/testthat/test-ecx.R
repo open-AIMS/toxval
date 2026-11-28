@@ -42,11 +42,11 @@ test_that("check ecx_val must be a numeric scalar and gives deprecation warning"
 
   expect_length(
     suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50L)),
-    10
+    12
   )
   expect_length(
     suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = 50)),
-    10
+    12
   )
   expect_error(
     suppressWarnings(ecx(brms_model_1, x_var = "x", ecx_val = c(50, 10, 2))),
@@ -628,10 +628,10 @@ test_that("by_group = TRUE and group_var supplied it groups the data based on th
     lifecycle::expect_deprecated(
       output <- ecx(brms_model_2, x_var = "x", by_group = TRUE, group_var = "z")
     ),
-    "no crossing within the evaluated range"
+    "a reported interval limit at the evaluated range boundary"
   )
 
-  expect_equal(dim(output), c(4, 11))
+  expect_equal(dim(output), c(4, 13))
   expect_true("group" %in% colnames(output))
   expect_equal(output$group, factor(c("1", "1", "2", "2")))
 })
@@ -682,7 +682,7 @@ test_that("when by_group = TRUE, group_var is provided and draws = TRUE, you get
     draws = TRUE
   ))
 
-  expect_equal(dim(output), c(4, 12))
+  expect_equal(dim(output), c(4, 14))
   expect_true("group" %in% colnames(output))
   expect_true("draws" %in% colnames(output))
 })
@@ -848,6 +848,20 @@ test_that("ecx relative matches drc::ED relative", {
   expect_equal(decreasing$estimate, unname(expected[, 1]), tolerance = 0.01)
 })
 
+test_that("a continuous fit with a negative control warns when both directions are excluded", {
+  skip_if_not_installed("drc")
+  data <- drc::ryegrass
+  data$shifted_rootl <- data$rootl - 10
+  fit <- drc::drm(shifted_rootl ~ conc, data = data, fct = drc::LL.4())
+
+  expect_warning(
+    result <- ecx(fit, n_boot = 100, seed = 42),
+    "2 rows have excluded realisations that warrant a warning.*`excluded` column"
+  )
+  expect_equal(result$excluded, c(1, 1))
+  expect_true(all(is.na(result$estimate)))
+})
+
 # type = "relative" ----------------------------------------------------------
 
 test_that("ecx relative warns that its meaning has changed", {
@@ -866,14 +880,62 @@ test_that("ecx relative warns that its meaning has changed", {
     ))
   )
 
-  # the increasing direction has no asymptote, so it warns as excluded too
-  expect_warning(
-    expect_warning(
-      ecx(pred, type = "relative"),
-      "`type = \"relative\"` now measures from the control to the asymptote"
-    ),
-    "excluded"
+  # The increasing direction has no asymptote, but the decreasing direction
+  # has an estimate, so only the change in meaning warns.
+  warnings <- character()
+  output <- withCallingHandlers(
+    ecx(pred, type = "relative"),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
   )
+  expect_length(warnings, 1)
+  expect_match(
+    warnings,
+    "`type = \"relative\"` now measures from the control to the asymptote",
+    fixed = TRUE
+  )
+  expect_equal(output$excluded, c(0, 1))
+})
+
+test_that("a wholly excluded direction is silent when its pair has a reference but no crossing", {
+  skip_if_not_installed("drc")
+  warning_state <- toxval:::.relative_warning_state
+  was_warned <- warning_state$warned
+  withr::defer(warning_state$warned <- was_warned)
+  warning_state$warned <- FALSE
+
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::LL.4())
+  warnings <- character()
+  result <- withCallingHandlers(
+    ecx(
+      fit,
+      type = "relative",
+      proportion = c(0.1, 0.5),
+      x_range = c(0, 1),
+      seed = 42
+    ),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  decreasing <- result[result$direction == "decreasing", ]
+  increasing <- result[result$direction == "increasing", ]
+  expect_true(all(is.finite(decreasing$reference)))
+  expect_true(is.na(decreasing$estimate[decreasing$proportion == 0.5]))
+  expect_equal(decreasing$censored[decreasing$proportion == 0.5], 1)
+  expect_equal(increasing$excluded, c(1, 1))
+  expect_length(warnings, 2)
+  expect_match(
+    warnings[[1]],
+    "`type = \"relative\"` now measures from the control to the asymptote",
+    fixed = TRUE
+  )
+  expect_match(warnings[[2]], "`censored` column", fixed = TRUE)
+  expect_false(any(grepl("`excluded` column", warnings, fixed = TRUE)))
 })
 
 test_that("ecx and nsec share one relative warning per session", {
