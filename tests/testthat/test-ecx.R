@@ -848,6 +848,77 @@ test_that("ecx relative matches drc::ED relative", {
   expect_equal(decreasing$estimate, unname(expected[, 1]), tolerance = 0.01)
 })
 
+test_that("ecx relative for drc Weibull fits matches drc::ED", {
+  skip_if_not_installed("drc")
+  for (constructor in list(drc::W1.4, drc::W2.4)) {
+    fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = constructor())
+    output <- suppressWarnings(
+      ecx(
+        fit,
+        type = "relative",
+        proportion = c(0.1, 0.5),
+        n_boot = 3000,
+        seed = 42
+      )
+    )
+    decreasing <- output[output$direction == "decreasing", ]
+    expected <- drc::ED(fit, c(10, 50), display = FALSE)
+
+    expect_equal(decreasing$estimate, unname(expected[, 1]), tolerance = 0.015)
+  }
+})
+
+test_that("relative ECx uses the smaller drc limit for decreasing fits", {
+  skip_if_not_installed("drc")
+  for (name in c("MM.3", "AR.3", "EXD.3")) {
+    constructor <- getExportedValue("drc", name)
+    fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = constructor())
+    output <- suppressWarnings(
+      ecx(
+        fit,
+        type = "relative",
+        proportion = c(0.1, 0.5),
+        n_boot = 3000,
+        seed = 42
+      )
+    )
+    expected <- drc::ED(fit, c(10, 50), display = FALSE)
+    decreasing <- output$estimate[output$direction == "decreasing"]
+
+    if (name != "EXD.3") {
+      expect_gt(stats::coef(fit)[[1]], stats::coef(fit)[[2]])
+    }
+    expect_equal(decreasing, unname(expected[, 1]), tolerance = 0.015)
+  }
+})
+
+test_that("relative EC10 uses the larger drc limit for increasing fits", {
+  skip_if_not_installed("drc")
+  set.seed(24)
+  dose <- rep(c(0, 0.2, 0.5, 1, 2, 4, 8, 16), each = 3)
+  fct <- drc::W2.4()
+  parms <- matrix(
+    rep(c(1.3, 1, 8, 3), each = length(dose)),
+    nrow = length(dose)
+  )
+  mean <- fct$fct(dose, parms)
+  data <- data.frame(
+    dose = dose,
+    response = mean + stats::rnorm(length(dose), sd = 0.1)
+  )
+
+  for (constructor in list(drc::W2.4, drc::LL.4)) {
+    fit <- drc::drm(response ~ dose, data = data, fct = constructor())
+    output <- suppressWarnings(
+      ecx(fit, type = "relative", proportion = 0.1, n_boot = 3000, seed = 42)
+    )
+    expected <- drc::ED(fit, 10, display = FALSE)
+    increasing <- output$estimate[output$direction == "increasing"]
+
+    expect_equal(increasing, unname(expected[1, 1]), tolerance = 0.015)
+  }
+})
+
 # type = "relative" ----------------------------------------------------------
 
 test_that("ecx relative warns that its meaning has changed", {
@@ -1014,7 +1085,7 @@ test_that("ecx relative caps proportion at 1", {
 
 test_that("ecx relative errors for a drc function that supplies no asymptote", {
   skip_if_not_installed("drc")
-  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::W1.4())
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::L.4())
 
   expect_error(
     suppressWarnings(ecx(fit, type = "relative", n_boot = 10)),

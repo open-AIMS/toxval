@@ -45,9 +45,35 @@ test_that("drc set direct ECx and AIC weights agree with maED", {
   )
 })
 
+test_that("drc set relative EC10 agrees with maED", {
+  skip_if_not_installed("drc")
+  fits <- ryegrass_set()
+  ma <- drc::maED(
+    fits[[1]],
+    list(drc::W1.4(), drc::W2.4()),
+    respLev = 10,
+    display = FALSE,
+    extended = TRUE
+  )
+  ma_estimate <- ma[1, "estimates"][[1]][1, 1]
+  pred <- toxval_predict(fits, n_boot = 3000, seed = 42)
+  result <- suppressWarnings(ecx(pred, type = "relative", proportion = 0.1))
+
+  expect_length(pred$asymptote, 1)
+  expect_length(pred$asymptote[[1]]$decreasing, 3000)
+  # Keep the tolerance below the LL.4-only and equal-weight differences.
+  expect_lt(
+    abs(result$estimate[result$direction == "decreasing"] - ma_estimate),
+    0.02
+  )
+})
+
 test_that("relative ECx and NSEC refuse a set with a fit lacking asymptotes", {
   skip_if_not_installed("drc")
-  fits <- ryegrass_set()[1:2]
+  fits <- list(
+    LL.4 = ryegrass_set()[[1]],
+    L.4 = drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::L.4())
+  )
   pred <- toxval_predict(fits, n_boot = 1, seed = 42)
   message <- "relative.*asymptote from every fit"
 

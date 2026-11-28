@@ -201,7 +201,9 @@ calls unless \code{seed} is supplied. A parameter that must be positive, such
 as \code{e} in \code{LL.4()}, is drawn on the log scale. \code{x_var} is read from the
 fit if not supplied. \code{group_var} must name the column passed
 as \code{curveid}. The asymptotes used by \code{type = "relative"} are the lower and
-upper limits of the fitted function.
+upper limits of the fitted function. \verb{W1.*}, \verb{W2.*}, \verb{EXD.*}, \verb{AR.*} and
+\verb{W2x.*} functions without \code{lowerAs()} or \code{upperAs()} use their \code{c} and \code{d}
+parameters.
 
 \item \code{toxval_predict(glm)}: Method for a \code{\link[stats:glm]{stats::glm()}} fit. \code{x_var} is
 required. \code{group_var} must name a fitted predictor; offsets and other
@@ -254,8 +256,9 @@ allocated realisations remains in \code{meta$model_weights}.
 seeded RNG stream gives reproducible independent draws across fits.
 \code{nsec()} defaults to \code{anchor = "model"} for this input; explicit
 \code{anchor = "component"} uses \code{n_boot} bootstrap controls from each fit.
-\code{type = "relative"} requires every fit to supply lower and upper
-asymptotes through its \code{drc} function.
+\code{type = "relative"} requires an asymptote from every fit. Functions
+without \code{lowerAs()} or \code{upperAs()} are refused, except \verb{W1.*}, \verb{W2.*},
+\verb{EXD.*}, \verb{AR.*} and \verb{W2x.*}, whose \code{c} and \code{d} parameters give both limits.
 
 }}
 \examples{
