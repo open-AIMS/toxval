@@ -260,15 +260,9 @@ test_that("a span of zero up to rounding error is excluded", {
   output <- suppressWarnings(nsec(pred, type = "relative"))
   expect_identical(output$ecnsec[[2]], NA_real_)
 
-  warnings <- character()
-  withCallingHandlers(
-    ecx(pred, type = "relative"),
-    warning = function(w) {
-      warnings <<- c(warnings, conditionMessage(w))
-      invokeRestart("muffleWarning")
-    }
-  )
-  expect_match(warnings, "increasing: 100.0% excluded", all = FALSE)
+  expect_no_warning(ec <- ecx(pred, type = "relative"))
+  expect_equal(ec$excluded, c(0, 1))
+  expect_true(is.finite(ec$estimate[1]))
 })
 
 # compute_nsec -----------------------------------------------------------------

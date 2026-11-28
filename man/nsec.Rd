@@ -108,6 +108,12 @@ quantile of the control realisations, whose crossing is the NSEC.
 is \code{"relative"}.
 \item \code{ecnsec}, \code{ecnsec.low}, \code{ecnsec.high}: the effect at the NSEC, as a
 proportion of the span named by \code{type}, summarised by \code{prob_vals}.
+\item \code{censored}: the share of realisations assigned \code{Inf} (or \code{-Inf} after a
+decreasing \code{xform}) because they do not reach the reference in the
+evaluated range or show no effect there. A realisation placed at
+\code{x_control} is not censored.
+\item \code{excluded}: the share of realisations assigned \code{NA} because their
+control is non-finite.
 \item \code{draws}: where \code{draws = TRUE}, a tibble per row of \code{.draw},
 \code{value.draw}, the NSEC of each realisation after \code{xform}, and
 \code{ecnsec.draw}. A realisation that does not reach the reference is \code{Inf}
@@ -149,6 +155,14 @@ the reference within the evaluated range ranks above the highest
 concentration, and an interval limit that falls among such realisations is
 reported as the highest concentration, with a warning. When any realisation
 is censored, the reported quantiles are observed order statistics.
+The \code{censored} and \code{excluded} columns give the share of all realisations in
+each row. A warning names \code{censored} when a reported quantile is censored,
+and names \code{excluded} when some realisations have a non-finite control. A direction
+with all realisations excluded does not warn when the other direction of
+the same curve is not wholly excluded, even if it has no crossing within
+the evaluated range.
+A row with no reported quantile does not warn for censoring even if its
+\code{censored} share is positive.
 
 \code{ecnsec} is the effect at the NSEC, as a proportion of the span named by
 \code{type}: the inverse of the \code{\link[=ecx]{ecx()}} reference under the same \code{type}.

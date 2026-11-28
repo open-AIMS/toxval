@@ -428,8 +428,9 @@ test_that("Acropora NSEC at the seep agrees with the published result", {
       seed = 42,
       n_boot = 4000
     ),
-    "Some realisations have no crossing within the evaluated range"
+    "2 rows have a reported interval limit at the evaluated range boundary"
   )
+  expect_true(all(result$censored > 0))
   expect_equal(unique(result$sig_val), 0.005)
   expect_equal(result$control[1], stats::median(pred$curves[[1]][, 1]))
   estimate <- result$estimate[result$direction == "decreasing"]

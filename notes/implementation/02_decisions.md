@@ -1023,14 +1023,18 @@ without notice.
 Settled 2026-11-27 (RF), option 1 of #94.
 
 `ecx()` and `nsec()` return two columns, `censored` and `excluded`, giving for
-each row the share of realisations that did not cross within the evaluated
-range (T21, T25) and the share excluded for want of a reference (T38). A
-direction in which every realisation is excluded does not warn when the other
-direction of the same curve returns estimates, since the curve then changes in
-one direction only. A partial exclusion warns, and so does a curve whose two
-directions are both wholly excluded. A warning that is raised is one line
-giving the number of rows affected and naming the column to read, in place of
-one line per row.
+each row the share of realisations beyond the evaluated range (T21, T25) and
+the share excluded from the summary (T38). A direction in which every
+realisation is excluded does not warn when the other direction of the same
+curve is not itself wholly excluded. A partial exclusion warns, and so does a
+curve whose two directions are both wholly excluded. A warning that is raised
+is one line giving the number of rows affected and naming the column to read,
+in place of one line per row.
+
+Amended 2026-11-27 (RF, #94): A row in which no realisation crosses still gives
+the share of realisations beyond the range in `censored`, including 1 when all
+are censored. A wholly excluded direction stays silent when the other direction
+is not wholly excluded, even if that direction has no crossing or estimate.
 
 For example, `ecx()` with `type = "relative"` on `LL.4()` fitted to
 `drc::ryegrass` no longer warns that its increasing direction is 100%

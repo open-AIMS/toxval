@@ -29,6 +29,14 @@
 #' concentration, and an interval limit that falls among such realisations is
 #' reported as the highest concentration, with a warning. When any realisation
 #' is censored, the reported quantiles are observed order statistics.
+#' The `censored` and `excluded` columns give the share of all realisations in
+#' each row. A warning names `censored` when a reported quantile is censored,
+#' and names `excluded` when some realisations have a non-finite control. A direction
+#' with all realisations excluded does not warn when the other direction of
+#' the same curve is not wholly excluded, even if it has no crossing within
+#' the evaluated range.
+#' A row with no reported quantile does not warn for censoring even if its
+#' `censored` share is positive.
 #'
 #' `ecnsec` is the effect at the NSEC, as a proportion of the span named by
 #' `type`: the inverse of the [ecx()] reference under the same `type`.
@@ -82,6 +90,12 @@
 #'     is `"relative"`.
 #'   - `ecnsec`, `ecnsec.low`, `ecnsec.high`: the effect at the NSEC, as a
 #'     proportion of the span named by `type`, summarised by `prob_vals`.
+#'   - `censored`: the share of realisations assigned `Inf` (or `-Inf` after a
+#'     decreasing `xform`) because they do not reach the reference in the
+#'     evaluated range or show no effect there. A realisation placed at
+#'     `x_control` is not censored.
+#'   - `excluded`: the share of realisations assigned `NA` because their
+#'     control is non-finite.
 #'   - `draws`: where `draws = TRUE`, a tibble per row of `.draw`,
 #'     `value.draw`, the NSEC of each realisation after `xform`, and
 #'     `ecnsec.draw`. A realisation that does not reach the reference is `Inf`

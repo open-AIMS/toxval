@@ -135,6 +135,45 @@ test_that("nsec works for drc using continuous data", {
   )
 })
 
+test_that("grouped S.alba nsec returns censoring shares", {
+  skip_if_not_installed("drc")
+  fit <- drc::drm(
+    DryMatter ~ Dose,
+    curveid = Herbicide,
+    data = drc::S.alba,
+    fct = drc::LL.4()
+  )
+  warnings <- character()
+  result <- withCallingHandlers(
+    nsec(
+      fit,
+      group_var = "Herbicide",
+      x_range = c(0, 20),
+      seed = 42,
+      draws = TRUE
+    ),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  # All increasing draws are Inf because none crosses; those rows have no
+  # reported quantiles, so their share of 1 does not raise a warning.
+  expect_equal(result$censored, c(0.160, 1, 0.756, 1))
+  expect_equal(result$excluded, rep(0, 4))
+  expect_equal(
+    result$censored,
+    vapply(result$draws, function(d) mean(is.infinite(d$value.draw)), 0.0)
+  )
+  expect_length(warnings, 1)
+  expect_length(strsplit(warnings, "\n", fixed = TRUE)[[1]], 1)
+  expect_match(
+    warnings,
+    "2 rows have a reported interval limit at the evaluated range boundary"
+  )
+})
+
 test_that("nsec for drc works for curveid and binomial data", {
   skip_if_not_installed("drc")
   daphnids_m2 <- drc::drm(
@@ -288,7 +327,10 @@ test_that("nsec gives NA when no realisation has a finite control", {
   y[1] <- NaN
   pred <- compute_pred(list(rbind(y, y)), x_vec)
 
-  expect_warning(output <- nsec(pred), "decreasing: 100.0% excluded")
+  expect_warning(
+    output <- nsec(pred),
+    "2 rows have excluded realisations that warrant a warning because their controls were non-finite"
+  )
   expect_equal(output$reference, c(NA_real_, NA_real_))
   expect_equal(output$estimate, c(NA_real_, NA_real_))
 })
@@ -561,6 +603,15 @@ test_that("brms grouped nsec with draws has one row per group and direction", {
     nsec(brms_model_2, x_var = "x", group_var = "z", draws = TRUE)
   )
 
+  expect_equal(
+    output$censored,
+    vapply(output$draws, function(d) mean(is.infinite(d$value.draw)), 0.0)
+  )
+  expect_equal(
+    output$excluded,
+    vapply(output$draws, function(d) mean(is.na(d$value.draw)), 0.0)
+  )
+
   expect_snapshot({
     print(output, width = Inf)
     output$draws[[1]]
@@ -650,7 +701,9 @@ test_that("nsec drc model has expected structure and shape", {
       "asymptote",
       "ecnsec",
       "ecnsec.low",
-      "ecnsec.high"
+      "ecnsec.high",
+      "censored",
+      "excluded"
     )
   )
 
@@ -820,6 +873,8 @@ test_that("nsec of a multivariate fit against the deprecated nsec_multi", {
   output <- suppressWarnings(
     nsec(nsec_multi_model_2, x_var = "dose", resolution = 50)
   )
+  expect_length(output$censored, nrow(output))
+  expect_length(output$excluded, nrow(output))
 
   expect_equal(
     output$estimate,

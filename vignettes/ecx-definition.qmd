@@ -590,8 +590,8 @@ control and has no upper asymptote, so its increasing span is undefined under
 
 ```{r}
 #| label: no-ecx
-by_type$relative[c("direction", "estimate", "control", "reference")]
-by_type$range[c("direction", "estimate", "control", "reference")]
+by_type$relative[c("direction", "estimate", "control", "reference", "censored", "excluded")]
+by_type$range[c("direction", "estimate", "control", "reference", "censored", "excluded")]
 ```
 
 ```{r}
@@ -608,8 +608,8 @@ stopifnot(
 ```
 
 Under `relative` the realisation has no reference and is excluded, so the
-increasing row has no `control` or `reference`, and the call warns that all
-realisations were excluded from that row. Under `range`, however, a zero span
+increasing row has no `control` or `reference` and has `excluded = 1`. The
+other direction has an estimate, so this exclusion does not warn. Under `range`, however, a zero span
 means that the curve never departs from its control in that direction, so the
 realisation is censored instead, and the row keeps its `control`. In either
 case no realisation has an increasing ECx, so that row is returned with `NA`
@@ -625,7 +625,8 @@ crossings. A quantile that falls among such realisations is reported as the
 highest concentration, and the call warns. Under `direct`, a realisation with no
 crossing whose control is already past the reference is placed at the control
 concentration rather than above the highest. Excluded and censored
-realisations, and the warning that gives their proportion, are described in
+realisations, and the `censored` and `excluded` columns that give their shares,
+are described in
 `vignette("nsec-definition", package = "toxval")`.
 
 ## Uncertainty in the control
@@ -783,7 +784,9 @@ model.
 Where the realisations come from several equations, as in a model average,
 each realisation is measured to the asymptote of its own equation. For a
 `bayesmanecfit`, the realisations of an equation without an asymptote are
-excluded with a warning, and the remaining equations are averaged. Because the
+excluded, and the remaining equations are averaged. One warning can name the
+equation without an asymptote; a second gives the number of affected result
+rows and names the `excluded` column. Because the
 proportion corresponds to a different response in each equation, a
 model-averaged `relative` ECx does not correspond to a single response level.
 
@@ -916,8 +919,8 @@ limit. The span from the control to that limit is therefore zero up to rounding
 error in each replicate (zero or negative in
 `r fmt_drc(n_boot - n_rounding)` of the `r fmt_drc(n_boot)`, and positive but
 below $10^{-12}$ in the other `r fmt_drc(n_rounding)`). Each of these spans
-counts as zero, so all replicates are excluded, and the call warns that they
-were.
+counts as zero, so all replicates are excluded (`excluded = 1`). The
+decreasing direction has an estimate, so the exclusion does not warn.
 
 ```{r}
 #| label: fig-ryegrass-ll4

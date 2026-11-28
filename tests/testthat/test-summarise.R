@@ -24,7 +24,9 @@ test_that("summarise_metric returns a toxval tibble with the ecx columns", {
       "type",
       "control",
       "reference",
-      "asymptote"
+      "asymptote",
+      "censored",
+      "excluded"
     )
   )
   expect_identical(result$metric, c("ecx", "ecx"))
@@ -53,7 +55,9 @@ test_that("summarise_metric returns the nsec columns, with the ecnsec summary", 
       "asymptote",
       "ecnsec",
       "ecnsec.low",
-      "ecnsec.high"
+      "ecnsec.high",
+      "censored",
+      "excluded"
     )
   )
   expect_identical(result$metric, c("nsec", "nsec"))
@@ -235,11 +239,12 @@ test_that("summarise_metric censors a decreasing NSEC realisation past the refer
       prob_vals = all_quantiles,
       draws = TRUE
     ),
-    regexp = "decreasing: 2.6% censored"
+    regexp = "1 row has a reported interval limit at the evaluated range boundary"
   )
 
   expect_equal(result$reference[1], 5)
   expect_equal(result$draws[[1]]$value.draw, past_at_control_expected)
+  expect_equal(result$censored[1], 1 / 39)
 })
 
 test_that("summarise_metric censors an increasing NSEC realisation past the reference that changes away and leaves (#74)", {
@@ -254,11 +259,12 @@ test_that("summarise_metric censors an increasing NSEC realisation past the refe
       prob_vals = all_quantiles,
       draws = TRUE
     ),
-    regexp = "increasing: 2.6% censored"
+    regexp = "1 row has a reported interval limit at the evaluated range boundary"
   )
 
   expect_equal(result$reference[2], 5)
   expect_equal(result$draws[[2]]$value.draw, past_at_control_expected)
+  expect_equal(result$censored[2], 1 / 39)
 })
 
 test_that("summarise_metric places an ECx realisation past the reference at x_control for every type (#74)", {
@@ -319,13 +325,14 @@ test_that("summarise_metric reports a censored upper quantile at the highest con
       "ecx",
       prob_vals = all_quantiles
     ),
-    regexp = "decreasing: 50.0% censored"
+    regexp = "1 row has a reported interval limit at the evaluated range boundary"
   )
 
   expect_equal(
     unlist(result[1, c("estimate", "conf.low", "conf.high")]),
     c(estimate = 1, conf.low = 1, conf.high = 10)
   )
+  expect_equal(result$censored[1], 0.5)
 })
 
 test_that("summarise_metric does not warn when no reported quantile is censored", {
@@ -343,6 +350,8 @@ test_that("summarise_metric does not warn when no reported quantile is censored"
     result <- summarise_metric(rows[1, ], pred, "ecx")
   )
   expect_lt(result$conf.high, 10)
+  expect_equal(result$censored, 1 / 80)
+  expect_equal(result$excluded, 0)
 })
 
 test_that("summarise_metric excludes a realisation with no reference and warns", {
@@ -357,16 +366,17 @@ test_that("summarise_metric excludes a realisation with no reference and warns",
       "ecx",
       prob_vals = all_quantiles
     ),
-    regexp = "decreasing: 50.0% excluded"
+    regexp = "2 rows have excluded realisations that warrant a warning"
   )
 
   expect_equal(
     unlist(result[1, c("estimate", "conf.low", "conf.high")]),
     c(estimate = 1, conf.low = 1, conf.high = 1)
   )
+  expect_equal(result$excluded, c(0.5, 0.5))
 })
 
-test_that("summarise_metric names the group in the warning", {
+test_that("summarise_metric counts affected rows in the warning", {
   x_vec <- 0:10
   pred <- compute_pred(
     list(rbind(10 - x_vec, 10 - x_vec), rbind(10 - x_vec, 10 - x_vec / 20)),
@@ -382,8 +392,107 @@ test_that("summarise_metric names the group in the warning", {
       "ecx",
       prob_vals = all_quantiles
     ),
-    regexp = "group B, decreasing: 50.0% censored"
+    regexp = "1 row has a reported interval limit at the evaluated range boundary"
   )
+})
+
+test_that("shares match the censored and excluded draws for every row", {
+  x_vec <- 0:10
+  pred <- compute_pred(
+    list(rbind(10 - x_vec, 10 - x_vec / 20, rep(-1, 11))),
+    x_vec
+  )
+  result <- suppressWarnings(summarise_metric(
+    compute_ecx(pred, proportion = c(0.1, 0.5)),
+    pred,
+    "ecx",
+    draws = TRUE
+  ))
+
+  expect_equal(
+    result$censored,
+    vapply(result$draws, function(d) mean(is.infinite(d$value.draw)), 0.0)
+  )
+  expect_equal(
+    result$excluded,
+    vapply(result$draws, function(d) mean(is.na(d$value.draw)), 0.0)
+  )
+  expect_identical(result$proportion, c(0.1, 0.1, 0.5, 0.5))
+})
+
+test_that("a wholly excluded direction is silent only when its pair has an estimate", {
+  x_vec <- 0:10
+  falling <- compute_pred(
+    list(rbind(10 - x_vec, 10 - 2 * x_vec)),
+    x_vec,
+    asymptote = list(list(
+      decreasing = c(0, 0),
+      increasing = c(NA_real_, NA_real_)
+    ))
+  )
+  expect_no_warning(
+    one_way <- summarise_metric(
+      compute_ecx(falling, type = "relative", proportion = c(0.1, 0.5)),
+      falling,
+      "ecx"
+    )
+  )
+  expect_equal(one_way$excluded, c(0, 1, 0, 1))
+  expect_true(all(is.na(one_way$estimate[c(2, 4)])))
+
+  no_reference <- compute_pred(list(rbind(rep(-1, 11), rep(-2, 11))), x_vec)
+  warnings <- character()
+  both <- withCallingHandlers(
+    summarise_metric(compute_ecx(no_reference), no_reference, "ecx"),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_equal(both$excluded, c(1, 1))
+  expect_length(warnings, 1)
+  expect_match(
+    warnings,
+    "2 rows have excluded realisations that warrant a warning"
+  )
+  expect_match(warnings, "`excluded` column")
+  expect_false(grepl("x_range", warnings, fixed = TRUE))
+})
+
+test_that("partial exclusion warns in one line per kind", {
+  x_vec <- 0:10
+  pred <- compute_pred(
+    list(rbind(10 - x_vec, 10 - x_vec / 20, rep(-1, 11))),
+    x_vec
+  )
+  warnings <- character()
+  result <- withCallingHandlers(
+    summarise_metric(compute_ecx(pred), pred, "ecx", draws = TRUE),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+  expect_length(warnings, 1)
+  lines <- strsplit(warnings, "\n", fixed = TRUE)[[1]]
+  expect_length(lines, 2)
+  expect_match(
+    lines[1],
+    "1 row has a reported interval limit at the evaluated range boundary"
+  )
+  expect_match(lines[1], "see the `censored` column", fixed = TRUE)
+  expect_match(
+    lines[2],
+    "2 rows have excluded realisations that warrant a warning.*`excluded` column"
+  )
+  expect_match(
+    lines[2],
+    "because their controls were non-finite or their references were undefined",
+    fixed = TRUE
+  )
+  expect_match(lines[1], "wider `x_range`", fixed = TRUE)
+  expect_false(grepl("x_range", lines[2], fixed = TRUE))
+  expect_equal(result$excluded, c(1 / 3, 1 / 3))
 })
 
 test_that("summarise_metric summarises control over the realisations not excluded", {
@@ -427,6 +536,7 @@ test_that("summarise_metric gives NA control where every realisation is excluded
   expect_identical(result$control[2], NA_real_)
   expect_identical(result$reference[2], NA_real_)
   expect_identical(result$estimate[2], NA_real_)
+  expect_equal(result$excluded, c(0, 1))
 })
 
 test_that("summarise_metric censors a realisation with no span under range", {
@@ -450,8 +560,12 @@ test_that("summarise_metric censors a realisation with no span under range", {
 
   expect_identical(result$draws[[1]]$value.draw[[2]], Inf)
   expect_equal(result$reference[[1]], 9)
-  expect_match(warnings, "decreasing: 50.0% censored", all = FALSE)
-  expect_no_match(warnings, "% excluded")
+  expect_match(
+    warnings,
+    "1 row has a reported interval limit at the evaluated range boundary",
+    all = FALSE
+  )
+  expect_no_match(warnings, "`excluded` column")
 })
 
 test_that("summarise_metric keeps excluding a span of zero outside range", {
@@ -525,7 +639,7 @@ test_that("summarise_metric ranks a censored ECx realisation lowest under a decr
   ident <- suppressWarnings(summarise_metric(rows, pred, "ecx"))
   expect_warning(
     neg <- summarise_metric(rows, pred, "ecx", xform = function(x) -x),
-    regexp = "decreasing: 27.3% censored"
+    regexp = "1 row has a reported interval limit at the evaluated range boundary"
   )
 
   expect_equal(
@@ -536,6 +650,7 @@ test_that("summarise_metric ranks a censored ECx realisation lowest under a decr
     unlist(neg[1, cols]),
     c(estimate = -6, conf.low = -10, conf.high = -1)
   )
+  expect_equal(neg$censored[1], 3 / 11)
 })
 
 test_that("summarise_metric ranks a censored NSEC realisation lowest under a decreasing xform (#69)", {
@@ -547,7 +662,7 @@ test_that("summarise_metric ranks a censored NSEC realisation lowest under a dec
   ident <- suppressWarnings(summarise_metric(rows, pred, "nsec"))
   expect_warning(
     neg <- summarise_metric(rows, pred, "nsec", xform = function(d) 3.5 - d),
-    regexp = "decreasing: 27.3% censored"
+    regexp = "1 row has a reported interval limit at the evaluated range boundary"
   )
 
   # the first realisation takes x_control, 0
@@ -559,6 +674,7 @@ test_that("summarise_metric ranks a censored NSEC realisation lowest under a dec
     unlist(neg[1, cols]),
     c(estimate = -1.5, conf.low = -6.5, conf.high = 3.5)
   )
+  expect_equal(neg$censored[1], 3 / 11)
   expect_equal(neg$ecnsec, ident$ecnsec)
 })
 
@@ -763,7 +879,7 @@ test_that("summarise_metric warns for the censored increasing EC10 on brms_model
 
   expect_warning(
     summarise_metric(compute_ecx(pred), pred, "ecx"),
-    regexp = "increasing: [0-9.]+% censored"
+    regexp = "2 rows have a reported interval limit at the evaluated range boundary"
   )
 })
 

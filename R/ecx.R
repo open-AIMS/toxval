@@ -45,7 +45,14 @@
 #' never falls below, or rises above, its control. Under `"absolute"` and
 #' `"relative"`, a realisation with nothing to take the proportion of, such as
 #' a control at or below 0 or a missing asymptote, is excluded from the
-#' summary, with a warning.
+#' summary. The `censored` and `excluded` columns give the share of all
+#' realisations in each row. A warning names the `censored` column when a
+#' reported quantile is censored, and names `excluded` when some realisations
+#' are excluded. A direction with all realisations excluded does not warn when
+#' the other direction of the same curve and proportion is not wholly excluded,
+#' even if it has no crossing within the evaluated range.
+#' A row with no reported quantile does not warn for censoring even if its
+#' `censored` share is positive.
 #'
 #' @section Fits from bayesnec:
 #' `ecx()` also accepts a `bayesnecfit` or `bayesmanecfit` from
@@ -83,6 +90,13 @@
 #'   - `reference`: the response whose crossing is the ECx.
 #'   - `asymptote`: the asymptote the span is measured to, or `NA` unless `type`
 #'     is `"relative"`.
+#'   - `censored`: the share of realisations assigned `Inf` (or `-Inf` after a
+#'     decreasing `xform`) because they do not reach a defined reference in the
+#'     evaluated range, or have no span under `"range"`. A realisation placed at
+#'     `x_control` is not censored.
+#'   - `excluded`: the share of realisations assigned `NA` because their
+#'     control is non-finite or their reference is undefined, for example from
+#'     a non-positive control or missing asymptote.
 #'   - `draws`: where `draws = TRUE`, a tibble per row of `.draw` and
 #'     `value.draw`, the ECx of each realisation, after `xform`. A realisation
 #'     that does not reach the reference is `Inf`, or `-Inf` where `xform` is
