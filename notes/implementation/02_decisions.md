@@ -560,6 +560,20 @@ The `drc` limits are not looked up from `fct$name`, as §3.10 first specified.
 `fct$name` is `"::"` for a fit made with `drc::LL.4()`, and custom `names =`
 change the parameter letters.
 
+Amended 2026-11-27 (RF, #115): when a `drc` function inherits `Weibull-1` or
+`Weibull-2` and supplies neither `lowerAs()` nor `upperAs()`, its `c` and `d`
+limits are read from positions 2 and 3 of the full parameter vector, using
+`fct$fixed` for either fixed limit. Position is used because custom `names =`
+changes the parameter names, while these mean functions still read the limits
+from the same positions.
+
+Amended 2026-11-27 (#115, a defect found in its review): for every `drc`
+function with both limits, the smaller limit is the decreasing asymptote and
+the larger is the increasing asymptote, per realisation and per curve.
+Previously the `lowerAs()` value was always taken as the decreasing
+asymptote, even when it exceeded `upperAs()`, so `MM.3()` on `drc::ryegrass`
+and an increasing `LL.4()` fit gave no relative ECx.
+
 Implemented 2026-10-23 (AP), with two points the ruling did not cover:
 
 - `brms` applies the link to the whole non-linear formula, so a named

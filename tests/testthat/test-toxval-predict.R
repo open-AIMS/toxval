@@ -319,11 +319,83 @@ test_that("toxval_predict has no asymptote for a brmsfit unless one is named", {
 
 test_that("toxval_predict takes the asymptotes of a drc fit from its limits", {
   skip_if_not_installed("drc")
-  # nsec_drc_2 is LL.3, whose lower limit is fixed at 0
+  # nsec_drc_2 is LL.3, whose c limit is fixed at 0.
   result <- toxval_predict(nsec_drc_2, resolution = 5, n_boot = 10, seed = 42)
+  draws <- toxval:::boot_parms(
+    nsec_drc_2,
+    10,
+    42,
+    log_scale = toxval:::drc_log_parms(nsec_drc_2)
+  )
+  lower <- unname(apply(draws, 1, nsec_drc_2$fct$lowerAs))
+  upper <- unname(apply(draws, 1, nsec_drc_2$fct$upperAs))
 
-  expect_equal(result$asymptote[[1]]$decreasing, rep(0, 10))
-  expect_length(result$asymptote[[1]]$increasing, 10)
+  expect_true(any(lower > upper))
+  expect_equal(result$asymptote[[1]]$decreasing, pmin(lower, upper))
+  expect_equal(result$asymptote[[1]]$increasing, pmax(lower, upper))
+})
+
+test_that("drc Weibull limits use parameter positions with default and custom names", {
+  skip_if_not_installed("drc")
+  for (constructor in list(drc::W1.4, drc::W2.4)) {
+    for (parameter_names in list(
+      c("b", "c", "d", "e"),
+      c("slope", "floor", "ceiling", "midpoint")
+    )) {
+      fit <- drc::drm(
+        rootl ~ conc,
+        data = drc::ryegrass,
+        fct = constructor(names = parameter_names)
+      )
+      draws <- toxval:::boot_parms(
+        fit,
+        60,
+        27,
+        log_scale = toxval:::drc_log_parms(fit)
+      )
+      result <- toxval_predict(fit, n_boot = 60, seed = 27)
+
+      expect_equal(
+        result$asymptote[[1]]$decreasing,
+        pmin(draws[, 2], draws[, 3])
+      )
+      expect_equal(
+        result$asymptote[[1]]$increasing,
+        pmax(draws[, 2], draws[, 3])
+      )
+    }
+  }
+})
+
+test_that("drc W1.3 takes its fixed c limit", {
+  skip_if_not_installed("drc")
+  fit <- drc::drm(rootl ~ conc, data = drc::ryegrass, fct = drc::W1.3())
+  draws <- toxval:::boot_parms(
+    fit,
+    60,
+    27,
+    log_scale = toxval:::drc_log_parms(fit)
+  )
+  result <- toxval_predict(fit, n_boot = 60, seed = 27)
+
+  expect_identical(fit$fct$fixed[[2]], 0)
+  expect_equal(result$asymptote[[1]]$decreasing, pmin(0, draws[, 2]))
+  expect_equal(result$asymptote[[1]]$increasing, pmax(0, draws[, 2]))
+})
+
+test_that("drc Weibull relatives keep c and d in positions 2 and 3", {
+  skip_if_not_installed("drc")
+  for (fct in list(drc::EXD.3(), drc::AR.3(), drc::W2x.4())) {
+    free <- matrix(seq_len(fct$noParm * 3), nrow = 3)
+    free[1, 1:2] <- c(9, 2)
+    full <- matrix(rep(fct$fixed, each = 3), nrow = 3)
+    full[, is.na(fct$fixed)] <- free
+    result <- toxval:::drc_asymptote(fct, free)
+
+    expect_true(any(full[, 2] > full[, 3]))
+    expect_equal(result$decreasing, pmin(full[, 2], full[, 3]))
+    expect_equal(result$increasing, pmax(full[, 2], full[, 3]))
+  }
 })
 
 test_that("toxval_predict reads x_var from a drc fit when it is not supplied", {

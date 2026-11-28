@@ -10,8 +10,9 @@
 #'   seeded RNG stream gives reproducible independent draws across fits.
 #'   `nsec()` defaults to `anchor = "model"` for this input; explicit
 #'   `anchor = "component"` uses `n_boot` bootstrap controls from each fit.
-#'   `type = "relative"` requires every fit to supply lower and upper
-#'   asymptotes through its `drc` function.
+#'   `type = "relative"` requires an asymptote from every fit. Functions
+#'   without `lowerAs()` or `upperAs()` are refused, except `W1.*`, `W2.*`,
+#'   `EXD.*`, `AR.*` and `W2x.*`, whose `c` and `d` parameters give both limits.
 #' @order 9
 #'
 #' @export
@@ -92,7 +93,9 @@ toxval_predict.list <- function(
   has_asymptote <- all(vapply(
     object,
     function(fit) {
-      !is.null(fit$fct$lowerAs) && !is.null(fit$fct$upperAs)
+      fct <- fit$fct
+      (!is.null(fct$lowerAs) && !is.null(fct$upperAs)) ||
+        drc_weibull_without_accessors(fct)
     },
     logical(1)
   ))

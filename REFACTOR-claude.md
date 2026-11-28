@@ -1183,15 +1183,17 @@ reproducing `drc::ED(reference = "upper")` are left to #63.
 
 #### Locating the asymptote on a `drc` or `brmsfit` object
 
-`drc` exposes it. `fit$fct$lowerAs()` and `fit$fct$upperAs()` return the lower
-and upper limits for a parameter vector, and `fit$fct$fixed` says which
-parameters are fixed and to what: on `LL.4()` the lower limit `c` is free, and on
+Many `drc` functions expose it. `fit$fct$lowerAs()` and `fit$fct$upperAs()`
+return the lower and upper limits for a parameter vector. `fit$fct$fixed`
+gives fixed parameter values: on `LL.4()` the lower limit `c` is free, and on
 `LL.3()` it is fixed at 0. A lookup keyed on `fit$fct$name` does not work,
 because `fct$name` is `"::"` for a fit made with `drc::LL.4()` (T24).
+T24 also covers Weibull functions without those accessors and orders both
+limits by value when assigning the decreasing and increasing asymptotes.
 
-`LL.3()` fixing the lower limit at 0 collapses `relative` onto `absolute` for
-exactly the reason a `bot`-free `bayesnec` equation does, so the two engines
-agree without special-casing.
+`LL.3()` fixing one limit at 0 collapses `relative` onto `absolute` for draws
+whose other limit exceeds 0, as a `bot`-free `bayesnec` equation does. When
+the other limit is below 0, that value is the decreasing asymptote (T24).
 
 For a user-written `brms` non-linear formula there is no way to know which
 parameter is the asymptote. **Add an argument by which the user names the

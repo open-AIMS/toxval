@@ -177,7 +177,9 @@ toxval_predict.brmsfit <- function(
 #'   as `e` in `LL.4()`, is drawn on the log scale. `x_var` is read from the
 #'   fit if not supplied. `group_var` must name the column passed
 #'   as `curveid`. The asymptotes used by `type = "relative"` are the lower and
-#'   upper limits of the fitted function.
+#'   upper limits of the fitted function. `W1.*`, `W2.*`, `EXD.*`, `AR.*` and
+#'   `W2x.*` functions without `lowerAs()` or `upperAs()` use their `c` and `d`
+#'   parameters.
 #' @order 4
 #'
 #' @param n_boot A whole number giving the number of parametric bootstrap
@@ -1389,7 +1391,10 @@ drc_positive_parms <- function(fct, parm, dose) {
 #' `fct$upperAs()`, which also return a limit that `fct$fixed` fixes, such as
 #' the lower limit of 0 in `LL.3()`. They take one parameter vector:
 #' given a matrix, `lowerAs()` returns a wrong value with a warning, so they
-#' are applied row by row.
+#' are applied row by row. Weibull functions without these accessors take
+#' their `c` and `d` limits from positions 2 and 3 of the full parameter
+#' vector, including fixed parameters. Where both limits are available, the
+#' smaller is the decreasing asymptote and the larger is the increasing one.
 #'
 #' @param fct The `fct` of a `drc` fit.
 #' @param parms A matrix of parameter draws for one curve, one row per draw.
@@ -1399,13 +1404,45 @@ drc_positive_parms <- function(fct, parm, dose) {
 #'
 #' @noRd
 drc_asymptote <- function(fct, parms) {
+  if (drc_weibull_without_accessors(fct)) {
+    full_parms <- matrix(
+      rep(fct$fixed, each = nrow(parms)),
+      nrow = nrow(parms)
+    )
+    full_parms[, is.na(fct$fixed)] <- parms
+    return(list(
+      decreasing = pmin(full_parms[, 2], full_parms[, 3]),
+      increasing = pmax(full_parms[, 2], full_parms[, 3])
+    ))
+  }
   limit <- function(as_fun) {
     if (is.null(as_fun)) {
       return(rep(NA_real_, nrow(parms)))
     }
     unname(apply(parms, 1, function(parm) as.numeric(as_fun(parm))))
   }
-  list(decreasing = limit(fct$lowerAs), increasing = limit(fct$upperAs))
+  lower <- limit(fct$lowerAs)
+  upper <- limit(fct$upperAs)
+  if (!is.null(fct$lowerAs) && !is.null(fct$upperAs)) {
+    return(list(
+      decreasing = pmin(lower, upper),
+      increasing = pmax(lower, upper)
+    ))
+  }
+  list(decreasing = lower, increasing = upper)
+}
+
+#' Whether a `drc` Weibull function needs positional asymptotes
+#'
+#' @param fct The `fct` of a `drc` fit.
+#'
+#' @return `TRUE` for a covered Weibull function with no asymptote accessors.
+#'
+#' @noRd
+drc_weibull_without_accessors <- function(fct) {
+  is.null(fct$lowerAs) &&
+    is.null(fct$upperAs) &&
+    inherits(fct, c("Weibull-1", "Weibull-2"))
 }
 
 #' Locate the parameter columns of one curve
